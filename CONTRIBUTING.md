@@ -13,7 +13,7 @@
 
 ```bash
 # 1. Clone
-git clone https://github.com/deranjer/litara.git
+git clone https://github.com/litara-app/litara.git
 cd litara
 
 # 2. Install all workspace dependencies

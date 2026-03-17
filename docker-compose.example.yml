@@ -12,7 +12,7 @@
 
 services:
   litara:
-    image: ghcr.io/deranjer/litara:latest
+    image: ghcr.io/litara-app/litara:latest
     hostname: litara
     ports:
       - "3000:3000"
