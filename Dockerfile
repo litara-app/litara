@@ -13,7 +13,7 @@ COPY packages/mobi-parser/package.json ./packages/mobi-parser/
 
 # Install all deps; skip lifecycle scripts so 'prek install' doesn't fail
 # without a .git directory, then rebuild native addons explicitly
-RUN npm ci --ignore-scripts && npm rebuild
+RUN npm ci --ignore-scripts && npm rebuild --ignore-scripts
 
 # Copy source
 COPY apps/api ./apps/api
