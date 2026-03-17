@@ -56,11 +56,12 @@ COPY apps/api/prisma ./apps/api/prisma
 COPY apps/api/prisma.config.ts ./apps/api/
 
 # Built web SPA — served by NestJS ServeStaticModule
-# app.module.ts resolves publicPath as join(__dirname, '../public'), and since
-# nest build outputs to dist/ (rootDir=src), __dirname at runtime is /app/apps/api/dist,
-# so '../public' resolves to /app/apps/api/public
-COPY --from=builder /app/apps/web/dist ./apps/api/public
+# app.module.ts resolves publicPath as join(__dirname, '../public'). Since
+# prisma.config.ts lives at the apps/api root, TypeScript infers rootDir as '.'
+# and nest build outputs to dist/src/. At runtime __dirname is dist/src/,
+# so '../public' resolves to dist/public/.
+COPY --from=builder /app/apps/web/dist ./apps/api/dist/public
 
 WORKDIR /app/apps/api
 EXPOSE 3000
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]
