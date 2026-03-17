@@ -1,0 +1,21 @@
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+
+/* Dot matrix background for main content area */
+.dot-matrix-bg {
+  background-color: #eef0f3;
+  background-image: radial-gradient(circle, #b8bcc6 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Book card hover effect */
+.book-card {
+  transition: transform 150ms ease, box-shadow 150ms ease !important;
+  will-change: transform;
+}
+.book-card:hover {
+  transform: scale(1.03);
+  box-shadow: var(--mantine-shadow-lg) !important;
+  z-index: 1;
+  position: relative;
+}

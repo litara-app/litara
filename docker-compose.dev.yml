@@ -1,0 +1,18 @@
+# Docker Compose configuration for development environment
+# This file is meant for local development and testing. It uses default passwords and exposes the database port, so it should not be used in production.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: litara-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: litara
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

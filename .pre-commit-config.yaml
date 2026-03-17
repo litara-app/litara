@@ -1,0 +1,52 @@
+repos:
+  # ─── General utility hooks ───────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict    # block accidental merge conflict markers
+      - id: check-json              # validate JSON syntax
+        exclude: tsconfig.*\.json$
+      - id: check-yaml              # validate YAML syntax
+      - id: detect-private-key      # catch accidentally committed private keys
+      - id: end-of-file-fixer       # ensure files end with a newline
+      - id: trailing-whitespace     # strip trailing whitespace
+
+  # ─── Secret scanning ─────────────────────────────────────────────────────
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.27.2
+    hooks:
+      - id: gitleaks
+
+  # ─── Local hooks ─────────────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      # Formatting (pre-commit) — runs Prettier only on staged TS/TSX/MD files
+      - id: prettier
+        name: Prettier
+        language: system
+        entry: npx prettier --write
+        types_or: [ts, tsx, markdown]
+        stages: [pre-commit]
+
+      # Linting (pre-commit) — runs ESLint across all apps via Turborepo
+      - id: eslint
+        name: ESLint
+        language: system
+        entry: bash -c 'npm run lint'
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Commit message format (commit-msg) — enforces Conventional Commits
+      - id: commitlint
+        name: Commitlint
+        language: system
+        entry: node_modules/.bin/commitlint --edit
+        stages: [commit-msg]
+
+      # Tests (pre-push) — runs API unit tests before any push
+      - id: api-tests
+        name: API unit tests
+        language: system
+        entry: bash -c 'cd apps/api && npm test -- --passWithNoTests'
+        pass_filenames: false
+        stages: [pre-push]

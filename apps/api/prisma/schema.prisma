@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings        UserSettings?
+  readingProgress ReadingProgress[]
+  reviews         UserReview[]
+  annotations     Annotation[]
+  shelves         Shelf[]
+  libraries       Library[]
+  bookLibraries   UserBookLibrary[]
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model UserSettings {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  theme           String  @default("auto")
+  dashboardLayout String? // JSON: DashboardSection[]
+  bookItemSize    String  @default("md") // "sm" | "md" | "lg" | "xl"
+}
+
+model Library {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  userId      String?  // null = system library (scanner); non-null = user-owned
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  books     Book[]
+  userBooks UserBookLibrary[]
+}
+
+model Book {
+  id            String    @id @default(uuid())
+  libraryId     String
+  library       Library   @relation(fields: [libraryId], references: [id])
+  title         String
+  description   String?
+  publishedDate DateTime?
+  isbn          String?
+
+  coverData     Bytes?    // raw image bytes extracted from file
+  coverUrl      String?
+  publisher     String?
+
+  language      String?
+  pageCount     Int?
+  ageRating     String?
+
+  // External metadata links
+  googleBooksId String?
+  openLibraryId String?
+  amazonId      String?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  files           BookFile[]
+  authors         BookAuthor[]
+  series          SeriesBook[]
+  tags            Tag[]
+  readingProgress ReadingProgress[]
+  reviews         UserReview[]
+  annotations     Annotation[]
+  shelves         BookShelf[]
+  userLibraries   UserBookLibrary[]
+}
+
+model Author {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  biography String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  books BookAuthor[]
+}
+
+
+model BookAuthor {
+  bookId   String
+  authorId String
+  book     Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  author   Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  role     String @default("Author") // e.g., Author, Illustrator, Translator
+
+  @@id([bookId, authorId])
+}
+
+model Series {
+  id        String   @id @default(uuid())
+  name      String
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  books SeriesBook[]
+}
+
+model SeriesBook {
+  seriesId String
+  bookId   String
+  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  book     Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  sequence Float? // Can be 1, 1.5, 2, etc.
+
+  @@id([seriesId, bookId])
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  books Book[]
+}
+
+model BookFile {
+  id        String   @id @default(uuid())
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  filePath  String   // Path relative to library storage root
+  format    String   // e.g., EPUB, PDF, CBZ
+  sizeBytes BigInt
+  fileHash  String?  // For duplicate detection
+  missingAt DateTime? // Set when chokidar detects the file has been removed from disk
+
+  createdAt DateTime @default(now())
+}
+
+model WatchedFolder {
+  id        String   @id @default(uuid())
+  path      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model ReadingProgress {
+  id           String   @id @default(uuid())
+  userId       String
+  bookId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book         Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  // Store location in whatever format reader uses (e.g., EPUB CFI, page number)
+  location     String
+  percentage   Float?
+
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, bookId]) // One progress record per user per book
+}
+
+model UserReview {
+  id        String   @id @default(uuid())
+  userId    String
+  bookId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  rating     Float?   // half-stars supported (e.g. 2.5, 4.5)
+  readStatus String  @default("UNREAD") // UNREAD | READING | READ | WONT_READ
+  reviewText String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, bookId])
+}
+
+model UserBookLibrary {
+  id         String   @id @default(uuid())
+  userId     String
+  bookId     String
+  libraryId  String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  library    Library  @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([userId, bookId]) // one library assignment per book per user
+}
+
+model Annotation {
+  id        String   @id @default(uuid())
+  userId    String
+  bookId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  location  String   // EPUB CFI or PDF coordinate
+  text      String?  // The text that was highlighted
+  note      String?  // User's comment on the highlight
+  color     String?  // Highlight color
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Shelf {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  isSmart   Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  books BookShelf[]
+  rules SmartShelfRule[]
+}
+
+model BookShelf {
+  shelfId String
+  bookId  String
+  shelf   Shelf  @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  book    Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  addedAt DateTime @default(now())
+
+  @@id([shelfId, bookId])
+}
+
+model SmartShelfRule {
+  id        String   @id @default(uuid())
+  shelfId   String
+  shelf     Shelf    @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+
+  field     String   // e.g., "genre", "rating", "author"
+  operator  String   // e.g., "EQUALS", "CONTAINS", "GREATER_THAN"
+  value     String   // e.g., "Sci-Fi", "4"
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  type        String   // e.g., "METADATA_FETCH", "FILE_IMPORT"
+  status      String   // e.g., "PENDING", "PROCESSING", "COMPLETED", "FAILED"
+  payload     String?  // JSON blob with task-specific data
+  errorMessage String?
+
+  nextRunTime DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  level     String   // e.g., "INFO", "WARN", "ERROR"
+  message   String
+  metadata  String?  // JSON blob for extra context
+  timestamp DateTime @default(now())
+}
+
+model ServerSettings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   // Store as JSON string to support various data types
+  updatedAt DateTime @updatedAt
+}

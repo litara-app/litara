@@ -1,0 +1,46 @@
+{
+  "name": "litara-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-hosted ebook library manager",
+  "author": "deranjer",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/litara-app/litara.git"
+  },
+  "homepage": "https://github.com/litara-app/litara#readme",
+  "packageManager": "npm@11.6.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "prepare": "prek install && prek install --hook-type pre-push && prek install --hook-type commit-msg",
+    "docker:build": "docker build -t litara:local .",
+    "docker:up": "docker compose -f docker-compose.local.yml up --force-recreate",
+    "docker:down": "docker compose -f docker-compose.local.yml down -v"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "@j178/prek": "^0.3.5",
+    "@semantic-release/changelog": "^6.0.0",
+    "@semantic-release/git": "^10.0.0",
+    "@types/pg": "^8.18.0",
+    "prettier": "^3.4.2",
+    "prisma": "^7.5.0",
+    "semantic-release": "^24.0.0",
+    "turbo": "latest"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.5.0",
+    "@prisma/client": "^7.5.0",
+    "dotenv": "^17.3.1",
+    "pg": "^8.20.0"
+  }
+}

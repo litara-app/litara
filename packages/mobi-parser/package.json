@@ -1,0 +1,25 @@
+{
+  "name": "@litara/mobi-parser",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@lingo-reader/mobi-parser": "^0.2.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
