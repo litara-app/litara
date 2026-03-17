@@ -57,9 +57,10 @@ COPY apps/api/prisma.config.ts ./apps/api/
 
 # Built web SPA — served by NestJS ServeStaticModule
 # app.module.ts resolves publicPath as join(__dirname, '../public'), and since
-# nest build outputs to dist/src/, the resolved path at runtime is dist/public/
-COPY --from=builder /app/apps/web/dist ./apps/api/dist/public
+# nest build outputs to dist/ (rootDir=src), __dirname at runtime is /app/apps/api/dist,
+# so '../public' resolves to /app/apps/api/public
+COPY --from=builder /app/apps/web/dist ./apps/api/public
 
 WORKDIR /app/apps/api
 EXPOSE 3000
-CMD ["node", "dist/src/main"]
+CMD ["node", "dist/main"]
