@@ -15,8 +15,8 @@ describe('AppController', () => {
   });
 
   describe('redirectRoot', () => {
-    it('should return { url: "/api/docs" }', () => {
-      expect(appController.redirectRoot()).toEqual({ url: '/api/docs' });
+    it('should return { url: "/docs" }', () => {
+      expect(appController.redirectRoot()).toEqual({ url: '/docs' });
     });
   });
 });
