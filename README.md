@@ -25,14 +25,14 @@ Then open `http://localhost:3000`. On first run, create an account via the login
 
 ## Configuration
 
-| Variable                  | Default            | Description                                                          |
-| ------------------------- | ------------------ | -------------------------------------------------------------------- |
-| `DATABASE_URL`            | _(required)_       | PostgreSQL connection string                                         |
-| `JWT_SECRET`              | _(required)_       | Secret for signing JWT tokens                                        |
-| `EBOOK_LIBRARY_PATH`      | `../ebook-library` | Path to your ebook directory (mounted into the container)            |
-| `PORT`                    | `3000`             | HTTP port the API listens on                                         |
-| `METADATA_ENRICH_ON_SCAN` | `false`            | Set to `true` to auto-fetch external metadata when files are scanned |
-| `GOOGLE_BOOKS_API_KEY`    | _(optional)_       | Raises Google Books rate limit from ~100/day to 1000/day             |
+| Variable                  | Default      | Description                                                          |
+| ------------------------- | ------------ | -------------------------------------------------------------------- |
+| `DATABASE_URL`            | _(required)_ | PostgreSQL connection string                                         |
+| `JWT_SECRET`              | _(required)_ | Secret for signing JWT tokens                                        |
+| `EBOOK_LIBRARY_PATH`      | `ebooks`     | Path to your ebook directory (mounted into the container)            |
+| `PORT`                    | `3000`       | HTTP port the API listens on                                         |
+| `METADATA_ENRICH_ON_SCAN` | `false`      | Set to `true` to auto-fetch external metadata when files are scanned |
+| `GOOGLE_BOOKS_API_KEY`    | _(optional)_ | Raises Google Books rate limit from ~100/day to 1000/day             |
 
 ## Development
 
