@@ -26,6 +26,7 @@ repos:
         language: system
         entry: npx prettier --write
         types_or: [ts, tsx, markdown]
+        exclude: ^CHANGELOG\.md$
         stages: [pre-commit]
 
       # Linting (pre-commit) — runs ESLint across all apps via Turborepo
