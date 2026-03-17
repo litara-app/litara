@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/litara-app/litara/compare/v1.0.0...v1.0.1) (2026-03-17)
+
+
+### Bug Fixes
+
+* another tweak of the dockerfile ([15d6dd7](https://github.com/litara-app/litara/commit/15d6dd791f5ae4c9dbaea682f8e88bdcd88f5975))
+
 # 1.0.0 (2026-03-17)
 
 
