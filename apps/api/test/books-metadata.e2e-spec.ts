@@ -35,7 +35,7 @@ async function seedRealBook(
     data: {
       libraryId: library.id,
       title: opts.title,
-      coverData: opts.coverData,
+      coverData: opts.coverData as unknown as Uint8Array<ArrayBuffer>,
       files: {
         create: [
           {
