@@ -1,3 +1,14 @@
+# [1.1.0](https://github.com/litara-app/litara/compare/v1.0.2...v1.1.0) (2026-03-20)
+
+
+### Features
+
+* better metadata, more tests, misc fixes ([b721f0f](https://github.com/litara-app/litara/commit/b721f0fe4fb0199bf97710921b34bfeb87e2d1ff))
+* better metadata, more tests, misc fixes ([f524d16](https://github.com/litara-app/litara/commit/f524d1614bb9b0acbd8bed974d99d7c62b6de250))
+* better metadata, more tests, misc fixes ([fa33c23](https://github.com/litara-app/litara/commit/fa33c239a482ea60f02a6442fe4a4535473a5398))
+* better metadata, more tests, misc fixes ([2cad21d](https://github.com/litara-app/litara/commit/2cad21da0a385328087e212d514f97ed49a42450))
+* better metadata, more tests, misc fixes ([c865c9a](https://github.com/litara-app/litara/commit/c865c9a8d3dbd9f57947637f88f0a18772d3486e))
+
 ## [1.0.2](https://github.com/litara-app/litara/compare/v1.0.1...v1.0.2) (2026-03-17)
 
 
