@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/litara-app/litara/compare/v1.1.0...v1.1.1) (2026-03-20)
+
+
+### Bug Fixes
+
+* missing import adding pre-commit checks for tsc errors ([165b33e](https://github.com/litara-app/litara/commit/165b33e2bf479f34bd911387797abc4d67710d43))
+
 # [1.1.0](https://github.com/litara-app/litara/compare/v1.0.2...v1.1.0) (2026-03-20)
 
 
