@@ -37,6 +37,23 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+      # TypeScript type-check (pre-commit) — catches tsc errors before they break the Docker build
+      - id: tsc-web
+        name: TypeScript (web)
+        language: system
+        entry: bash -c 'cd apps/web && npx tsc -b --noEmit'
+        pass_filenames: false
+        types_or: [ts, tsx]
+        stages: [pre-commit]
+
+      - id: tsc-api
+        name: TypeScript (api)
+        language: system
+        entry: bash -c 'cd apps/api && npx tsc --noEmit'
+        pass_filenames: false
+        types_or: [ts, tsx]
+        stages: [pre-commit]
+
       # Commit message format (commit-msg) — enforces Conventional Commits
       - id: commitlint
         name: Commitlint
