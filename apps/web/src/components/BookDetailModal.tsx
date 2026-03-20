@@ -1,26 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   Box,
-  ScrollArea,
-  Title,
-  Text,
-  Group,
-  Badge,
-  Paper,
-  Select,
-  MultiSelect,
-  Rating,
   AspectRatio,
   Center,
   Button,
   Menu,
-  TextInput,
   Loader,
-  SimpleGrid,
   Divider,
-  Stack,
+  Group,
+  Badge,
   ActionIcon,
+  Tabs,
+  Text,
+  ScrollArea,
+  TextInput,
 } from '@mantine/core';
 import {
   IconBook2,
@@ -30,136 +24,52 @@ import {
   IconCheck,
   IconSearch,
   IconX,
-  IconPlus,
+  IconLayoutList,
+  IconPencil,
+  IconFileText,
 } from '@tabler/icons-react';
-import { useSetAtom } from 'jotai';
-import { librariesAtom, shelvesAtom } from '../store/atoms';
 import { api } from '../utils/api';
-
-const FORMAT_COLORS: Record<string, string> = {
-  EPUB: 'green',
-  MOBI: 'blue',
-  AZW: 'orange',
-  AZW3: 'yellow',
-  CBZ: 'violet',
-  PDF: 'red',
-};
-
-function formatBytes(sizeBytes: string): string {
-  const n = Number(BigInt(sizeBytes));
-  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / 1024).toFixed(1)} KB`;
-}
-
-interface BookFile {
-  id: string;
-  format: string;
-  sizeBytes: string;
-  filePath: string;
-  missingAt: string | null;
-}
-
-interface BookDetail {
-  id: string;
-  title: string;
-  description: string | null;
-  isbn: string | null;
-  publisher: string | null;
-  publishedDate: string | null;
-  language: string | null;
-  pageCount: number | null;
-  ageRating: string | null;
-  hasCover: boolean;
-  library: { id: string; name: string } | null;
-  authors: string[];
-  files: BookFile[];
-  userReview: { rating: number | null; readStatus: string };
-  shelves: { id: string; name: string }[];
-}
-
-interface Library {
-  id: string;
-  name: string;
-}
-
-interface Shelf {
-  id: string;
-  name: string;
-}
-
-interface BookSummary {
-  id: string;
-  title: string;
-  authors: string[];
-}
-
-function MetaRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number | null | undefined;
-}) {
-  if (!value && value !== 0) return null;
-  return (
-    <Box>
-      <Text size="xs" c="dimmed">
-        {label}
-      </Text>
-      <Text size="sm">{String(value)}</Text>
-    </Box>
-  );
-}
-
-function FileRow({
-  file,
-  onDownload,
-}: {
-  file: BookFile;
-  onDownload: (fileId: string) => void;
-}) {
-  const filename = file.filePath.split(/[\\/]/).pop() ?? file.filePath;
-  return (
-    <Group justify="space-between" wrap="nowrap">
-      <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-        <Badge
-          size="xs"
-          color={FORMAT_COLORS[file.format] ?? 'gray'}
-          radius="sm"
-        >
-          {file.format}
-        </Badge>
-        <Text size="xs" truncate style={{ flex: 1 }}>
-          {filename}
-        </Text>
-        {file.missingAt && (
-          <Badge size="xs" color="red" radius="sm">
-            Missing
-          </Badge>
-        )}
-      </Group>
-      <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-        <Text size="xs" c="dimmed">
-          {formatBytes(file.sizeBytes)}
-        </Text>
-        <ActionIcon
-          size="xs"
-          variant="subtle"
-          disabled={!!file.missingAt}
-          onClick={() => onDownload(file.id)}
-          title="Download"
-        >
-          <IconDownload size={14} />
-        </ActionIcon>
-      </Group>
-    </Group>
-  );
-}
+import { pushToast } from '../utils/toast';
+import type {
+  BookDetail,
+  BookSummary,
+  EditedFields,
+} from './BookDetailModal.types';
+import { FORMAT_COLORS } from './BookDetailModal.types';
+import { formatBytes } from './BookDetailModal.utils';
+import { OverviewTab } from './OverviewTab';
+import { EditMetadataTab } from './EditMetadataTab';
+import { SearchMetadataTab } from './SearchMetadataTab';
+import { SidecarTab } from './SidecarTab';
 
 export interface BookDetailModalProps {
   bookId: string | null;
   onClose: () => void;
   onBookUpdated: () => void;
+}
+
+function detailToEdited(d: BookDetail): EditedFields {
+  return {
+    title: d.title ?? '',
+    subtitle: d.subtitle ?? '',
+    description: d.description ?? '',
+    isbn13: d.isbn13 ?? '',
+    isbn10: d.isbn10 ?? '',
+    publisher: d.publisher ?? '',
+    publishedYear: d.publishedDate
+      ? String(new Date(d.publishedDate).getFullYear())
+      : '',
+    language: d.language ?? '',
+    pageCount: d.pageCount ?? '',
+    ageRating: d.ageRating ?? '',
+    authors: d.authors,
+    tags: d.tags,
+    genres: d.genres,
+    moods: d.moods,
+    seriesName: d.series?.name ?? '',
+    seriesSequence: d.series?.sequence ?? '',
+    seriesTotalBooks: d.series?.totalBooks ?? '',
+  };
 }
 
 export function BookDetailModal({
@@ -169,21 +79,14 @@ export function BookDetailModal({
 }: BookDetailModalProps) {
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [readStatus, setReadStatus] = useState('UNREAD');
-  const [libraryId, setLibraryId] = useState('');
-  const [libraries, setLibraries] = useState<Library[]>([]);
-  const [addingLibrary, setAddingLibrary] = useState(false);
-  const [newLibraryName, setNewLibraryName] = useState('');
-  const [savingLibrary, setSavingLibrary] = useState(false);
-  const [selectedShelfIds, setSelectedShelfIds] = useState<string[]>([]);
-  const [allShelves, setAllShelves] = useState<Shelf[]>([]);
-  const [addingShelf, setAddingShelf] = useState(false);
-  const [newShelfName, setNewShelfName] = useState('');
-  const [savingShelf, setSavingShelf] = useState(false);
-  const setLibrariesAtom = useSetAtom(librariesAtom);
-  const setShelvesAtom = useSetAtom(shelvesAtom);
+  const [activeTab, setActiveTab] = useState('overview');
 
+  const [editedFields, setEditedFields] = useState<EditedFields | null>(null);
+  const [lockedFields, setLockedFields] = useState<Set<string>>(new Set());
+  const [isDirty, setIsDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Match book
   const [matchModalOpen, setMatchModalOpen] = useState(false);
   const [matchQuery, setMatchQuery] = useState('');
   const [allBooks, setAllBooks] = useState<BookSummary[]>([]);
@@ -193,101 +96,103 @@ export function BookDetailModal({
   const [matchConfirmOpen, setMatchConfirmOpen] = useState(false);
   const [matching, setMatching] = useState(false);
 
-  const skipSaveRef = useRef(false);
-
   useEffect(() => {
     if (!bookId) {
       setDetail(null);
       return;
     }
     setLoading(true);
-    setAddingLibrary(false);
-    setAddingShelf(false);
-    setNewLibraryName('');
-    setNewShelfName('');
-    Promise.all([
-      api.get<BookDetail>(`/books/${bookId}`),
-      api.get<Library[]>('/libraries'),
-      api.get<Shelf[]>('/shelves'),
-    ])
-      .then(([bookRes, libsRes, shelvesRes]) => {
-        const d = bookRes.data;
+    setActiveTab('overview');
+    setIsDirty(false);
+    api
+      .get<BookDetail>(`/books/${bookId}`)
+      .then((res) => {
+        const d = res.data;
         setDetail(d);
-        setRating(d.userReview.rating ?? 0);
-        setReadStatus(d.userReview.readStatus);
-        setLibraryId(d.library?.id ?? '');
-        setLibraries(libsRes.data);
-        setAllShelves(shelvesRes.data);
-        setSelectedShelfIds(d.shelves.map((s) => s.id));
-        skipSaveRef.current = true;
+        setEditedFields(detailToEdited(d));
+        setLockedFields(new Set(d.lockedFields));
       })
       .finally(() => setLoading(false));
   }, [bookId]);
 
-  // Auto-save rating + readStatus with 600ms debounce
-  useEffect(() => {
-    if (skipSaveRef.current) {
-      skipSaveRef.current = false;
-      return;
-    }
-    if (!detail) return;
-    const t = setTimeout(() => {
-      void api.patch(`/books/${detail.id}`, { rating, readStatus });
-    }, 600);
-    return () => clearTimeout(t);
-  }, [rating, readStatus]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleLibraryChange(value: string | null) {
-    if (!value || !detail) return;
-    if (value === '__add__') {
-      setAddingLibrary(true);
-      return;
-    }
-    setLibraryId(value);
-    await api.patch(`/books/${detail.id}`, { libraryId: value });
+  function updateField<K extends keyof EditedFields>(
+    key: K,
+    value: EditedFields[K],
+  ) {
+    setEditedFields((prev) => (prev ? { ...prev, [key]: value } : prev));
+    setIsDirty(true);
   }
 
-  async function handleCreateLibrary() {
-    if (!detail || !newLibraryName.trim()) return;
-    setSavingLibrary(true);
+  function toggleLock(field: string) {
+    setLockedFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      return next;
+    });
+    setIsDirty(true);
+  }
+
+  function handleSetLockedFields(v: Set<string>) {
+    setLockedFields(v);
+  }
+
+  async function handleSave() {
+    if (!detail || !editedFields) return;
+    setSaving(true);
     try {
-      const res = await api.post<Library>('/libraries', {
-        name: newLibraryName.trim(),
+      const publishedDate = editedFields.publishedYear
+        ? `${editedFields.publishedYear}-01-01`
+        : undefined;
+
+      await api.patch(`/books/${detail.id}`, {
+        title: editedFields.title || undefined,
+        subtitle: editedFields.subtitle || undefined,
+        description: editedFields.description || undefined,
+        isbn13: editedFields.isbn13 || undefined,
+        isbn10: editedFields.isbn10 || undefined,
+        publisher: editedFields.publisher || undefined,
+        publishedDate,
+        language: editedFields.language || undefined,
+        pageCount:
+          editedFields.pageCount !== ''
+            ? Number(editedFields.pageCount)
+            : undefined,
+        ageRating: editedFields.ageRating || undefined,
+        authors: editedFields.authors,
+        tags: editedFields.tags,
+        genres: editedFields.genres,
+        moods: editedFields.moods,
+        seriesName: editedFields.seriesName || null,
+        seriesSequence:
+          editedFields.seriesSequence !== ''
+            ? Number(editedFields.seriesSequence)
+            : null,
+        seriesTotalBooks:
+          editedFields.seriesTotalBooks !== ''
+            ? Number(editedFields.seriesTotalBooks)
+            : null,
+        lockedFields: Array.from(lockedFields),
       });
-      setLibraries((prev) => [...prev, res.data]);
-      setLibrariesAtom((prev) => [...prev, res.data]);
-      setLibraryId(res.data.id);
-      setAddingLibrary(false);
-      setNewLibraryName('');
-      await api.patch(`/books/${detail.id}`, { libraryId: res.data.id });
+
+      const res = await api.get<BookDetail>(`/books/${detail.id}`);
+      setDetail(res.data);
+      setEditedFields(detailToEdited(res.data));
+      setLockedFields(new Set(res.data.lockedFields));
+      setIsDirty(false);
+      onBookUpdated();
+      pushToast('Changes saved', { color: 'green' });
     } finally {
-      setSavingLibrary(false);
+      setSaving(false);
     }
   }
 
-  async function handleShelvesChange(ids: string[]) {
-    setSelectedShelfIds(ids);
-    if (!detail) return;
-    await api.put(`/books/${detail.id}/shelves`, { shelfIds: ids });
-  }
-
-  async function handleCreateShelf() {
-    if (!detail || !newShelfName.trim()) return;
-    setSavingShelf(true);
-    try {
-      const res = await api.post<Shelf>('/shelves', {
-        name: newShelfName.trim(),
-      });
-      setAllShelves((prev) => [...prev, res.data]);
-      setShelvesAtom((prev) => [...prev, res.data]);
-      const newIds = [...selectedShelfIds, res.data.id];
-      setSelectedShelfIds(newIds);
-      setAddingShelf(false);
-      setNewShelfName('');
-      await api.put(`/books/${detail.id}/shelves`, { shelfIds: newIds });
-    } finally {
-      setSavingShelf(false);
-    }
+  function handleApplied(updated: BookDetail) {
+    setDetail(updated);
+    setEditedFields(detailToEdited(updated));
+    setLockedFields(new Set(updated.lockedFields));
+    setIsDirty(false);
+    onBookUpdated();
   }
 
   async function handleDownload(fileId: string) {
@@ -332,10 +237,7 @@ export function BookDetailModal({
     }
   }
 
-  const librarySelectData = [
-    ...libraries.map((l) => ({ value: l.id, label: l.name })),
-    { value: '__add__', label: '＋ Add new library' },
-  ];
+  const availableFiles = detail?.files ?? [];
 
   const filteredBooks = allBooks.filter((b) => {
     if (b.id === detail?.id) return false;
@@ -347,8 +249,6 @@ export function BookDetailModal({
     );
   });
 
-  const availableFiles = detail?.files ?? [];
-
   return (
     <>
       <Modal
@@ -359,7 +259,7 @@ export function BookDetailModal({
         withCloseButton={false}
         title={null}
       >
-        {loading || !detail ? (
+        {loading || !detail || !editedFields ? (
           <Center style={{ height: '100vh' }}>
             <Loader />
           </Center>
@@ -371,7 +271,6 @@ export function BookDetailModal({
               height: '100vh',
             }}
           >
-            {/* X close button */}
             <ActionIcon
               variant="subtle"
               size="lg"
@@ -382,12 +281,11 @@ export function BookDetailModal({
               <IconX size={18} />
             </ActionIcon>
 
-            {/* Main content */}
             <Box style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-              {/* Left panel */}
+              {/* Left panel — cover */}
               <Box
                 style={{
-                  width: 280,
+                  width: 260,
                   flexShrink: 0,
                   padding: 24,
                   display: 'flex',
@@ -413,8 +311,6 @@ export function BookDetailModal({
                       style={{
                         background: 'var(--mantine-color-gray-1)',
                         borderRadius: 8,
-                        width: '100%',
-                        height: '100%',
                       }}
                     >
                       <IconBook2
@@ -438,223 +334,95 @@ export function BookDetailModal({
                 </Group>
               </Box>
 
-              {/* Right panel */}
-              <ScrollArea style={{ flex: 1 }} p="lg">
-                <Box p="lg">
-                  <Title order={2} mb={4}>
-                    {detail.title}
-                  </Title>
-                  <Text size="sm" c="dimmed" mb="md">
-                    {detail.authors.join(', ') || 'Unknown author'}
-                  </Text>
+              {/* Right panel — tabs */}
+              <Tabs
+                value={activeTab}
+                onChange={(v) => v && setActiveTab(v)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <Tabs.List px="lg" pt="sm" style={{ flexShrink: 0 }}>
+                  <Tabs.Tab
+                    value="overview"
+                    leftSection={<IconLayoutList size={14} />}
+                  >
+                    Overview
+                  </Tabs.Tab>
+                  <Tabs.Tab value="edit" leftSection={<IconPencil size={14} />}>
+                    Edit Metadata
+                  </Tabs.Tab>
+                  <Tabs.Tab
+                    value="search"
+                    leftSection={<IconSearch size={14} />}
+                  >
+                    Search Metadata
+                  </Tabs.Tab>
+                  <Tabs.Tab
+                    value="sidecar"
+                    leftSection={<IconFileText size={14} />}
+                  >
+                    Sidecar
+                  </Tabs.Tab>
+                </Tabs.List>
 
-                  {/* User data */}
-                  <Paper withBorder p="md" radius="md" mb="md">
-                    <Box
-                      style={{
-                        display: 'flex',
-                        gap: 24,
-                        alignItems: 'flex-start',
-                      }}
-                    >
-                      {/* Right: Read Status, Library, Shelves */}
-                      <Stack gap="xs" style={{ width: 200 }}>
-                        {/* Left: Rating */}
-                        <Box style={{ flexShrink: 0 }}>
-                          <Text size="xs" c="dimmed" mb={4}>
-                            Rating
-                          </Text>
-                          <Rating
-                            value={rating}
-                            onChange={setRating}
-                            fractions={2}
-                          />
-                        </Box>
-                        <Select
-                          label="Read Status"
-                          value={readStatus}
-                          onChange={(v) => v && setReadStatus(v)}
-                          data={[
-                            { value: 'UNREAD', label: 'Unread' },
-                            { value: 'READING', label: 'Reading' },
-                            { value: 'READ', label: 'Read' },
-                            { value: 'WONT_READ', label: "Won't Read" },
-                          ]}
-                          size="xs"
-                        />
+                <Tabs.Panel
+                  value="overview"
+                  style={{ flex: 1, overflow: 'hidden' }}
+                >
+                  <OverviewTab
+                    key={detail.id}
+                    detail={detail}
+                    onDownload={handleDownload}
+                  />
+                </Tabs.Panel>
 
-                        <Box>
-                          <Text size="xs" c="dimmed" mb={4}>
-                            Library
-                          </Text>
-                          {addingLibrary ? (
-                            <Group gap="xs">
-                              <TextInput
-                                size="xs"
-                                placeholder="Library name"
-                                value={newLibraryName}
-                                onChange={(e) =>
-                                  setNewLibraryName(e.currentTarget.value)
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter')
-                                    void handleCreateLibrary();
-                                  if (e.key === 'Escape')
-                                    setAddingLibrary(false);
-                                }}
-                                style={{ flex: 1 }}
-                                autoFocus
-                              />
-                              <ActionIcon
-                                size="sm"
-                                variant="filled"
-                                loading={savingLibrary}
-                                onClick={() => void handleCreateLibrary()}
-                              >
-                                <IconCheck size={12} />
-                              </ActionIcon>
-                            </Group>
-                          ) : (
-                            <Select
-                              value={libraryId}
-                              onChange={(v) => void handleLibraryChange(v)}
-                              data={librarySelectData}
-                              size="xs"
-                            />
-                          )}
-                        </Box>
+                <Tabs.Panel
+                  value="edit"
+                  style={{ flex: 1, overflow: 'hidden' }}
+                >
+                  <EditMetadataTab
+                    editedFields={editedFields}
+                    lockedFields={lockedFields}
+                    updateField={updateField}
+                    toggleLock={toggleLock}
+                    setLockedFields={handleSetLockedFields}
+                    setIsDirty={setIsDirty}
+                  />
+                </Tabs.Panel>
 
-                        <Box>
-                          <Text size="xs" c="dimmed" mb={4}>
-                            Shelves
-                          </Text>
-                          {addingShelf ? (
-                            <Group gap="xs">
-                              <TextInput
-                                size="xs"
-                                placeholder="Shelf name"
-                                value={newShelfName}
-                                onChange={(e) =>
-                                  setNewShelfName(e.currentTarget.value)
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter')
-                                    void handleCreateShelf();
-                                  if (e.key === 'Escape') setAddingShelf(false);
-                                }}
-                                style={{ flex: 1 }}
-                                autoFocus
-                              />
-                              <ActionIcon
-                                size="sm"
-                                variant="filled"
-                                loading={savingShelf}
-                                onClick={() => void handleCreateShelf()}
-                              >
-                                <IconCheck size={12} />
-                              </ActionIcon>
-                              <ActionIcon
-                                size="sm"
-                                variant="subtle"
-                                onClick={() => setAddingShelf(false)}
-                              >
-                                <IconX size={12} />
-                              </ActionIcon>
-                            </Group>
-                          ) : (
-                            <Group gap="xs" align="center">
-                              <MultiSelect
-                                value={selectedShelfIds}
-                                onChange={(ids) =>
-                                  void handleShelvesChange(ids)
-                                }
-                                data={allShelves.map((s) => ({
-                                  value: s.id,
-                                  label: s.name,
-                                }))}
-                                placeholder="Add to shelf..."
-                                size="xs"
-                                style={{ flex: 1 }}
-                                clearable
-                              />
-                              <ActionIcon
-                                size="sm"
-                                variant="light"
-                                onClick={() => setAddingShelf(true)}
-                                title="New shelf"
-                              >
-                                <IconPlus size={12} />
-                              </ActionIcon>
-                            </Group>
-                          )}
-                        </Box>
-                      </Stack>
-                    </Box>
-                  </Paper>
-
-                  {/* Synopsis */}
-                  {detail.description && (
-                    <>
-                      <Text fw={600} mb={4}>
-                        Synopsis
-                      </Text>
-                      <Text
-                        size="sm"
-                        mb="md"
-                        style={{ whiteSpace: 'pre-wrap' }}
-                      >
-                        {detail.description}
-                      </Text>
-                    </>
+                <Tabs.Panel
+                  value="search"
+                  style={{ flex: 1, overflow: 'hidden' }}
+                >
+                  <SearchMetadataTab
+                    key={detail.id}
+                    bookId={detail.id}
+                    detail={detail}
+                    lockedFields={lockedFields}
+                    onApplied={handleApplied}
+                    onSwitchTab={setActiveTab}
+                  />
+                </Tabs.Panel>
+                <Tabs.Panel
+                  value="sidecar"
+                  style={{ flex: 1, overflow: 'hidden' }}
+                >
+                  {detail && (
+                    <SidecarTab
+                      key={detail.id}
+                      bookId={detail.id}
+                      detail={detail}
+                      lockedFields={lockedFields}
+                      onApplied={handleApplied}
+                      onSwitchTab={setActiveTab}
+                    />
                   )}
-
-                  {/* Metadata */}
-                  <Paper withBorder p="md" radius="md" mb="md">
-                    <Text fw={600} mb="sm">
-                      Details
-                    </Text>
-                    <SimpleGrid cols={2} spacing="sm">
-                      <MetaRow label="ISBN" value={detail.isbn} />
-                      <MetaRow label="Publisher" value={detail.publisher} />
-                      <MetaRow
-                        label="Published"
-                        value={
-                          detail.publishedDate
-                            ? new Date(detail.publishedDate).getFullYear()
-                            : null
-                        }
-                      />
-                      <MetaRow label="Language" value={detail.language} />
-                      <MetaRow label="Pages" value={detail.pageCount} />
-                      <MetaRow label="Age Rating" value={detail.ageRating} />
-                    </SimpleGrid>
-                  </Paper>
-
-                  {/* Files */}
-                  {availableFiles.length > 0 && (
-                    <Paper withBorder p="md" radius="md">
-                      <Text fw={600} mb="sm">
-                        Files
-                      </Text>
-                      <Box
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 8,
-                        }}
-                      >
-                        {availableFiles.map((f) => (
-                          <FileRow
-                            key={f.id}
-                            file={f}
-                            onDownload={handleDownload}
-                          />
-                        ))}
-                      </Box>
-                    </Paper>
-                  )}
-                </Box>
-              </ScrollArea>
+                </Tabs.Panel>
+              </Tabs>
             </Box>
 
             {/* Action bar */}
@@ -717,6 +485,16 @@ export function BookDetailModal({
                     </Menu.Dropdown>
                   </Menu>
                 ) : null}
+
+                {isDirty && (
+                  <Button
+                    leftSection={<IconCheck size={16} />}
+                    loading={saving}
+                    onClick={() => void handleSave()}
+                  >
+                    Save Changes
+                  </Button>
+                )}
               </Group>
               <Button variant="subtle" onClick={onClose}>
                 Close
@@ -750,10 +528,7 @@ export function BookDetailModal({
               <Box
                 key={b.id}
                 p="xs"
-                style={{
-                  cursor: 'pointer',
-                  borderRadius: 4,
-                }}
+                style={{ cursor: 'pointer', borderRadius: 4 }}
                 onClick={() => {
                   setMatchCandidate(b);
                   setMatchConfirmOpen(true);
@@ -779,7 +554,7 @@ export function BookDetailModal({
         </ScrollArea>
       </Modal>
 
-      {/* Match confirmation dialog */}
+      {/* Match confirmation */}
       <Modal
         opened={matchConfirmOpen}
         onClose={() => setMatchConfirmOpen(false)}
@@ -795,8 +570,8 @@ export function BookDetailModal({
           <Text component="span" fw={600}>
             "{detail?.title}"
           </Text>
-          . The source book entry in database and its metadata will be
-          permanently deleted. This cannot be undone.
+          . The source book entry will be permanently deleted. This cannot be
+          undone.
         </Text>
         <Group justify="flex-end" gap="sm">
           <Button variant="subtle" onClick={() => setMatchConfirmOpen(false)}>

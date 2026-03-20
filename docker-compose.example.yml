@@ -14,6 +14,7 @@ services:
   litara:
     image: ghcr.io/litara-app/litara:latest
     hostname: litara
+    container_name: litara
     ports:
       - "3000:3000"
     environment:
@@ -28,6 +29,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    container_name: litara-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: CHANGE_ME

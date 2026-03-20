@@ -104,6 +104,58 @@ describe('Shelves (e2e)', () => {
     expect(updated?.name).toBe('New Name');
   });
 
+  it('GET /shelves/:id returns the shelf', async () => {
+    const shelf = await testApp.db.shelf.create({
+      data: { name: 'My Shelf', userId },
+    });
+
+    const res = await request(testApp.app.getHttpServer())
+      .get(`/api/v1/shelves/${shelf.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body).toMatchObject({ id: shelf.id, name: 'My Shelf' });
+  });
+
+  it('POST /shelves creates and returns a new shelf', async () => {
+    const res = await request(testApp.app.getHttpServer())
+      .post('/api/v1/shelves')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Weekend Reads' })
+      .expect(201);
+    expect(res.body).toHaveProperty('id');
+    expect(res.body).toHaveProperty('name', 'Weekend Reads');
+  });
+
+  it('GET /shelves returns seeded shelves on subsequent calls (no re-seeding)', async () => {
+    // First call seeds Favorites + To Read
+    await request(testApp.app.getHttpServer())
+      .get('/api/v1/shelves')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    // Second call should return the same two without duplication
+    const res = await request(testApp.app.getHttpServer())
+      .get('/api/v1/shelves')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body).toHaveLength(2);
+  });
+
+  it('PATCH /shelves/:id returns 404 for a nonexistent shelf', async () => {
+    await request(testApp.app.getHttpServer())
+      .patch('/api/v1/shelves/00000000-0000-0000-0000-000000000000')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Ghost' })
+      .expect(404);
+  });
+
+  it('GET /shelves/:id/books returns 404 for a nonexistent shelf', async () => {
+    await request(testApp.app.getHttpServer())
+      .get('/api/v1/shelves/00000000-0000-0000-0000-000000000000/books')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+  });
+
   it("GET /shelves/:id returns 404 for another user's shelf", async () => {
     // Create a second user and their shelf
     const otherUser = await createTestUser(testApp.db, {

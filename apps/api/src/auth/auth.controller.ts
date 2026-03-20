@@ -3,7 +3,13 @@ import { Request } from '@nestjs/common';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { ApiTags, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBody,
+  ApiBearerAuth,
+  ApiOkResponse,
+} from '@nestjs/swagger';
+import { LoginResponseDto } from './login-response.dto';
 import type {
   AuthenticatedUser,
   RequestWithUser,
@@ -16,6 +22,7 @@ export class AuthController {
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
+  @ApiOkResponse({ type: LoginResponseDto })
   @ApiBody({
     schema: {
       type: 'object',

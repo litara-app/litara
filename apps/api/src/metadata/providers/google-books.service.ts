@@ -6,12 +6,16 @@ const BASE_URL = 'https://www.googleapis.com/books/v1/volumes';
 
 interface GoogleBooksVolumeInfo {
   title?: string;
+  subtitle?: string;
   authors?: string[];
   description?: string;
   publisher?: string;
   publishedDate?: string;
   imageLinks?: { thumbnail?: string };
   industryIdentifiers?: Array<{ type: string; identifier: string }>;
+  language?: string;
+  pageCount?: number;
+  categories?: string[];
 }
 
 interface GoogleBooksItem {
@@ -33,6 +37,7 @@ export class GoogleBooksService {
   }
 
   async searchByIsbn(isbn: string): Promise<MetadataResult | null> {
+    this.logger.debug(`Searching Google Books for ISBN: ${isbn}`);
     return this.query(`isbn:${isbn}`);
   }
 
@@ -50,6 +55,7 @@ export class GoogleBooksService {
     try {
       let url = `${BASE_URL}?q=${q}`;
       if (this.apiKey) url += `&key=${this.apiKey}`;
+      this.logger.debug(`Querying Google Books API: ${url}`);
 
       const response = await fetch(url);
       if (!response.ok) {
@@ -77,10 +83,14 @@ export class GoogleBooksService {
     const result: MetadataResult = {
       googleBooksId: item.id,
       title: v.title,
+      subtitle: v.subtitle,
       authors: v.authors,
       description: v.description,
       publisher: v.publisher,
       coverUrl: v.imageLinks?.thumbnail,
+      language: v.language,
+      pageCount: v.pageCount,
+      categories: v.categories,
     };
 
     if (v.publishedDate) {

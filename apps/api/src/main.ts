@@ -22,11 +22,14 @@ async function bootstrap() {
     .setTitle('Litara API')
     .setDescription('The Litara API description')
     .setVersion('1.0')
-    // Add JWT bearer auth to swagger
     .addBearerAuth()
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('/docs', app, documentFactory);
+  SwaggerModule.setup('/docs', app, documentFactory, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
 
   await app.listen(process.env.PORT ?? 3000);
 }

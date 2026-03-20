@@ -12,23 +12,33 @@ import {
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+} from '@nestjs/swagger';
+import { AdminUserDto } from './admin-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminService } from './admin.service';
 import type { RequestWithUser } from '../auth/interfaces/authenticated-user.interface';
 import { isValidEmail } from '../common/is-valid-email';
 
+@ApiBearerAuth()
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('users')
+  @ApiOkResponse({ type: AdminUserDto, isArray: true })
   findAll() {
     return this.adminService.findAll();
   }
 
   @Post('users')
+  @ApiCreatedResponse({ type: AdminUserDto })
   create(
     @Body()
     body: {
@@ -45,6 +55,7 @@ export class AdminController {
   }
 
   @Patch('users/:id')
+  @ApiOkResponse({ type: AdminUserDto })
   update(
     @Param('id') id: string,
     @Req() req: RequestWithUser,
@@ -55,6 +66,7 @@ export class AdminController {
 
   @Delete('users/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse()
   remove(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.adminService.remove(id, req.user.id);
   }

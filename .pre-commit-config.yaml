@@ -48,6 +48,6 @@ repos:
       - id: api-tests
         name: API unit tests
         language: system
-        entry: bash -c 'cd apps/api && npm test -- --passWithNoTests'
+        entry: bash -c 'cd apps/api && npm run test:e2e'
         pass_filenames: false
         stages: [pre-push]
