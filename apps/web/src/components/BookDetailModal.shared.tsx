@@ -2,6 +2,7 @@ import { Group, Badge, Text, ActionIcon, Box, Tooltip } from '@mantine/core';
 import { IconDownload, IconLock, IconLockOpen } from '@tabler/icons-react';
 import type { BookFile } from './BookDetailModal.types';
 import { FORMAT_COLORS } from './BookDetailModal.types';
+import { formatBytes } from './BookDetailModal.utils';
 
 export function FileRow({
   file,
