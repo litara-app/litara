@@ -1,11 +1,19 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 import { PrismaClient } from '@prisma/client';
 import { execSync } from 'child_process';
 
 @Injectable()
-export class DatabaseService extends PrismaClient implements OnModuleInit {
+export class DatabaseService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly logger = new Logger(DatabaseService.name);
   constructor() {
     const adapter = new PrismaPg({
@@ -28,5 +36,9 @@ export class DatabaseService extends PrismaClient implements OnModuleInit {
         'Migration failed in development — DB may not be ready yet.',
       );
     }
+  }
+
+  async onModuleDestroy() {
+    await this.$disconnect();
   }
 }

@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { getDefaultStore } from 'jotai';
 import { backendStatusAtom } from '../store/atoms';
+import { pushToast } from './toast';
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api/v1',
@@ -35,6 +36,16 @@ api.interceptors.response.use(
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
+    }
+    if (status === 429) {
+      pushToast(
+        'Rate limit hit — metadata provider is throttling requests. Try again later.',
+        {
+          title: 'Rate Limited (429)',
+          color: 'orange',
+          duration: 8000,
+        },
+      );
     }
     return Promise.reject(error);
   },

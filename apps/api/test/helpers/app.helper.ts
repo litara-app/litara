@@ -20,6 +20,7 @@ export async function createTestApp(options?: {
     builder.overrideProvider(LibraryScannerService).useValue({
       onModuleInit: () => Promise.resolve(),
       onModuleDestroy: () => {},
+      fullScan: () => Promise.resolve(),
     });
   }
 

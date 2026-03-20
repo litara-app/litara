@@ -1,4 +1,6 @@
 import { Controller, Get, Patch, Body, UseGuards, Req } from '@nestjs/common';
+import { ApiBearerAuth, ApiOkResponse } from '@nestjs/swagger';
+import { UserSettingsDto } from './user-settings.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DatabaseService } from '../database/database.service';
 import type { RequestWithUser } from '../auth/interfaces/authenticated-user.interface';
@@ -20,12 +22,14 @@ const DEFAULT_LAYOUT: DashboardSection[] = [
   { key: 'recently-added', label: 'Recently Added', visible: true, order: 1 },
 ];
 
+@ApiBearerAuth()
 @Controller('users')
 export class UsersController {
   constructor(private readonly prisma: DatabaseService) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('me/settings')
+  @ApiOkResponse({ type: UserSettingsDto })
   async getSettings(@Req() req: RequestWithUser) {
     const userId = req.user.id;
     const settings = await this.prisma.userSettings.findUnique({
@@ -42,6 +46,7 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('me/settings')
+  @ApiOkResponse({ type: UserSettingsDto })
   async updateSettings(
     @Req() req: RequestWithUser,
     @Body()
