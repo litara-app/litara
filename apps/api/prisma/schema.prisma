@@ -56,31 +56,37 @@ model Book {
   id            String    @id @default(uuid())
   libraryId     String
   library       Library   @relation(fields: [libraryId], references: [id])
+  // Metadata fields
   title         String
+  subtitle      String?
   description   String?
   publishedDate DateTime?
-  isbn          String?
-
+  isbn13        String?
+  isbn10        String?
   coverData     Bytes?    // raw image bytes extracted from file
-  coverUrl      String?
   publisher     String?
-
   language      String?
   pageCount     Int?
   ageRating     String?
-
-  // External metadata links
-  googleBooksId String?
-  openLibraryId String?
-  amazonId      String?
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  files           BookFile[]
+  tags            Tag[]
+  genres          Genre[]
+  moods           Mood[]
   authors         BookAuthor[]
   series          SeriesBook[]
-  tags            Tag[]
+  // External metadata links
+  googleBooksId   String?
+  openLibraryId   String?
+  amazonId        String?
+  goodreadsId     String?
+  goodreadsRating Float?
+
+  lockedFields  String    @default("[]") // JSON: string[] of field names
+  sidecarFile   String?   // absolute path to matched .metadata.json
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  files           BookFile[]
+
+
   readingProgress ReadingProgress[]
   reviews         UserReview[]
   annotations     Annotation[]
@@ -110,11 +116,12 @@ model BookAuthor {
 }
 
 model Series {
-  id        String   @id @default(uuid())
-  name      String
+  id          String   @id @default(uuid())
+  name        String   @unique
   description String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  totalBooks  Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   books SeriesBook[]
 }
@@ -130,6 +137,22 @@ model SeriesBook {
 }
 
 model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  books Book[]
+}
+
+model Genre {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  books Book[]
+}
+
+model Mood {
   id        String   @id @default(uuid())
   name      String   @unique
   createdAt DateTime @default(now())

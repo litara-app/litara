@@ -17,6 +17,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { UserSettingsPage } from './pages/UserSettingsPage';
 import { AllBooksPage } from './pages/AllBooksPage';
 import { AppLayout } from './components/AppLayout/AppLayout';
+import { ToastContainer } from './components/ToastContainer';
 
 function ProtectedRoute() {
   const token = localStorage.getItem('token');
@@ -29,6 +30,7 @@ function ProtectedRoute() {
 export default function App() {
   return (
     <MantineProvider defaultColorScheme="auto">
+      <ToastContainer />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />

@@ -1,10 +1,20 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   GoneException,
   BadRequestException,
 } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+import { extractFileMetadata } from '../common/extract-file-metadata';
+import { findSidecar } from '../common/find-sidecar';
 import { DatabaseService } from '../database/database.service';
+import {
+  MetadataService,
+  MetadataProvider,
+} from '../metadata/metadata.service';
+import type { MetadataResult } from '../metadata/interfaces/metadata-result.interface';
 
 export class GetBooksQueryDto {
   limit?: number;
@@ -16,14 +26,46 @@ export class GetBooksQueryDto {
 }
 
 export class UpdateBookDto {
+  // User review
   rating?: number;
   readStatus?: string;
   libraryId?: string;
+
+  // Metadata fields (book table)
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  isbn13?: string;
+  isbn10?: string;
+  publisher?: string;
+  publishedDate?: string;
+  language?: string;
+  pageCount?: number;
+  ageRating?: string;
+  lockedFields?: string[];
+
+  // Cover (fetched from URL and stored as coverData)
+  coverUrl?: string;
+  goodreadsRating?: number;
+
+  // Relational
+  authors?: string[];
+  tags?: string[];
+  genres?: string[];
+  moods?: string[];
+  seriesName?: string | null;
+  seriesSequence?: number | null;
+  seriesTotalBooks?: number | null;
 }
 
 @Injectable()
 export class BooksService {
-  constructor(private readonly prisma: DatabaseService) {}
+  private readonly logger = new Logger(BooksService.name);
+
+  constructor(
+    private readonly prisma: DatabaseService,
+    private readonly metadataService: MetadataService,
+  ) {}
 
   async findAll(query: GetBooksQueryDto, userId: string) {
     const books = await this.prisma.book.findMany({
@@ -52,7 +94,7 @@ export class BooksService {
                   },
                 },
               },
-              { isbn: { contains: query.q, mode: 'insensitive' } },
+              { isbn13: { contains: query.q, mode: 'insensitive' } },
             ],
           }
         : query.libraryId
@@ -70,7 +112,6 @@ export class BooksService {
       title: book.title,
       authors: book.authors.map((ba) => ba.author.name),
       hasCover: book.coverData !== null,
-      coverUrl: book.coverUrl,
       createdAt: book.createdAt,
       formats: [...new Set(book.files.map((f) => f.format))].sort(),
       hasFileMissing: book.files.some((f) => f.missingAt !== null),
@@ -95,6 +136,14 @@ export class BooksService {
       include: {
         authors: { include: { author: true } },
         files: true,
+        tags: true,
+        genres: true,
+        moods: true,
+        series: {
+          include: {
+            series: { select: { id: true, name: true, totalBooks: true } },
+          },
+        },
         userLibraries: {
           where: { userId },
           include: { library: { select: { id: true, name: true } } },
@@ -113,20 +162,36 @@ export class BooksService {
 
     const review = book.reviews[0] ?? null;
     const userLibrary = book.userLibraries[0]?.library ?? null;
+    const seriesBook = book.series[0] ?? null;
 
     return {
       id: book.id,
       title: book.title,
+      subtitle: book.subtitle,
       description: book.description,
-      isbn: book.isbn,
+      isbn13: book.isbn13,
+      isbn10: book.isbn10,
+      goodreadsId: book.goodreadsId,
+      goodreadsRating: book.goodreadsRating,
       publisher: book.publisher,
       publishedDate: book.publishedDate,
       language: book.language,
       pageCount: book.pageCount,
       ageRating: book.ageRating,
+      lockedFields: JSON.parse(book.lockedFields) as string[],
       hasCover: book.coverData !== null,
       library: userLibrary,
       authors: book.authors.map((ba) => ba.author.name),
+      tags: book.tags.map((t) => t.name),
+      genres: book.genres.map((g) => g.name),
+      moods: book.moods.map((m) => m.name),
+      series: seriesBook
+        ? {
+            name: seriesBook.series.name,
+            sequence: seriesBook.sequence ?? null,
+            totalBooks: seriesBook.series.totalBooks ?? null,
+          }
+        : null,
       files: book.files.map((f) => ({
         id: f.id,
         format: f.format,
@@ -142,6 +207,7 @@ export class BooksService {
         id: bs.shelf.id,
         name: bs.shelf.name,
       })),
+      sidecarFile: book.sidecarFile,
     };
   }
 
@@ -189,8 +255,9 @@ export class BooksService {
     const book = await this.prisma.book.findUnique({ where: { id: bookId } });
     if (!book) throw new NotFoundException('Book not found');
 
-    const ops: Promise<any>[] = [];
+    const ops: Promise<unknown>[] = [];
 
+    // User review
     if (dto.rating !== undefined || dto.readStatus !== undefined) {
       ops.push(
         this.prisma.userReview.upsert({
@@ -209,8 +276,8 @@ export class BooksService {
       );
     }
 
+    // Library assignment
     if (dto.libraryId !== undefined) {
-      // Verify the library belongs to this user
       const lib = await this.prisma.library.findFirst({
         where: { id: dto.libraryId, userId },
       });
@@ -226,8 +293,180 @@ export class BooksService {
       );
     }
 
+    // Scalar metadata fields
+    const bookUpdate: Record<string, unknown> = {};
+    if (dto.title !== undefined) bookUpdate.title = dto.title;
+    if (dto.subtitle !== undefined) bookUpdate.subtitle = dto.subtitle;
+    if (dto.description !== undefined) bookUpdate.description = dto.description;
+    if (dto.isbn13 !== undefined) bookUpdate.isbn13 = dto.isbn13;
+    if (dto.isbn10 !== undefined) bookUpdate.isbn10 = dto.isbn10;
+    if (dto.publisher !== undefined) bookUpdate.publisher = dto.publisher;
+    if (dto.publishedDate !== undefined) {
+      bookUpdate.publishedDate = dto.publishedDate
+        ? new Date(dto.publishedDate)
+        : null;
+    }
+    if (dto.language !== undefined) bookUpdate.language = dto.language;
+    if (dto.pageCount !== undefined) bookUpdate.pageCount = dto.pageCount;
+    if (dto.ageRating !== undefined) bookUpdate.ageRating = dto.ageRating;
+    if (dto.goodreadsRating !== undefined)
+      bookUpdate.goodreadsRating = dto.goodreadsRating;
+    if (dto.lockedFields !== undefined) {
+      bookUpdate.lockedFields = JSON.stringify(dto.lockedFields);
+    }
+    if (dto.coverUrl) {
+      try {
+        const coverRes = await fetch(dto.coverUrl);
+        if (coverRes.ok) {
+          bookUpdate.coverData = Buffer.from(await coverRes.arrayBuffer());
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Failed to fetch cover from ${dto.coverUrl}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    if (Object.keys(bookUpdate).length > 0) {
+      ops.push(
+        this.prisma.book.update({ where: { id: bookId }, data: bookUpdate }),
+      );
+    }
+
     await Promise.all(ops);
+
+    // Relational updates — run in parallel
+    const relationalOps: Promise<unknown>[] = [];
+    if (dto.authors !== undefined)
+      relationalOps.push(this.replaceAuthors(bookId, dto.authors));
+    if (dto.tags !== undefined)
+      relationalOps.push(this.setStringRelation(bookId, 'tags', dto.tags));
+    if (dto.genres !== undefined)
+      relationalOps.push(this.setStringRelation(bookId, 'genres', dto.genres));
+    if (dto.moods !== undefined)
+      relationalOps.push(this.setStringRelation(bookId, 'moods', dto.moods));
+    if (dto.seriesName !== undefined)
+      relationalOps.push(this.replaceSeries(bookId, dto));
+    await Promise.all(relationalOps);
+
     return { success: true };
+  }
+
+  private async replaceAuthors(
+    bookId: string,
+    authors: string[],
+  ): Promise<void> {
+    await this.prisma.bookAuthor.deleteMany({ where: { bookId } });
+    for (const name of authors) {
+      const trimmed = name.trim();
+      if (!trimmed) continue;
+      const author = await this.prisma.author.upsert({
+        where: { name: trimmed },
+        update: {},
+        create: { name: trimmed },
+      });
+      await this.prisma.bookAuthor.upsert({
+        where: { bookId_authorId: { bookId, authorId: author.id } },
+        update: {},
+        create: { bookId, authorId: author.id },
+      });
+    }
+  }
+
+  private async setStringRelation(
+    bookId: string,
+    relation: 'tags' | 'genres' | 'moods',
+    names: string[],
+  ): Promise<void> {
+    const args = (name: string) => ({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+    const records: Array<{ id: string }> = [];
+    for (const name of names) {
+      const trimmed = name.trim();
+      if (!trimmed) continue;
+      let record: { id: string };
+      if (relation === 'tags')
+        record = await this.prisma.tag.upsert(args(trimmed));
+      else if (relation === 'genres')
+        record = await this.prisma.genre.upsert(args(trimmed));
+      else record = await this.prisma.mood.upsert(args(trimmed));
+      records.push({ id: record.id });
+    }
+    await this.prisma.book.update({
+      where: { id: bookId },
+      data: { [relation]: { set: records } },
+    });
+  }
+
+  private async replaceSeries(
+    bookId: string,
+    dto: UpdateBookDto,
+  ): Promise<void> {
+    if (dto.seriesName === null || dto.seriesName === '') {
+      await this.prisma.seriesBook.deleteMany({ where: { bookId } });
+      return;
+    }
+    const seriesData =
+      dto.seriesTotalBooks !== undefined
+        ? { totalBooks: dto.seriesTotalBooks }
+        : {};
+    const series = await this.prisma.series.upsert({
+      where: { name: dto.seriesName! },
+      update: seriesData,
+      create: { name: dto.seriesName!, ...seriesData },
+    });
+    await this.prisma.seriesBook.upsert({
+      where: { seriesId_bookId: { seriesId: series.id, bookId } },
+      update: { sequence: dto.seriesSequence ?? null },
+      create: {
+        seriesId: series.id,
+        bookId,
+        sequence: dto.seriesSequence ?? null,
+      },
+    });
+  }
+
+  async applyExternalMetadata(
+    bookId: string,
+    provider: MetadataProvider,
+    userId: string,
+  ) {
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      include: { authors: { include: { author: true } } },
+    });
+    if (!book) throw new NotFoundException('Book not found');
+
+    await this.metadataService.enrichBookForProvider(bookId, provider, {
+      title: book.title,
+      authors: book.authors.map((ba) => ba.author.name),
+      isbn13: book.isbn13 ?? undefined,
+    });
+
+    return this.findOne(bookId, userId);
+  }
+
+  async searchExternalMetadata(
+    bookId: string,
+    provider: MetadataProvider,
+    overrides?: { title?: string; author?: string; isbn?: string },
+  ) {
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      include: { authors: { include: { author: true } } },
+    });
+    if (!book) throw new NotFoundException('Book not found');
+
+    return this.metadataService.fetchFromProvider(provider, {
+      title: overrides?.title ?? book.title,
+      authors: overrides?.author
+        ? [overrides.author]
+        : book.authors.map((ba) => ba.author.name),
+      isbn13: overrides?.isbn ?? book.isbn13 ?? undefined,
+    });
   }
 
   async downloadFile(bookId: string, fileId: string) {
@@ -238,6 +477,129 @@ export class BooksService {
     if (file.missingAt !== null)
       throw new GoneException('File is missing from disk');
     return { filePath: file.filePath, format: file.format };
+  }
+
+  async getFileMetadata(bookId: string) {
+    const file = await this.prisma.bookFile.findFirst({
+      where: { bookId, missingAt: null },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!file)
+      throw new NotFoundException('No accessible file found for this book');
+
+    const ext = path.extname(file.filePath).toLowerCase();
+    const format = ext.replace('.', '').toUpperCase();
+
+    const METADATA_FORMATS = ['.epub', '.mobi', '.azw', '.azw3'];
+    if (!METADATA_FORMATS.includes(ext)) {
+      throw new BadRequestException(
+        `Format ${format} does not support metadata extraction`,
+      );
+    }
+
+    const meta = await extractFileMetadata(file.filePath);
+
+    return {
+      format,
+      title: meta.title || undefined,
+      authors: meta.authors.length ? meta.authors : undefined,
+      description: meta.description,
+      publishedDate: meta.publishedDate?.toISOString(),
+      publisher: meta.publisher,
+      language: meta.language,
+      subjects: meta.subjects,
+      ids: meta.ids,
+      contributor: meta.contributor,
+      rights: meta.rights,
+      source: meta.source,
+      coverage: meta.coverage,
+      relation: meta.relation,
+      type: meta.type,
+    };
+  }
+
+  async getSidecarContent(bookId: string): Promise<MetadataResult | null> {
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      select: { sidecarFile: true },
+    });
+    if (!book?.sidecarFile || !fs.existsSync(book.sidecarFile)) return null;
+    return JSON.parse(
+      fs.readFileSync(book.sidecarFile, 'utf8'),
+    ) as MetadataResult;
+  }
+
+  async scanForSidecar(bookId: string): Promise<string | null> {
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      include: { files: { where: { missingAt: null } } },
+    });
+    if (!book) throw new NotFoundException('Book not found');
+
+    for (const file of book.files) {
+      const found = findSidecar(file.filePath, book.title);
+      if (found) {
+        await this.prisma.book.update({
+          where: { id: bookId },
+          data: { sidecarFile: found },
+        });
+        return found;
+      }
+    }
+
+    await this.prisma.book.update({
+      where: { id: bookId },
+      data: { sidecarFile: null },
+    });
+    return null;
+  }
+
+  async exportSidecar(
+    bookId: string,
+  ): Promise<{ filename: string; json: MetadataResult }> {
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      include: {
+        authors: { include: { author: true } },
+        tags: true,
+        genres: true,
+        moods: true,
+        series: { include: { series: true } },
+      },
+    });
+    if (!book) throw new NotFoundException('Book not found');
+
+    const seriesBook = book.series[0] ?? null;
+
+    const json: MetadataResult = {
+      title: book.title,
+      subtitle: book.subtitle ?? undefined,
+      authors: book.authors.map((ba) => ba.author.name),
+      description: book.description ?? undefined,
+      publishedDate: book.publishedDate
+        ? (book.publishedDate.toISOString().slice(0, 10) as unknown as Date)
+        : undefined,
+      publisher: book.publisher ?? undefined,
+      language: book.language ?? undefined,
+      pageCount: book.pageCount ?? undefined,
+      isbn13: book.isbn13 ?? undefined,
+      isbn10: book.isbn10 ?? undefined,
+      categories: book.tags.map((t) => t.name),
+      genres: book.genres.map((g) => g.name),
+      moods: book.moods.map((m) => m.name),
+      seriesName: seriesBook?.series.name ?? undefined,
+      seriesPosition: seriesBook?.sequence ?? undefined,
+      seriesTotalBooks: seriesBook?.series.totalBooks ?? undefined,
+      goodreadsId: book.goodreadsId ?? undefined,
+      goodreadsRating: book.goodreadsRating ?? undefined,
+      googleBooksId: book.googleBooksId ?? undefined,
+      openLibraryId: book.openLibraryId ?? undefined,
+      asin: book.amazonId ?? undefined,
+    };
+
+    const filename =
+      book.title.replace(/[/\\:*?"<>|]/g, '_') + '.metadata.json';
+    return { filename, json };
   }
 
   async matchBook(targetBookId: string, sourceBookId: string) {

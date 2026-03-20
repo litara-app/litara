@@ -4,10 +4,16 @@ import { DatabaseModule } from '../database/database.module';
 import { MetadataService } from './metadata.service';
 import { GoogleBooksService } from './providers/google-books.service';
 import { OpenLibraryService } from './providers/open-library.service';
+import { GoodreadsService } from './providers/goodreads.service';
 
 @Module({
   imports: [DatabaseModule, ConfigModule],
-  providers: [MetadataService, GoogleBooksService, OpenLibraryService],
+  providers: [
+    MetadataService,
+    GoogleBooksService,
+    OpenLibraryService,
+    GoodreadsService,
+  ],
   exports: [MetadataService],
 })
 export class MetadataModule {}

@@ -72,7 +72,6 @@ export class ShelvesService {
       title: book.title,
       authors: book.authors.map((ba) => ba.author.name),
       hasCover: book.coverData !== null,
-      coverUrl: book.coverUrl,
       createdAt: book.createdAt,
       formats: [...new Set(book.files.map((f) => f.format))].sort(),
       hasFileMissing: book.files.some((f) => f.missingAt !== null),

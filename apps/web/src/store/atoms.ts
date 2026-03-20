@@ -35,7 +35,15 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   bookItemSize: 'md',
 };
 
+export interface Toast {
+  id: string;
+  message: string;
+  title?: string;
+  color?: string;
+}
+
 export const librariesAtom = atom<Library[]>([]);
 export const shelvesAtom = atom<Shelf[]>([]);
 export const userSettingsAtom = atom<UserSettings>(DEFAULT_USER_SETTINGS);
 export const backendStatusAtom = atom<'ok' | 'error'>('ok');
+export const toastsAtom = atom<Toast[]>([]);

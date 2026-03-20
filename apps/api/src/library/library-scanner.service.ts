@@ -13,7 +13,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { EPub } from 'epub2';
-import { extractMobiMetadata } from '@litara/mobi-parser';
+import { extractMobiCover } from '@litara/mobi-parser';
+import { extractFileMetadata } from '../common/extract-file-metadata';
+import { findSidecar } from '../common/find-sidecar';
 import type { FSWatcher } from 'chokidar';
 
 const SUPPORTED_FORMATS = ['epub', 'mobi', 'azw', 'azw3', 'cbz', 'pdf'];
@@ -84,7 +86,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   // Full scan using fast-glob
   // ---------------------------------------------------------------------------
 
-  async fullScan(forceEnrich = false) {
+  async fullScan(forceEnrich = false, rescanMetadata = false) {
     const watchedFolders = await this.prisma.watchedFolder.findMany({
       where: { isActive: true },
     });
@@ -94,8 +96,14 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const flags = [
+      forceEnrich ? 'metadata enrichment' : '',
+      rescanMetadata ? 'rescan metadata' : '',
+    ]
+      .filter(Boolean)
+      .join(', ');
     this.logger.log(
-      `Starting full scan of ${watchedFolders.length} folder(s)...${forceEnrich ? ' (with metadata enrichment)' : ''}`,
+      `Starting full scan of ${watchedFolders.length} folder(s)...${flags ? ` (${flags})` : ''}`,
     );
 
     for (const folder of watchedFolders) {
@@ -103,7 +111,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       const files = await glob.glob(pattern, { absolute: true, dot: false });
       this.logger.log(`Found ${files.length} file(s) in ${folder.path}`);
       for (const filePath of files) {
-        await this.handleFileAdded(filePath, forceEnrich);
+        await this.handleFileAdded(filePath, forceEnrich, rescanMetadata);
       }
     }
 
@@ -132,7 +140,12 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
 
     this.watcher
       .on('add', (filePath: string) => {
-        if (this.isSupportedFile(filePath)) {
+        if (filePath.endsWith('.metadata.json')) {
+          this.logger.log(`Sidecar detected: ${filePath}`);
+          this.handleSidecarAdded(filePath).catch((err) =>
+            this.logger.error(`Error processing sidecar ${filePath}`, err),
+          );
+        } else if (this.isSupportedFile(filePath)) {
           this.logger.log(`New file detected: ${filePath}`);
           this.handleFileAdded(filePath).catch((err) =>
             this.logger.error(`Error adding file ${filePath}`, err),
@@ -158,14 +171,18 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   // Handle individual file addition
   // ---------------------------------------------------------------------------
 
-  async handleFileAdded(filePath: string, forceEnrich = false) {
+  async handleFileAdded(
+    filePath: string,
+    forceEnrich = false,
+    rescanMetadata = false,
+  ) {
     try {
       const stat = fs.statSync(filePath);
       const sizeBytes = BigInt(stat.size);
       const fileHash = await this.computeHash(filePath);
       const format = path.extname(filePath).replace('.', '').toUpperCase();
 
-      // If a record exists for this path (previously marked missing), un-mark it
+      // If a record exists for this path, handle re-scan/enrich on existing book
       const existingByPath = await this.prisma.bookFile.findFirst({
         where: { filePath },
       });
@@ -175,6 +192,32 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
           data: { missingAt: null, fileHash, sizeBytes },
         });
         this.logger.log(`File re-appeared, cleared missing flag: ${filePath}`);
+
+        if (rescanMetadata) {
+          await this.rescanBookMetadata(filePath, existingByPath.bookId);
+        }
+
+        if (
+          forceEnrich ||
+          this.config.get<string>('METADATA_ENRICH_ON_SCAN') === 'true'
+        ) {
+          const book = await this.prisma.book.findUnique({
+            where: { id: existingByPath.bookId },
+            include: { authors: { include: { author: true } } },
+          });
+          if (book) {
+            this.metadataService
+              .enrichBook(book.id, {
+                title: book.title,
+                authors: book.authors.map((ba) => ba.author.name),
+              })
+              .catch((err) =>
+                this.logger.warn(
+                  `Metadata enrichment failed for "${book.title}": ${(err as Error).message}`,
+                ),
+              );
+          }
+        }
         return;
       }
 
@@ -233,9 +276,22 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
         },
       });
 
-      // Extract and store cover image for EPUB files
-      if (path.extname(filePath).toLowerCase() === '.epub') {
+      // Detect sidecar
+      const sidecarPath = findSidecar(filePath, book.title);
+      if (sidecarPath) {
+        await this.prisma.book.update({
+          where: { id: book.id },
+          data: { sidecarFile: sidecarPath },
+        });
+        this.logger.log(`Sidecar linked: ${sidecarPath}`);
+      }
+
+      // Extract and store cover image
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === '.epub') {
         await this.storeCoverFromEpub(filePath, book.id).catch(() => {});
+      } else if (['.mobi', '.azw', '.azw3'].includes(ext)) {
+        await this.storeCoverFromMobi(filePath, book.id).catch(() => {});
       }
 
       this.logger.log(
@@ -252,7 +308,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
             title:
               metadata.title || path.basename(filePath, path.extname(filePath)),
             authors: metadata.authors,
-            isbn: metadata.isbn,
+            isbn13: metadata.isbn13,
           })
           .catch((err) =>
             this.logger.warn(
@@ -263,6 +319,37 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       this.logger.error(`Failed to process file: ${filePath}`, err);
     }
+  }
+
+  private async handleSidecarAdded(sidecarPath: string): Promise<void> {
+    const dir = path.dirname(sidecarPath);
+    const sidecarBase = path
+      .basename(sidecarPath, '.metadata.json')
+      .toLowerCase();
+
+    // Find a book whose file lives in the same directory with a matching base name
+    const candidates = await this.prisma.bookFile.findMany({
+      where: { filePath: { startsWith: dir } },
+      include: { book: true },
+    });
+
+    for (const bf of candidates) {
+      const fileBase = path
+        .basename(bf.filePath, path.extname(bf.filePath))
+        .toLowerCase();
+      if (fileBase === sidecarBase) {
+        await this.prisma.book.update({
+          where: { id: bf.bookId },
+          data: { sidecarFile: sidecarPath },
+        });
+        this.logger.log(
+          `Sidecar linked to book "${bf.book.title}": ${sidecarPath}`,
+        );
+        return;
+      }
+    }
+
+    this.logger.log(`Sidecar added but no matching book found: ${sidecarPath}`);
   }
 
   async handleFileRemoved(filePath: string) {
@@ -286,71 +373,60 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   // Metadata extraction
   // ---------------------------------------------------------------------------
 
-  private async extractMetadata(filePath: string): Promise<{
-    title: string;
-    authors: string[];
-    description?: string;
-    publishedDate?: Date;
-    isbn?: string;
-  }> {
-    const ext = path.extname(filePath).toLowerCase();
-
+  private async extractMetadata(filePath: string) {
     try {
-      if (ext === '.epub') {
-        return await this.extractEpubMetadata(filePath);
-      }
-      if (['.mobi', '.azw', '.azw3'].includes(ext)) {
-        return await extractMobiMetadata(filePath);
-      }
-      // CBZ/PDF: fall back to filename-based metadata
+      return await extractFileMetadata(filePath);
     } catch (err) {
       this.logger.warn(
         `Could not parse metadata for ${filePath}: ${(err as Error).message}`,
       );
+      return {
+        title: path.basename(filePath, path.extname(filePath)),
+        authors: [] as string[],
+      };
     }
-
-    return {
-      title: path.basename(filePath, path.extname(filePath)),
-      authors: [],
-    };
   }
 
-  private async extractEpubMetadata(filePath: string): Promise<{
-    title: string;
-    authors: string[];
-    description?: string;
-    publishedDate?: Date;
-    isbn?: string;
-  }> {
-    const epub = await EPub.createAsync(filePath);
-    const meta = epub.metadata;
+  private async rescanBookMetadata(
+    filePath: string,
+    bookId: string,
+  ): Promise<void> {
+    this.logger.log(`Re-scanning metadata from file: ${filePath}`);
+    const metadata = await this.extractMetadata(filePath);
 
-    // epub2 exposes creator as a string (may be comma-separated or semicolon-separated)
-    const rawCreator = meta.creator ?? '';
-    const authors = rawCreator
-      ? rawCreator
-          .split(/[,;]/)
-          .map((s: string) => s.trim())
-          .filter(Boolean)
-      : [];
+    await this.prisma.book.update({
+      where: { id: bookId },
+      data: {
+        title:
+          metadata.title || path.basename(filePath, path.extname(filePath)),
+        description: metadata.description ?? null,
+        publishedDate: metadata.publishedDate ?? null,
+      },
+    });
 
-    let publishedDate: Date | undefined;
-    if (meta.date) {
-      const d = new Date(meta.date);
-      if (!isNaN(d.getTime())) publishedDate = d;
+    for (const authorName of metadata.authors) {
+      const trimmed = authorName?.trim();
+      if (!trimmed) continue;
+      const author = await this.prisma.author.upsert({
+        where: { name: trimmed },
+        update: {},
+        create: { name: trimmed },
+      });
+      await this.prisma.bookAuthor.upsert({
+        where: { bookId_authorId: { bookId, authorId: author.id } },
+        update: {},
+        create: { bookId, authorId: author.id },
+      });
     }
 
-    // epub2 stores identifier (ISBN or other ID) under meta['identifier'] via the index signature
-    const rawIdentifier = String(meta['identifier'] ?? '');
-    const isbn = rawIdentifier.replace(/^urn:isbn:/i, '').trim() || undefined;
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.epub') {
+      await this.storeCoverFromEpub(filePath, bookId).catch(() => {});
+    } else if (['.mobi', '.azw', '.azw3'].includes(ext)) {
+      await this.storeCoverFromMobi(filePath, bookId).catch(() => {});
+    }
 
-    return {
-      title: meta.title ?? '',
-      authors,
-      description: meta.description ?? undefined,
-      publishedDate,
-      isbn,
-    };
+    this.logger.log(`Re-scan complete for: ${filePath}`);
   }
 
   private async storeCoverFromEpub(
@@ -365,6 +441,25 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     await this.prisma.book.update({
       where: { id: bookId },
       data: { coverData: new Uint8Array(data) },
+    });
+  }
+
+  private async storeCoverFromMobi(
+    filePath: string,
+    bookId: string,
+  ): Promise<void> {
+    this.logger.log(`Extracting cover from mobi: ${filePath}`);
+    const coverData = await extractMobiCover(filePath);
+    if (!coverData) {
+      this.logger.warn(`No cover image found in mobi file: ${filePath}`);
+      return;
+    }
+    this.logger.log(
+      `Cover extracted (${coverData.byteLength} bytes), saving for book ${bookId}`,
+    );
+    await this.prisma.book.update({
+      where: { id: bookId },
+      data: { coverData: coverData as unknown as Uint8Array<ArrayBuffer> },
     });
   }
 
