@@ -1,0 +1,33 @@
+import { ApiProperty } from '@nestjs/swagger';
+
+export class BookSummaryDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty({ type: [String] })
+  authors: string[];
+
+  @ApiProperty()
+  hasCover: boolean;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty({ type: [String] })
+  formats: string[];
+
+  @ApiProperty()
+  hasFileMissing: boolean;
+
+  @ApiProperty({ nullable: true, required: false })
+  seriesName: string | null;
+
+  @ApiProperty({ nullable: true, required: false })
+  seriesSequence: number | null;
+
+  @ApiProperty({ nullable: true, required: false })
+  publishedDate: Date | null;
+}

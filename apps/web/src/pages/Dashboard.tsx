@@ -36,7 +36,6 @@ interface Book {
   title: string;
   authors: string[];
   hasCover: boolean;
-  coverUrl: string | null;
   createdAt: string;
   formats: string[];
   hasFileMissing: boolean;

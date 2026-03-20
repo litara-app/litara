@@ -16,9 +16,6 @@
     "dev": "tsc --watch",
     "lint": "eslint \"src/**/*.ts\""
   },
-  "dependencies": {
-    "@lingo-reader/mobi-parser": "^0.2.5"
-  },
   "devDependencies": {
     "typescript": "^5.8.3"
   }

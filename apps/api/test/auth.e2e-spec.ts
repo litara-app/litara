@@ -47,6 +47,30 @@ describe('Auth (e2e)', () => {
     });
   });
 
+  describe('GET /api/v1/auth/profile', () => {
+    it('returns the authenticated user', async () => {
+      const loginRes = await request(testApp.app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'user@test.com', password: 'secret123' })
+        .expect(201);
+
+      const res = await request(testApp.app.getHttpServer())
+        .get('/api/v1/auth/profile')
+        .set('Authorization', `Bearer ${loginRes.body.access_token}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty('email', 'user@test.com');
+      expect(res.body).toHaveProperty('id');
+      expect(res.body).not.toHaveProperty('password');
+    });
+
+    it('returns 401 without a JWT', async () => {
+      await request(testApp.app.getHttpServer())
+        .get('/api/v1/auth/profile')
+        .expect(401);
+    });
+  });
+
   describe('JWT-protected routes', () => {
     it('returns 401 on GET /api/v1/books without Authorization header', async () => {
       await request(testApp.app.getHttpServer())

@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
+This is a TypeScript monorepo (NestJS backend + React/Mantine frontend) managed with Turbo. Always verify TypeScript compilation (`tsc --noEmit`) after making changes to DTOs, API decorators, or shared types.
+
 Litara is a self-hosted ebook library manager. It is a monorepo managed with **Turborepo** and **npm workspaces**, containing two apps and one package:
 
 - `apps/api` — NestJS backend (REST API + library scanner)
@@ -116,6 +118,66 @@ Whenever possible, don't use any types in typescript, create an interface instea
 - Helmet is applied globally on the API.
 - The web frontend should enforce Content Security Policy (CSP) to prevent malicious ebook content from executing JavaScript.
 
+## Backend Conventions
+
+After editing backend controllers or DTOs, always check: 1) `@ApiBearerAuth()` is present on protected endpoints, 2) Swagger decorators use correct types (not `'object'`), 3) Run `npm run build` to catch compilation errors before moving on.
+
+## Frontend Conventions
+
+This project uses Mantine v8. Do NOT use deprecated v7 APIs (e.g., creatable MultiSelect). Check Mantine docs for current component APIs before implementing UI changes.
+
+## Docker / CI
+
+Docker builds use a specific dist output structure: `dist/apps/api/src/main`. Do not change the CMD path without verifying the actual build output with `ls dist/` first.
+
+## Git Hooks & Linting
+
+When fixing pre-commit hooks or lint configs, always verify that required packages are actually installed (check `node_modules`) before referencing binaries. Prefer `npx` over direct `node_modules/.bin` paths.
+
 ## Data Integrity
 
 **Never modify ebook files on disk.** Code must never write to, rename, move, or delete the ebook files on disk. The files are the user's property. Only the database records describing them may be changed.
+
+## Metadata fields
+
+Metadata Fields
+
+## Basic Information
+
+Title
+Subtitle
+Publisher
+Published
+
+## Tags and Categories
+
+Authors
+Genres
+Moods
+Tags
+
+## Description
+
+Description
+
+## Series Information
+
+Series Name
+Series Book Number
+Series Total Books
+
+## Book Details
+
+language
+ISBN-10
+ISBN-13
+Pages
+
+## Provider Metadata
+
+Google ID
+ASIN
+Goodreads ID
+Goodreads Number
+Goodreads Rating
+Openlibrary ID (/works/<id>)

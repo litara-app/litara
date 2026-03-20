@@ -241,6 +241,7 @@ function UserManagementSection() {
 
 export function SettingsPage() {
   const [enrichMetadata, setEnrichMetadata] = useState(false);
+  const [rescanMetadata, setRescanMetadata] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<'success' | 'error' | null>(null);
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
@@ -266,9 +267,11 @@ export function SettingsPage() {
     setScanning(true);
     setResult(null);
     try {
-      await api.post(
-        `/library/scan${enrichMetadata ? '?enrichMetadata=true' : ''}`,
-      );
+      const params = new URLSearchParams();
+      if (rescanMetadata) params.set('rescanMetadata', 'true');
+      if (enrichMetadata) params.set('enrichMetadata', 'true');
+      const qs = params.toString();
+      await api.post(`/library/scan${qs ? `?${qs}` : ''}`);
       setResult('success');
     } catch {
       setResult('error');
@@ -311,6 +314,12 @@ export function SettingsPage() {
             imported, and any previously missing files that have returned will
             be restored.
           </Text>
+
+          <Checkbox
+            label="Re-scan metadata from file (re-reads title, authors, and cover from each file)"
+            checked={rescanMetadata}
+            onChange={(e) => setRescanMetadata(e.currentTarget.checked)}
+          />
 
           <Checkbox
             label="Fetch metadata from external sources (Google Books / Open Library)"
