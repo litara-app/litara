@@ -57,7 +57,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # turborepo cache
 .turbo
-.claude
+
+# Claude specific settings
+.claude/settings.local.json
 
 # local docker test ebook directory (created by docker-compose.local.yml volume mount)
 /books

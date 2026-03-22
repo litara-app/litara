@@ -1,16 +1,28 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { VersioningType } from '@nestjs/common';
+import { RequestMethod, VersioningType } from '@nestjs/common';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
+import type { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Security headers
-  app.use(helmet());
+  // Security headers — skip for OPDS routes so ebook reader apps (Thorium,
+  // KOReader, etc.) aren't blocked by CSP upgrade-insecure-requests or
+  // Cross-Origin-Resource-Policy: same-origin.
+  const helmetMiddleware = helmet();
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/opds')) return next();
+    return helmetMiddleware(req, res, next);
+  });
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: [
+      { path: 'opds', method: RequestMethod.ALL },
+      { path: 'opds/(.*)', method: RequestMethod.ALL },
+    ],
+  });
   app.enableCors();
 
   app.enableVersioning({
