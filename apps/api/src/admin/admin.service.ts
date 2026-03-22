@@ -72,4 +72,45 @@ export class AdminService {
     if (!user) throw new NotFoundException('User not found');
     await this.prisma.user.delete({ where: { id } });
   }
+
+  async listOpdsUsers() {
+    return this.prisma.opdsUser.findMany({
+      select: { id: true, username: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createOpdsUser(dto: { username: string; password: string }) {
+    const existing = await this.prisma.opdsUser.findUnique({
+      where: { username: dto.username },
+    });
+    if (existing) throw new ConflictException('Username already in use');
+    const hashed = await bcrypt.hash(dto.password, 10);
+    return this.prisma.opdsUser.create({
+      data: { username: dto.username, password: hashed },
+      select: { id: true, username: true, createdAt: true },
+    });
+  }
+
+  async deleteOpdsUser(id: string) {
+    const user = await this.prisma.opdsUser.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('OPDS user not found');
+    await this.prisma.opdsUser.delete({ where: { id } });
+  }
+
+  async getOpdsSetting() {
+    const setting = await this.prisma.serverSettings.findUnique({
+      where: { key: 'opds_enabled' },
+    });
+    return { enabled: setting?.value === 'true' };
+  }
+
+  async setOpdsSetting(enabled: boolean) {
+    await this.prisma.serverSettings.upsert({
+      where: { key: 'opds_enabled' },
+      create: { key: 'opds_enabled', value: String(enabled) },
+      update: { value: String(enabled) },
+    });
+    return { enabled };
+  }
 }

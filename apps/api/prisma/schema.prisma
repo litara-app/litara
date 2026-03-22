@@ -306,3 +306,10 @@ model ServerSettings {
   value     String   // Store as JSON string to support various data types
   updatedAt DateTime @updatedAt
 }
+
+model OpdsUser {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // bcrypt hashed
+  createdAt DateTime @default(now())
+}

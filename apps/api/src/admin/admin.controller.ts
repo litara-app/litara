@@ -70,4 +70,48 @@ export class AdminController {
   remove(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.adminService.remove(id, req.user.id);
   }
+
+  @Get('opds-users')
+  @ApiOkResponse()
+  listOpdsUsers() {
+    return this.adminService.listOpdsUsers();
+  }
+
+  @Post('opds-users')
+  @ApiCreatedResponse()
+  createOpdsUser(@Body() body: { username: string; password: string }) {
+    if (!body.username?.trim()) {
+      throw new BadRequestException('Username is required');
+    }
+    if (!body.password) {
+      throw new BadRequestException('Password is required');
+    }
+    return this.adminService.createOpdsUser(body);
+  }
+
+  @Delete('opds-users/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse()
+  deleteOpdsUser(@Param('id') id: string) {
+    return this.adminService.deleteOpdsUser(id);
+  }
+
+  @Get('settings/opds')
+  @ApiOkResponse()
+  getOpdsSettings(@Req() req: RequestWithUser) {
+    const proto = req.protocol;
+    const host = req.get('host') ?? 'localhost:3000';
+    const base = `${proto}://${host}`;
+    return this.adminService.getOpdsSetting().then((s) => ({
+      ...s,
+      v1Url: `${base}/opds/v1`,
+      v2Url: `${base}/opds/v2`,
+    }));
+  }
+
+  @Patch('settings/opds')
+  @ApiOkResponse()
+  setOpdsSettings(@Body() body: { enabled: boolean }) {
+    return this.adminService.setOpdsSetting(body.enabled);
+  }
 }

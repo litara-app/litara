@@ -14,6 +14,7 @@ import { LibrariesModule } from './libraries/libraries.module';
 import { ShelvesModule } from './shelves/shelves.module';
 import { AdminModule } from './admin/admin.module';
 import { SetupModule } from './setup/setup.module';
+import { OpdsModule } from './opds/opds.module';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 
@@ -41,6 +42,7 @@ const staticModules = existsSync(publicPath)
     ShelvesModule,
     AdminModule,
     SetupModule,
+    OpdsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

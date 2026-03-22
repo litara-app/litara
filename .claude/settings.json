@@ -1,0 +1,13 @@
+{
+"hooks": {
+    "PostToolUse": [                                                                                                                                                                                 {
+        "matcher": "Edit|Write",
+        "hooks": [
+        {
+            "type": "command",
+            "command": "cd apps/api && npx tsc --noEmit 2>&1 | head -20"
+        }                                                                                                                                                                                            ]
+    }
+    ]
+}
+}

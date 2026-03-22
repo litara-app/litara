@@ -15,6 +15,18 @@ export async function createTestUser(
   });
 }
 
+export async function createOpdsUser(
+  db: DatabaseService,
+  opts?: { username?: string; password?: string },
+) {
+  const username = opts?.username ?? 'opds-user';
+  const password = opts?.password ?? 'password123';
+  const hash = await bcrypt.hash(password, 10);
+  return db.opdsUser.create({
+    data: { username, password: hash },
+  });
+}
+
 export async function loginAs(
   app: INestApplication,
   email: string,

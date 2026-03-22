@@ -278,6 +278,16 @@ CREATE TABLE "ServerSettings" (
 );
 
 -- CreateTable
+CREATE TABLE "OpdsUser" (
+    "id" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OpdsUser_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_BookToTag" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
@@ -310,6 +320,7 @@ CREATE UNIQUE INDEX "ReadingProgress_userId_bookId_key" ON "ReadingProgress"("us
 CREATE UNIQUE INDEX "UserReview_userId_bookId_key" ON "UserReview"("userId", "bookId");
 CREATE UNIQUE INDEX "UserBookLibrary_userId_bookId_key" ON "UserBookLibrary"("userId", "bookId");
 CREATE UNIQUE INDEX "ServerSettings_key_key" ON "ServerSettings"("key");
+CREATE UNIQUE INDEX "OpdsUser_username_key" ON "OpdsUser"("username");
 CREATE INDEX "_BookToTag_B_index" ON "_BookToTag"("B");
 CREATE UNIQUE INDEX "_BookToGenre_AB_unique" ON "_BookToGenre"("A", "B");
 CREATE INDEX "_BookToGenre_B_index" ON "_BookToGenre"("B");
