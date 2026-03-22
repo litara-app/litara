@@ -1,4 +1,6 @@
-import { MantineProvider } from '@mantine/core';
+import { MantineProvider, createTheme } from '@mantine/core';
+
+const theme = createTheme({ cursorType: 'pointer' });
 import {
   BrowserRouter,
   Routes,
@@ -29,7 +31,7 @@ function ProtectedRoute() {
 
 export default function App() {
   return (
-    <MantineProvider defaultColorScheme="auto">
+    <MantineProvider theme={theme} defaultColorScheme="auto">
       <ToastContainer />
       <BrowserRouter>
         <Routes>
