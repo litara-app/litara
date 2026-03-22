@@ -7,6 +7,8 @@ import {
   UnstyledButton,
   Text,
   Box,
+  Avatar,
+  Group,
 } from '@mantine/core';
 import {
   IconHome,
@@ -16,7 +18,6 @@ import {
   IconSettings,
   IconLogout,
   IconLibrary,
-  IconUser,
   IconPlus,
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -186,12 +187,31 @@ export function NavbarContent() {
 
       <Divider />
 
-      <NavLink
-        label={user?.name ?? user?.email ?? 'Account'}
-        leftSection={<IconUser size={18} />}
-        active={location.pathname === '/user-settings'}
+      <UnstyledButton
         onClick={() => navigate('/user-settings')}
-      />
+        p="sm"
+        w="100%"
+        style={{ borderRadius: 'var(--mantine-radius-sm)' }}
+      >
+        <Group>
+          <Avatar
+            radius="xl"
+            size="sm"
+            name={user?.name ?? user?.email}
+            color="initials"
+          />
+          <div style={{ flex: 1 }}>
+            <Text size="sm" fw={500}>
+              {user?.name ?? 'Account'}
+            </Text>
+            {user?.email && (
+              <Text size="xs" c="dimmed">
+                {user.email}
+              </Text>
+            )}
+          </div>
+        </Group>
+      </UnstyledButton>
       <NavLink
         label="Logout"
         leftSection={<IconLogout size={18} />}

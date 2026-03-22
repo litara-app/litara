@@ -21,6 +21,8 @@ export async function cleanDatabase(db: DatabaseService): Promise<void> {
       "Book",
       "Author",
       "Series",
+      "Genre",
+      "Mood",
       "Tag",
       "WatchedFolder",
       "UserSettings",
@@ -29,7 +31,8 @@ export async function cleanDatabase(db: DatabaseService): Promise<void> {
       "User",
       "Task",
       "Log",
-      "ServerSettings"
+      "ServerSettings",
+      "OpdsUser"
     CASCADE
   `;
 }
