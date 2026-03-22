@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/litara-app/litara/compare/v1.1.1...v1.2.0) (2026-03-22)
+
+
+### Features
+
+* adding basic opds v1 and v2 implementation ([eddc686](https://github.com/litara-app/litara/commit/eddc68681e37219f88d945acf59781fc2896da33))
+
 ## [1.1.1](https://github.com/litara-app/litara/compare/v1.1.0...v1.1.1) (2026-03-20)
 
 
