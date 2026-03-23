@@ -1,0 +1,15 @@
+ <svg
+      width="56"
+      height="56"
+      viewBox="0 0 56 56"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      {/* Book 3 (bottom, widest) */}
+      <rect x="4" y="42" width="48" height="10" rx="3" fill="#228be6" />
+      {/* Book 2 (middle) */}
+      <rect x="8" y="28" width="36" height="10" rx="3" fill="#339af0" />
+      {/* Book 1 (top, tallest spine) */}
+      <rect x="14" y="14" width="28" height="10" rx="3" fill="#74c0fc" />
+    </svg>
