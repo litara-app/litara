@@ -18,6 +18,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:e2e": "cross-env EBOOK_LIBRARY_PATH=./test/fixtures/ebook-library turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "prepare": "prek install && prek install --hook-type pre-push && prek install --hook-type commit-msg",
@@ -32,6 +33,7 @@
     "@semantic-release/changelog": "^6.0.0",
     "@semantic-release/git": "^10.0.0",
     "@types/pg": "^8.18.0",
+    "cross-env": "^10.1.0",
     "prettier": "^3.4.2",
     "prisma": "^7.5.0",
     "semantic-release": "^24.0.0",

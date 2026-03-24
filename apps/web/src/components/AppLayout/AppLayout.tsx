@@ -10,10 +10,19 @@ import {
   UnstyledButton,
   Text,
   Box,
+  ActionIcon,
+  Tooltip,
 } from '@mantine/core';
+import { useMantineColorScheme, useComputedColorScheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet } from 'react-router-dom';
-import { IconSearch, IconBook2, IconServerOff } from '@tabler/icons-react';
+import {
+  IconSearch,
+  IconBook2,
+  IconServerOff,
+  IconSun,
+  IconMoon,
+} from '@tabler/icons-react';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { NavbarContent } from './NavbarContent';
 import { BookDetailModal } from '../BookDetailModal';
@@ -111,6 +120,8 @@ export function AppLayout() {
   const inputRef = useRef<HTMLInputElement>(null);
   const setUserSettings = useSetAtom(userSettingsAtom);
   const backendStatus = useAtomValue(backendStatusAtom);
+  const { setColorScheme } = useMantineColorScheme();
+  const computedColorScheme = useComputedColorScheme('light');
 
   useEffect(() => {
     api
@@ -157,19 +168,33 @@ export function AppLayout() {
       padding="md"
     >
       <AppShell.Header>
-        <Group h="100%" px="md" gap="md">
-          <Burger opened={opened} onClick={toggle} size="sm" />
-          <Group gap="xs" wrap="nowrap">
-            <img src="/logo.svg" alt="Litara logo" width={28} height={28} />
-            <Title order={4} style={{ whiteSpace: 'nowrap' }}>
-              Litara
-            </Title>
+        <Box
+          h="100%"
+          px="md"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
+            alignItems: 'center',
+            gap: 'var(--mantine-spacing-md)',
+          }}
+        >
+          {/* Left: burger + logo */}
+          <Group gap="md" wrap="nowrap">
+            <Burger opened={opened} onClick={toggle} size="sm" />
+            <Group gap="xs" wrap="nowrap">
+              <img src="/logo.svg" alt="Litara logo" width={28} height={28} />
+              <Title order={4} style={{ whiteSpace: 'nowrap' }}>
+                Litara
+              </Title>
+            </Group>
           </Group>
+
+          {/* Center: search */}
           <Popover
             opened={searchOpen}
             onClose={() => setSearchOpen(false)}
             width="target"
-            position="bottom-start"
+            position="bottom"
             withinPortal
             trapFocus={false}
           >
@@ -178,7 +203,7 @@ export function AppLayout() {
                 ref={inputRef}
                 placeholder="Search..."
                 leftSection={<IconSearch size={16} />}
-                style={{ flex: 1, maxWidth: 400, margin: '0 auto' }}
+                style={{ width: 400 }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.currentTarget.value)}
                 onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
@@ -207,7 +232,33 @@ export function AppLayout() {
               )}
             </Popover.Dropdown>
           </Popover>
-        </Group>
+
+          {/* Right: dark/light toggle */}
+          <Group justify="flex-end">
+            <Tooltip
+              label={
+                computedColorScheme === 'dark' ? 'Light mode' : 'Dark mode'
+              }
+              position="bottom-end"
+            >
+              <ActionIcon
+                variant="subtle"
+                size="lg"
+                onClick={() =>
+                  setColorScheme(
+                    computedColorScheme === 'dark' ? 'light' : 'dark',
+                  )
+                }
+              >
+                {computedColorScheme === 'dark' ? (
+                  <IconSun size={18} />
+                ) : (
+                  <IconMoon size={18} />
+                )}
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        </Box>
       </AppShell.Header>
 
       <AppShell.Navbar>

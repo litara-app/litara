@@ -13,6 +13,8 @@
 
 A self-hosted ebook library manager. Automatically scans a folder for ebook files, extracts metadata, and serves a clean web UI for browsing, reading progress, shelves, and annotations.
 
+![Litara dashboard](./apps/docs/static/screenshots/dashboard.png)
+
 ## Features
 
 - Scans and indexes `.epub`, `.mobi`, `.azw`, `.azw3`, `.cbz`, and `.pdf` files

@@ -6,10 +6,15 @@ const sidebars: SidebarsConfig = {
     'installation',
     'configuration',
     'opds',
+    'email-delivery',
     {
       type: 'category',
       label: 'Development',
-      items: ['development/local-setup', 'development/packages'],
+      items: [
+        'development/local-setup',
+        'development/packages',
+        'development/frontend-testing',
+      ],
     },
   ],
 };
