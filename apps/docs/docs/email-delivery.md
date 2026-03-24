@@ -14,6 +14,8 @@ Litara can send ebooks directly to an email address — useful for pushing books
 
 ## SMTP configuration
 
+![Settings page](@site/static/screenshots/settings.png)
+
 Litara supports two levels of SMTP configuration:
 
 | Level                   | Who configures it | Where                        |

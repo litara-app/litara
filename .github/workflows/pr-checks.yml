@@ -42,3 +42,79 @@ jobs:
 
       - name: Commitlint
         run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  e2e:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/litara
+      JWT_SECRET: e2e-test-secret-do-not-use-in-prod
+      EBOOK_LIBRARY_PATH: ${{ github.workspace }}/test/fixtures/ebook-library
+      PLAYWRIGHT_BASE_URL: http://localhost:5173
+      PLAYWRIGHT_API_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Start PostgreSQL
+        run: docker compose -f docker-compose.dev.yml up -d
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 20); do
+            pg_isready -h localhost -p 5432 -U postgres && break
+            echo "Waiting for postgres... attempt $i"
+            sleep 2
+          done
+
+      - name: Build API
+        run: npm run build --workspace=@litara/api
+
+      - name: Start API
+        run: node dist/apps/api/src/main &
+        working-directory: apps/api
+
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/api/v1/setup/status && break
+            echo "Waiting for API... attempt $i"
+            sleep 2
+          done
+
+      - name: Run E2E tests
+        run: npm run e2e --workspace=@litara/web
+
+      - name: Capture UI screenshots
+        if: always()
+        run: SCREENSHOTS_OUTPUT_DIR=playwright-screenshots/ npm run screenshots --workspace=@litara/web
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
+
+      - name: Upload UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: playwright-screenshots/
+          retention-days: 14
