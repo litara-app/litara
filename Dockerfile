@@ -1,5 +1,5 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM node:22-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Native build tools for modules like bcrypt
@@ -32,7 +32,7 @@ RUN npm run build --workspace=@litara/api
 RUN npm prune --omit=dev
 
 # ── Stage 2: Production image ─────────────────────────────────────────────────
-FROM node:22-alpine
+FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
