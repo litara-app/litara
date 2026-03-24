@@ -16,6 +16,7 @@ import {
   IconBooks,
   IconBookmarks,
   IconSettings,
+  IconShieldCog,
   IconLogout,
   IconLibrary,
   IconPlus,
@@ -184,14 +185,28 @@ export function NavbarContent() {
         active={location.pathname === '/settings'}
         onClick={() => navigate('/settings')}
       />
+      {user?.role === 'ADMIN' && (
+        <NavLink
+          label="Admin Settings"
+          leftSection={<IconShieldCog size={18} />}
+          active={location.pathname === '/admin-settings'}
+          onClick={() => navigate('/admin-settings')}
+        />
+      )}
 
       <Divider />
 
       <UnstyledButton
-        onClick={() => navigate('/user-settings')}
+        onClick={() => navigate('/profile')}
         p="sm"
         w="100%"
-        style={{ borderRadius: 'var(--mantine-radius-sm)' }}
+        style={{
+          borderRadius: 'var(--mantine-radius-sm)',
+          background:
+            location.pathname === '/profile'
+              ? 'var(--mantine-color-gray-1)'
+              : undefined,
+        }}
       >
         <Group>
           <Avatar

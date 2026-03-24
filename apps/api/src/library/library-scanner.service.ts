@@ -86,7 +86,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   // Full scan using fast-glob
   // ---------------------------------------------------------------------------
 
-  async fullScan(forceEnrich = false, rescanMetadata = false) {
+  async fullScan(rescanMetadata = false) {
     const watchedFolders = await this.prisma.watchedFolder.findMany({
       where: { isActive: true },
     });
@@ -96,14 +96,8 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const flags = [
-      forceEnrich ? 'metadata enrichment' : '',
-      rescanMetadata ? 'rescan metadata' : '',
-    ]
-      .filter(Boolean)
-      .join(', ');
     this.logger.log(
-      `Starting full scan of ${watchedFolders.length} folder(s)...${flags ? ` (${flags})` : ''}`,
+      `Starting full scan of ${watchedFolders.length} folder(s)...${rescanMetadata ? ' (rescan metadata)' : ''}`,
     );
 
     for (const folder of watchedFolders) {
@@ -111,7 +105,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       const files = await glob.glob(pattern, { absolute: true, dot: false });
       this.logger.log(`Found ${files.length} file(s) in ${folder.path}`);
       for (const filePath of files) {
-        await this.handleFileAdded(filePath, forceEnrich, rescanMetadata);
+        await this.handleFileAdded(filePath, rescanMetadata);
       }
     }
 
@@ -171,11 +165,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   // Handle individual file addition
   // ---------------------------------------------------------------------------
 
-  async handleFileAdded(
-    filePath: string,
-    forceEnrich = false,
-    rescanMetadata = false,
-  ) {
+  async handleFileAdded(filePath: string, rescanMetadata = false) {
     try {
       const stat = fs.statSync(filePath);
       const sizeBytes = BigInt(stat.size);
@@ -197,27 +187,6 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
           await this.rescanBookMetadata(filePath, existingByPath.bookId);
         }
 
-        if (
-          forceEnrich ||
-          this.config.get<string>('METADATA_ENRICH_ON_SCAN') === 'true'
-        ) {
-          const book = await this.prisma.book.findUnique({
-            where: { id: existingByPath.bookId },
-            include: { authors: { include: { author: true } } },
-          });
-          if (book) {
-            this.metadataService
-              .enrichBook(book.id, {
-                title: book.title,
-                authors: book.authors.map((ba) => ba.author.name),
-              })
-              .catch((err) =>
-                this.logger.warn(
-                  `Metadata enrichment failed for "${book.title}": ${(err as Error).message}`,
-                ),
-              );
-          }
-        }
         return;
       }
 
@@ -297,25 +266,6 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(
         `Imported: "${metadata.title}" [${format}] — ${metadata.authors.join(', ') || 'Unknown author'}`,
       );
-
-      // Fire-and-forget metadata enrichment — if explicitly enabled via env var or forced by caller
-      if (
-        forceEnrich ||
-        this.config.get<string>('METADATA_ENRICH_ON_SCAN') === 'true'
-      ) {
-        this.metadataService
-          .enrichBook(book.id, {
-            title:
-              metadata.title || path.basename(filePath, path.extname(filePath)),
-            authors: metadata.authors,
-            isbn13: metadata.isbn13,
-          })
-          .catch((err) =>
-            this.logger.warn(
-              `Metadata enrichment failed for "${metadata.title}": ${(err as Error).message}`,
-            ),
-          );
-      }
     } catch (err) {
       this.logger.error(`Failed to process file: ${filePath}`, err);
     }

@@ -22,6 +22,8 @@ model User {
   shelves         Shelf[]
   libraries       Library[]
   bookLibraries   UserBookLibrary[]
+  recipientEmails RecipientEmail[]
+  smtpConfig      UserSmtpConfig?
 }
 
 enum Role {
@@ -305,6 +307,33 @@ model ServerSettings {
   key       String   @unique
   value     String   // Store as JSON string to support various data types
   updatedAt DateTime @updatedAt
+}
+
+model RecipientEmail {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  label     String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, email])
+}
+
+model UserSmtpConfig {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  host              String
+  port              Int
+  fromAddress       String
+  username          String
+  encryptedPassword String
+  enableAuth        Boolean  @default(true)
+  enableStartTls    Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model OpdsUser {

@@ -288,6 +288,35 @@ CREATE TABLE "OpdsUser" (
 );
 
 -- CreateTable
+CREATE TABLE "RecipientEmail" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "label" TEXT,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RecipientEmail_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserSmtpConfig" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "host" TEXT NOT NULL,
+    "port" INTEGER NOT NULL,
+    "fromAddress" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "encryptedPassword" TEXT NOT NULL,
+    "enableAuth" BOOLEAN NOT NULL DEFAULT true,
+    "enableStartTls" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "UserSmtpConfig_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_BookToTag" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
@@ -298,13 +327,17 @@ CREATE TABLE "_BookToTag" (
 -- CreateTable
 CREATE TABLE "_BookToGenre" (
     "A" TEXT NOT NULL,
-    "B" TEXT NOT NULL
+    "B" TEXT NOT NULL,
+
+    CONSTRAINT "_BookToGenre_AB_pkey" PRIMARY KEY ("A","B")
 );
 
 -- CreateTable
 CREATE TABLE "_BookToMood" (
     "A" TEXT NOT NULL,
-    "B" TEXT NOT NULL
+    "B" TEXT NOT NULL,
+
+    CONSTRAINT "_BookToMood_AB_pkey" PRIMARY KEY ("A","B")
 );
 
 -- CreateIndex
@@ -321,10 +354,10 @@ CREATE UNIQUE INDEX "UserReview_userId_bookId_key" ON "UserReview"("userId", "bo
 CREATE UNIQUE INDEX "UserBookLibrary_userId_bookId_key" ON "UserBookLibrary"("userId", "bookId");
 CREATE UNIQUE INDEX "ServerSettings_key_key" ON "ServerSettings"("key");
 CREATE UNIQUE INDEX "OpdsUser_username_key" ON "OpdsUser"("username");
+CREATE UNIQUE INDEX "RecipientEmail_userId_email_key" ON "RecipientEmail"("userId", "email");
+CREATE UNIQUE INDEX "UserSmtpConfig_userId_key" ON "UserSmtpConfig"("userId");
 CREATE INDEX "_BookToTag_B_index" ON "_BookToTag"("B");
-CREATE UNIQUE INDEX "_BookToGenre_AB_unique" ON "_BookToGenre"("A", "B");
 CREATE INDEX "_BookToGenre_B_index" ON "_BookToGenre"("B");
-CREATE UNIQUE INDEX "_BookToMood_AB_unique" ON "_BookToMood"("A", "B");
 CREATE INDEX "_BookToMood_B_index" ON "_BookToMood"("B");
 
 -- AddForeignKey
@@ -349,6 +382,8 @@ ALTER TABLE "Shelf" ADD CONSTRAINT "Shelf_userId_fkey" FOREIGN KEY ("userId") RE
 ALTER TABLE "BookShelf" ADD CONSTRAINT "BookShelf_shelfId_fkey" FOREIGN KEY ("shelfId") REFERENCES "Shelf"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "BookShelf" ADD CONSTRAINT "BookShelf_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "Book"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "SmartShelfRule" ADD CONSTRAINT "SmartShelfRule_shelfId_fkey" FOREIGN KEY ("shelfId") REFERENCES "Shelf"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "RecipientEmail" ADD CONSTRAINT "RecipientEmail_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "UserSmtpConfig" ADD CONSTRAINT "UserSmtpConfig_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "_BookToTag" ADD CONSTRAINT "_BookToTag_A_fkey" FOREIGN KEY ("A") REFERENCES "Book"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "_BookToTag" ADD CONSTRAINT "_BookToTag_B_fkey" FOREIGN KEY ("B") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "_BookToGenre" ADD CONSTRAINT "_BookToGenre_A_fkey" FOREIGN KEY ("A") REFERENCES "Book"("id") ON DELETE CASCADE ON UPDATE CASCADE;

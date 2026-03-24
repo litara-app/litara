@@ -16,7 +16,8 @@ import { Dashboard } from './pages/Dashboard';
 import { LibraryPage } from './pages/LibraryPage';
 import { ShelfPage } from './pages/ShelfPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { UserSettingsPage } from './pages/UserSettingsPage';
+import { AdminSettingsPage } from './pages/AdminSettingsPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { AllBooksPage } from './pages/AllBooksPage';
 import { AppLayout } from './components/AppLayout/AppLayout';
 import { ToastContainer } from './components/ToastContainer';
@@ -44,7 +45,13 @@ export default function App() {
               <Route path="/library/:id" element={<LibraryPage />} />
               <Route path="/shelf/:id" element={<ShelfPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/user-settings" element={<UserSettingsPage />} />
+              <Route path="/admin-settings" element={<AdminSettingsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              {/* Legacy redirects */}
+              <Route
+                path="/user-settings"
+                element={<Navigate to="/settings" replace />}
+              />
             </Route>
           </Route>
         </Routes>
