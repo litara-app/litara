@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/litara-app/litara/compare/v1.3.0...v1.4.0) (2026-03-24)
+
+
+### Features
+
+* dark mode, e2e tests for web ([2f46859](https://github.com/litara-app/litara/commit/2f468598bf75d18edebbb8c07ce400652029554e))
+
 # [1.3.0](https://github.com/litara-app/litara/compare/v1.2.0...v1.3.0) (2026-03-24)
 
 
