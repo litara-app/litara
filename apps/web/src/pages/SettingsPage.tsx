@@ -13,6 +13,7 @@ import {
   Skeleton,
   SegmentedControl,
 } from '@mantine/core';
+import { useMantineColorScheme } from '@mantine/core';
 import {
   IconTrash,
   IconStar,
@@ -214,6 +215,7 @@ function RecipientEmailsSection() {
 
 export function SettingsPage() {
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
 
   async function handleItemSizeChange(val: string) {
     const updated = {
@@ -231,6 +233,19 @@ export function SettingsPage() {
       <Paper withBorder p="md" radius="md">
         <Stack gap="sm">
           <Title order={4}>Display</Title>
+          <Text size="sm" c="dimmed">
+            Appearance
+          </Text>
+          <SegmentedControl
+            value={colorScheme}
+            onChange={(val) => setColorScheme(val as 'light' | 'dark' | 'auto')}
+            data={[
+              { label: 'Light', value: 'light' },
+              { label: 'Auto', value: 'auto' },
+              { label: 'Dark', value: 'dark' },
+            ]}
+            w="fit-content"
+          />
           <Text size="sm" c="dimmed">
             Book item size
           </Text>

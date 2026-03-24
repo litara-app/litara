@@ -18,6 +18,8 @@ Litara is a self-hosted ebook library manager. It lets you organize, read, and m
 - **Shelves** — Organize books into custom shelves and smart shelves with auto-matching rules.
 - **Multi-user** — JWT-based authentication supports multiple independent user accounts.
 
+![Book detail modal](@site/static/screenshots/book-detail.png)
+
 ## Architecture
 
 Litara is composed of two apps and one package:

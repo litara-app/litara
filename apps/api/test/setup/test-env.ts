@@ -19,6 +19,15 @@ try {
 process.env.JWT_SECRET = 'test-secret-key-do-not-use-in-prod';
 process.env.NODE_ENV = 'test';
 
-// Resolve the ebook-library path:
-// apps/api/test/setup/ → .. → apps/api/test/ → ebook-library/
-process.env.EBOOK_LIBRARY_PATH = path.resolve(__dirname, '..', 'ebook-library');
+// Resolve the shared ebook-library path:
+// apps/api/test/setup/ → ../../../../test/fixtures/ebook-library/
+process.env.EBOOK_LIBRARY_PATH = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  'test',
+  'fixtures',
+  'ebook-library',
+);
