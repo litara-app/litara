@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/litara-app/litara/compare/v1.2.0...v1.3.0) (2026-03-24)
+
+
+### Features
+
+* adding email book sending ([5a7b3c8](https://github.com/litara-app/litara/commit/5a7b3c84104ac2054451e9cbc89e20e154295a25))
+
 # [1.2.0](https://github.com/litara-app/litara/compare/v1.1.1...v1.2.0) (2026-03-22)
 
 
