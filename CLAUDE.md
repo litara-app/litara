@@ -98,14 +98,13 @@ React 19 + Vite SPA using **Mantine** for UI components and **React Router v7** 
 
 ### Environment Variables
 
-| Variable                  | App | Description                                                                                                            |
-| ------------------------- | --- | ---------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | API | PostgreSQL connection string                                                                                           |
-| `JWT_SECRET`              | API | Secret for signing JWT tokens                                                                                          |
-| `EBOOK_LIBRARY_PATH`      | API | Path to ebook directory (optional, has default)                                                                        |
-| `PORT`                    | API | HTTP port (default: 3000)                                                                                              |
-| `METADATA_ENRICH_ON_SCAN` | API | Set to `true` to auto-fetch external metadata when a file is scanned. Default: off (to avoid hitting API rate limits). |
-| `GOOGLE_BOOKS_API_KEY`    | API | Optional Google Books API key. Raises rate limit from ~100/day to 1000/day.                                            |
+| Variable               | App | Description                                                                 |
+| ---------------------- | --- | --------------------------------------------------------------------------- |
+| `DATABASE_URL`         | API | PostgreSQL connection string                                                |
+| `JWT_SECRET`           | API | Secret for signing JWT tokens                                               |
+| `EBOOK_LIBRARY_PATH`   | API | Path to ebook directory (optional, has default)                             |
+| `PORT`                 | API | HTTP port (default: 3000)                                                   |
+| `GOOGLE_BOOKS_API_KEY` | API | Optional Google Books API key. Raises rate limit from ~100/day to 1000/day. |
 
 Docker Compose provides a local PostgreSQL instance (`postgres:16-alpine`) on port 5432 with db `litara`, user/pass `postgres`.
 

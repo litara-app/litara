@@ -32,7 +32,9 @@ export async function cleanDatabase(db: DatabaseService): Promise<void> {
       "Task",
       "Log",
       "ServerSettings",
-      "OpdsUser"
+      "OpdsUser",
+      "RecipientEmail",
+      "UserSmtpConfig"
     CASCADE
   `;
 }
