@@ -11,7 +11,8 @@ Litara is a self-hosted ebook library manager. It lets you organize, read, and m
 
 - **Library scanning** — Automatically imports ebooks from a watched folder. Supports `.epub`, `.mobi`, `.azw`, `.azw3`, `.cbz`, and `.pdf` formats.
 - **Metadata extraction** — Pulls title, author, cover art, and other metadata directly from ebook files.
-- **Metadata enrichment** — Optionally fetches extended metadata (description, genres, ratings) from Google Books.
+- **Metadata enrichment** — Manually fetch extended metadata (description, genres, ratings) from Google Books for any book.
+- **Email delivery** — Send books directly to an e-reader via SMTP (e.g. Kindle email).
 - **OPDS support** — Exposes your library via OPDS v1 and v2 catalogs for compatible reading apps.
 - **Reading progress** — Tracks your reading progress and annotations per book.
 - **Shelves** — Organize books into custom shelves and smart shelves with auto-matching rules.
@@ -33,3 +34,4 @@ The API stores all data in PostgreSQL and exposes a Swagger UI at `/docs` when r
 
 - [Installation](./installation) — Get Litara running with Docker Compose
 - [Configuration](./configuration) — Environment variables and settings reference
+- [Email Delivery](./email-delivery) — Send books to your e-reader via SMTP

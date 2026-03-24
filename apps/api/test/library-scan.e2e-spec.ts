@@ -36,14 +36,6 @@ describe('Library Scan Routes (e2e)', () => {
       expect(res.body).toHaveProperty('message', 'Scan started');
     });
 
-    it('accepts enrichMetadata=true query parameter', async () => {
-      const res = await request(testApp.app.getHttpServer())
-        .post('/api/v1/library/scan?enrichMetadata=true')
-        .set('Authorization', `Bearer ${token}`)
-        .expect(201);
-      expect(res.body).toHaveProperty('message', 'Scan started');
-    });
-
     it('accepts rescanMetadata=true query parameter', async () => {
       const res = await request(testApp.app.getHttpServer())
         .post('/api/v1/library/scan?rescanMetadata=true')

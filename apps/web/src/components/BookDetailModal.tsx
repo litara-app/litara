@@ -15,6 +15,9 @@ import {
   Text,
   ScrollArea,
   TextInput,
+  Alert,
+  Select,
+  Stack,
 } from '@mantine/core';
 import {
   IconBook2,
@@ -27,7 +30,10 @@ import {
   IconLayoutList,
   IconPencil,
   IconFileText,
+  IconSend,
+  IconAlertTriangle,
 } from '@tabler/icons-react';
+import axios from 'axios';
 import { api } from '../utils/api';
 import { pushToast } from '../utils/toast';
 import type {
@@ -85,6 +91,19 @@ export function BookDetailModal({
   const [lockedFields, setLockedFields] = useState<Set<string>>(new Set());
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Send book
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [recipientEmails, setRecipientEmails] = useState<
+    { id: string; email: string; label: string | null; isDefault: boolean }[]
+  >([]);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [selectedRecipientId, setSelectedRecipientId] = useState<string | null>(
+    null,
+  );
+  const [sendSizeWarning, setSendSizeWarning] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
 
   // Match book
   const [matchModalOpen, setMatchModalOpen] = useState(false);
@@ -234,6 +253,72 @@ export function BookDetailModal({
       onClose();
     } finally {
       setMatching(false);
+    }
+  }
+
+  const SEND_SIZE_THRESHOLD = 25 * 1024 * 1024; // 25 MB
+
+  function resolveDefaultSendFile(
+    files: BookDetail['files'],
+  ): BookDetail['files'][0] | undefined {
+    return files.find((f) => f.format.toUpperCase() === 'EPUB') ?? files[0];
+  }
+
+  async function openSendModal() {
+    if (!detail) return;
+    setSendError('');
+    setSendSizeWarning(false);
+
+    const [recipientsRes] = await Promise.all([
+      api.get<
+        {
+          id: string;
+          email: string;
+          label: string | null;
+          isDefault: boolean;
+        }[]
+      >('/users/me/recipient-emails'),
+    ]);
+    setRecipientEmails(recipientsRes.data);
+
+    const defaultFile = resolveDefaultSendFile(detail.files);
+    setSelectedFileId(defaultFile?.id ?? null);
+
+    const defaultRecipient = recipientsRes.data.find((r) => r.isDefault);
+    setSelectedRecipientId(
+      defaultRecipient?.id ?? recipientsRes.data[0]?.id ?? null,
+    );
+
+    setSendModalOpen(true);
+  }
+
+  async function handleSend(confirmed = false) {
+    if (!detail) return;
+
+    const file = detail.files.find((f) => f.id === selectedFileId);
+    const sizeBytes = file ? parseInt(file.sizeBytes, 10) : 0;
+    if (!confirmed && !isNaN(sizeBytes) && sizeBytes > SEND_SIZE_THRESHOLD) {
+      setSendSizeWarning(true);
+      return;
+    }
+
+    setSending(true);
+    setSendError('');
+    try {
+      await api.post(`/books/${detail.id}/send`, {
+        fileId: selectedFileId ?? undefined,
+        recipientEmailId: selectedRecipientId ?? undefined,
+      });
+      setSendModalOpen(false);
+      setSendSizeWarning(false);
+      pushToast('Book sent successfully', { color: 'green' });
+    } catch (e) {
+      const msg =
+        axios.isAxiosError(e) &&
+        (e.response?.data as { message?: string })?.message;
+      setSendError(typeof msg === 'string' ? msg : 'Failed to send book.');
+    } finally {
+      setSending(false);
     }
   }
 
@@ -486,6 +571,16 @@ export function BookDetailModal({
                   </Menu>
                 ) : null}
 
+                {detail && detail.files.length > 0 && (
+                  <Button
+                    variant="light"
+                    leftSection={<IconSend size={16} />}
+                    onClick={() => void openSendModal()}
+                  >
+                    Send
+                  </Button>
+                )}
+
                 {isDirty && (
                   <Button
                     leftSection={<IconCheck size={16} />}
@@ -585,6 +680,113 @@ export function BookDetailModal({
             Confirm
           </Button>
         </Group>
+      </Modal>
+
+      {/* Send Book modal */}
+      <Modal
+        opened={sendModalOpen}
+        onClose={() => {
+          setSendModalOpen(false);
+          setSendSizeWarning(false);
+          setSendError('');
+        }}
+        title="Send Book"
+        size="sm"
+      >
+        <Stack gap="sm">
+          {detail && detail.files.length > 1 && (
+            <Select
+              label="Format"
+              value={selectedFileId}
+              onChange={(v) => {
+                setSelectedFileId(v);
+                setSendSizeWarning(false);
+              }}
+              data={detail.files.map((f) => ({
+                value: f.id,
+                label: `${f.format} — ${formatBytes(f.sizeBytes)}${f.missingAt ? ' (missing)' : ''}`,
+                disabled: !!f.missingAt,
+              }))}
+            />
+          )}
+
+          {recipientEmails.length === 0 ? (
+            <Alert
+              icon={<IconAlertTriangle size={14} />}
+              color="yellow"
+              variant="light"
+            >
+              No recipient emails configured. Add one in Account settings.
+            </Alert>
+          ) : (
+            <Select
+              label="Send to"
+              value={selectedRecipientId}
+              onChange={setSelectedRecipientId}
+              data={recipientEmails.map((r) => ({
+                value: r.id,
+                label: r.label ? `${r.label} (${r.email})` : r.email,
+              }))}
+            />
+          )}
+
+          {sendSizeWarning && (
+            <Alert
+              icon={<IconAlertTriangle size={14} />}
+              color="orange"
+              variant="light"
+            >
+              {(() => {
+                const file = detail?.files.find((f) => f.id === selectedFileId);
+                const mb = file
+                  ? (parseInt(file.sizeBytes, 10) / (1024 * 1024)).toFixed(1)
+                  : '?';
+                return `This file is ${mb} MB. Some SMTP servers (e.g. Gmail) reject attachments larger than 25 MB.`;
+              })()}
+            </Alert>
+          )}
+
+          {sendError && (
+            <Alert
+              icon={<IconAlertTriangle size={14} />}
+              color="red"
+              variant="light"
+            >
+              {sendError}
+            </Alert>
+          )}
+
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button
+              variant="subtle"
+              onClick={() => {
+                setSendModalOpen(false);
+                setSendSizeWarning(false);
+                setSendError('');
+              }}
+            >
+              Cancel
+            </Button>
+            {sendSizeWarning ? (
+              <Button
+                color="orange"
+                loading={sending}
+                onClick={() => void handleSend(true)}
+              >
+                Send anyway
+              </Button>
+            ) : (
+              <Button
+                leftSection={<IconSend size={14} />}
+                loading={sending}
+                disabled={!selectedRecipientId || recipientEmails.length === 0}
+                onClick={() => void handleSend()}
+              >
+                Send
+              </Button>
+            )}
+          </Group>
+        </Stack>
       </Modal>
     </>
   );
