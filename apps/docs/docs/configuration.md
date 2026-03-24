@@ -29,13 +29,12 @@ Litara is configured via environment variables on the API container.
 
 ### Metadata Enrichment
 
-| Variable                  | Default       | Description                                                                                                                                                |
-| ------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `METADATA_ENRICH_ON_SCAN` | `false` (off) | Set to `true` to automatically fetch extended metadata from Google Books when a new file is scanned. Disabled by default to avoid hitting API rate limits. |
-| `GOOGLE_BOOKS_API_KEY`    | _(none)_      | Optional Google Books API key. Without a key, requests are rate-limited to ~100/day. With a key, the limit increases to 1,000/day.                         |
+| Variable               | Default  | Description                                                                                                                                                                   |
+| ---------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_BOOKS_API_KEY` | _(none)_ | Optional Google Books API key used when enriching book metadata manually. Without a key, requests are rate-limited to ~100/day. With a key, the limit increases to 1,000/day. |
 
 ## Notes
 
-- **Never set `METADATA_ENRICH_ON_SCAN=true` on a large library without a `GOOGLE_BOOKS_API_KEY`** — scanning thousands of books without a key will exhaust the anonymous rate limit quickly.
 - **`JWT_SECRET` must be kept secret.** Rotating it will invalidate all existing sessions and require all users to log in again.
+- **Rotating `JWT_SECRET` also invalidates stored SMTP passwords.** Litara encrypts all SMTP passwords (both the server-level config and each user's personal SMTP config) using a key derived from `JWT_SECRET`. If you rotate the secret, all stored SMTP passwords will become unreadable — the admin must re-enter the server SMTP password, and each user must re-enter their personal SMTP password.
 - Database migrations run automatically on startup via `prisma migrate deploy`.

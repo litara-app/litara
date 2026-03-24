@@ -15,10 +15,17 @@ import {
 import { createReadStream } from 'fs';
 import { basename } from 'path';
 import type { Response } from 'express';
-import { ApiBearerAuth, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { MetadataResultDto } from '../metadata/metadata-result.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BooksService, GetBooksQueryDto, UpdateBookDto } from './books.service';
+import { MailService } from '../mail/mail.service';
+import { SendBookDto } from '../mail/dto/send-book.dto';
 import { MetadataProvider } from '../metadata/metadata.service';
 import type { RequestWithUser } from '../auth/interfaces/authenticated-user.interface';
 import { BookSummaryDto } from './book-summary.dto';
@@ -29,7 +36,10 @@ import { SuccessDto } from '../common/dto/success.dto';
 @ApiBearerAuth()
 @Controller('books')
 export class BooksController {
-  constructor(private readonly booksService: BooksService) {}
+  constructor(
+    private readonly booksService: BooksService,
+    private readonly mailService: MailService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -170,6 +180,19 @@ export class BooksController {
     @Body() body: { shelfIds: string[] },
   ) {
     return this.booksService.updateBookShelves(id, req.user.id, body.shelfIds);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/send')
+  @ApiOperation({ summary: 'Send a book file to a recipient email via SMTP' })
+  @ApiOkResponse({ schema: { properties: { message: { type: 'string' } } } })
+  async sendBook(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+    @Body() dto: SendBookDto,
+  ) {
+    await this.mailService.sendBook(req.user.id, id, dto);
+    return { message: 'Book sent successfully' };
   }
 
   @Get(':id/cover')

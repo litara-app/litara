@@ -12,14 +12,8 @@ export class LibraryController {
   @UseGuards(JwtAuthGuard)
   @Post('scan')
   @ApiOkResponse({ type: MessageDto })
-  triggerScan(
-    @Query('enrichMetadata') enrichMetadata?: string,
-    @Query('rescanMetadata') rescanMetadata?: string,
-  ) {
-    void this.scannerService.fullScan(
-      enrichMetadata === 'true',
-      rescanMetadata === 'true',
-    );
+  triggerScan(@Query('rescanMetadata') rescanMetadata?: string) {
+    void this.scannerService.fullScan(rescanMetadata === 'true');
     return { message: 'Scan started' };
   }
 }

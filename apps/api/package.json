@@ -46,6 +46,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
+    "nodemailer": "^6.10.1",
     "xmlbuilder2": "^4.0.3"
   },
   "devDependencies": {
@@ -62,6 +63,7 @@
     "@types/node": "^22.10.7",
     "@types/passport-http": "^0.3.11",
     "@types/passport-jwt": "^4.0.1",
+    "@types/nodemailer": "^6.4.17",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
