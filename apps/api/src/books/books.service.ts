@@ -255,6 +255,8 @@ export class BooksService {
     const book = await this.prisma.book.findUnique({ where: { id: bookId } });
     if (!book) throw new NotFoundException('Book not found');
 
+    this.logger.log(`updateBook: bookId=${bookId}`);
+
     const ops: Promise<unknown>[] = [];
 
     // User review
@@ -405,28 +407,75 @@ export class BooksService {
     bookId: string,
     dto: UpdateBookDto,
   ): Promise<void> {
+    // Snapshot existing series links so we can prune orphans afterward
+    const oldLinks = await this.prisma.seriesBook.findMany({
+      where: { bookId },
+      include: { series: { select: { id: true, name: true } } },
+    });
+
     if (dto.seriesName === null || dto.seriesName === '') {
+      this.logger.debug(
+        `replaceSeries: removing all series links for bookId=${bookId}`,
+      );
       await this.prisma.seriesBook.deleteMany({ where: { bookId } });
+      await this.pruneOrphanedSeries(oldLinks.map((l) => l.series));
       return;
     }
+
+    this.logger.debug(
+      `replaceSeries: bookId=${bookId} → "${dto.seriesName}" (seq=${dto.seriesSequence ?? null}, totalBooks=${dto.seriesTotalBooks ?? null})`,
+    );
+    if (oldLinks.length > 0) {
+      this.logger.debug(
+        `replaceSeries: removing old links: ${oldLinks.map((l) => `"${l.series.name}"`).join(', ')}`,
+      );
+    }
+
     const seriesData =
       dto.seriesTotalBooks !== undefined
         ? { totalBooks: dto.seriesTotalBooks }
         : {};
+
     const series = await this.prisma.series.upsert({
       where: { name: dto.seriesName! },
       update: seriesData,
       create: { name: dto.seriesName!, ...seriesData },
     });
-    await this.prisma.seriesBook.upsert({
-      where: { seriesId_bookId: { seriesId: series.id, bookId } },
-      update: { sequence: dto.seriesSequence ?? null },
-      create: {
+
+    this.logger.debug(
+      `replaceSeries: resolved series id=${series.id} name="${series.name}"`,
+    );
+
+    // Remove ALL existing series links for this book, then create exactly one
+    await this.prisma.seriesBook.deleteMany({ where: { bookId } });
+    await this.prisma.seriesBook.create({
+      data: {
         seriesId: series.id,
         bookId,
         sequence: dto.seriesSequence ?? null,
       },
     });
+
+    // Prune any series that now have no books (excluding the one we just used)
+    await this.pruneOrphanedSeries(
+      oldLinks.map((l) => l.series).filter((s) => s.id !== series.id),
+    );
+  }
+
+  private async pruneOrphanedSeries(
+    candidates: Array<{ id: string; name: string }>,
+  ): Promise<void> {
+    for (const s of candidates) {
+      const remaining = await this.prisma.seriesBook.count({
+        where: { seriesId: s.id },
+      });
+      if (remaining === 0) {
+        await this.prisma.series.delete({ where: { id: s.id } });
+        this.logger.debug(
+          `pruneOrphanedSeries: deleted empty series id=${s.id} name="${s.name}"`,
+        );
+      }
+    }
   }
 
   async applyExternalMetadata(

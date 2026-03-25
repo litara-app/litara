@@ -63,7 +63,7 @@ function detailToEdited(d: BookDetail): EditedFields {
     isbn10: d.isbn10 ?? '',
     publisher: d.publisher ?? '',
     publishedYear: d.publishedDate
-      ? String(new Date(d.publishedDate).getFullYear())
+      ? String(new Date(d.publishedDate).getUTCFullYear())
       : '',
     language: d.language ?? '',
     pageCount: d.pageCount ?? '',
