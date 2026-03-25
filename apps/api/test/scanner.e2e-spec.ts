@@ -25,7 +25,7 @@ describe('LibraryScanner (e2e)', () => {
       data: { path: ebookPath, isActive: true },
     });
 
-    // Run the full scan — imports all 4 fixture ebook files.
+    // Run the full scan — imports all 6 fixture ebook files.
     await libraryScannerService.fullScan();
   });
 
@@ -33,9 +33,9 @@ describe('LibraryScanner (e2e)', () => {
     await testApp.app.close();
   });
 
-  it('imports all 4 ebook files from ebook-library/', async () => {
+  it('imports all 6 ebook files from ebook-library/', async () => {
     const books = await testApp.db.book.findMany({ include: { files: true } });
-    expect(books).toHaveLength(4);
+    expect(books).toHaveLength(6);
   });
 
   it('EPUB: extracts title and author from metadata (Great Gatsby EPUB)', async () => {
@@ -93,6 +93,6 @@ describe('LibraryScanner (e2e)', () => {
   it('does not duplicate books when fullScan() is called a second time', async () => {
     await libraryScannerService.fullScan();
     const books = await testApp.db.book.findMany();
-    expect(books).toHaveLength(4);
+    expect(books).toHaveLength(6);
   });
 });
