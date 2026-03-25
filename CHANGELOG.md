@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/litara-app/litara/compare/v1.4.0...v1.5.0) (2026-03-25)
+
+
+### Bug Fixes
+
+* fixing tests to expect more epubs since we added more books ([563920e](https://github.com/litara-app/litara/commit/563920e8b5162944ba6244c56a7a5aece1253c7a))
+
+
+### Features
+
+* adding in series page to show book series ([792c53b](https://github.com/litara-app/litara/commit/792c53ba1fa8b0b7667463b8e8fc967a41e0d4bf))
+
 # [1.4.0](https://github.com/litara-app/litara/compare/v1.3.0...v1.4.0) (2026-03-24)
 
 
