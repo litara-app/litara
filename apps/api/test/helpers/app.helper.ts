@@ -40,7 +40,7 @@ export async function createTestApp(options?: {
   app.setGlobalPrefix('api', {
     exclude: [
       { path: 'opds', method: RequestMethod.ALL },
-      { path: 'opds/(.*)', method: RequestMethod.ALL },
+      { path: 'opds/*path', method: RequestMethod.ALL },
     ],
   });
   app.enableCors();
