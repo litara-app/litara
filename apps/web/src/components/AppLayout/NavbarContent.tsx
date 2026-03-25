@@ -20,6 +20,7 @@ import {
   IconLogout,
   IconLibrary,
   IconPlus,
+  IconTimeline,
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
@@ -128,6 +129,13 @@ export function NavbarContent() {
           leftSection={<IconBook size={18} />}
           active={location.pathname === '/books'}
           onClick={() => navigate('/books')}
+        />
+
+        <NavLink
+          label="Series"
+          leftSection={<IconTimeline size={18} />}
+          active={location.pathname === '/series'}
+          onClick={() => navigate('/series')}
         />
 
         <NavLink
