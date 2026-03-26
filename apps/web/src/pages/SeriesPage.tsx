@@ -18,12 +18,16 @@ interface SeriesListItem {
   name: string;
   ownedCount: number;
   totalBooks: number | null;
-  coverBookIds: string[];
+  coverBooks: Array<{ id: string; coverUpdatedAt: string }>;
   authors: string[];
 }
 
-function CoverStack({ coverBookIds }: { coverBookIds: string[] }) {
-  const ids = coverBookIds.slice(0, 3);
+function CoverStack({
+  coverBooks,
+}: {
+  coverBooks: Array<{ id: string; coverUpdatedAt: string }>;
+}) {
+  const ids = coverBooks.slice(0, 3);
   const count = ids.length;
 
   if (count === 0) {
@@ -58,12 +62,12 @@ function CoverStack({ coverBookIds }: { coverBookIds: string[] }) {
 
   return (
     <Box style={{ position: 'relative', width: 140, height: 130 }}>
-      {ids.map((bookId, i) => {
+      {ids.map((book, i) => {
         const t = transforms[transforms.length - count + i] ?? transforms[i];
         return (
           <img
-            key={bookId}
-            src={`/api/v1/books/${bookId}/cover`}
+            key={book.id}
+            src={`/api/v1/books/${book.id}/cover?v=${book.coverUpdatedAt}`}
             alt=""
             style={{
               position: 'absolute',
@@ -106,7 +110,7 @@ function SeriesCard({
       onClick={onClick}
     >
       <Center mb="sm">
-        <CoverStack coverBookIds={series.coverBookIds} />
+        <CoverStack coverBooks={series.coverBooks} />
       </Center>
       <Text fw={600} size="sm" lineClamp={2} ta="center">
         {series.name}

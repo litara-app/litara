@@ -14,6 +14,9 @@ export class BookSummaryDto {
   hasCover: boolean;
 
   @ApiProperty()
+  coverUpdatedAt: string;
+
+  @ApiProperty()
   createdAt: Date;
 
   @ApiProperty({ type: [String] })

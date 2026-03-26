@@ -3,12 +3,14 @@ import { DatabaseService } from '../database/database.service';
 import { GoogleBooksService } from './providers/google-books.service';
 import { OpenLibraryService } from './providers/open-library.service';
 import { GoodreadsService } from './providers/goodreads.service';
+import { HardcoverService } from './providers/hardcover.service';
 import { MetadataResult } from './interfaces/metadata-result.interface';
 
 export enum MetadataProvider {
   GoogleBooks = 'google-books',
   OpenLibrary = 'open-library',
   Goodreads = 'goodreads',
+  Hardcover = 'hardcover',
 }
 
 interface EnrichInput {
@@ -26,6 +28,7 @@ export class MetadataService {
     private readonly googleBooks: GoogleBooksService,
     private readonly openLibrary: OpenLibraryService,
     private readonly goodreads: GoodreadsService,
+    private readonly hardcover: HardcoverService,
   ) {}
 
   async enrichBook(bookId: string, input: EnrichInput): Promise<void> {
@@ -58,6 +61,10 @@ export class MetadataService {
       result = input.isbn13
         ? await this.goodreads.searchByIsbn(input.isbn13)
         : await this.goodreads.searchByTitleAuthor(input.title, firstAuthor);
+    } else if (provider === MetadataProvider.Hardcover) {
+      result = input.isbn13
+        ? await this.hardcover.searchByIsbn(input.isbn13)
+        : await this.hardcover.searchByTitleAuthor(input.title, firstAuthor);
     } else {
       result = input.isbn13
         ? await this.openLibrary.searchByIsbn(input.isbn13)
@@ -65,6 +72,29 @@ export class MetadataService {
     }
 
     return result;
+  }
+
+  async searchFromProvider(
+    provider: MetadataProvider,
+    input: EnrichInput,
+  ): Promise<MetadataResult[]> {
+    const firstAuthor = input.authors[0];
+
+    // ISBN search always returns at most one result
+    if (input.isbn13) {
+      const single = await this.fetchFromProvider(provider, input);
+      return single ? [single] : [];
+    }
+
+    if (provider === MetadataProvider.GoogleBooks) {
+      return this.googleBooks.searchManyByTitleAuthor(input.title, firstAuthor);
+    } else if (provider === MetadataProvider.Goodreads) {
+      return this.goodreads.searchManyByTitleAuthor(input.title, firstAuthor);
+    } else if (provider === MetadataProvider.Hardcover) {
+      return this.hardcover.searchManyByTitleAuthor(input.title, firstAuthor);
+    } else {
+      return this.openLibrary.searchManyByTitleAuthor(input.title, firstAuthor);
+    }
   }
 
   async enrichBookForProvider(

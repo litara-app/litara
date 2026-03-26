@@ -13,6 +13,9 @@ export class SeriesBookItemDto {
   @ApiProperty()
   hasCover: boolean;
 
+  @ApiProperty()
+  coverUpdatedAt: string;
+
   @ApiProperty({ type: [String] })
   formats: string[];
 
