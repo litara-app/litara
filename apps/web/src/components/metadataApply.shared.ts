@@ -14,7 +14,9 @@ export function buildRows(
       label: 'Cover',
       field: 'coverUrl',
       isImage: true,
-      current: detail.hasCover ? `/api/v1/books/${detail.id}/cover` : null,
+      current: detail.hasCover
+        ? `/api/v1/books/${detail.id}/cover?v=${detail.coverUpdatedAt}`
+        : null,
       proposed: result.coverUrl,
     });
   }

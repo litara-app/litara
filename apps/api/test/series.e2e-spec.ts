@@ -51,7 +51,7 @@ describe('Series Routes (e2e)', () => {
       expect(oz).toBeDefined();
       expect(oz.ownedCount).toBe(2);
       expect(oz.totalBooks).toBe(14);
-      expect(oz.coverBookIds.length).toBeGreaterThanOrEqual(1);
+      expect(oz.coverBooks.length).toBeGreaterThanOrEqual(1);
       expect(oz.authors).toContain('L. Frank Baum');
     });
   });

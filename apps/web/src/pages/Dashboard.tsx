@@ -36,6 +36,7 @@ interface Book {
   title: string;
   authors: string[];
   hasCover: boolean;
+  coverUpdatedAt: string;
   createdAt: string;
   formats: string[];
   hasFileMissing: boolean;
@@ -62,6 +63,7 @@ function BookCard({
   title,
   authors,
   hasCover,
+  coverUpdatedAt,
   formats,
   hasFileMissing,
   onClick,
@@ -70,6 +72,7 @@ function BookCard({
   title: string;
   authors: string[];
   hasCover: boolean;
+  coverUpdatedAt: string;
   formats: string[];
   hasFileMissing: boolean;
   onClick?: () => void;
@@ -91,7 +94,7 @@ function BookCard({
         <AspectRatio ratio={2 / 3}>
           {showCover ? (
             <img
-              src={`/api/v1/books/${id}/cover`}
+              src={`/api/v1/books/${id}/cover?v=${coverUpdatedAt}`}
               alt={title}
               style={{
                 objectFit: 'cover',
@@ -220,6 +223,7 @@ function RecentlyAddedSection({
               title={book.title}
               authors={book.authors}
               hasCover={book.hasCover}
+              coverUpdatedAt={book.coverUpdatedAt}
               formats={book.formats}
               hasFileMissing={book.hasFileMissing}
               onClick={onBookClick ? () => onBookClick(book.id) : undefined}

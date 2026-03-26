@@ -38,6 +38,7 @@ interface SearchBook {
   title: string;
   authors: string[];
   hasCover: boolean;
+  coverUpdatedAt: string;
   seriesName: string | null;
   seriesSequence: number | null;
   publishedDate: string | null;
@@ -78,7 +79,7 @@ function SearchResultItem({
         >
           {book.hasCover ? (
             <img
-              src={`/api/v1/books/${book.id}/cover`}
+              src={`/api/v1/books/${book.id}/cover?v=${book.coverUpdatedAt}`}
               alt=""
               style={{
                 width: 32,
