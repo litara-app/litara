@@ -60,7 +60,10 @@ describe('LibraryScanner (e2e)', () => {
 
   it('EPUB: stores cover image bytes (Pride and Prejudice)', async () => {
     const book = await testApp.db.book.findFirst({
-      where: { title: { contains: 'Pride', mode: 'insensitive' } },
+      where: {
+        title: { contains: 'Pride', mode: 'insensitive' },
+        files: { some: { format: 'EPUB' } },
+      },
     });
     expect(book).not.toBeNull();
     expect(book!.coverData).not.toBeNull();
