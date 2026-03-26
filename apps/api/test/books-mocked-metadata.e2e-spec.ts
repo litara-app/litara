@@ -38,6 +38,7 @@ describe('Books — Mocked Metadata Provider (e2e)', () => {
   let bookId: string;
 
   const mockMetadataService = {
+    searchFromProvider: jest.fn().mockResolvedValue([MOCK_METADATA]),
     fetchFromProvider: jest.fn().mockResolvedValue(MOCK_METADATA),
     enrichBookForProvider: jest.fn().mockResolvedValue(undefined),
   };
@@ -103,9 +104,10 @@ describe('Books — Mocked Metadata Provider (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body).toHaveProperty('title', 'Pride and Prejudice');
-      expect(res.body.authors).toContain('Jane Austen');
-      expect(mockMetadataService.fetchFromProvider).toHaveBeenCalledWith(
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body[0]).toHaveProperty('title', 'Pride and Prejudice');
+      expect(res.body[0].authors).toContain('Jane Austen');
+      expect(mockMetadataService.searchFromProvider).toHaveBeenCalledWith(
         'google-books',
         expect.objectContaining({ title: 'Pride and Prejudice' }),
       );
@@ -119,14 +121,14 @@ describe('Books — Mocked Metadata Provider (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(mockMetadataService.fetchFromProvider).toHaveBeenCalledWith(
+      expect(mockMetadataService.searchFromProvider).toHaveBeenCalledWith(
         'open-library',
         expect.objectContaining({ isbn13: '9780141439518' }),
       );
     });
 
     it('returns null when provider finds nothing', async () => {
-      mockMetadataService.fetchFromProvider.mockResolvedValueOnce(null);
+      mockMetadataService.searchFromProvider.mockResolvedValueOnce([]);
 
       const res = await request(app.getHttpServer())
         .get(
@@ -135,7 +137,7 @@ describe('Books — Mocked Metadata Provider (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(res.body).toEqual({});
+      expect(res.body).toEqual([]);
     });
   });
 
