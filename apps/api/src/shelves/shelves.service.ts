@@ -40,6 +40,14 @@ export class ShelvesService {
     return this.prisma.shelf.create({ data: { userId, name } });
   }
 
+  async remove(shelfId: string, userId: string) {
+    const shelf = await this.prisma.shelf.findFirst({
+      where: { id: shelfId, userId },
+    });
+    if (!shelf) throw new NotFoundException('Shelf not found');
+    await this.prisma.shelf.delete({ where: { id: shelfId } });
+  }
+
   async update(shelfId: string, userId: string, name: string) {
     const shelf = await this.prisma.shelf.findFirst({
       where: { id: shelfId, userId },

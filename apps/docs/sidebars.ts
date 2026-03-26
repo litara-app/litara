@@ -7,6 +7,7 @@ const sidebars: SidebarsConfig = {
     'configuration',
     'opds',
     'email-delivery',
+    'smart-shelves',
     {
       type: 'category',
       label: 'Development',

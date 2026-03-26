@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Shelf" ADD COLUMN "logic" TEXT NOT NULL DEFAULT 'AND';

@@ -35,7 +35,7 @@ describe('LibraryScanner (e2e)', () => {
 
   it('imports all 6 ebook files from ebook-library/', async () => {
     const books = await testApp.db.book.findMany({ include: { files: true } });
-    expect(books).toHaveLength(6);
+    expect(books).toHaveLength(7);
   });
 
   it('EPUB: extracts title and author from metadata (Great Gatsby EPUB)', async () => {
@@ -60,7 +60,10 @@ describe('LibraryScanner (e2e)', () => {
 
   it('EPUB: stores cover image bytes (Pride and Prejudice)', async () => {
     const book = await testApp.db.book.findFirst({
-      where: { title: { contains: 'Pride', mode: 'insensitive' } },
+      where: {
+        title: { contains: 'Pride', mode: 'insensitive' },
+        files: { some: { format: 'EPUB' } },
+      },
     });
     expect(book).not.toBeNull();
     expect(book!.coverData).not.toBeNull();
@@ -93,6 +96,6 @@ describe('LibraryScanner (e2e)', () => {
   it('does not duplicate books when fullScan() is called a second time', async () => {
     await libraryScannerService.fullScan();
     const books = await testApp.db.book.findMany();
-    expect(books).toHaveLength(6);
+    expect(books).toHaveLength(7);
   });
 });
