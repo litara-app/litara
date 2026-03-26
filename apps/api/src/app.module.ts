@@ -17,7 +17,6 @@ import { SetupModule } from './setup/setup.module';
 import { OpdsModule } from './opds/opds.module';
 import { MailModule } from './mail/mail.module';
 import { SeriesModule } from './series/series.module';
-import { SmartShelvesModule } from './smart-shelves/smart-shelves.module';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 
@@ -48,7 +47,6 @@ const staticModules = existsSync(publicPath)
     OpdsModule,
     MailModule,
     SeriesModule,
-    SmartShelvesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
