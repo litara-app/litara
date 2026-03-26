@@ -1,3 +1,27 @@
+# [1.7.0](https://github.com/litara-app/litara/compare/v1.6.0...v1.7.0) (2026-03-26)
+
+
+### Bug Fixes
+
+* cleaning up dashboard modal to prevent excessive rerenders ([63b4153](https://github.com/litara-app/litara/commit/63b4153bace132594f20d7c6397785c713e5cb57))
+* fixing tests to expect more epubs since we added more books ([0e3284b](https://github.com/litara-app/litara/commit/0e3284b234e0fbb288d2abbae1a8655c687e9b24))
+* missing import adding pre-commit checks for tsc errors ([84f0569](https://github.com/litara-app/litara/commit/84f056951ff8c69edc841a475b63b8546aa8bf50))
+* test fixes ([3c88bc0](https://github.com/litara-app/litara/commit/3c88bc0821756c938205b618c56ef309432596ff))
+
+
+### Features
+
+* adding basic opds v1 and v2 implementation ([e28c542](https://github.com/litara-app/litara/commit/e28c54280c6748c3d3178d249ea5f2d9525b4cab))
+* adding email book sending ([ef5cb8d](https://github.com/litara-app/litara/commit/ef5cb8df41108665cfd6e5ce9579784083a3e76d))
+* adding hardcover to metadata sources ([94e6851](https://github.com/litara-app/litara/commit/94e685110e6dca27cc8e606f743b5d433fd1ec04))
+* adding in series page to show book series ([0c26678](https://github.com/litara-app/litara/commit/0c26678ec6b8ec2f09fdbe66ef869b248c49f1b3))
+* better metadata, more tests, misc fixes ([1426447](https://github.com/litara-app/litara/commit/14264476f4a5fb2ef0411bd249a6c508891df5c5))
+* better metadata, more tests, misc fixes ([cfb0cbd](https://github.com/litara-app/litara/commit/cfb0cbd0ec43971f0b81f9f7efa570efeb2bb556))
+* better metadata, more tests, misc fixes ([49288b0](https://github.com/litara-app/litara/commit/49288b0323001fcf9ca521db4761a752aba8da5b))
+* better metadata, more tests, misc fixes ([0134554](https://github.com/litara-app/litara/commit/013455496eefb3aacfb5a99b7cbe430805f24a46))
+* better metadata, more tests, misc fixes ([a0da242](https://github.com/litara-app/litara/commit/a0da242be6a7d3bd585b3ff79fb0264983cf05b2))
+* dark mode, e2e tests for web ([6dc58b9](https://github.com/litara-app/litara/commit/6dc58b95fc523dfac510620a34586b63a197970a))
+
 # [1.6.0](https://github.com/litara-app/litara/compare/v1.5.0...v1.6.0) (2026-03-26)
 
 
