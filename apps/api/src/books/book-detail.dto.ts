@@ -89,6 +89,9 @@ export class BookDetailDto {
   @ApiProperty()
   hasCover: boolean;
 
+  @ApiProperty()
+  coverUpdatedAt: string;
+
   @ApiProperty({ nullable: true, type: () => LibraryRefDto })
   library: LibraryRefDto | null;
 

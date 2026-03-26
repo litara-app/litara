@@ -105,6 +105,7 @@ React 19 + Vite SPA using **Mantine** for UI components and **React Router v7** 
 | `EBOOK_LIBRARY_PATH`   | API | Path to ebook directory (optional, has default)                             |
 | `PORT`                 | API | HTTP port (default: 3000)                                                   |
 | `GOOGLE_BOOKS_API_KEY` | API | Optional Google Books API key. Raises rate limit from ~100/day to 1000/day. |
+| `HARDCOVER_API_KEY`    | API | Optional Hardcover API key. Required for Hardcover metadata provider.       |
 
 Docker Compose provides a local PostgreSQL instance (`postgres:16-alpine`) on port 5432 with db `litara`, user/pass `postgres`.
 

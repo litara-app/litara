@@ -29,6 +29,7 @@ interface Book {
   title: string;
   authors: string[];
   hasCover: boolean;
+  coverUpdatedAt: string;
   formats: string[];
   hasFileMissing: boolean;
 }
@@ -60,7 +61,7 @@ function BookCard({ book, onClick }: { book: Book; onClick: () => void }) {
         <AspectRatio ratio={2 / 3}>
           {showCover ? (
             <img
-              src={`/api/v1/books/${book.id}/cover`}
+              src={`/api/v1/books/${book.id}/cover?v=${book.coverUpdatedAt}`}
               alt={book.title}
               style={{
                 objectFit: 'cover',

@@ -28,6 +28,7 @@ interface SeriesBookItem {
   title: string;
   sequence: number | null;
   hasCover: boolean;
+  coverUpdatedAt: string;
   formats: string[];
   publishedDate: string | null;
   pageCount: number | null;
@@ -112,7 +113,7 @@ function BookCard({
       >
         {showCover ? (
           <img
-            src={`/api/v1/books/${book.id}/cover`}
+            src={`/api/v1/books/${book.id}/cover?v=${book.coverUpdatedAt}`}
             alt=""
             onError={() => setImgError(true)}
             style={{
