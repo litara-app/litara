@@ -1,3 +1,15 @@
+# [1.6.0](https://github.com/litara-app/litara/compare/v1.5.0...v1.6.0) (2026-03-26)
+
+
+### Bug Fixes
+
+* test fixes ([efd331d](https://github.com/litara-app/litara/commit/efd331d023e1abf76c5412c2f3edc81ae22899dd))
+
+
+### Features
+
+* adding hardcover to metadata sources ([2af6761](https://github.com/litara-app/litara/commit/2af6761e2b61694d76839955aa6c601f78a88f3b))
+
 # [1.5.0](https://github.com/litara-app/litara/compare/v1.4.0...v1.5.0) (2026-03-25)
 
 
