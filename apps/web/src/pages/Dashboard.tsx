@@ -8,9 +8,6 @@ import {
   Text,
   Group,
   ActionIcon,
-  Modal,
-  Switch,
-  Button,
   AspectRatio,
   Center,
   Skeleton,
@@ -22,12 +19,11 @@ import {
   IconClock,
   IconSettings,
   IconBook2,
-  IconChevronUp,
-  IconChevronDown,
   IconFileX,
 } from '@tabler/icons-react';
 import { api } from '../utils/api';
 import { BookDetailModal } from '../components/BookDetailModal';
+import { DashboardSettingsModal } from '../components/DashboardSettingsModal';
 import { userSettingsAtom } from '../store/atoms';
 import type { DashboardSection } from '../store/atoms';
 
@@ -235,82 +231,6 @@ function RecentlyAddedSection({
   );
 }
 
-function SettingsModal({
-  opened,
-  onClose,
-  layout,
-  onSave,
-}: {
-  opened: boolean;
-  onClose: () => void;
-  layout: DashboardSection[];
-  onSave: (layout: DashboardSection[]) => void;
-}) {
-  const [localLayout, setLocalLayout] = useState<DashboardSection[]>([]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (opened) setLocalLayout([...layout].sort((a, b) => a.order - b.order));
-  }, [opened, layout]);
-
-  function toggleVisible(key: string) {
-    setLocalLayout((prev) =>
-      prev.map((s) => (s.key === key ? { ...s, visible: !s.visible } : s)),
-    );
-  }
-
-  function move(index: number, direction: -1 | 1) {
-    const next = [...localLayout];
-    const target = index + direction;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    setLocalLayout(next.map((s, i) => ({ ...s, order: i })));
-  }
-
-  return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title="Dashboard Settings"
-      size="sm"
-    >
-      <Stack gap="sm">
-        {localLayout.map((section, i) => (
-          <Group key={section.key} justify="space-between">
-            <Text size="sm">{section.label}</Text>
-            <Group gap="xs">
-              <Switch
-                checked={section.visible}
-                onChange={() => toggleVisible(section.key)}
-                size="sm"
-              />
-              <ActionIcon
-                variant="subtle"
-                size="sm"
-                onClick={() => move(i, -1)}
-                disabled={i === 0}
-              >
-                <IconChevronUp size={14} />
-              </ActionIcon>
-              <ActionIcon
-                variant="subtle"
-                size="sm"
-                onClick={() => move(i, 1)}
-                disabled={i === localLayout.length - 1}
-              >
-                <IconChevronDown size={14} />
-              </ActionIcon>
-            </Group>
-          </Group>
-        ))}
-        <Button mt="sm" onClick={() => onSave(localLayout)}>
-          Save
-        </Button>
-      </Stack>
-    </Modal>
-  );
-}
-
 export function Dashboard() {
   const [recentlyAdded, setRecentlyAdded] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
@@ -378,7 +298,7 @@ export function Dashboard() {
         onBookUpdated={() => void load()}
       />
 
-      <SettingsModal
+      <DashboardSettingsModal
         opened={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         layout={userSettings.dashboardLayout}

@@ -3,14 +3,18 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
   Req,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -40,6 +44,13 @@ export class LibrariesController {
   @ApiCreatedResponse({ type: LibraryDto })
   create(@Req() req: RequestWithUser, @Body() body: { name: string }) {
     return this.librariesService.create(req.user.id, body.name);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse()
+  remove(@Param('id') id: string, @Req() req: RequestWithUser) {
+    return this.librariesService.remove(id, req.user.id);
   }
 
   @Patch(':id')

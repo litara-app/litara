@@ -3,14 +3,18 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
   Req,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -50,6 +54,14 @@ export class ShelvesController {
   @ApiOkResponse({ type: BookSummaryDto, isArray: true })
   findBooks(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.shelvesService.findBooks(id, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse()
+  remove(@Param('id') id: string, @Req() req: RequestWithUser) {
+    return this.shelvesService.remove(id, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -253,6 +253,7 @@ model Shelf {
 
   name      String
   isSmart   Boolean  @default(false)
+  logic     String   @default("AND") // AND | OR
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

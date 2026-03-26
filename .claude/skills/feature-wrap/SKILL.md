@@ -14,4 +14,6 @@ disable-model-invocation: true
 4. Run the tsc-web pre-commit hook and the tsc-api pre-commit hook to ensure that there are no TypeScript errors in the web and api projects respectively
 5. If adding any scripts, verify that there are no Content Security Policy (CSP) violations in the browser console when running the app
 6. If documentation is required, ensure that it is added to docusaurus and that it builds without errors
+   a. User documentation is needed for any new UI features or changes, this should be added to the docs site with clear instructions and screenshots if necessary
+   b. Developer documentation is needed for any new backend features or changes, this should be added to the docs site with clear explanations of the API endpoints, data models, and any relevant implementation details
 7. If database changes are required, ensure that prisma schema is updated and that the generated client is used in the codebase

@@ -20,6 +20,7 @@ import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AllBooksPage } from './pages/AllBooksPage';
 import { SeriesPage } from './pages/SeriesPage';
+import { SmartShelfPage } from './pages/SmartShelfPage';
 import { AppLayout } from './components/AppLayout/AppLayout';
 import { ToastContainer } from './components/ToastContainer';
 
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="/series" element={<SeriesPage />} />
               <Route path="/library/:id" element={<LibraryPage />} />
               <Route path="/shelf/:id" element={<ShelfPage />} />
+              <Route path="/smart-shelves/:id" element={<SmartShelfPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/admin-settings" element={<AdminSettingsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
