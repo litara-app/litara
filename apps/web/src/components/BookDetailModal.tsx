@@ -382,7 +382,7 @@ export function BookDetailModal({
                 <AspectRatio ratio={2 / 3}>
                   {detail.hasCover ? (
                     <img
-                      src={`/api/v1/books/${detail.id}/cover`}
+                      src={`/api/v1/books/${detail.id}/cover?v=${detail.coverUpdatedAt}`}
                       alt={detail.title}
                       style={{
                         objectFit: 'cover',

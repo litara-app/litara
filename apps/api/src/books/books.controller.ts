@@ -148,7 +148,7 @@ export class BooksController {
   @ApiQuery({ name: 'isbn', required: false })
   @ApiQuery({ name: 'title', required: false })
   @ApiQuery({ name: 'author', required: false })
-  @ApiOkResponse({ type: MetadataResultDto })
+  @ApiOkResponse({ type: [MetadataResultDto] })
   searchMetadata(
     @Param('id') id: string,
     @Query('provider')

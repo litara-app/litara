@@ -35,12 +35,23 @@ export class GoodreadsService {
     title: string,
     author?: string,
   ): Promise<MetadataResult | null> {
+    const results = await this.searchManyByTitleAuthor(title, author);
+    return results[0] ?? null;
+  }
+
+  // Goodreads is web-scraped — each result requires a separate page fetch,
+  // so we cap at 1 to keep latency reasonable.
+  async searchManyByTitleAuthor(
+    title: string,
+    author?: string,
+  ): Promise<MetadataResult[]> {
     const q = author ? `${title} ${author}` : title;
     this.logger.debug(`Searching Goodreads for: ${q}`);
-    return this.fetchBook(SEARCH_URL + encodeURIComponent(q), {
+    const result = await this.fetchBook(SEARCH_URL + encodeURIComponent(q), {
       title,
       author,
     });
+    return result ? [result] : [];
   }
 
   // ─── Core fetch ──────────────────────────────────────────────────────────────

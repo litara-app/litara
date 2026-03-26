@@ -25,6 +25,7 @@ export class SeriesService {
               select: {
                 id: true,
                 coverData: true,
+                updatedAt: true,
                 authors: {
                   select: { author: { select: { name: true } } },
                 },
@@ -38,12 +39,15 @@ export class SeriesService {
     return allSeries.map((series) => {
       const ownedCount = series.books.length;
 
-      // Collect up to 3 cover book ids from lowest-sequence books with cover data
-      const coverBookIds: string[] = [];
+      // Collect up to 3 cover books from lowest-sequence books with cover data
+      const coverBooks: { id: string; coverUpdatedAt: string }[] = [];
       for (const sb of series.books) {
-        if (coverBookIds.length >= 3) break;
+        if (coverBooks.length >= 3) break;
         if (sb.book.coverData) {
-          coverBookIds.push(sb.book.id);
+          coverBooks.push({
+            id: sb.book.id,
+            coverUpdatedAt: sb.book.updatedAt.toISOString(),
+          });
         }
       }
 
@@ -60,7 +64,7 @@ export class SeriesService {
         name: series.name,
         ownedCount,
         totalBooks: series.totalBooks,
-        coverBookIds,
+        coverBooks,
         authors: Array.from(authorSet),
       };
     });
@@ -82,6 +86,7 @@ export class SeriesService {
                 id: true,
                 title: true,
                 coverData: true,
+                updatedAt: true,
                 publishedDate: true,
                 pageCount: true,
                 publisher: true,
@@ -114,6 +119,7 @@ export class SeriesService {
       title: sb.book.title,
       sequence: sb.sequence,
       hasCover: !!sb.book.coverData,
+      coverUpdatedAt: sb.book.updatedAt.toISOString(),
       formats: [...new Set(sb.book.files.map((f) => f.format))],
       publishedDate: sb.book.publishedDate?.toISOString() ?? null,
       pageCount: sb.book.pageCount,

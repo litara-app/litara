@@ -45,15 +45,31 @@ export class GoogleBooksService {
     title: string,
     author?: string,
   ): Promise<MetadataResult | null> {
+    const results = await this.searchManyByTitleAuthor(title, author);
+    return results[0] ?? null;
+  }
+
+  async searchManyByTitleAuthor(
+    title: string,
+    author?: string,
+  ): Promise<MetadataResult[]> {
     const q = author
       ? `intitle:${encodeURIComponent(title)}+inauthor:${encodeURIComponent(author)}`
       : `intitle:${encodeURIComponent(title)}`;
-    return this.query(q);
+    return this.queryMany(q, 3);
   }
 
   private async query(q: string): Promise<MetadataResult | null> {
+    const results = await this.queryMany(q, 1);
+    return results[0] ?? null;
+  }
+
+  private async queryMany(
+    q: string,
+    maxResults: number,
+  ): Promise<MetadataResult[]> {
     try {
-      let url = `${BASE_URL}?q=${q}`;
+      let url = `${BASE_URL}?q=${q}&maxResults=${maxResults}`;
       if (this.apiKey) url += `&key=${this.apiKey}`;
       this.logger.debug(`Querying Google Books API: ${url}`);
 
@@ -62,19 +78,16 @@ export class GoogleBooksService {
         this.logger.warn(
           `Google Books API returned ${response.status} for query: ${q}`,
         );
-        return null;
+        return [];
       }
 
       const data = (await response.json()) as GoogleBooksResponse;
-      const item = data?.items?.[0];
-      if (!item) return null;
-
-      return this.mapVolumeInfo(item);
+      return (data?.items ?? []).map((item) => this.mapVolumeInfo(item));
     } catch (err) {
       this.logger.warn(
         `Google Books request failed: ${(err as Error).message}`,
       );
-      return null;
+      return [];
     }
   }
 

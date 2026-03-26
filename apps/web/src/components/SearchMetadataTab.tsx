@@ -47,6 +47,21 @@ function providerUrl(provider: string, result: MetadataResult): string | null {
   return null;
 }
 
+function providerColor(provider: string): string {
+  switch (provider) {
+    case 'hardcover':
+      return 'orange';
+    case 'open-library':
+      return 'teal';
+    case 'google-books':
+      return 'blue';
+    case 'goodreads':
+      return 'green';
+    default:
+      return 'gray';
+  }
+}
+
 function countResultFields(r: MetadataResult): number {
   const fields: Array<keyof MetadataResult> = [
     'title',
@@ -79,6 +94,7 @@ export function SearchMetadataTab({
   onSwitchTab,
 }: SearchMetadataTabProps) {
   const [searchProviders, setSearchProviders] = useState<string[]>([
+    'hardcover',
     'open-library',
     'goodreads',
   ]);
@@ -105,31 +121,38 @@ export function SearchMetadataTab({
       if (searchIsbn) params.set('isbn', searchIsbn);
       if (searchTitle) params.set('title', searchTitle);
       if (searchAuthor) params.set('author', searchAuthor);
+      const providerLabel = (p: string) =>
+        p === 'google-books'
+          ? 'Google Books'
+          : p === 'goodreads'
+            ? 'Goodreads'
+            : p === 'hardcover'
+              ? 'Hardcover'
+              : 'Open Library';
+
       const calls = searchProviders.map((p) =>
         api
-          .get<MetadataResult | null>(
+          .get<MetadataResult[]>(
             `/books/${bookId}/search-metadata?provider=${p}&${params.toString()}`,
           )
-          .then((res) => ({ provider: p, result: res.data }))
-          .catch(() => ({ provider: p, result: null })),
+          .then((res) => ({ provider: p, results: res.data ?? [] }))
+          .catch(() => ({ provider: p, results: [] as MetadataResult[] })),
       );
       const raw = await Promise.all(calls);
       setSearchResults(
-        raw
-          .filter((r) => r.result != null && countResultFields(r.result) > 0)
-          .map((r) => ({
-            provider: r.provider as
-              | 'open-library'
-              | 'google-books'
-              | 'goodreads',
-            providerLabel:
-              r.provider === 'google-books'
-                ? 'Google Books'
-                : r.provider === 'goodreads'
-                  ? 'Goodreads'
-                  : 'Open Library',
-            result: r.result!,
-          })),
+        raw.flatMap((r) =>
+          r.results
+            .filter((res) => countResultFields(res) > 0)
+            .map((res) => ({
+              provider: r.provider as
+                | 'open-library'
+                | 'google-books'
+                | 'goodreads'
+                | 'hardcover',
+              providerLabel: providerLabel(r.provider),
+              result: res,
+            })),
+        ),
       );
       setSearchHasRun(true);
     } finally {
@@ -260,6 +283,7 @@ export function SearchMetadataTab({
             value={searchProviders}
             onChange={setSearchProviders}
             data={[
+              { value: 'hardcover', label: 'Hardcover' },
               { value: 'open-library', label: 'Open Library' },
               { value: 'google-books', label: 'Google Books' },
               { value: 'goodreads', label: 'Goodreads' },
@@ -314,13 +338,18 @@ export function SearchMetadataTab({
         >
           {searchResults.map((r, i) => {
             const cardUrl = providerUrl(r.provider, r.result);
+            const color = providerColor(r.provider);
             return (
               <Paper
                 key={i}
                 withBorder
                 p="sm"
                 radius="md"
-                style={{ cursor: 'pointer', position: 'relative' }}
+                style={{
+                  cursor: 'pointer',
+                  position: 'relative',
+                  borderColor: `var(--mantine-color-${color}-5)`,
+                }}
                 onClick={() => selectResult(r)}
               >
                 {cardUrl && (
@@ -416,7 +445,7 @@ export function SearchMetadataTab({
                       </Text>
                     )}
                     <Group gap={4} mt={4} wrap="wrap" align="center">
-                      <Badge size="xs" variant="light">
+                      <Badge size="xs" variant="light" color={color}>
                         {r.providerLabel}
                       </Badge>
                       <Badge size="xs" variant="outline">

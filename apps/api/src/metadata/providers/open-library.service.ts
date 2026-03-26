@@ -50,33 +50,46 @@ export class OpenLibraryService {
     title: string,
     author?: string,
   ): Promise<MetadataResult | null> {
+    const results = await this.searchManyByTitleAuthor(title, author);
+    return results[0] ?? null;
+  }
+
+  async searchManyByTitleAuthor(
+    title: string,
+    author?: string,
+  ): Promise<MetadataResult[]> {
     let query = `title=${encodeURIComponent(title)}`;
     if (author) query += `&author=${encodeURIComponent(author)}`;
-    return this.search(query);
+    return this.searchMany(query, 3);
   }
 
   private async search(queryString: string): Promise<MetadataResult | null> {
+    const results = await this.searchMany(queryString, 1);
+    return results[0] ?? null;
+  }
+
+  private async searchMany(
+    queryString: string,
+    limit: number,
+  ): Promise<MetadataResult[]> {
     try {
-      const url = `${SEARCH_URL}?${queryString}&fields=${FIELDS}&limit=1`;
+      const url = `${SEARCH_URL}?${queryString}&fields=${FIELDS}&limit=${limit}`;
       this.logger.debug(`Open Library request: ${url}`);
       const response = await fetch(url);
       if (!response.ok) {
         this.logger.warn(
           `Open Library returned ${response.status} for: ${url}`,
         );
-        return null;
+        return [];
       }
 
       const data = (await response.json()) as OpenLibrarySearchResponse;
-      const doc = data?.docs?.[0];
-      if (!doc) return null;
-
-      return this.mapDoc(doc);
+      return (data?.docs ?? []).map((doc) => this.mapDoc(doc));
     } catch (err) {
       this.logger.warn(
         `Open Library request failed: ${(err as Error).message}`,
       );
-      return null;
+      return [];
     }
   }
 

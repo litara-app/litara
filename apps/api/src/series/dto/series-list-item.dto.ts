@@ -13,8 +13,8 @@ export class SeriesListItemDto {
   @ApiProperty({ nullable: true, required: false })
   totalBooks: number | null;
 
-  @ApiProperty({ type: [String] })
-  coverBookIds: string[];
+  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  coverBooks: Array<{ id: string; coverUpdatedAt: string }>;
 
   @ApiProperty({ type: [String] })
   authors: string[];

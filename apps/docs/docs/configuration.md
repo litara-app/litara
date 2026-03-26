@@ -32,6 +32,23 @@ Litara is configured via environment variables on the API container.
 | Variable               | Default  | Description                                                                                                                                                                   |
 | ---------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GOOGLE_BOOKS_API_KEY` | _(none)_ | Optional Google Books API key used when enriching book metadata manually. Without a key, requests are rate-limited to ~100/day. With a key, the limit increases to 1,000/day. |
+| `HARDCOVER_API_KEY`    | _(none)_ | Optional [Hardcover](https://hardcover.app) API key. Required to use Hardcover as a metadata source. See below for setup notes.                                               |
+
+#### Hardcover API Key
+
+Litara uses the [Hardcover GraphQL API](https://hardcover.app) to search and enrich book metadata. To enable it:
+
+1. Sign in to [hardcover.app](https://hardcover.app) and go to **Settings → API**.
+2. Copy your personal API key.
+3. Set it as `HARDCOVER_API_KEY` in your environment.
+
+:::caution
+Do **not** include the word `Bearer` in the value — just paste the raw key. Litara adds the `Bearer` prefix automatically.
+:::
+
+:::note
+Hardcover API keys typically expire after approximately one year. If metadata lookups from Hardcover suddenly stop working, check whether your key has expired and generate a new one from your Hardcover account settings.
+:::
 
 ## Notes
 

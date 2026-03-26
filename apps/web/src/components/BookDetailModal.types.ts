@@ -51,6 +51,7 @@ export interface BookDetail {
   ageRating: string | null;
   lockedFields: string[];
   hasCover: boolean;
+  coverUpdatedAt: string;
   library: { id: string; name: string } | null;
   authors: string[];
   tags: string[];
@@ -113,7 +114,7 @@ export interface MetadataResult {
 }
 
 export interface MetadataSearchResult {
-  provider: 'open-library' | 'google-books' | 'goodreads';
+  provider: 'open-library' | 'google-books' | 'goodreads' | 'hardcover';
   providerLabel: string;
   result: MetadataResult;
 }

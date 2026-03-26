@@ -112,6 +112,7 @@ export class BooksService {
       title: book.title,
       authors: book.authors.map((ba) => ba.author.name),
       hasCover: book.coverData !== null,
+      coverUpdatedAt: book.updatedAt.toISOString(),
       createdAt: book.createdAt,
       formats: [...new Set(book.files.map((f) => f.format))].sort(),
       hasFileMissing: book.files.some((f) => f.missingAt !== null),
@@ -180,6 +181,7 @@ export class BooksService {
       ageRating: book.ageRating,
       lockedFields: JSON.parse(book.lockedFields) as string[],
       hasCover: book.coverData !== null,
+      coverUpdatedAt: book.updatedAt.toISOString(),
       library: userLibrary,
       authors: book.authors.map((ba) => ba.author.name),
       tags: book.tags.map((t) => t.name),
@@ -318,9 +320,18 @@ export class BooksService {
     }
     if (dto.coverUrl) {
       try {
+        this.logger.debug(`Fetching cover from: ${dto.coverUrl}`);
         const coverRes = await fetch(dto.coverUrl);
         if (coverRes.ok) {
-          bookUpdate.coverData = Buffer.from(await coverRes.arrayBuffer());
+          const buf = Buffer.from(await coverRes.arrayBuffer());
+          this.logger.debug(
+            `Cover fetched: ${buf.byteLength} bytes, type=${coverRes.headers.get('content-type')}`,
+          );
+          bookUpdate.coverData = buf;
+        } else {
+          this.logger.warn(
+            `Cover fetch returned HTTP ${coverRes.status} for: ${dto.coverUrl}`,
+          );
         }
       } catch (err) {
         this.logger.warn(
@@ -509,7 +520,7 @@ export class BooksService {
     });
     if (!book) throw new NotFoundException('Book not found');
 
-    return this.metadataService.fetchFromProvider(provider, {
+    return this.metadataService.searchFromProvider(provider, {
       title: overrides?.title ?? book.title,
       authors: overrides?.author
         ? [overrides.author]

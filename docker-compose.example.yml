@@ -20,6 +20,8 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:CHANGE_ME@postgres:5432/litara
       JWT_SECRET: CHANGE_ME_use_a_long_random_string
+      # GOOGLE_BOOKS_API_KEY: your_key_here   # optional, raises rate limit
+      # HARDCOVER_API_KEY: your_key_here      # optional, enables Hardcover metadata
     volumes:
       - ./books:/books    # point this to your local ebook directory
     depends_on:
