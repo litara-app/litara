@@ -17,3 +17,4 @@ disable-model-invocation: true
    a. User documentation is needed for any new UI features or changes, this should be added to the docs site with clear instructions and screenshots if necessary
    b. Developer documentation is needed for any new backend features or changes, this should be added to the docs site with clear explanations of the API endpoints, data models, and any relevant implementation details
 7. If database changes are required, ensure that prisma schema is updated and that the generated client is used in the codebase
+8. If Docker changes are required, ensure that the Dockerfile and docker-compose.yml are updated accordingly and that the app builds and runs without errors in a containerized environment

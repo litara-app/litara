@@ -46,7 +46,27 @@ function buildNumericFilter(
   }
 }
 
-function buildRuleFilter(rule: Rule): BookWhereInput | null {
+function buildFloatFilter(
+  operator: string,
+  value: string,
+): Prisma.FloatNullableFilter | undefined {
+  const num = Number(value);
+  if (isNaN(num)) return undefined;
+  switch (operator) {
+    case 'eq':
+      return { equals: num };
+    case 'ne':
+      return { not: { equals: num } };
+    case 'gt':
+      return { gt: num };
+    case 'lt':
+      return { lt: num };
+    default:
+      return undefined;
+  }
+}
+
+function buildRuleFilter(rule: Rule, userId?: string): BookWhereInput | null {
   const { field, operator, value } = rule;
   if (!value?.trim()) return null;
 
@@ -107,6 +127,11 @@ function buildRuleFilter(rule: Rule): BookWhereInput | null {
       const f = buildNumericFilter(operator, value);
       return f ? { pageCount: f } : null;
     }
+    case 'userRating': {
+      if (!userId) return null;
+      const f = buildFloatFilter(operator, value);
+      return f ? { reviews: { some: { userId, rating: f } } } : null;
+    }
     case 'publishedYear': {
       const year = parseInt(value, 10);
       if (isNaN(year)) return null;
@@ -133,9 +158,13 @@ function buildRuleFilter(rule: Rule): BookWhereInput | null {
   }
 }
 
-export function buildBookWhere(rules: Rule[], logic: string): BookWhereInput {
+export function buildBookWhere(
+  rules: Rule[],
+  logic: string,
+  userId?: string,
+): BookWhereInput {
   const filters = rules
-    .map(buildRuleFilter)
+    .map((r) => buildRuleFilter(r, userId))
     .filter((f): f is BookWhereInput => f !== null);
 
   if (filters.length === 0) return {};

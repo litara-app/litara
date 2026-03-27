@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Modal,
   Box,
@@ -18,9 +19,11 @@ import {
   Alert,
   Select,
   Stack,
+  Progress,
 } from '@mantine/core';
 import {
   IconBook2,
+  IconBook,
   IconDownload,
   IconChevronDown,
   IconArrowsJoin,
@@ -83,9 +86,13 @@ export function BookDetailModal({
   onClose,
   onBookUpdated,
 }: BookDetailModalProps) {
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [readingProgress, setReadingProgress] = useState<{
+    percentage: number;
+  } | null>(null);
 
   const [editedFields, setEditedFields] = useState<EditedFields | null>(null);
   const [lockedFields, setLockedFields] = useState<Set<string>>(new Set());
@@ -123,13 +130,20 @@ export function BookDetailModal({
     setLoading(true);
     setActiveTab('overview');
     setIsDirty(false);
-    api
-      .get<BookDetail>(`/books/${bookId}`)
-      .then((res) => {
-        const d = res.data;
+    setReadingProgress(null);
+    Promise.all([
+      api.get<BookDetail>(`/books/${bookId}`),
+      api
+        .get<{ percentage: number } | null>(`/books/${bookId}/progress`)
+        .catch(() => null),
+    ])
+      .then(([bookRes, progressRes]) => {
+        const d = bookRes.data;
         setDetail(d);
         setEditedFields(detailToEdited(d));
         setLockedFields(new Set(d.lockedFields));
+        if (progressRes?.data?.percentage != null)
+          setReadingProgress(progressRes.data);
       })
       .finally(() => setLoading(false));
   }, [bookId]);
@@ -166,18 +180,16 @@ export function BookDetailModal({
 
       await api.patch(`/books/${detail.id}`, {
         title: editedFields.title || undefined,
-        subtitle: editedFields.subtitle || undefined,
-        description: editedFields.description || undefined,
-        isbn13: editedFields.isbn13 || undefined,
-        isbn10: editedFields.isbn10 || undefined,
-        publisher: editedFields.publisher || undefined,
-        publishedDate,
-        language: editedFields.language || undefined,
+        subtitle: editedFields.subtitle || null,
+        description: editedFields.description || null,
+        isbn13: editedFields.isbn13 || null,
+        isbn10: editedFields.isbn10 || null,
+        publisher: editedFields.publisher || null,
+        publishedDate: publishedDate ?? null,
+        language: editedFields.language || null,
         pageCount:
-          editedFields.pageCount !== ''
-            ? Number(editedFields.pageCount)
-            : undefined,
-        ageRating: editedFields.ageRating || undefined,
+          editedFields.pageCount !== '' ? Number(editedFields.pageCount) : null,
+        ageRating: editedFields.ageRating || null,
         authors: editedFields.authors,
         tags: editedFields.tags,
         genres: editedFields.genres,
@@ -261,7 +273,10 @@ export function BookDetailModal({
   function resolveDefaultSendFile(
     files: BookDetail['files'],
   ): BookDetail['files'][0] | undefined {
-    return files.find((f) => f.format.toUpperCase() === 'EPUB') ?? files[0];
+    const READABLE = ['EPUB', 'MOBI', 'AZW', 'AZW3'];
+    return (
+      files.find((f) => READABLE.includes(f.format.toUpperCase())) ?? files[0]
+    );
   }
 
   async function openSendModal() {
@@ -417,6 +432,39 @@ export function BookDetailModal({
                     </Badge>
                   ))}
                 </Group>
+                {detail.files.some(
+                  (f) =>
+                    ['EPUB', 'MOBI', 'AZW', 'AZW3', 'CBZ'].includes(f.format) &&
+                    !f.missingAt,
+                ) && (
+                  <Stack gap={6}>
+                    <Button
+                      fullWidth
+                      leftSection={<IconBook size={16} />}
+                      onClick={() => {
+                        onClose();
+                        navigate(`/read/${detail.id}`);
+                      }}
+                    >
+                      Read
+                    </Button>
+                    {readingProgress && (
+                      <Box>
+                        <Progress
+                          value={readingProgress.percentage * 100}
+                          size="sm"
+                          color="green"
+                          radius="xs"
+                        />
+                        <Text size="xs" c="dimmed" ta="center" mt={2}>
+                          {detail.pageCount
+                            ? `Page ~${Math.round(readingProgress.percentage * detail.pageCount)} of ${detail.pageCount}`
+                            : `${Math.round(readingProgress.percentage * 100)}% read`}
+                        </Text>
+                      </Box>
+                    )}
+                  </Stack>
+                )}
               </Box>
 
               {/* Right panel — tabs */}

@@ -125,6 +125,7 @@ After editing backend controllers or DTOs, always check: 1) `@ApiBearerAuth()` i
 ## Frontend Conventions
 
 This project uses Mantine v8. Do NOT use deprecated v7 APIs (e.g., creatable MultiSelect). Check Mantine docs for current component APIs before implementing UI changes.
+'IconBookOpen' is not provided by tabler icons.
 
 ## Docker / CI
 

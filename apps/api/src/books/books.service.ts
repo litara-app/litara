@@ -33,15 +33,15 @@ export class UpdateBookDto {
 
   // Metadata fields (book table)
   title?: string;
-  subtitle?: string;
-  description?: string;
-  isbn13?: string;
-  isbn10?: string;
-  publisher?: string;
-  publishedDate?: string;
-  language?: string;
-  pageCount?: number;
-  ageRating?: string;
+  subtitle?: string | null;
+  description?: string | null;
+  isbn13?: string | null;
+  isbn10?: string | null;
+  publisher?: string | null;
+  publishedDate?: string | null;
+  language?: string | null;
+  pageCount?: number | null;
+  ageRating?: string | null;
   lockedFields?: string[];
 
   // Cover (fetched from URL and stored as coverData)
@@ -104,6 +104,7 @@ export class BooksService {
         authors: { include: { author: true } },
         files: { select: { format: true, missingAt: true } },
         series: { include: { series: { select: { id: true, name: true } } } },
+        readingProgress: { where: { userId }, select: { percentage: true } },
       },
     });
 
@@ -119,6 +120,7 @@ export class BooksService {
       seriesName: book.series[0]?.series.name ?? null,
       seriesSequence: book.series[0]?.sequence ?? null,
       publishedDate: book.publishedDate,
+      readingProgress: book.readingProgress[0]?.percentage ?? null,
     }));
   }
 
@@ -537,6 +539,20 @@ export class BooksService {
     if (file.missingAt !== null)
       throw new GoneException('File is missing from disk');
     return { filePath: file.filePath, format: file.format };
+  }
+
+  async getPreferredFile(bookId: string) {
+    const files = await this.prisma.bookFile.findMany({
+      where: { bookId, missingAt: null },
+    });
+    if (!files.length)
+      throw new NotFoundException('No file found for this book');
+    const READABLE_FORMATS = ['EPUB', 'MOBI', 'AZW', 'AZW3'];
+    const preferred =
+      READABLE_FORMATS.map((fmt) => files.find((f) => f.format === fmt)).find(
+        Boolean,
+      ) ?? files[0];
+    return { filePath: preferred.filePath, format: preferred.format };
   }
 
   async getFileMetadata(bookId: string) {

@@ -69,6 +69,10 @@ export class ShelvesService {
           include: {
             authors: { include: { author: true } },
             files: { select: { format: true, missingAt: true } },
+            readingProgress: {
+              where: { userId },
+              select: { percentage: true },
+            },
           },
         },
       },
@@ -80,9 +84,11 @@ export class ShelvesService {
       title: book.title,
       authors: book.authors.map((ba) => ba.author.name),
       hasCover: book.coverData !== null,
+      coverUpdatedAt: book.updatedAt.toISOString(),
       createdAt: book.createdAt,
       formats: [...new Set(book.files.map((f) => f.format))].sort(),
       hasFileMissing: book.files.some((f) => f.missingAt !== null),
+      readingProgress: book.readingProgress[0]?.percentage ?? null,
     }));
   }
 }
