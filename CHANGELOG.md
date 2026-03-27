@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/litara-app/litara/compare/v1.7.0...v1.8.0) (2026-03-27)
+
+
+### Features
+
+* initial cbz support (needs testing) ([babc6de](https://github.com/litara-app/litara/commit/babc6def221309dc2e22c2412d5d732ec6aa043b))
+
 # [1.7.0](https://github.com/litara-app/litara/compare/v1.6.0...v1.7.0) (2026-03-26)
 
 
