@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { EPub } from 'epub2';
 import { extractMobiMetadata } from '@litara/mobi-parser';
+import { extractCbzMetadata } from '@litara/cbz-parser';
 
 export interface ExtractedFileMetadata {
   title: string;
@@ -23,6 +24,7 @@ export interface ExtractedFileMetadata {
 
 export async function extractFileMetadata(
   filePath: string,
+  log?: (msg: string) => void,
 ): Promise<ExtractedFileMetadata> {
   const ext = path.extname(filePath).toLowerCase();
 
@@ -46,7 +48,21 @@ export async function extractFileMetadata(
     };
   }
 
-  // CBZ / PDF — fall back to filename
+  if (ext === '.cbz') {
+    const meta = extractCbzMetadata(filePath, log);
+    return {
+      title: meta.title,
+      authors: meta.authors,
+      description: meta.description,
+      publishedDate: meta.publishedDate,
+      publisher: meta.publisher,
+      language: meta.language,
+      subjects: meta.subjects,
+      ids: meta.ids,
+    };
+  }
+
+  // PDF — fall back to filename
   return {
     title: path.basename(filePath, path.extname(filePath)),
     authors: [],

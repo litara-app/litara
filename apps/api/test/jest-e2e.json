@@ -10,7 +10,8 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "moduleNameMapper": {
-    "^@litara/mobi-parser$": "<rootDir>/test/mocks/mobi-parser.js"
+    "^@litara/mobi-parser$": "<rootDir>/test/mocks/mobi-parser.js",
+    "^@litara/cbz-parser$": "<rootDir>/test/mocks/cbz-parser.js"
   },
   "setupFiles": ["<rootDir>/test/setup/test-env.ts"],
   "globalSetup": "<rootDir>/test/setup/global-setup.ts",

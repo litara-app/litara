@@ -22,6 +22,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@litara/cbz-parser": "*",
     "@litara/mobi-parser": "*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
