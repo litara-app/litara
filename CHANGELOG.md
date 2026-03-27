@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/litara-app/litara/compare/v1.8.0...v1.9.0) (2026-03-27)
+
+
+### Features
+
+* in browser reader via foliate-js, cleanup of frontend ([a1d28bd](https://github.com/litara-app/litara/commit/a1d28bdd4a186a2e624a5a2a1947e4348a7a18f0))
+
 # [1.8.0](https://github.com/litara-app/litara/compare/v1.7.0...v1.8.0) (2026-03-27)
 
 
