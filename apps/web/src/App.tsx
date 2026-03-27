@@ -21,6 +21,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AllBooksPage } from './pages/AllBooksPage';
 import { SeriesPage } from './pages/SeriesPage';
 import { SmartShelfPage } from './pages/SmartShelfPage';
+import { ReaderPage } from './pages/ReaderPage';
 import { AppLayout } from './components/AppLayout/AppLayout';
 import { ToastContainer } from './components/ToastContainer';
 
@@ -40,6 +41,9 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<SetupPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/read/:bookId" element={<ReaderPage />} />
+          </Route>
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />

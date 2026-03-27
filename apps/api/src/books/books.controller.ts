@@ -13,7 +13,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createReadStream } from 'fs';
-import { basename } from 'path';
+import { basename, resolve } from 'path';
 import type { Response } from 'express';
 import {
   ApiBearerAuth,
@@ -193,6 +193,33 @@ export class BooksController {
   ) {
     await this.mailService.sendBook(req.user.id, id, dto);
     return { message: 'Book sent successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Get(':id/file')
+  @ApiOperation({
+    summary: 'Stream the preferred ebook file for in-browser reading',
+  })
+  @ApiOkResponse({
+    description: 'Streams the ebook file with the appropriate Content-Type',
+  })
+  async serveFile(@Param('id') id: string, @Res() res: Response) {
+    const { filePath, format } = await this.booksService.getPreferredFile(id);
+    const contentTypes: Record<string, string> = {
+      EPUB: 'application/epub+zip',
+      MOBI: 'application/x-mobipocket-ebook',
+      AZW: 'application/vnd.amazon.ebook',
+      AZW3: 'application/vnd.amazon.ebook',
+      CBZ: 'application/x-cbz',
+      PDF: 'application/pdf',
+    };
+    res.setHeader(
+      'Content-Type',
+      contentTypes[format] ?? 'application/octet-stream',
+    );
+    res.setHeader('Content-Disposition', 'inline');
+    res.sendFile(resolve(filePath));
   }
 
   @Get(':id/cover')

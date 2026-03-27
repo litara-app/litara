@@ -8,6 +8,7 @@ const sidebars: SidebarsConfig = {
     'opds',
     'email-delivery',
     'smart-shelves',
+    'reader',
     {
       type: 'category',
       label: 'Development',

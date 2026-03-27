@@ -12,6 +12,7 @@ export const ALLOWED_FIELDS = [
   'pageCount',
   'publishedYear',
   'isbn13',
+  'userRating',
 ] as const;
 
 export const ALLOWED_OPERATORS = [

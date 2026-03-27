@@ -98,7 +98,7 @@ export class SmartShelvesService {
     });
     if (!shelf) throw new NotFoundException('Smart shelf not found');
 
-    const where = buildBookWhere(shelf.rules, shelf.logic);
+    const where = buildBookWhere(shelf.rules, shelf.logic, userId);
 
     const [books, total] = await Promise.all([
       this.prisma.book.findMany({
@@ -111,6 +111,7 @@ export class SmartShelvesService {
           series: {
             include: { series: { select: { id: true, name: true } } },
           },
+          readingProgress: { where: { userId }, select: { percentage: true } },
         },
       }),
       this.prisma.book.count({ where }),
@@ -129,6 +130,7 @@ export class SmartShelvesService {
         seriesName: book.series[0]?.series.name ?? null,
         seriesSequence: book.series[0]?.sequence ?? null,
         publishedDate: book.publishedDate,
+        readingProgress: book.readingProgress[0]?.percentage ?? null,
       })),
     };
   }

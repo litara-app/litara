@@ -31,9 +31,10 @@ export const SMART_SHELF_FIELDS: Array<{ value: string; label: string }> = [
   { value: 'pageCount', label: 'Page Count' },
   { value: 'publishedYear', label: 'Published Year' },
   { value: 'isbn13', label: 'ISBN-13' },
+  { value: 'userRating', label: 'My Rating' },
 ];
 
-const NUMERIC_FIELDS = new Set(['pageCount', 'publishedYear']);
+const NUMERIC_FIELDS = new Set(['pageCount', 'publishedYear', 'userRating']);
 
 export const SMART_SHELF_OPERATORS: Array<{
   value: string;

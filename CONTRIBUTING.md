@@ -65,3 +65,5 @@ Additional things to verify manually:
 
 - [ ] Migrations are included if `apps/api/prisma/schema.prisma` changed
 - [ ] New API endpoints have a corresponding e2e test in `apps/api/test/`
+
+**Using Claude Code?** Run `/feature-wrap` before opening a PR. It checks Swagger decorators, TypeScript compilation, Mantine v8 API usage, CSP compliance, and documentation — catching common issues before review.

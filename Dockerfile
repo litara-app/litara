@@ -10,6 +10,7 @@ COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/mobi-parser/package.json ./packages/mobi-parser/
+COPY packages/cbz-parser/package.json ./packages/cbz-parser/
 
 # Install all deps; skip lifecycle scripts so 'prek install' doesn't fail
 # without a .git directory, then rebuild native addons explicitly
@@ -23,8 +24,9 @@ COPY packages ./packages
 # Generate Prisma client
 RUN cd apps/api && npx prisma generate
 
-# Build in dependency order: mobi-parser first (API imports it), then web and API
+# Build in dependency order: local packages first, then web and API
 RUN npm run build --workspace=@litara/mobi-parser
+RUN npm run build --workspace=@litara/cbz-parser
 RUN npm run build --workspace=@litara/web
 RUN npm run build --workspace=@litara/api
 
@@ -49,6 +51,10 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 # ../../packages/mobi-parser, so the dist must exist in the production image
 COPY --from=builder /app/packages/mobi-parser/dist ./packages/mobi-parser/dist
 COPY packages/mobi-parser/package.json ./packages/mobi-parser/
+
+# Compiled cbz-parser — same symlink pattern as mobi-parser
+COPY --from=builder /app/packages/cbz-parser/dist ./packages/cbz-parser/dist
+COPY packages/cbz-parser/package.json ./packages/cbz-parser/
 
 # Prisma schema + migrations (needed for 'prisma migrate deploy' on startup)
 COPY apps/api/prisma ./apps/api/prisma

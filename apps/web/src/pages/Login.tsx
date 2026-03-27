@@ -60,9 +60,10 @@ export function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#eef0f3',
+        backgroundColor:
+          'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-8))',
         backgroundImage:
-          'radial-gradient(circle, #b8bcc6 1px, transparent 1px)',
+          'radial-gradient(circle, light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-5)) 1px, transparent 1px)',
         backgroundSize: '22px 22px',
       }}
     >
@@ -74,7 +75,6 @@ export function Login() {
           width: 480,
           maxWidth: '95vw',
           borderTop: '4px solid var(--mantine-color-blue-6)',
-          backgroundColor: '#ffffff',
         }}
       >
         <div
