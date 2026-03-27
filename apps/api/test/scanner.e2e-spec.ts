@@ -33,7 +33,7 @@ describe('LibraryScanner (e2e)', () => {
     await testApp.app.close();
   });
 
-  it('imports all 6 ebook files from ebook-library/', async () => {
+  it('imports all ebook files from ebook-library/', async () => {
     const books = await testApp.db.book.findMany({ include: { files: true } });
     expect(books).toHaveLength(7);
   });
@@ -91,6 +91,35 @@ describe('LibraryScanner (e2e)', () => {
     expect(
       files.every((f) => f.fileHash !== null && f.fileHash!.length === 64),
     ).toBe(true);
+  });
+
+  it('CBZ: extracts title from ComicInfo.xml (Test Man)', async () => {
+    const book = await testApp.db.book.findFirst({
+      where: {
+        title: { contains: 'Adventures of Test Man', mode: 'insensitive' },
+        files: { some: { format: 'CBZ' } },
+      },
+      include: {
+        files: true,
+        authors: { include: { author: true } },
+      },
+    });
+    expect(book).not.toBeNull();
+    expect(book!.title).toContain('Adventures of Test Man');
+    expect(book!.authors.map((a) => a.author.name)).toContain('Jane Doe');
+    expect(book!.files.some((f) => f.format === 'CBZ')).toBe(true);
+  });
+
+  it('CBZ: stores cover image bytes (Test Man)', async () => {
+    const book = await testApp.db.book.findFirst({
+      where: {
+        title: { contains: 'Adventures of Test Man', mode: 'insensitive' },
+        files: { some: { format: 'CBZ' } },
+      },
+    });
+    expect(book).not.toBeNull();
+    expect(book!.coverData).not.toBeNull();
+    expect((book!.coverData as Buffer).length).toBeGreaterThan(0);
   });
 
   it('does not duplicate books when fullScan() is called a second time', async () => {

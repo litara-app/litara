@@ -9,7 +9,7 @@ Litara is a self-hosted ebook library manager. It lets you organize, read, and m
 
 ## Features
 
-- **Library scanning** — Automatically imports ebooks from a watched folder. Supports `.epub`, `.mobi`, `.azw`, `.azw3`, `.cbz`, and `.pdf` formats.
+- **Library scanning** — Automatically imports ebooks from a watched folder. Supports `.epub`, `.mobi`, `.azw`, `.azw3`, and `.pdf` formats. `.cbz` (comic book archives) is also supported in beta — metadata is read from `ComicInfo.xml` if present.
 - **Metadata extraction** — Pulls title, author, cover art, and other metadata directly from ebook files.
 - **Metadata enrichment** — Manually fetch extended metadata (description, genres, ratings) from Google Books for any book.
 - **Email delivery** — Send books directly to an e-reader via SMTP (e.g. Kindle email).
@@ -24,11 +24,12 @@ Litara is a self-hosted ebook library manager. It lets you organize, read, and m
 
 Litara is composed of two apps and one package:
 
-| Component              | Description                                   |
-| ---------------------- | --------------------------------------------- |
-| `apps/api`             | NestJS REST API and library scanner           |
-| `apps/web`             | React + Vite web frontend                     |
-| `packages/mobi-parser` | Metadata extractor for `.mobi` / `.azw` files |
+| Component              | Description                                          |
+| ---------------------- | ---------------------------------------------------- |
+| `apps/api`             | NestJS REST API and library scanner                  |
+| `apps/web`             | React + Vite web frontend                            |
+| `packages/mobi-parser` | Metadata extractor for `.mobi` / `.azw` files        |
+| `packages/cbz-parser`  | Metadata and cover extractor for `.cbz` files (beta) |
 
 The API stores all data in PostgreSQL and exposes a Swagger UI at `/docs` when running.
 

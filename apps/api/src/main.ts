@@ -6,7 +6,10 @@ import helmet from 'helmet';
 import type { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logLevels = (process.env.LOG_LEVEL ?? 'log,warn,error').split(
+    ',',
+  ) as any[];
+  const app = await NestFactory.create(AppModule, { logger: logLevels });
 
   // Security headers — skip for OPDS routes so ebook reader apps (Thorium,
   // KOReader, etc.) aren't blocked by CSP upgrade-insecure-requests or

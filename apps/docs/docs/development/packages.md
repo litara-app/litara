@@ -25,16 +25,17 @@ The NestJS backend. Serves the REST API, handles library scanning, and serves th
 
 **Notable dependencies:**
 
-| Package                         | Purpose                                                 |
-| ------------------------------- | ------------------------------------------------------- |
-| `@nestjs/*`                     | Framework, JWT, Swagger, serve-static                   |
-| `prisma` + `@prisma/adapter-pg` | Database ORM (Prisma 7 with pg driver adapter)          |
-| `epub2`                         | EPUB metadata extraction                                |
-| `@litara/mobi-parser`           | MOBI/AZW metadata extraction (internal package)         |
-| `chokidar`                      | File system watcher                                     |
-| `fast-glob`                     | High-performance file globbing for initial library scan |
-| `helmet`                        | HTTP security headers                                   |
-| `bcrypt`                        | Password hashing                                        |
+| Package                         | Purpose                                                    |
+| ------------------------------- | ---------------------------------------------------------- |
+| `@nestjs/*`                     | Framework, JWT, Swagger, serve-static                      |
+| `prisma` + `@prisma/adapter-pg` | Database ORM (Prisma 7 with pg driver adapter)             |
+| `epub2`                         | EPUB metadata extraction                                   |
+| `@litara/mobi-parser`           | MOBI/AZW metadata extraction (internal package)            |
+| `@litara/cbz-parser`            | CBZ metadata and cover extraction (internal package, beta) |
+| `chokidar`                      | File system watcher                                        |
+| `fast-glob`                     | High-performance file globbing for initial library scan    |
+| `helmet`                        | HTTP security headers                                      |
+| `bcrypt`                        | Password hashing                                           |
 
 **Testing:** Jest for unit tests, Jest + Testcontainers for e2e tests (spins up a real PostgreSQL container — no mocking).
 
@@ -85,6 +86,45 @@ const cover = await extractMobiCover('/path/to/book.mobi');
 ```
 
 **Why a separate package?** NestJS compiles to CommonJS but the package uses Node ESM (`"type": "module"`). Isolating it as a workspace package lets it build independently and be consumed by `apps/api` as a workspace dependency (`"@litara/mobi-parser": "*"`).
+
+---
+
+### `packages/cbz-parser` — `@litara/cbz-parser` _(beta)_
+
+A TypeScript CBZ (comic book archive) parser. CBZ files are ZIP archives containing images and an optional `ComicInfo.xml` metadata file (the [ComicRack](https://wiki.mobileread.com/wiki/ComicRack) standard). This package reads the ZIP with `adm-zip` and parses `ComicInfo.xml` with `fast-xml-parser`.
+
+**Exports two functions:**
+
+```ts
+import { extractCbzMetadata, extractCbzCover } from '@litara/cbz-parser';
+
+const metadata = extractCbzMetadata('/path/to/book.cbz');
+// → { title, authors, description, publishedDate, publisher, language, subjects, series, seriesNumber, ids }
+
+const cover = extractCbzCover('/path/to/book.cbz');
+// → Buffer | undefined
+```
+
+**Metadata mapping from `ComicInfo.xml`:**
+
+| ComicInfo field  | Mapped to                           |
+| ---------------- | ----------------------------------- |
+| `Title`          | `title`                             |
+| `Writer`         | `authors` (split on `,`)            |
+| `Publisher`      | `publisher`                         |
+| `Summary`        | `description`                       |
+| `LanguageISO`    | `language`                          |
+| `Year/Month/Day` | `publishedDate`                     |
+| `Genre`          | `subjects` (split on `,`)           |
+| `Tags`           | `subjects` (appended, split on `,`) |
+| `Series`         | `ids.series`                        |
+| `Number`         | `ids.seriesNumber`                  |
+
+If no `ComicInfo.xml` is present the title falls back to the filename. Cover extraction returns the image tagged as `FrontCover` in `<Pages>`, or the first alphabetically-sorted image in the archive.
+
+> **Beta:** CBZ support is functional but not yet validated against a broad range of real-world CBZ files. Edge cases may exist for non-standard archives.
+
+**Why a separate package?** Same reason as `mobi-parser` — ESM isolation from the NestJS CommonJS build. The Jest e2e suite uses a CJS stub (`test/mocks/cbz-parser.js`) that replicates the same logic using `adm-zip` and `fast-xml-parser` directly.
 
 ---
 

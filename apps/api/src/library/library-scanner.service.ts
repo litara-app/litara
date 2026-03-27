@@ -14,6 +14,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { EPub } from 'epub2';
 import { extractMobiCover } from '@litara/mobi-parser';
+import { extractCbzCover } from '@litara/cbz-parser';
 import { extractFileMetadata } from '../common/extract-file-metadata';
 import { findSidecar } from '../common/find-sidecar';
 import type { FSWatcher } from 'chokidar';
@@ -200,6 +201,9 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
 
       // Extract metadata
       const metadata = await this.extractMetadata(filePath);
+      this.logger.debug(
+        `Metadata for ${path.basename(filePath)}: title="${metadata.title}" authors=[${metadata.authors.join(', ')}]`,
+      );
 
       // Find or create a Library
       const library = await this.prisma.library.findFirst({
@@ -261,6 +265,8 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
         await this.storeCoverFromEpub(filePath, book.id).catch(() => {});
       } else if (['.mobi', '.azw', '.azw3'].includes(ext)) {
         await this.storeCoverFromMobi(filePath, book.id).catch(() => {});
+      } else if (ext === '.cbz') {
+        await this.storeCoverFromCbz(filePath, book.id).catch(() => {});
       }
 
       this.logger.log(
@@ -325,7 +331,9 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
 
   private async extractMetadata(filePath: string) {
     try {
-      return await extractFileMetadata(filePath);
+      return await extractFileMetadata(filePath, (msg) =>
+        this.logger.debug(msg),
+      );
     } catch (err) {
       this.logger.warn(
         `Could not parse metadata for ${filePath}: ${(err as Error).message}`,
@@ -405,6 +413,25 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     this.logger.log(
+      `Cover extracted (${coverData.byteLength} bytes), saving for book ${bookId}`,
+    );
+    await this.prisma.book.update({
+      where: { id: bookId },
+      data: { coverData: coverData as unknown as Uint8Array<ArrayBuffer> },
+    });
+  }
+
+  private async storeCoverFromCbz(
+    filePath: string,
+    bookId: string,
+  ): Promise<void> {
+    this.logger.debug(`Extracting cover from CBZ: ${filePath}`);
+    const coverData = extractCbzCover(filePath);
+    if (!coverData) {
+      this.logger.warn(`No cover image found in CBZ file: ${filePath}`);
+      return;
+    }
+    this.logger.debug(
       `Cover extracted (${coverData.byteLength} bytes), saving for book ${bookId}`,
     );
     await this.prisma.book.update({
