@@ -22,14 +22,17 @@ async function bootstrap() {
         imgSrc: [
           "'self'",
           'data:',
+          'blob:',
           'https://covers.openlibrary.org',
           'https://m.media-amazon.com',
           'https://books.google.com',
           'https://assets.hardcover.app',
         ],
-        // foliate-js renders ebook content in blob: URL iframes
+        // foliate-js renders ebook content in blob: URL iframes and loads
+        // blob: stylesheets and images from within those iframes
         frameSrc: ["'self'", 'blob:'],
         workerSrc: ["'self'", 'blob:'],
+        styleSrc: ["'self'", 'https:', "'unsafe-inline'", 'blob:'],
       },
     },
   });
