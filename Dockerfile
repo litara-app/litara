@@ -67,6 +67,9 @@ COPY apps/api/prisma.config.ts ./apps/api/
 # At runtime __dirname is dist/apps/api/src/, so '../public' = dist/apps/api/public/.
 COPY --from=builder /app/apps/web/dist ./apps/api/dist/apps/api/public
 
+ENV LITARA_ROOT=/app
+COPY --from=builder /app/package.json ./package.json
+
 WORKDIR /app/apps/api
 EXPOSE 3000
 CMD ["node", "dist/apps/api/src/main"]

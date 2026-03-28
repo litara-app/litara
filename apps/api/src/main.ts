@@ -27,6 +27,9 @@ async function bootstrap() {
           'https://books.google.com',
           'https://assets.hardcover.app',
         ],
+        // foliate-js renders ebook content in blob: URL iframes
+        frameSrc: ["'self'", 'blob:'],
+        workerSrc: ["'self'", 'blob:'],
       },
     },
   });

@@ -13,6 +13,8 @@ import {
   Modal,
   TextInput,
   Button,
+  Anchor,
+  Code,
 } from '@mantine/core';
 import {
   IconHome,
@@ -27,16 +29,20 @@ import {
   IconTimeline,
   IconFlask,
   IconAdjustments,
+  IconArrowUpCircle,
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { api } from '../../utils/api';
 import {
   librariesAtom,
   shelvesAtom,
   userSettingsAtom,
+  updateAvailableAtom,
+  versionCheckResultAtom,
 } from '../../store/atoms';
 import type { Library, Shelf } from '../../store/atoms';
+import type { VersionCheckResult } from '../../types/server';
 import { SmartShelfModal } from '../SmartShelfModal';
 import { DashboardSettingsModal } from '../DashboardSettingsModal';
 import type { SmartShelfSummary } from '../../types/smartShelf';
@@ -388,6 +394,12 @@ export function NavbarContent() {
   const [smartShelves, setSmartShelves] = useState<SmartShelfSummary[]>([]);
   const [smartShelfModalOpen, setSmartShelfModalOpen] = useState(false);
 
+  const updateAvailable = useAtomValue(updateAvailableAtom);
+  const versionCheckResult = useAtomValue(versionCheckResultAtom);
+  const setUpdateAvailable = useSetAtom(updateAvailableAtom);
+  const setVersionCheckResult = useSetAtom(versionCheckResultAtom);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
+
   const user = (() => {
     try {
       return JSON.parse(localStorage.getItem('user') ?? '{}');
@@ -407,6 +419,17 @@ export function NavbarContent() {
     void api.get<Shelf[]>('/shelves').then((r) => setShelves(r.data));
     loadSmartShelves();
   }, [setLibraries, setShelves]);
+
+  useEffect(() => {
+    if (user?.role !== 'ADMIN') return;
+    void api
+      .get<VersionCheckResult>('/server/version-check')
+      .then((r) => {
+        setVersionCheckResult(r.data);
+        setUpdateAvailable(r.data.updateAvailable);
+      })
+      .catch(() => {});
+  }, [setVersionCheckResult, setUpdateAvailable]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -633,6 +656,73 @@ export function NavbarContent() {
         color="red"
         onClick={handleLogout}
       />
+      {updateAvailable && versionCheckResult ? (
+        <UnstyledButton
+          onClick={() => setUpdateModalOpen(true)}
+          w="100%"
+          py={4}
+        >
+          <Group justify="center" gap={4}>
+            <IconArrowUpCircle size={14} color="var(--mantine-color-green-6)" />
+            <Text size="xs" c="green" style={{ userSelect: 'none' }}>
+              v{versionCheckResult.latestVersion} available
+            </Text>
+          </Group>
+        </UnstyledButton>
+      ) : (
+        <Text
+          size="xs"
+          c="dimmed"
+          ta="center"
+          py={4}
+          style={{ userSelect: 'none' }}
+        >
+          v{__APP_VERSION__}
+        </Text>
+      )}
+
+      <Modal
+        opened={updateModalOpen}
+        onClose={() => setUpdateModalOpen(false)}
+        title={`Update available — v${versionCheckResult?.latestVersion ?? ''}`}
+        size="lg"
+      >
+        <Stack gap="md">
+          <Group gap="xs">
+            <Text size="sm" c="dimmed">
+              Current version:
+            </Text>
+            <Text size="sm">v{__APP_VERSION__}</Text>
+            <Text size="sm" c="dimmed">
+              → New version:
+            </Text>
+            <Text size="sm" c="green" fw={500}>
+              v{versionCheckResult?.latestVersion}
+            </Text>
+          </Group>
+          {versionCheckResult?.releaseUrl && (
+            <Anchor
+              href={versionCheckResult.releaseUrl}
+              target="_blank"
+              size="sm"
+            >
+              View release on GitHub
+            </Anchor>
+          )}
+          {versionCheckResult?.releaseNotes && (
+            <Code
+              block
+              style={{
+                whiteSpace: 'pre-wrap',
+                maxHeight: 500,
+                overflowY: 'auto',
+              }}
+            >
+              {versionCheckResult.releaseNotes}
+            </Code>
+          )}
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
