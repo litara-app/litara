@@ -191,6 +191,40 @@ export class HardcoverService {
     return editions.map((e) => this.mapEdition(e));
   }
 
+  async testConnection(): Promise<{ ok: boolean; message: string }> {
+    if (!this.apiKey) {
+      return { ok: false, message: 'HARDCOVER_API_KEY is not configured' };
+    }
+    try {
+      const res = await fetch(GRAPHQL_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({ query: '{ __typename }' }),
+      });
+      if (res.status === 401 || res.status === 403) {
+        return {
+          ok: false,
+          message: `Authentication failed (HTTP ${res.status})`,
+        };
+      }
+      if (!res.ok) {
+        return { ok: false, message: `HTTP ${res.status}` };
+      }
+      const json = (await res.json()) as {
+        errors?: Array<{ message: string }>;
+      };
+      if (json.errors?.length) {
+        return { ok: false, message: json.errors[0].message };
+      }
+      return { ok: true, message: 'Connected successfully' };
+    } catch (err) {
+      return { ok: false, message: (err as Error).message };
+    }
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   private mapEdition(edition: HcEdition): MetadataResult {

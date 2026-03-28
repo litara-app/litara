@@ -57,10 +57,17 @@ export class OpenLibraryService {
   async searchManyByTitleAuthor(
     title: string,
     author?: string,
+    limit = 3,
   ): Promise<MetadataResult[]> {
     let query = `title=${encodeURIComponent(title)}`;
     if (author) query += `&author=${encodeURIComponent(author)}`;
-    return this.searchMany(query, 3);
+    return this.searchMany(query, limit);
+  }
+
+  async fetchByKey(key: string): Promise<MetadataResult | null> {
+    // key is like /works/OL123W — query by key field
+    const query = `q=${encodeURIComponent(key)}`;
+    return this.search(query);
   }
 
   private async search(queryString: string): Promise<MetadataResult | null> {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   ScrollArea,
@@ -93,12 +93,21 @@ export function SearchMetadataTab({
   onApplied,
   onSwitchTab,
 }: SearchMetadataTabProps) {
-  const [searchProviders, setSearchProviders] = useState<string[]>([
-    'hardcover',
-    'open-library',
-    'goodreads',
-  ]);
+  const [availableProviders, setAvailableProviders] = useState<
+    Array<{ id: string; label: string }>
+  >([]);
+  const [searchProviders, setSearchProviders] = useState<string[]>([]);
   const [searchIsbn, setSearchIsbn] = useState(detail.isbn13 ?? '');
+
+  useEffect(() => {
+    api
+      .get<Array<{ id: string; label: string }>>('/settings/metadata-providers')
+      .then((res) => {
+        setAvailableProviders(res.data);
+        setSearchProviders(res.data.map((p) => p.id));
+      })
+      .catch(() => {});
+  }, []);
   const [searchTitle, setSearchTitle] = useState(detail.title);
   const [searchAuthor, setSearchAuthor] = useState(detail.authors[0] ?? '');
   const [searching, setSearching] = useState(false);
@@ -121,14 +130,7 @@ export function SearchMetadataTab({
       if (searchIsbn) params.set('isbn', searchIsbn);
       if (searchTitle) params.set('title', searchTitle);
       if (searchAuthor) params.set('author', searchAuthor);
-      const providerLabel = (p: string) =>
-        p === 'google-books'
-          ? 'Google Books'
-          : p === 'goodreads'
-            ? 'Goodreads'
-            : p === 'hardcover'
-              ? 'Hardcover'
-              : 'Open Library';
+      const labelMap = new Map(availableProviders.map((p) => [p.id, p.label]));
 
       const calls = searchProviders.map((p) =>
         api
@@ -149,7 +151,7 @@ export function SearchMetadataTab({
                 | 'google-books'
                 | 'goodreads'
                 | 'hardcover',
-              providerLabel: providerLabel(r.provider),
+              providerLabel: labelMap.get(r.provider) ?? r.provider,
               result: res,
             })),
         ),
@@ -282,13 +284,13 @@ export function SearchMetadataTab({
             label="Providers"
             value={searchProviders}
             onChange={setSearchProviders}
-            data={[
-              { value: 'hardcover', label: 'Hardcover' },
-              { value: 'open-library', label: 'Open Library' },
-              { value: 'google-books', label: 'Google Books' },
-              { value: 'goodreads', label: 'Goodreads' },
-            ]}
-            placeholder="Select..."
+            data={availableProviders.map((p) => ({
+              value: p.id,
+              label: p.label,
+            }))}
+            placeholder={
+              availableProviders.length === 0 ? 'Loading…' : 'Select...'
+            }
             style={{ flex: 1.5 }}
           />
           <TextInput

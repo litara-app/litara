@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from '../database/database.service';
 import { GoogleBooksService } from './providers/google-books.service';
 import { OpenLibraryService } from './providers/open-library.service';
@@ -13,6 +14,33 @@ export enum MetadataProvider {
   Hardcover = 'hardcover',
 }
 
+export const PROVIDERS_CONFIG = [
+  {
+    id: MetadataProvider.GoogleBooks,
+    label: 'Google Books',
+    requiresApiKey: false,
+    envKey: 'GOOGLE_BOOKS_API_KEY' as string | null,
+  },
+  {
+    id: MetadataProvider.OpenLibrary,
+    label: 'Open Library',
+    requiresApiKey: false,
+    envKey: null as string | null,
+  },
+  {
+    id: MetadataProvider.Goodreads,
+    label: 'Goodreads',
+    requiresApiKey: false,
+    envKey: null as string | null,
+  },
+  {
+    id: MetadataProvider.Hardcover,
+    label: 'Hardcover',
+    requiresApiKey: true,
+    envKey: 'HARDCOVER_API_KEY' as string | null,
+  },
+] as const;
+
 interface EnrichInput {
   title: string;
   authors: string[];
@@ -25,11 +53,52 @@ export class MetadataService {
 
   constructor(
     private readonly prisma: DatabaseService,
+    private readonly config: ConfigService,
     private readonly googleBooks: GoogleBooksService,
     private readonly openLibrary: OpenLibraryService,
     private readonly goodreads: GoodreadsService,
     private readonly hardcover: HardcoverService,
   ) {}
+
+  async getProviderStatuses() {
+    const settings = await this.prisma.serverSettings.findMany({
+      where: { key: { startsWith: 'metadata_provider_' } },
+    });
+    const settingsMap = new Map(settings.map((s) => [s.key, s.value]));
+
+    return PROVIDERS_CONFIG.map((p) => {
+      const apiKeyConfigured = p.envKey
+        ? !!this.config.get<string>(p.envKey)
+        : false;
+      const available = !p.requiresApiKey || apiKeyConfigured;
+      const enabledKey = `metadata_provider_${p.id}_enabled`;
+      const enabled = settingsMap.get(enabledKey) !== 'false';
+      return {
+        id: p.id as string,
+        label: p.label,
+        enabled,
+        requiresApiKey: p.requiresApiKey,
+        apiKeyConfigured,
+        available,
+      };
+    });
+  }
+
+  async getEnabledProviders(): Promise<Array<{ id: string; label: string }>> {
+    const statuses = await this.getProviderStatuses();
+    return statuses
+      .filter((p) => p.enabled && p.available)
+      .map((p) => ({ id: p.id, label: p.label }));
+  }
+
+  async testProvider(
+    provider: MetadataProvider,
+  ): Promise<{ ok: boolean; message: string }> {
+    if (provider === MetadataProvider.Hardcover) {
+      return this.hardcover.testConnection();
+    }
+    return { ok: true, message: 'No API key required' };
+  }
 
   async enrichBook(bookId: string, input: EnrichInput): Promise<void> {
     try {
@@ -213,6 +282,49 @@ export class MetadataService {
     }
 
     return result;
+  }
+
+  // Public surface for BulkMetadataService — delegates to private helpers
+  async upsertBookAuthors(
+    bookId: string,
+    authors: string[],
+    locked: Set<string>,
+  ): Promise<void> {
+    if (!locked.has('authors')) {
+      await this.upsertAuthors(bookId, authors);
+    }
+  }
+
+  async upsertBookGenres(
+    bookId: string,
+    genres: string[],
+    locked: Set<string>,
+  ): Promise<void> {
+    if (!locked.has('genres')) {
+      await this.upsertGenres(bookId, genres);
+    }
+  }
+
+  async upsertBookTags(
+    bookId: string,
+    tags: string[],
+    locked: Set<string>,
+  ): Promise<void> {
+    if (!locked.has('tags')) {
+      await this.upsertTags(bookId, tags);
+    }
+  }
+
+  async upsertBookSeries(
+    bookId: string,
+    seriesName: string,
+    position?: number,
+    totalBooks?: number,
+    locked?: Set<string>,
+  ): Promise<void> {
+    if (!locked?.has('seriesName')) {
+      await this.upsertSeries(bookId, seriesName, position, totalBooks);
+    }
   }
 
   private async upsertAuthors(

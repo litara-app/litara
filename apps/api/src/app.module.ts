@@ -19,6 +19,7 @@ import { MailModule } from './mail/mail.module';
 import { SeriesModule } from './series/series.module';
 import { SmartShelvesModule } from './smart-shelves/smart-shelves.module';
 import { ReadingProgressModule } from './reading-progress/reading-progress.module';
+import { BulkMetadataModule } from './bulk-metadata/bulk-metadata.module';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 
@@ -51,6 +52,7 @@ const staticModules = existsSync(publicPath)
     SeriesModule,
     SmartShelvesModule,
     ReadingProgressModule,
+    BulkMetadataModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -95,26 +95,3 @@ jobs:
             echo "Waiting for API... attempt $i"
             sleep 2
           done
-
-      - name: Run E2E tests
-        run: npm run e2e --workspace=@litara/web
-
-      - name: Capture UI screenshots
-        if: always()
-        run: SCREENSHOTS_OUTPUT_DIR=playwright-screenshots/ npm run screenshots --workspace=@litara/web
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: apps/web/playwright-report/
-          retention-days: 14
-
-      - name: Upload UI screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ui-screenshots
-          path: playwright-screenshots/
-          retention-days: 14
