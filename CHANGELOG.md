@@ -1,3 +1,10 @@
+## [1.11.1](https://github.com/litara-app/litara/compare/v1.11.0...v1.11.1) (2026-03-28)
+
+
+### Bug Fixes
+
+* more security exceptions for ereader ([cc88d6d](https://github.com/litara-app/litara/commit/cc88d6daf0da22947518d1226d6e15ce0d341dc1))
+
 # [1.11.0](https://github.com/litara-app/litara/compare/v1.10.0...v1.11.0) (2026-03-28)
 
 
