@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/litara-app/litara/compare/v1.10.0...v1.11.0) (2026-03-28)
+
+
+### Features
+
+* adding version checker ([d037e43](https://github.com/litara-app/litara/commit/d037e43d8dfe4f840fd6ab1ade18a771ad1e5f64))
+
 # [1.10.0](https://github.com/litara-app/litara/compare/v1.9.0...v1.10.0) (2026-03-28)
 
 
