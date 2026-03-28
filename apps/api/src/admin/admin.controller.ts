@@ -24,6 +24,10 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminService } from './admin.service';
 import type { RequestWithUser } from '../auth/interfaces/authenticated-user.interface';
 import { isValidEmail } from '../common/is-valid-email';
+import {
+  MetadataProviderStatusDto,
+  MetadataProviderTestDto,
+} from './dto/metadata-provider-status.dto';
 
 @ApiBearerAuth()
 @Controller('admin')
@@ -113,5 +117,27 @@ export class AdminController {
   @ApiOkResponse()
   setOpdsSettings(@Body() body: { enabled: boolean }) {
     return this.adminService.setOpdsSetting(body.enabled);
+  }
+
+  @Get('settings/metadata-providers')
+  @ApiOkResponse({ type: MetadataProviderStatusDto, isArray: true })
+  getMetadataProviders() {
+    return this.adminService.getMetadataProviderStatuses();
+  }
+
+  @Patch('settings/metadata-providers/:id')
+  @ApiOkResponse({ type: MetadataProviderStatusDto, isArray: true })
+  setMetadataProviderEnabled(
+    @Param('id') id: string,
+    @Body() body: { enabled: boolean },
+  ) {
+    return this.adminService.setMetadataProviderEnabled(id, body.enabled);
+  }
+
+  @Post('settings/metadata-providers/:id/test')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: MetadataProviderTestDto })
+  testMetadataProvider(@Param('id') id: string) {
+    return this.adminService.testMetadataProvider(id);
   }
 }

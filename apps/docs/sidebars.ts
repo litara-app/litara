@@ -8,6 +8,7 @@ const sidebars: SidebarsConfig = {
     'opds',
     'email-delivery',
     'smart-shelves',
+    'metadata-enrichment',
     'reader',
     {
       type: 'category',
@@ -16,6 +17,7 @@ const sidebars: SidebarsConfig = {
         'development/local-setup',
         'development/packages',
         'development/frontend-testing',
+        'development/metadata-enrichment-api',
       ],
     },
   ],

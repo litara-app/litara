@@ -14,7 +14,22 @@ async function bootstrap() {
   // Security headers — skip for OPDS routes so ebook reader apps (Thorium,
   // KOReader, etc.) aren't blocked by CSP upgrade-insecure-requests or
   // Cross-Origin-Resource-Policy: same-origin.
-  const helmetMiddleware = helmet();
+  const helmetMiddleware = helmet({
+    contentSecurityPolicy: {
+      // useDefaults: true (default) applies Helmet's standard directives.
+      // We only override imgSrc to allow external cover images.
+      directives: {
+        imgSrc: [
+          "'self'",
+          'data:',
+          'https://covers.openlibrary.org',
+          'https://m.media-amazon.com',
+          'https://books.google.com',
+          'https://assets.hardcover.app',
+        ],
+      },
+    },
+  });
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith('/opds')) return next();
     return helmetMiddleware(req, res, next);

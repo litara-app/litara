@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { DatabaseService } from '../database/database.service';
+import {
+  MetadataService,
+  MetadataProvider,
+} from '../metadata/metadata.service';
 
 const USER_SELECT = {
   id: true,
@@ -17,7 +21,10 @@ const USER_SELECT = {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: DatabaseService) {}
+  constructor(
+    private readonly prisma: DatabaseService,
+    private readonly metadataService: MetadataService,
+  ) {}
 
   findAll() {
     return this.prisma.user.findMany({
@@ -112,5 +119,23 @@ export class AdminService {
       update: { value: String(enabled) },
     });
     return { enabled };
+  }
+
+  getMetadataProviderStatuses() {
+    return this.metadataService.getProviderStatuses();
+  }
+
+  async setMetadataProviderEnabled(id: string, enabled: boolean) {
+    const key = `metadata_provider_${id}_enabled`;
+    await this.prisma.serverSettings.upsert({
+      where: { key },
+      create: { key, value: String(enabled) },
+      update: { value: String(enabled) },
+    });
+    return this.metadataService.getProviderStatuses();
+  }
+
+  testMetadataProvider(id: string) {
+    return this.metadataService.testProvider(id as MetadataProvider);
   }
 }

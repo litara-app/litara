@@ -19,7 +19,7 @@ A self-hosted ebook library manager. Automatically scans a folder for ebook file
 
 - Scans and indexes `.epub`, `.mobi`, `.azw`, `.azw3`, `.fb2` (beta) and `.cbz` files (beta)
 - Extracts cover art and metadata (title, authors, series, published date)
-- Optional metadata enrichment via Hardcover (API key required, free to obtain), Goodreads, Openlibrary and Google Books (currently "free" tier not working so disabled.)
+- Optional metadata enrichment via Hardcover (API key required, free to obtain), Goodreads, Openlibrary and Google Books (currently "free" tier not working).
 - JWT-authenticated multi-user support
 - Shelves, smart shelves, reading progress.
 - OPDS catalog (v1.2 Atom + v2.0 JSON) for ebook reader apps
