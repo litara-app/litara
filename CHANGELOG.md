@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/litara-app/litara/compare/v1.9.0...v1.10.0) (2026-03-28)
+
+
+### Features
+
+* metadata matching, small fixes ([7c82e46](https://github.com/litara-app/litara/commit/7c82e4663dd13359be8c83aa38e6d3808e549ac1))
+
 # [1.9.0](https://github.com/litara-app/litara/compare/v1.8.0...v1.9.0) (2026-03-27)
 
 
