@@ -1,4 +1,5 @@
 import { atom } from 'jotai';
+import type { VersionCheckResult } from '../types/server';
 
 export interface Library {
   id: string;
@@ -47,3 +48,5 @@ export const shelvesAtom = atom<Shelf[]>([]);
 export const userSettingsAtom = atom<UserSettings>(DEFAULT_USER_SETTINGS);
 export const backendStatusAtom = atom<'ok' | 'error'>('ok');
 export const toastsAtom = atom<Toast[]>([]);
+export const updateAvailableAtom = atom<boolean>(false);
+export const versionCheckResultAtom = atom<VersionCheckResult | null>(null);
