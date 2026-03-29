@@ -1,3 +1,10 @@
+## [1.11.2](https://github.com/litara-app/litara/compare/v1.11.1...v1.11.2) (2026-03-29)
+
+
+### Bug Fixes
+
+* version mismatch fix and ui tweaks + refactor ([85054cf](https://github.com/litara-app/litara/commit/85054cfdbce99f57f92c6d3a45824e686ac8ca38))
+
 ## [1.11.1](https://github.com/litara-app/litara/compare/v1.11.0...v1.11.1) (2026-03-28)
 
 
