@@ -33,6 +33,8 @@ async function bootstrap() {
         frameSrc: ["'self'", 'blob:'],
         workerSrc: ["'self'", 'blob:'],
         styleSrc: ["'self'", 'https:', "'unsafe-inline'", 'blob:'],
+        // ebook HTML inside foliate-js iframes uses inline event handlers
+        scriptSrcAttr: ["'unsafe-inline'"],
       },
     },
   });

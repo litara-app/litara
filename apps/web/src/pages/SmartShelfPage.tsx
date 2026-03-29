@@ -1,15 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Title, Stack, Text, Badge, Box, Group, Skeleton } from '@mantine/core';
 import { useAtomValue } from 'jotai';
 import { api } from '../utils/api';
 import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
+import { PageHeader } from '../components/PageHeader';
+import { SmartShelfModal } from '../components/SmartShelfModal';
 import type { BookCardData } from '../components/BookCard';
 import type { SmartShelfDetail } from '../types/smartShelf';
 import { SMART_SHELF_FIELDS, SMART_SHELF_OPERATORS } from '../types/smartShelf';
-import { userSettingsAtom } from '../store/atoms';
+import { userSettingsAtom, smartShelvesAtom } from '../store/atoms';
+import { useSetAtom } from 'jotai';
 import { ITEM_MIN_WIDTHS } from '../utils/book-grid';
+import { pushToast } from '../utils/toast';
 
 interface BooksResponse {
   total: number;
@@ -26,12 +30,15 @@ function ruleLabel(field: string, operator: string, value: string): string {
 
 export function SmartShelfPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [shelf, setShelf] = useState<SmartShelfDetail | null>(null);
   const [books, setBooks] = useState<BookCardData[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const userSettings = useAtomValue(userSettingsAtom);
+  const setSmartShelves = useSetAtom(smartShelvesAtom);
   const minWidth = ITEM_MIN_WIDTHS[userSettings.bookItemSize] ?? 160;
 
   const load = useCallback(async () => {
@@ -54,6 +61,14 @@ export function SmartShelfPage() {
     void load();
   }, [load]);
 
+  async function handleDelete() {
+    if (!shelf) return;
+    await api.delete(`/smart-shelves/${shelf.id}`);
+    setSmartShelves((prev) => prev.filter((s) => s.id !== shelf.id));
+    pushToast('Smart shelf deleted', { color: 'green' });
+    navigate('/');
+  }
+
   if (loading) {
     return (
       <Stack>
@@ -74,9 +89,13 @@ export function SmartShelfPage() {
   return (
     <>
       <Stack>
+        <PageHeader
+          title={<Title order={2}>{shelf.name}</Title>}
+          onSettingsClick={() => setSettingsOpen(true)}
+        />
+
         <Box>
-          <Title order={2}>{shelf.name}</Title>
-          <Group gap={4} mt={4} wrap="wrap">
+          <Group gap={4} wrap="wrap">
             {shelf.rules.map((r, i) => (
               <Group key={r.id} gap={4} wrap="nowrap">
                 {i > 0 && (
@@ -105,6 +124,17 @@ export function SmartShelfPage() {
           onBookClick={setSelectedBookId}
         />
       </Stack>
+
+      <SmartShelfModal
+        opened={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSaved={() => {
+          setSettingsOpen(false);
+          void load();
+        }}
+        shelf={shelf}
+        onDelete={() => handleDelete()}
+      />
 
       {selectedBookId && (
         <BookDetailModal
