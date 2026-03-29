@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Title,
   Stack,
   Card,
   Text,
@@ -8,10 +7,16 @@ import {
   Center,
   SimpleGrid,
   Badge,
+  Modal,
+  SegmentedControl,
 } from '@mantine/core';
 import { IconBook2 } from '@tabler/icons-react';
+import { useAtom } from 'jotai';
 import { api } from '../utils/api';
 import { SeriesDetailModal } from '../components/SeriesDetailModal';
+import { PageHeader } from '../components/PageHeader';
+import { userSettingsAtom } from '../store/atoms';
+import type { UserSettings } from '../store/atoms';
 
 interface SeriesListItem {
   id: string;
@@ -48,8 +53,6 @@ function CoverStack({
     );
   }
 
-  // Offsets and rotations for splayed stack effect (back to front).
-  // Larger rotate + translateX values so back covers are clearly visible.
   const transforms: {
     rotate: number;
     translateX: number;
@@ -133,6 +136,8 @@ export function SeriesPage() {
   const [seriesList, setSeriesList] = useState<SeriesListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSeriesId, setActiveSeriesId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
 
   useEffect(() => {
     api
@@ -142,9 +147,17 @@ export function SeriesPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function handleSizeChange(size: UserSettings['bookItemSize']) {
+    setUserSettings((prev) => ({ ...prev, bookItemSize: size }));
+    await api.patch('/users/me/settings', { bookItemSize: size });
+  }
+
   return (
     <Stack>
-      <Title order={2}>Series</Title>
+      <PageHeader
+        title="Series"
+        onSettingsClick={() => setSettingsOpen(true)}
+      />
 
       {!loading && seriesList.length === 0 && (
         <Center py="xl">
@@ -163,6 +176,35 @@ export function SeriesPage() {
           />
         ))}
       </SimpleGrid>
+
+      <Modal
+        opened={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        title="Series Settings"
+        size="sm"
+        centered
+      >
+        <Stack gap="sm">
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              Book size
+            </Text>
+            <SegmentedControl
+              value={userSettings.bookItemSize}
+              onChange={(v) =>
+                void handleSizeChange(v as UserSettings['bookItemSize'])
+              }
+              data={[
+                { label: 'S', value: 'sm' },
+                { label: 'M', value: 'md' },
+                { label: 'L', value: 'lg' },
+                { label: 'XL', value: 'xl' },
+              ]}
+              fullWidth
+            />
+          </div>
+        </Stack>
+      </Modal>
 
       <SeriesDetailModal
         seriesId={activeSeriesId}

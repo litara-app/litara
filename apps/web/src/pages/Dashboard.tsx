@@ -5,6 +5,8 @@ import { IconClock, IconBooks } from '@tabler/icons-react';
 import { api } from '../utils/api';
 import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
+import { PageHeader } from '../components/PageHeader';
+import { DashboardSettingsModal } from '../components/DashboardSettingsModal';
 import type { BookCardData } from '../components/BookCard';
 import { userSettingsAtom } from '../store/atoms';
 import { ITEM_MIN_WIDTHS } from '../utils/book-grid';
@@ -21,7 +23,8 @@ export function Dashboard() {
   const [inProgress, setInProgress] = useState<BookCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
-  const [userSettings] = useAtom(userSettingsAtom);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const [booksRes, progressRes] = await Promise.all([
@@ -50,6 +53,12 @@ export function Dashboard() {
     return () => controller.abort();
   }, [load]);
 
+  async function saveLayout(newLayout: typeof userSettings.dashboardLayout) {
+    setUserSettings((prev) => ({ ...prev, dashboardLayout: newLayout }));
+    setSettingsOpen(false);
+    await api.patch('/users/me/settings', { dashboardLayout: newLayout });
+  }
+
   const minWidth = ITEM_MIN_WIDTHS[userSettings.bookItemSize] ?? 160;
   const sorted = [...userSettings.dashboardLayout]
     .sort((a, b) => a.order - b.order)
@@ -57,7 +66,10 @@ export function Dashboard() {
 
   return (
     <Stack>
-      <Title order={2}>Dashboard</Title>
+      <PageHeader
+        title="Dashboard"
+        onSettingsClick={() => setSettingsOpen(true)}
+      />
 
       {sorted.map((section) => {
         if (section.key === 'currently-reading') {
@@ -98,6 +110,13 @@ export function Dashboard() {
         }
         return null;
       })}
+
+      <DashboardSettingsModal
+        opened={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        layout={userSettings.dashboardLayout}
+        onSave={(layout) => void saveLayout(layout)}
+      />
 
       <BookDetailModal
         bookId={selectedBookId}

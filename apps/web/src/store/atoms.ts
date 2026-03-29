@@ -1,5 +1,6 @@
 import { atom } from 'jotai';
 import type { VersionCheckResult } from '../types/server';
+import type { SmartShelfSummary } from '../types/smartShelf';
 
 export interface Library {
   id: string;
@@ -45,6 +46,7 @@ export interface Toast {
 
 export const librariesAtom = atom<Library[]>([]);
 export const shelvesAtom = atom<Shelf[]>([]);
+export const smartShelvesAtom = atom<SmartShelfSummary[]>([]);
 export const userSettingsAtom = atom<UserSettings>(DEFAULT_USER_SETTINGS);
 export const backendStatusAtom = atom<'ok' | 'error'>('ok');
 export const toastsAtom = atom<Toast[]>([]);

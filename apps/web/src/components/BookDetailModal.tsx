@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { librariesAtom, shelvesAtom } from '../store/atoms';
 import {
   Modal,
   Box,
@@ -18,6 +20,8 @@ import {
   TextInput,
   Alert,
   Select,
+  MultiSelect,
+  Rating,
   Stack,
   Progress,
 } from '@mantine/core';
@@ -43,6 +47,8 @@ import type {
   BookDetail,
   BookSummary,
   EditedFields,
+  Library,
+  Shelf,
 } from './BookDetailModal.types';
 import { FORMAT_COLORS } from './BookDetailModal.types';
 import { formatBytes } from './BookDetailModal.utils';
@@ -94,6 +100,22 @@ export function BookDetailModal({
     percentage: number;
   } | null>(null);
 
+  const [rating, setRating] = useState(0);
+  const [readStatus, setReadStatus] = useState('UNREAD');
+  const [libraryId, setLibraryId] = useState('');
+  const libraries = useAtomValue(librariesAtom);
+  const allShelves = useAtomValue(shelvesAtom);
+  const setLibrariesAtom = useSetAtom(librariesAtom);
+  const setShelvesAtom = useSetAtom(shelvesAtom);
+  const [addingLibrary, setAddingLibrary] = useState(false);
+  const [newLibraryName, setNewLibraryName] = useState('');
+  const [savingLibrary, setSavingLibrary] = useState(false);
+  const [selectedShelfIds, setSelectedShelfIds] = useState<string[]>([]);
+  const [addingShelf, setAddingShelf] = useState(false);
+  const [newShelfName, setNewShelfName] = useState('');
+  const [savingShelf, setSavingShelf] = useState(false);
+  const skipSaveRef = useRef(true);
+
   const [editedFields, setEditedFields] = useState<EditedFields | null>(null);
   const [lockedFields, setLockedFields] = useState<Set<string>>(new Set());
   const [isDirty, setIsDirty] = useState(false);
@@ -142,11 +164,28 @@ export function BookDetailModal({
         setDetail(d);
         setEditedFields(detailToEdited(d));
         setLockedFields(new Set(d.lockedFields));
+        skipSaveRef.current = true;
+        setRating(d.userReview.rating ?? 0);
+        setReadStatus(d.userReview.readStatus);
+        setLibraryId(d.library?.id ?? '');
+        setSelectedShelfIds(d.shelves.map((s) => s.id));
         if (progressRes?.data?.percentage != null)
           setReadingProgress(progressRes.data);
       })
       .finally(() => setLoading(false));
   }, [bookId]);
+
+  useEffect(() => {
+    if (skipSaveRef.current) {
+      skipSaveRef.current = false;
+      return;
+    }
+    if (!detail) return;
+    const t = setTimeout(() => {
+      void api.patch(`/books/${detail.id}`, { rating, readStatus });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [rating, readStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateField<K extends keyof EditedFields>(
     key: K,
@@ -224,6 +263,57 @@ export function BookDetailModal({
     setLockedFields(new Set(updated.lockedFields));
     setIsDirty(false);
     onBookUpdated();
+  }
+
+  async function handleLibraryChange(value: string | null) {
+    if (!detail || !value) return;
+    if (value === '__add__') {
+      setAddingLibrary(true);
+      return;
+    }
+    setLibraryId(value);
+    await api.patch(`/books/${detail.id}`, { libraryId: value });
+  }
+
+  async function handleCreateLibrary() {
+    if (!detail || !newLibraryName.trim()) return;
+    setSavingLibrary(true);
+    try {
+      const res = await api.post<Library>('/libraries', {
+        name: newLibraryName.trim(),
+      });
+      setLibrariesAtom((prev) => [...prev, res.data]);
+      setLibraryId(res.data.id);
+      setAddingLibrary(false);
+      setNewLibraryName('');
+      await api.patch(`/books/${detail.id}`, { libraryId: res.data.id });
+    } finally {
+      setSavingLibrary(false);
+    }
+  }
+
+  async function handleShelvesChange(ids: string[]) {
+    if (!detail) return;
+    setSelectedShelfIds(ids);
+    await api.put(`/books/${detail.id}/shelves`, { shelfIds: ids });
+  }
+
+  async function handleCreateShelf() {
+    if (!detail || !newShelfName.trim()) return;
+    setSavingShelf(true);
+    try {
+      const res = await api.post<Shelf>('/shelves', {
+        name: newShelfName.trim(),
+      });
+      setShelvesAtom((prev) => [...prev, res.data]);
+      const newIds = [...selectedShelfIds, res.data.id];
+      setSelectedShelfIds(newIds);
+      setAddingShelf(false);
+      setNewShelfName('');
+      await api.put(`/books/${detail.id}/shelves`, { shelfIds: newIds });
+    } finally {
+      setSavingShelf(false);
+    }
   }
 
   async function handleDownload(fileId: string) {
@@ -392,6 +482,7 @@ export function BookDetailModal({
                   flexDirection: 'column',
                   gap: 12,
                   borderRight: '1px solid var(--mantine-color-gray-3)',
+                  overflowY: 'auto',
                 }}
               >
                 <AspectRatio ratio={2 / 3}>
@@ -465,6 +556,130 @@ export function BookDetailModal({
                     )}
                   </Stack>
                 )}
+                <Divider />
+                <Stack gap="xs">
+                  <Box>
+                    <Text size="xs" c="dimmed" mb={4}>
+                      Rating
+                    </Text>
+                    <Rating value={rating} onChange={setRating} fractions={2} />
+                  </Box>
+                  <Select
+                    label="Read Status"
+                    value={readStatus}
+                    onChange={(v) => v && setReadStatus(v)}
+                    data={[
+                      { value: 'UNREAD', label: 'Unread' },
+                      { value: 'READING', label: 'Reading' },
+                      { value: 'READ', label: 'Read' },
+                      { value: 'WONT_READ', label: "Won't Read" },
+                    ]}
+                    size="xs"
+                  />
+                  <Box>
+                    <Text size="xs" c="dimmed" mb={4}>
+                      Library
+                    </Text>
+                    {addingLibrary ? (
+                      <Group gap="xs">
+                        <TextInput
+                          size="xs"
+                          placeholder="Library name"
+                          value={newLibraryName}
+                          onChange={(e) =>
+                            setNewLibraryName(e.currentTarget.value)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void handleCreateLibrary();
+                            if (e.key === 'Escape') setAddingLibrary(false);
+                          }}
+                          style={{ flex: 1 }}
+                          autoFocus
+                        />
+                        <ActionIcon
+                          size="sm"
+                          variant="filled"
+                          loading={savingLibrary}
+                          onClick={() => void handleCreateLibrary()}
+                        >
+                          <IconCheck size={12} />
+                        </ActionIcon>
+                      </Group>
+                    ) : (
+                      <Select
+                        value={libraryId}
+                        onChange={(v) => void handleLibraryChange(v)}
+                        data={[
+                          ...libraries.map((l) => ({
+                            value: l.id,
+                            label: l.name,
+                          })),
+                          { value: '__add__', label: '＋ Add new library' },
+                        ]}
+                        size="xs"
+                      />
+                    )}
+                  </Box>
+                  <Box>
+                    <Text size="xs" c="dimmed" mb={4}>
+                      Shelves
+                    </Text>
+                    {addingShelf ? (
+                      <Group gap="xs">
+                        <TextInput
+                          size="xs"
+                          placeholder="Shelf name"
+                          value={newShelfName}
+                          onChange={(e) =>
+                            setNewShelfName(e.currentTarget.value)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void handleCreateShelf();
+                            if (e.key === 'Escape') setAddingShelf(false);
+                          }}
+                          style={{ flex: 1 }}
+                          autoFocus
+                        />
+                        <ActionIcon
+                          size="sm"
+                          variant="filled"
+                          loading={savingShelf}
+                          onClick={() => void handleCreateShelf()}
+                        >
+                          <IconCheck size={12} />
+                        </ActionIcon>
+                        <ActionIcon
+                          size="sm"
+                          variant="subtle"
+                          onClick={() => setAddingShelf(false)}
+                        >
+                          <IconX size={12} />
+                        </ActionIcon>
+                      </Group>
+                    ) : (
+                      <MultiSelect
+                        value={selectedShelfIds}
+                        onChange={(ids) => {
+                          if (ids.includes('__add__')) {
+                            setAddingShelf(true);
+                            return;
+                          }
+                          void handleShelvesChange(ids);
+                        }}
+                        data={[
+                          ...allShelves.map((s) => ({
+                            value: s.id,
+                            label: s.name,
+                          })),
+                          { value: '__add__', label: '＋ New shelf' },
+                        ]}
+                        placeholder="Add to shelf..."
+                        size="xs"
+                        clearable
+                      />
+                    )}
+                  </Box>
+                </Stack>
               </Box>
 
               {/* Right panel — tabs */}
