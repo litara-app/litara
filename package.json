@@ -1,6 +1,6 @@
 {
   "name": "litara-monorepo",
-  "version": "1.11.2",
+  "version": "1.12.0",
   "private": true,
   "description": "Self-hosted ebook library manager",
   "author": "deranjer",

@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/litara-app/litara/compare/v1.11.2...v1.12.0) (2026-03-30)
+
+
+### Features
+
+* add in basic filter, add in quick actions to book card ([2972809](https://github.com/litara-app/litara/commit/29728099f63bdf084ce37700924201ef7a3563f5))
+
 ## [1.11.2](https://github.com/litara-app/litara/compare/v1.11.1...v1.11.2) (2026-03-29)
 
 
