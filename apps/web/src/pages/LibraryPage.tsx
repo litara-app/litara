@@ -10,13 +10,18 @@ import {
   Divider,
   Text,
   Group,
+  ActionIcon,
+  Indicator,
 } from '@mantine/core';
+import { IconFilter } from '@tabler/icons-react';
 import { useParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
 import { PageHeader } from '../components/PageHeader';
+import { BookFilterPanel } from '../components/BookFilterPanel';
+import { useBookFilter } from '../hooks/useBookFilter';
 import type { BookCardData } from '../components/BookCard';
 import { librariesAtom, userSettingsAtom } from '../store/atoms';
 import type { Library } from '../store/atoms';
@@ -39,6 +44,18 @@ export function LibraryPage() {
   const setLibraries = useSetAtom(librariesAtom);
   const userSettings = useAtomValue(userSettingsAtom);
   const minWidth = ITEM_MIN_WIDTHS[userSettings.bookItemSize] ?? 160;
+
+  const {
+    filters,
+    setFilters,
+    filteredBooks,
+    panelOpen,
+    setPanelOpen,
+    activeCount,
+    availableGenres,
+    availableTags,
+    availableFormats,
+  } = useBookFilter(books);
 
   const loadBooks = useCallback(async () => {
     if (!id) return;
@@ -120,17 +137,65 @@ export function LibraryPage() {
         <PageHeader
           title={<Title order={2}>{library?.name}</Title>}
           onSettingsClick={openSettings}
+          rightActions={
+            <Indicator
+              label={activeCount}
+              disabled={activeCount === 0}
+              size={16}
+            >
+              <ActionIcon
+                variant={panelOpen ? 'filled' : 'subtle'}
+                size="md"
+                onClick={() => setPanelOpen((v) => !v)}
+                aria-label="Toggle filters"
+              >
+                <IconFilter size={18} />
+              </ActionIcon>
+            </Indicator>
+          }
         />
       )}
 
-      <BookGrid
-        books={books}
-        loading={loadingBooks}
-        minWidth={minWidth}
-        skeletonCount={10}
-        emptyMessage="No books in this library yet."
-        onBookClick={setSelectedBookId}
-      />
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <BookGrid
+            books={filteredBooks}
+            loading={loadingBooks}
+            minWidth={minWidth}
+            skeletonCount={10}
+            emptyMessage={
+              activeCount > 0
+                ? 'No books match the current filters.'
+                : 'No books in this library yet.'
+            }
+            onBookClick={setSelectedBookId}
+            onBookSend={setSelectedBookId}
+            onBookRatingChange={(id, rating) =>
+              setBooks((prev) =>
+                prev.map((b) => (b.id === id ? { ...b, rating } : b)),
+              )
+            }
+          />
+        </div>
+        <div
+          style={{
+            width: panelOpen ? 280 : 0,
+            overflow: 'hidden',
+            transition: 'width 200ms ease',
+            flexShrink: 0,
+            alignSelf: 'flex-start',
+          }}
+        >
+          <BookFilterPanel
+            filters={filters}
+            setFilters={setFilters}
+            availableGenres={availableGenres}
+            availableTags={availableTags}
+            availableFormats={availableFormats}
+            activeCount={activeCount}
+          />
+        </div>
+      </div>
 
       <Modal
         opened={settingsOpen}

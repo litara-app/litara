@@ -33,4 +33,16 @@ export class BookSummaryDto {
 
   @ApiProperty({ nullable: true, required: false })
   publishedDate: Date | null;
+
+  @ApiProperty({ nullable: true, required: false })
+  readStatus: string | null;
+
+  @ApiProperty({ nullable: true, required: false })
+  rating: number | null;
+
+  @ApiProperty({ type: [String] })
+  genres: string[];
+
+  @ApiProperty({ type: [String] })
+  tags: string[];
 }

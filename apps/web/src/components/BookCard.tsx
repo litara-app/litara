@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   AspectRatio,
@@ -7,8 +7,21 @@ import {
   Box,
   Text,
   Tooltip,
+  ActionIcon,
+  Group,
+  Popover,
+  Rating,
 } from '@mantine/core';
-import { IconBook2, IconFileX } from '@tabler/icons-react';
+import {
+  IconBook2,
+  IconFileX,
+  IconBook,
+  IconStar,
+  IconStarFilled,
+  IconSend,
+} from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../utils/api';
 import { FORMAT_COLORS } from './BookDetailModal.types';
 
 export interface BookCardData {
@@ -20,10 +33,17 @@ export interface BookCardData {
   formats: string[];
   hasFileMissing: boolean;
   readingProgress?: number | null;
+  seriesName?: string | null;
+  readStatus: string | null;
+  rating: number | null;
+  genres: string[];
+  tags: string[];
 }
 
 interface BookCardProps extends BookCardData {
   onClick?: () => void;
+  onSend?: () => void;
+  onRatingChange?: (rating: number) => void;
 }
 
 export function BookCard({
@@ -35,13 +55,32 @@ export function BookCard({
   formats,
   hasFileMissing,
   readingProgress,
+  rating,
   onClick,
+  onSend,
+  onRatingChange,
 }: BookCardProps) {
+  const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const [currentRating, setCurrentRating] = useState(rating);
+
+  useEffect(() => {
+    setCurrentRating(rating);
+  }, [rating]);
+
   const showCover = hasCover && !imgError;
   const coverUrl = coverUpdatedAt
     ? `/api/v1/books/${id}/cover?v=${coverUpdatedAt}`
     : `/api/v1/books/${id}/cover`;
+
+  function handleRatingChange(val: number) {
+    setCurrentRating(val);
+    setRatingOpen(false);
+    void api.patch(`/books/${id}`, { rating: val });
+    onRatingChange?.(val);
+  }
 
   return (
     <Card
@@ -51,6 +90,11 @@ export function BookCard({
       withBorder
       className="book-card"
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => {
+        setHovered(false);
+        setRatingOpen(false);
+      }}
       style={{ cursor: onClick ? 'pointer' : undefined }}
     >
       <Box mb="sm" style={{ position: 'relative' }}>
@@ -156,6 +200,84 @@ export function BookCard({
             />
           </Box>
         )}
+
+        {/* Quick actions — bottom right, revealed on hover */}
+        <Box
+          style={{
+            position: 'absolute',
+            bottom: 8,
+            right: 8,
+            opacity: hovered ? 1 : 0,
+            transition: 'opacity 150ms ease',
+            pointerEvents: hovered ? 'auto' : 'none',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Group
+            gap={4}
+            style={{
+              background: 'rgba(0,0,0,0.65)',
+              borderRadius: 'var(--mantine-radius-sm)',
+              padding: 4,
+            }}
+          >
+            <Tooltip label="Read" withinPortal>
+              <ActionIcon
+                size="sm"
+                variant="transparent"
+                c="white"
+                onClick={() => navigate(`/read/${id}`)}
+              >
+                <IconBook size={14} />
+              </ActionIcon>
+            </Tooltip>
+
+            <Popover
+              opened={ratingOpen}
+              onChange={setRatingOpen}
+              withinPortal
+              position="top"
+            >
+              <Popover.Target>
+                <ActionIcon
+                  size="sm"
+                  variant="transparent"
+                  c="white"
+                  onClick={() => setRatingOpen((v) => !v)}
+                >
+                  {currentRating ? (
+                    <IconStarFilled
+                      size={14}
+                      style={{ color: 'var(--mantine-color-yellow-4)' }}
+                    />
+                  ) : (
+                    <IconStar size={14} />
+                  )}
+                </ActionIcon>
+              </Popover.Target>
+              <Popover.Dropdown p="xs">
+                <Rating
+                  value={currentRating ?? 0}
+                  fractions={2}
+                  onChange={handleRatingChange}
+                />
+              </Popover.Dropdown>
+            </Popover>
+
+            {onSend && (
+              <Tooltip label="Send" withinPortal>
+                <ActionIcon
+                  size="sm"
+                  variant="transparent"
+                  c="white"
+                  onClick={onSend}
+                >
+                  <IconSend size={14} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
+        </Box>
       </Box>
 
       <Text fw={500} size="sm" lineClamp={2}>

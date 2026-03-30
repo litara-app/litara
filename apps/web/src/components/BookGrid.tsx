@@ -9,6 +9,8 @@ interface BookGridProps {
   skeletonCount?: number;
   emptyMessage?: string;
   onBookClick: (id: string) => void;
+  onBookSend?: (id: string) => void;
+  onBookRatingChange?: (id: string, rating: number) => void;
 }
 
 export function BookGrid({
@@ -18,6 +20,8 @@ export function BookGrid({
   skeletonCount = 8,
   emptyMessage = 'No books found.',
   onBookClick,
+  onBookSend,
+  onBookRatingChange,
 }: BookGridProps) {
   const gridStyle = {
     display: 'grid',
@@ -50,6 +54,12 @@ export function BookGrid({
           key={book.id}
           {...book}
           onClick={() => onBookClick(book.id)}
+          onSend={onBookSend ? () => onBookSend(book.id) : undefined}
+          onRatingChange={
+            onBookRatingChange
+              ? (r) => onBookRatingChange(book.id, r)
+              : undefined
+          }
         />
       ))}
     </div>
