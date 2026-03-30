@@ -105,6 +105,12 @@ export class BooksService {
         files: { select: { format: true, missingAt: true } },
         series: { include: { series: { select: { id: true, name: true } } } },
         readingProgress: { where: { userId }, select: { percentage: true } },
+        reviews: {
+          where: { userId },
+          select: { rating: true, readStatus: true },
+        },
+        tags: { select: { name: true } },
+        genres: { select: { name: true } },
       },
     });
 
@@ -121,6 +127,10 @@ export class BooksService {
       seriesSequence: book.series[0]?.sequence ?? null,
       publishedDate: book.publishedDate,
       readingProgress: book.readingProgress[0]?.percentage ?? null,
+      readStatus: book.reviews[0]?.readStatus ?? null,
+      rating: book.reviews[0]?.rating ?? null,
+      genres: book.genres.map((g) => g.name),
+      tags: book.tags.map((t) => t.name),
     }));
   }
 
