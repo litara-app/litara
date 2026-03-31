@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/litara-app/litara/compare/v1.12.0...v1.13.0) (2026-03-31)
+
+
+### Features
+
+* adding in password change ability ([b4f1c8e](https://github.com/litara-app/litara/commit/b4f1c8e84e4bcb699a5b794284f2475af53bcc54))
+
 # [1.12.0](https://github.com/litara-app/litara/compare/v1.11.2...v1.12.0) (2026-03-30)
 
 
