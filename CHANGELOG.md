@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/litara-app/litara/compare/v1.13.0...v1.14.0) (2026-03-31)
+
+
+### Features
+
+* annotations, notes, bookmarks ([f2e8b91](https://github.com/litara-app/litara/commit/f2e8b919c02fafbad8359ff568c2c24d427752ca))
+
 # [1.13.0](https://github.com/litara-app/litara/compare/v1.12.0...v1.13.0) (2026-03-31)
 
 
