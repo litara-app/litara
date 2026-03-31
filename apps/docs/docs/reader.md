@@ -51,3 +51,36 @@ Font size and theme (Light / Sepia / Dark) are saved to `localStorage` and resto
 ## Footnotes
 
 For EPUBs that use standard footnote markup (`epub:type="noteref"`), clicking a footnote reference opens the footnote content in a panel at the bottom of the screen instead of navigating away from the current page. Press **Escape** or the `✕` button to dismiss it.
+
+## Highlights and annotations
+
+Litara lets you highlight text, underline it, add strikethroughs, and attach personal notes — all saved to your library and synced across sessions.
+
+### Highlighting text
+
+1. Select any passage of text in the reader by clicking and dragging.
+2. A popover appears with annotation options.
+3. Choose a highlight color (yellow, green, blue, or pink), **Underline**, or **Strikethrough**.
+4. Optionally type a note in the text field.
+5. Click **Save** — the annotation is stored and the text is visually marked immediately.
+
+Clicking on an existing annotation opens the same popover, letting you edit the note, change the style, or delete it.
+
+:::note
+Highlights and annotations are currently supported for EPUB files. Other formats open without the text-selection popover.
+:::
+
+### Bookmarks
+
+To bookmark the current page, click the **bookmark icon** (🔖) in the reader toolbar. The icon fills to indicate the page is bookmarked. Click it again to remove the bookmark.
+
+Bookmarks appear in the in-reader annotations panel and on the global [Annotations page](./annotations).
+
+### In-reader annotations panel
+
+Click the **list icon** in the reader toolbar to open the annotations panel on the right side of the reader. The panel lists every highlight, note, and bookmark for the current book:
+
+- **Click any entry** to jump directly to that location in the book.
+- **Click the trash icon** to delete an annotation from the panel.
+
+The panel stays open as you read; close it with the `✕` button in its header.

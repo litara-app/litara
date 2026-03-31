@@ -21,6 +21,7 @@ import { SmartShelvesModule } from './smart-shelves/smart-shelves.module';
 import { ReadingProgressModule } from './reading-progress/reading-progress.module';
 import { BulkMetadataModule } from './bulk-metadata/bulk-metadata.module';
 import { ServerModule } from './server/server.module';
+import { AnnotationsModule } from './annotations/annotations.module';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 
@@ -55,6 +56,7 @@ const staticModules = existsSync(publicPath)
     ReadingProgressModule,
     BulkMetadataModule,
     ServerModule,
+    AnnotationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

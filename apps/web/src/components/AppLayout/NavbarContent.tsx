@@ -181,6 +181,13 @@ export function NavbarContent() {
         />
 
         <NavLink
+          label="Annotations"
+          leftSection={<IconBookmarks size={18} />}
+          active={location.pathname === '/annotations'}
+          onClick={() => navigate('/annotations')}
+        />
+
+        <NavLink
           label="Libraries"
           leftSection={<IconBooks size={18} />}
           childrenOffset={28}

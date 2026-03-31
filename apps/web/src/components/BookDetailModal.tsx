@@ -39,6 +39,7 @@ import {
   IconFileText,
   IconSend,
   IconAlertTriangle,
+  IconBookmarks,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { api } from '../utils/api';
@@ -56,6 +57,7 @@ import { OverviewTab } from './OverviewTab';
 import { EditMetadataTab } from './EditMetadataTab';
 import { SearchMetadataTab } from './SearchMetadataTab';
 import { SidecarTab } from './SidecarTab';
+import { BookAnnotationsTab } from './BookAnnotationsTab';
 
 export interface BookDetailModalProps {
   bookId: string | null;
@@ -715,6 +717,12 @@ export function BookDetailModal({
                   >
                     Sidecar
                   </Tabs.Tab>
+                  <Tabs.Tab
+                    value="annotations"
+                    leftSection={<IconBookmarks size={14} />}
+                  >
+                    Annotations
+                  </Tabs.Tab>
                 </Tabs.List>
 
                 <Tabs.Panel
@@ -767,6 +775,18 @@ export function BookDetailModal({
                       lockedFields={lockedFields}
                       onApplied={handleApplied}
                       onSwitchTab={setActiveTab}
+                    />
+                  )}
+                </Tabs.Panel>
+                <Tabs.Panel
+                  value="annotations"
+                  style={{ flex: 1, overflow: 'hidden', padding: '12px 24px' }}
+                >
+                  {detail && (
+                    <BookAnnotationsTab
+                      key={detail.id}
+                      bookId={detail.id}
+                      onClose={onClose}
                     />
                   )}
                 </Tabs.Panel>
