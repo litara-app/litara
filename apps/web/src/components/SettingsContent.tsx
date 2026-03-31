@@ -27,6 +27,7 @@ import { api } from '../utils/api';
 import { userSettingsAtom } from '../store/atoms';
 import type { UserSettings } from '../store/atoms';
 import { SmtpConfigForm } from './SmtpConfigForm';
+import { ChangePasswordSection } from './ChangePasswordSection';
 
 interface RecipientEmail {
   id: string;
@@ -258,6 +259,8 @@ export function SettingsContent() {
       </Paper>
 
       <RecipientEmailsSection />
+
+      <ChangePasswordSection />
 
       <Paper withBorder p="md" radius="md">
         <Stack gap="sm">

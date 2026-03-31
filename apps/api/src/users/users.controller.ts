@@ -1,9 +1,33 @@
-import { Controller, Get, Patch, Body, UseGuards, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Patch,
+  Body,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiNoContentResponse,
+  ApiProperty,
+} from '@nestjs/swagger';
 import { UserSettingsDto } from './user-settings.dto';
+import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DatabaseService } from '../database/database.service';
 import type { RequestWithUser } from '../auth/interfaces/authenticated-user.interface';
+
+class ChangePasswordDto {
+  @ApiProperty()
+  currentPassword: string;
+
+  @ApiProperty()
+  newPassword: string;
+}
 
 interface DashboardSection {
   key: 'currently-reading' | 'recently-added';
@@ -25,7 +49,10 @@ const DEFAULT_LAYOUT: DashboardSection[] = [
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController {
-  constructor(private readonly prisma: DatabaseService) {}
+  constructor(
+    private readonly prisma: DatabaseService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('me/settings')
@@ -69,5 +96,21 @@ export class UsersController {
         : DEFAULT_LAYOUT,
       bookItemSize: settings.bookItemSize ?? 'md',
     };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "Change the authenticated user's password" })
+  @ApiNoContentResponse({ description: 'Password updated successfully' })
+  async changePassword(
+    @Req() req: RequestWithUser,
+    @Body() body: ChangePasswordDto,
+  ): Promise<void> {
+    await this.usersService.updatePassword(
+      req.user.id,
+      body.currentPassword,
+      body.newPassword,
+    );
   }
 }
