@@ -31,6 +31,13 @@ enum Role {
   ADMIN
 }
 
+enum AnnotationType {
+  HIGHLIGHT
+  UNDERLINE
+  STRIKETHROUGH
+  BOOKMARK
+}
+
 model UserSettings {
   id     String @id @default(uuid())
   userId String @unique
@@ -237,6 +244,7 @@ model Annotation {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
+  type      AnnotationType @default(HIGHLIGHT)
   location  String   // EPUB CFI or PDF coordinate
   text      String?  // The text that was highlighted
   note      String?  // User's comment on the highlight

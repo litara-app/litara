@@ -1,5 +1,6 @@
 import './foliate-js/view.js'
 import { FootnoteHandler } from './foliate-js/footnotes.js'
+import { Overlayer } from './foliate-js/overlayer.js'
 
 const view = document.getElementById('view')
 const errorEl = document.getElementById('error')
@@ -154,22 +155,115 @@ searchPrevBtn.addEventListener('click', searchPrev)
 searchNextBtn.addEventListener('click', searchNext)
 searchCloseBtn.addEventListener('click', closeSearch)
 
+// ─── Annotations ─────────────────────────────────────────────────────────────
+
+// Last known CFI for bookmark support (updated on every relocate)
+let lastKnownCfi = null
+
+// Map: annotation id → { cfi, type, color }
+const annotationById = new Map()
+// Map: cfi → annotation id (for show-annotation click detection)
+const annotationByCfi = new Map()
+
+// Highlight color names → CSS hex for Overlayer
+const HIGHLIGHT_COLORS = {
+  yellow: '#FFE066',
+  green:  '#69DB7C',
+  blue:   '#74C0FC',
+  pink:   '#F783AC',
+}
+
+// Foliate emits 'draw-annotation' when addAnnotation finds an active overlayer.
+// This is where we pick the actual draw function from Overlayer.
+view.addEventListener('draw-annotation', e => {
+  const { draw, annotation } = e.detail
+  if (!draw) return
+  const { annotationType: annType, color } = annotation
+
+  if (annType === 'HIGHLIGHT') {
+    draw(Overlayer.highlight, { color: HIGHLIGHT_COLORS[color] || HIGHLIGHT_COLORS.yellow })
+  } else if (annType === 'UNDERLINE') {
+    draw(Overlayer.underline, { color: '#4a90e2', width: 2 })
+  } else if (annType === 'STRIKETHROUGH') {
+    draw(Overlayer.strikethrough, { color: '#e24a4a', width: 2 })
+  } else if (annType === 'BOOKMARK') {
+    draw(Overlayer.outline, { color: '#f5a623', width: 2 })
+  }
+})
+
+// Foliate emits 'show-annotation' when the user clicks on an annotation in the overlayer.
+view.addEventListener('show-annotation', e => {
+  const { value: cfi } = e.detail
+  const id = annotationByCfi.get(cfi)
+  if (id) notify({ type: 'annotationClicked', annotationId: id, cfi })
+})
+
+// When a new section's overlayer is created, re-draw all annotations.
+// setTimeout(0) waits for the overlayer to be fully attached to the view.
+view.addEventListener('create-overlay', () => {
+  setTimeout(() => {
+    for (const [id, { cfi, type, color }] of annotationById.entries()) {
+      view.addAnnotation({ value: cfi, id, annotationType: type, color }).catch(() => {})
+    }
+  }, 0)
+})
+
+function addAnnotationToView({ id, cfi, annotationType, type, color }) {
+  // 'annotationType' is used in addAnnotation messages to avoid conflict with
+  // the postMessage 'type' field. 'type' is used in loadAnnotations entries.
+  const annType = annotationType ?? type ?? 'HIGHLIGHT'
+  annotationById.set(id, { cfi, type: annType, color })
+  annotationByCfi.set(cfi, id)
+  // Pass all annotation data so the draw-annotation handler can access it
+  view.addAnnotation({ value: cfi, id, annotationType: annType, color }).catch(() => {})
+}
+
+function removeAnnotationFromView(id) {
+  const entry = annotationById.get(id)
+  if (!entry) return
+  annotationById.delete(id)
+  annotationByCfi.delete(entry.cfi)
+  view.deleteAnnotation({ value: entry.cfi }).catch(() => {})
+}
+
+// Attach a text-selection listener to a section document.
+// 'index' is the Foliate section index, needed for view.getCFI(index, range).
+function attachSelectionListener(doc, index) {
+  if (!doc) return
+  doc.addEventListener('pointerup', () => {
+    const sel = doc.getSelection()
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return
+    const range = sel.getRangeAt(0)
+    let cfi = null
+    try {
+      cfi = view.getCFI(index, range)
+    } catch { /* getCFI not available for this format */ }
+    // Only notify if we have a valid CFI — without it we can't persist the annotation
+    if (!cfi) return
+    notify({ type: 'textSelected', cfi, text: sel.toString().trim() })
+  })
+}
+
 // ─── View events ─────────────────────────────────────────────────────────────
 
 view.addEventListener('relocate', e => {
   const { cfi, fraction } = e.detail
+  lastKnownCfi = cfi
   notify({ type: 'relocate', cfi, fraction })
 })
 
-view.addEventListener('load', () => {
+// 'load' fires with { doc, index } for each section as it is loaded.
+// We capture the section index here so we can compute CFIs from text selections.
+view.addEventListener('load', e => {
+  const { doc, index } = e.detail
   view.renderer?.setStyles?.(`html { font-size: ${bookFontSize}px !important; }`)
 
   // Foliate renders each section in its own sub-iframe. Key events fired there
   // don't reach reader.html's window, so we forward them from each loaded frame.
-  const contents = view.renderer?.getContents?.() ?? []
-  for (const { doc } of contents) {
-    doc?.defaultView?.addEventListener('keydown', handleKey)
-  }
+  doc?.defaultView?.addEventListener('keydown', handleKey)
+
+  // Attach selection listener with the correct section index for getCFI
+  attachSelectionListener(doc, index)
 
   notify({ type: 'ready' })
 })
@@ -258,6 +352,22 @@ window.addEventListener('message', async e => {
   else if (type === 'setFontSize') applyFontSize(data.size)
   else if (type === 'openSearch')  openSearch()
   else if (type === 'closeSearch') closeSearch()
+  else if (type === 'addAnnotation') {
+    if (data.id && data.cfi) addAnnotationToView(data)
+  }
+  else if (type === 'removeAnnotation') {
+    if (data.id) removeAnnotationFromView(data.id)
+  }
+  else if (type === 'loadAnnotations') {
+    if (Array.isArray(data.annotations)) {
+      for (const ann of data.annotations) {
+        addAnnotationToView(ann)
+      }
+    }
+  }
+  else if (type === 'getCurrentCfi') {
+    notify({ type: 'currentCfi', cfi: lastKnownCfi })
+  }
 })
 
 // Signal ready to receive commands
