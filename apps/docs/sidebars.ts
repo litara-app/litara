@@ -5,6 +5,7 @@ const sidebars: SidebarsConfig = {
     'intro',
     'installation',
     'configuration',
+    'account',
     'opds',
     'email-delivery',
     'smart-shelves',
