@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
     'smart-shelves',
     'metadata-enrichment',
     'reader',
+    'mobile',
     {
       type: 'category',
       label: 'Development',

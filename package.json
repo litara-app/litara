@@ -39,6 +39,10 @@
     "semantic-release": "^24.0.0",
     "turbo": "latest"
   },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",

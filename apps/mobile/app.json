@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Litara",
+    "slug": "litara",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "litara",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.litara.mobile"
+    },
+    "android": {
+      "package": "com.litara.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0a0a",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0a0a0a",
+          "dark": {
+            "backgroundColor": "#0a0a0a"
+          }
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {},
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "df372a33-8853-4eb8-90f2-df319d2a26e8"
+      }
+    },
+    "owner": "deranjer"
+  }
+}

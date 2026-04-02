@@ -15,6 +15,16 @@ A self-hosted ebook library manager. Automatically scans a folder for ebook file
 
 ![Litara dashboard](./apps/docs/static/screenshots/dashboard.png)
 
+> **Mobile (Android):** A companion mobile app is in very early alpha. See [mobile docs](https://litara-app.github.io/litara/mobile) for details.
+
+<div align="center">
+<img src="./apps/docs/static/screenshots/mobile/sign_in.png" width="200">
+&nbsp;&nbsp;
+<img src="./apps/docs/static/screenshots/mobile/all_books.png" width="200">
+&nbsp;&nbsp;
+<img src="./apps/docs/static/screenshots/mobile/book_details.png" width="200">
+</div>
+
 ## Features
 
 - Scans and indexes `.epub`, `.mobi`, `.azw`, `.azw3`, `.fb2` (beta) and `.cbz` files (beta)
