@@ -12,19 +12,21 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/mobi-parser/package.json ./packages/mobi-parser/
 COPY packages/cbz-parser/package.json ./packages/cbz-parser/
 
+# Prisma schema must exist before npm ci so that @prisma/client's postinstall
+# (prisma generate) can find it. Copy it early alongside the package manifests.
+COPY apps/api/prisma ./apps/api/prisma
+COPY apps/api/prisma.config.ts ./apps/api/
+
 # npm prepare runs `prek install` which requires a .git directory.
 # Create a temporary one so the hook installer exits cleanly, then remove it.
 # This also avoids running npm rebuild under QEMU, which crashes on ARM64 when
 # bcrypt's compiled binary uses crypto instructions QEMU doesn't emulate.
 RUN mkdir -p .git && npm ci && rm -rf .git
 
-# Copy source
+# Copy remaining source
 COPY apps/api ./apps/api
 COPY apps/web ./apps/web
 COPY packages ./packages
-
-# Generate Prisma client
-RUN cd apps/api && npx prisma generate
 
 # Build in dependency order: local packages first, then web and API
 RUN npm run build --workspace=@litara/mobi-parser
