@@ -92,16 +92,6 @@ const config: Config = {
       style: 'dark',
       links: [
         {
-          title: 'Docs',
-          items: [
-            { label: 'Introduction', to: '/' },
-            { label: 'Installation', to: '/installation' },
-            { label: 'Configuration', to: '/configuration' },
-            { label: 'OPDS Catalog', to: '/opds' },
-            { label: 'Email Delivery', to: '/email-delivery' },
-          ],
-        },
-        {
           title: 'More',
           items: [
             {
