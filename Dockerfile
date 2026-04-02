@@ -12,9 +12,11 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/mobi-parser/package.json ./packages/mobi-parser/
 COPY packages/cbz-parser/package.json ./packages/cbz-parser/
 
-# Install all deps; skip lifecycle scripts so 'prek install' doesn't fail
-# without a .git directory, then rebuild native addons explicitly
-RUN npm ci --ignore-scripts && npm rebuild --ignore-scripts
+# npm prepare runs `prek install` which requires a .git directory.
+# Create a temporary one so the hook installer exits cleanly, then remove it.
+# This also avoids running npm rebuild under QEMU, which crashes on ARM64 when
+# bcrypt's compiled binary uses crypto instructions QEMU doesn't emulate.
+RUN mkdir -p .git && npm ci && rm -rf .git
 
 # Copy source
 COPY apps/api ./apps/api
