@@ -1,3 +1,10 @@
+## [1.15.1](https://github.com/litara-app/litara/compare/v1.15.0...v1.15.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* dockerfile arm build fix ([1775ab4](https://github.com/litara-app/litara/commit/1775ab47ffef6654de07f7d660b9e2f8ee72b116))
+
 # [1.15.0](https://github.com/litara-app/litara/compare/v1.14.0...v1.15.0) (2026-04-02)
 
 
