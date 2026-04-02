@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/litara-app/litara/compare/v1.14.0...v1.15.0) (2026-04-02)
+
+
+### Features
+
+* initial mobile app ([8a144fb](https://github.com/litara-app/litara/commit/8a144fb63a4bfddb07b7d796ac1305a2352ff6c7))
+
 # [1.14.0](https://github.com/litara-app/litara/compare/v1.13.0...v1.14.0) (2026-03-31)
 
 
