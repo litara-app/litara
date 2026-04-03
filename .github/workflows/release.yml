@@ -3,6 +3,21 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Target platforms'
+        required: true
+        type: choice
+        options:
+          - 'linux/amd64,linux/arm64'
+          - 'linux/amd64'
+          - 'linux/arm64'
+        default: 'linux/amd64,linux/arm64'
+      version:
+        description: 'Image version tag (without v prefix; defaults to latest git tag)'
+        required: false
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -10,6 +25,7 @@ env:
 
 jobs:
   release:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -48,8 +64,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docker:
-    needs: release
-    if: needs.release.outputs.version != ''
+    needs: [release]
+    if: |
+      always() && (
+        (needs.release.result == 'success' && needs.release.outputs.version != '') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -60,7 +80,28 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: v${{ needs.release.outputs.version }}
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ -n "${{ inputs.version }}" ]; then
+              echo "value=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            else
+              git fetch --tags
+              LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | head -1 || echo "")
+              echo "value=${LATEST_TAG#v}" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "value=${{ needs.release.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout release tag
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: v${{ steps.version.outputs.value }}
 
       - name: Set up QEMU (for multi-platform builds)
         uses: docker/setup-qemu-action@v3
@@ -81,15 +122,15 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},value=v${{ needs.release.outputs.version }}
-            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.release.outputs.version }}
+            type=semver,pattern={{version}},value=v${{ steps.version.outputs.value }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.version.outputs.value }}
             type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event_name == 'workflow_dispatch' && inputs.platforms || 'linux/amd64,linux/arm64' }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
