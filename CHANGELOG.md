@@ -1,3 +1,12 @@
+## [1.15.3](https://github.com/litara-app/litara/compare/v1.15.2...v1.15.3) (2026-04-03)
+
+
+### Bug Fixes
+
+* allow force docker build runs ([db23f9d](https://github.com/litara-app/litara/commit/db23f9d503cb3635afb18b4600fbdf15348bb2ac))
+* allow force docker build runs ([f39e427](https://github.com/litara-app/litara/commit/f39e427686d2dcf7db57ae6ae4138fe427a54482))
+* reverting dockerfile changes ([b1b4641](https://github.com/litara-app/litara/commit/b1b46410236668f81a7983b8da06e9c41bc11654))
+
 ## [1.15.2](https://github.com/litara-app/litara/compare/v1.15.1...v1.15.2) (2026-04-02)
 
 
