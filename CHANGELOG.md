@@ -1,3 +1,14 @@
+# [1.17.0](https://github.com/litara-app/litara/compare/v1.16.0...v1.17.0) (2026-04-04)
+
+
+### Features
+
+* write sidecar directly to disk, other metadata tweaks, default library removal ([4ededee](https://github.com/litara-app/litara/commit/4ededee7521e9562354a75cbd9df84b403cdce4c))
+* write sidecar directly to disk, other metadata tweaks, default library removal ([e135740](https://github.com/litara-app/litara/commit/e135740d36e1a1439d1496ab81aa91ff2cc348b4))
+* write sidecar directly to disk, other metadata tweaks, default library removal ([2c08487](https://github.com/litara-app/litara/commit/2c08487a2162e5467f3c6049e8d42e4d3778b55a))
+* write sidecar directly to disk, other metadata tweaks, default library removal ([357485e](https://github.com/litara-app/litara/commit/357485e3de16d376c3b0ee254b7372ad6aa01c90))
+* write sidecar directly to disk, other metadata tweaks, default library removal ([439a72b](https://github.com/litara-app/litara/commit/439a72be748e29c94e947b7399549e56c73f8ad2))
+
 # [1.16.0](https://github.com/litara-app/litara/compare/v1.15.3...v1.16.0) (2026-04-04)
 
 
