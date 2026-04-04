@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getBookDetail } from '@/src/api/books';
+import { getRecipientEmails, sendBook } from '@/src/api/mail';
+import type { RecipientEmail } from '@/src/api/mail';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
 import { tokenStore } from '@/src/auth/tokenStore';
 
@@ -48,10 +51,69 @@ function MetaRow({ label, value }: MetaRowProps) {
   );
 }
 
+interface EmailPickerModalProps {
+  visible: boolean;
+  emails: RecipientEmail[];
+  sending: boolean;
+  onSelect: (emailId: string) => void;
+  onClose: () => void;
+}
+
+function EmailPickerModal({
+  visible,
+  emails,
+  sending,
+  onSelect,
+  onClose,
+}: EmailPickerModalProps) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.pickerBackdrop} onPress={onClose} />
+      <View style={styles.pickerSheet}>
+        <View style={styles.pickerHandle} />
+        <Text style={styles.pickerTitle}>Send to</Text>
+        <View style={styles.pickerDivider} />
+        {emails.map((re) => (
+          <Pressable
+            key={re.id}
+            style={({ pressed }) => [
+              styles.emailRow,
+              pressed && styles.emailRowPressed,
+            ]}
+            onPress={() => onSelect(re.id)}
+            disabled={sending}
+          >
+            <View style={styles.emailRowContent}>
+              <Text style={styles.emailAddress}>{re.email}</Text>
+              {re.label && <Text style={styles.emailLabel}>{re.label}</Text>}
+            </View>
+            {re.isDefault && <Text style={styles.defaultBadge}>Default</Text>}
+            {sending ? (
+              <ActivityIndicator size="small" color="#4a9eff" />
+            ) : (
+              <Ionicons name="send-outline" size={18} color="#4a9eff" />
+            )}
+          </Pressable>
+        ))}
+      </View>
+    </Modal>
+  );
+}
+
 export default function BookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [pendingSendFileId, setPendingSendFileId] = useState<string | null>(
+    null,
+  );
+  const [showEmailPicker, setShowEmailPicker] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const serverUrl = serverUrlStore.get() ?? '';
   const token = tokenStore.get() ?? '';
@@ -63,6 +125,12 @@ export default function BookDetailScreen() {
   } = useQuery({
     queryKey: ['book', id],
     queryFn: () => getBookDetail(id),
+    enabled: !!id,
+  });
+
+  const { data: recipientEmails = [] } = useQuery({
+    queryKey: ['recipient-emails'],
+    queryFn: getRecipientEmails,
     enabled: !!id,
   });
 
@@ -96,6 +164,40 @@ export default function BookDetailScreen() {
       );
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleSendPress = (fileId: string) => {
+    if (recipientEmails.length === 0) {
+      Alert.alert(
+        'No recipient email',
+        'Add a recipient email address in your account settings before sending books.',
+      );
+      return;
+    }
+    if (recipientEmails.length === 1) {
+      doSend(fileId, recipientEmails[0].id);
+    } else {
+      setPendingSendFileId(fileId);
+      setShowEmailPicker(true);
+    }
+  };
+
+  const doSend = async (fileId: string, recipientEmailId: string) => {
+    setShowEmailPicker(false);
+    setSending(true);
+    setPendingSendFileId(fileId);
+    try {
+      await sendBook(id, { fileId, recipientEmailId });
+      Alert.alert('Sent', 'Book sent successfully.');
+    } catch {
+      Alert.alert(
+        'Send failed',
+        'Could not send the book. Check your email settings.',
+      );
+    } finally {
+      setSending(false);
+      setPendingSendFileId(null);
     }
   };
 
@@ -251,34 +353,67 @@ export default function BookDetailScreen() {
                       <Text style={styles.missingText}>Missing</Text>
                     )}
                   </View>
-                  <Pressable
-                    style={[
-                      styles.downloadBtn,
-                      (!!file.missingAt || downloadingId === file.id) &&
-                        styles.downloadBtnDisabled,
-                    ]}
-                    onPress={() => handleDownload(file.id, file.format)}
-                    disabled={!!file.missingAt || downloadingId !== null}
-                  >
-                    {downloadingId === file.id ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Ionicons
-                        name="download-outline"
-                        size={18}
-                        color="#fff"
-                      />
-                    )}
-                    <Text style={styles.downloadText}>
-                      {downloadingId === file.id ? 'Downloading…' : 'Download'}
-                    </Text>
-                  </Pressable>
+                  <View style={styles.fileActions}>
+                    <Pressable
+                      style={[
+                        styles.sendBtn,
+                        (!!file.missingAt ||
+                          (sending && pendingSendFileId === file.id)) &&
+                          styles.actionBtnDisabled,
+                      ]}
+                      onPress={() => handleSendPress(file.id)}
+                      disabled={!!file.missingAt || sending}
+                    >
+                      {sending && pendingSendFileId === file.id ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Ionicons name="mail-outline" size={18} color="#fff" />
+                      )}
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.downloadBtn,
+                        (!!file.missingAt || downloadingId === file.id) &&
+                          styles.actionBtnDisabled,
+                      ]}
+                      onPress={() => handleDownload(file.id, file.format)}
+                      disabled={!!file.missingAt || downloadingId !== null}
+                    >
+                      {downloadingId === file.id ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Ionicons
+                          name="download-outline"
+                          size={18}
+                          color="#fff"
+                        />
+                      )}
+                      <Text style={styles.downloadText}>
+                        {downloadingId === file.id
+                          ? 'Downloading…'
+                          : 'Download'}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
               ))}
             </View>
           )}
         </ScrollView>
       )}
+
+      <EmailPickerModal
+        visible={showEmailPicker}
+        emails={recipientEmails}
+        sending={sending}
+        onSelect={(emailId) => {
+          if (pendingSendFileId) doSend(pendingSendFileId, emailId);
+        }}
+        onClose={() => {
+          setShowEmailPicker(false);
+          setPendingSendFileId(null);
+        }}
+      />
     </View>
   );
 }
@@ -397,6 +532,16 @@ const styles = StyleSheet.create({
   },
   fileSize: { color: '#666', fontSize: 13 },
   missingText: { color: '#ff6b6b', fontSize: 12 },
+  fileActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  sendBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1c3a2e',
+    padding: 10,
+    borderRadius: 8,
+    width: 40,
+    height: 40,
+  },
   downloadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -408,6 +553,58 @@ const styles = StyleSheet.create({
     minWidth: 110,
     justifyContent: 'center',
   },
-  downloadBtnDisabled: { opacity: 0.4 },
+  actionBtnDisabled: { opacity: 0.4 },
   downloadText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
+  // Email picker modal
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: '#00000088',
+  },
+  pickerSheet: {
+    backgroundColor: '#1c1c1e',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+  },
+  pickerHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#444',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  pickerTitle: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  pickerDivider: {
+    height: 1,
+    backgroundColor: '#2c2c2e',
+    marginBottom: 8,
+  },
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 12,
+  },
+  emailRowPressed: { opacity: 0.6 },
+  emailRowContent: { flex: 1, gap: 2 },
+  emailAddress: { color: '#fff', fontSize: 15 },
+  emailLabel: { color: '#888', fontSize: 12 },
+  defaultBadge: {
+    color: '#4a9eff',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
 });

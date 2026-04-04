@@ -78,7 +78,7 @@ export default function LoginScreen() {
     setSubmitting(true);
     try {
       const result = await login(email.trim(), password);
-      await setToken(result.access_token);
+      await setToken(result.access_token, result.user);
       router.replace('/(tabs)');
     } catch {
       setError('Invalid email or password.');

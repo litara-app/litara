@@ -62,6 +62,7 @@ export async function getBooks(params?: {
   sortBy?: 'createdAt' | 'title' | 'publishedDate';
   order?: 'asc' | 'desc';
   q?: string;
+  libraryId?: string;
 }): Promise<BookSummary[]> {
   const { data } = await api.get<BookSummary[]>('/books', { params });
   return data;

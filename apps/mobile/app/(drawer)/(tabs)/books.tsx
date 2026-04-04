@@ -5,12 +5,15 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '@/src/context/AuthContext';
+import { useGridSize } from '@/src/context/GridSizeContext';
 import { BookCard } from '@/src/components/BookCard';
 import { BookOptionsSheet } from '@/src/components/BookOptionsSheet';
 import { getBooks } from '@/src/api/books';
@@ -18,9 +21,33 @@ import type { BookSummary } from '@/src/api/books';
 
 const PAGE_SIZE = 40;
 
+const GRID_ICONS: Record<number, keyof typeof Ionicons.glyphMap> = {
+  2: 'grid-outline',
+  3: 'apps-outline',
+  4: 'grid',
+};
+
 export default function AllBooksScreen() {
   const [selectedBook, setSelectedBook] = useState<BookSummary | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { clearToken, clearServerUrl } = useAuthContext();
+  const { numColumns, cycleColumns } = useGridSize();
+  const navigation = useNavigation();
+
+  // Inject grid-size toggle into the tab header
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={cycleColumns}
+          hitSlop={8}
+          style={styles.headerGridBtn}
+        >
+          <Ionicons name={GRID_ICONS[numColumns]} size={22} color="#fff" />
+        </Pressable>
+      ),
+    });
+  }, [navigation, numColumns, cycleColumns]);
 
   const {
     data,
@@ -48,6 +75,12 @@ export default function AllBooksScreen() {
   });
 
   const books = data?.pages.flat() ?? [];
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     if (
@@ -101,10 +134,18 @@ export default function AllBooksScreen() {
   return (
     <View style={styles.container}>
       <FlatList<BookSummary>
+        key={numColumns} // force re-mount when column count changes
         data={books}
         keyExtractor={(item) => item.id}
-        numColumns={2}
+        numColumns={numColumns}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#4a9eff"
+          />
+        }
         renderItem={({ item }) => (
           <Pressable
             style={styles.cardWrapper}
@@ -145,6 +186,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0a' },
   list: { paddingHorizontal: 10, paddingBottom: 20, paddingTop: 8 },
   cardWrapper: { flex: 1, margin: 6, borderRadius: 8, overflow: 'hidden' },
+  headerGridBtn: {
+    marginRight: 16,
+  },
   centered: {
     flex: 1,
     justifyContent: 'center',

@@ -1,4 +1,4 @@
-import { Tabs, router } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
@@ -50,24 +50,51 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="library-outline" size={size} color={color} />
           ),
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/search')}
-              style={{ marginRight: 16 }}
-              hitSlop={8}
-            >
-              <Ionicons name="search" size={22} color="#fff" />
-            </Pressable>
+          // headerRight injected dynamically by books.tsx via navigation.setOptions
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="series"
+        name="libraries"
         options={{
-          title: 'Series',
+          title: 'Libraries',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="albums-outline" size={size} color={color} />
+            <Ionicons name="folder-open-outline" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="shelves"
+        options={{
+          title: 'Shelves',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bookmark-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      {/* Hidden tabs — accessible via the drawer menu */}
+      <Tabs.Screen
+        name="series"
+        options={{ title: 'Series', tabBarItemStyle: { display: 'none' } }}
+      />
+      <Tabs.Screen
+        name="annotations"
+        options={{ title: 'Annotations', tabBarItemStyle: { display: 'none' } }}
+      />
+      <Tabs.Screen
+        name="smart-shelves"
+        options={{
+          title: 'Smart Shelves',
+          tabBarItemStyle: { display: 'none' },
         }}
       />
     </Tabs>

@@ -1,8 +1,20 @@
+import { useEffect, useState } from 'react';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import type { BookSummary } from '@/src/api/books';
+import { getRecipientEmails, sendBook } from '@/src/api/mail';
+import type { RecipientEmail } from '@/src/api/mail';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
 import { tokenStore } from '@/src/auth/tokenStore';
 
@@ -16,19 +28,30 @@ interface OptionProps {
   label: string;
   onPress: () => void;
   destructive?: boolean;
+  loading?: boolean;
 }
 
-function Option({ icon, label, onPress, destructive }: OptionProps) {
+function Option({ icon, label, onPress, destructive, loading }: OptionProps) {
   return (
     <Pressable
       style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
       onPress={onPress}
+      disabled={loading}
     >
-      <Ionicons
-        name={icon}
-        size={20}
-        color={destructive ? '#ff6b6b' : '#ccc'}
-      />
+      {loading ? (
+        <ActivityIndicator
+          size="small"
+          color="#4a9eff"
+          style={styles.optionIcon}
+        />
+      ) : (
+        <Ionicons
+          name={icon}
+          size={20}
+          color={destructive ? '#ff6b6b' : '#ccc'}
+          style={styles.optionIcon}
+        />
+      )}
       <Text
         style={[
           styles.optionLabel,
@@ -42,6 +65,20 @@ function Option({ icon, label, onPress, destructive }: OptionProps) {
 }
 
 export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
+  const [mode, setMode] = useState<'main' | 'pick-email'>('main');
+  const [sending, setSending] = useState(false);
+
+  // Reset to main mode whenever the sheet opens/closes
+  useEffect(() => {
+    if (!book) setMode('main');
+  }, [book]);
+
+  const { data: recipientEmails = [] } = useQuery({
+    queryKey: ['recipient-emails'],
+    queryFn: getRecipientEmails,
+    enabled: !!book,
+  });
+
   if (!book) return null;
 
   const baseUrl = serverUrlStore.get();
@@ -59,6 +96,38 @@ export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
     router.push({ pathname: '/book/[id]', params: { id: book.id } });
   };
 
+  const handleSendEmail = () => {
+    if (recipientEmails.length === 0) {
+      Alert.alert(
+        'No recipient email',
+        'Add a recipient email address in your account settings before sending books.',
+      );
+      return;
+    }
+    if (recipientEmails.length === 1) {
+      doSend(recipientEmails[0].id);
+    } else {
+      setMode('pick-email');
+    }
+  };
+
+  const doSend = async (recipientEmailId: string) => {
+    setSending(true);
+    try {
+      await sendBook(book.id, { recipientEmailId });
+      Alert.alert('Sent', 'Book sent successfully.');
+      onClose();
+    } catch {
+      Alert.alert(
+        'Send failed',
+        'Could not send the book. Check your email settings.',
+      );
+    } finally {
+      setSending(false);
+      setMode('main');
+    }
+  };
+
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       {/* Backdrop — tap to dismiss */}
@@ -68,31 +137,85 @@ export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
         {/* Drag handle */}
         <View style={styles.handle} />
 
-        {/* Book header */}
-        <View style={styles.bookRow}>
-          <Image source={coverSource} style={styles.cover} contentFit="cover" />
-          <View style={styles.bookMeta}>
-            <Text style={styles.bookTitle} numberOfLines={2}>
-              {book.title}
-            </Text>
-            {book.authors.length > 0 && (
-              <Text style={styles.bookAuthors} numberOfLines={1}>
-                {book.authors.join(', ')}
-              </Text>
-            )}
-            {book.formats.length > 0 && (
-              <Text style={styles.bookFormat}>{book.formats[0]}</Text>
-            )}
-          </View>
-        </View>
+        {mode === 'main' && (
+          <>
+            {/* Book header */}
+            <View style={styles.bookRow}>
+              <Image
+                source={coverSource}
+                style={styles.cover}
+                contentFit="cover"
+              />
+              <View style={styles.bookMeta}>
+                <Text style={styles.bookTitle} numberOfLines={2}>
+                  {book.title}
+                </Text>
+                {book.authors.length > 0 && (
+                  <Text style={styles.bookAuthors} numberOfLines={1}>
+                    {book.authors.join(', ')}
+                  </Text>
+                )}
+                {book.formats.length > 0 && (
+                  <Text style={styles.bookFormat}>{book.formats[0]}</Text>
+                )}
+              </View>
+            </View>
 
-        <View style={styles.divider} />
+            <View style={styles.divider} />
 
-        <Option
-          icon="information-circle-outline"
-          label="View Details"
-          onPress={handleDetails}
-        />
+            <Option
+              icon="information-circle-outline"
+              label="View Details"
+              onPress={handleDetails}
+            />
+
+            <Option
+              icon="mail-outline"
+              label="Send to Email"
+              onPress={handleSendEmail}
+              loading={sending}
+            />
+          </>
+        )}
+
+        {mode === 'pick-email' && (
+          <>
+            <Pressable style={styles.backRow} onPress={() => setMode('main')}>
+              <Ionicons name="chevron-back" size={18} color="#4a9eff" />
+              <Text style={styles.backText}>Back</Text>
+            </Pressable>
+
+            <Text style={styles.pickerTitle}>Send to</Text>
+            <View style={styles.divider} />
+
+            {recipientEmails.map((re: RecipientEmail) => (
+              <Pressable
+                key={re.id}
+                style={({ pressed }) => [
+                  styles.emailRow,
+                  pressed && styles.optionPressed,
+                ]}
+                onPress={() => doSend(re.id)}
+                disabled={sending}
+              >
+                <View style={styles.emailRowContent}>
+                  <Text style={styles.emailAddress}>{re.email}</Text>
+                  {re.label && (
+                    <Text style={styles.emailLabel}>{re.label}</Text>
+                  )}
+                </View>
+                {re.isDefault && (
+                  <Text style={styles.defaultBadge}>Default</Text>
+                )}
+                {sending ? (
+                  <ActivityIndicator size="small" color="#4a9eff" />
+                ) : (
+                  <Ionicons name="send-outline" size={18} color="#4a9eff" />
+                )}
+              </Pressable>
+            ))}
+          </>
+        )}
       </View>
     </Modal>
   );
@@ -161,6 +284,9 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingVertical: 14,
   },
+  optionIcon: {
+    width: 20,
+  },
   optionPressed: {
     opacity: 0.6,
   },
@@ -170,5 +296,50 @@ const styles = StyleSheet.create({
   },
   optionLabelDestructive: {
     color: '#ff6b6b',
+  },
+  // Back row
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 12,
+  },
+  backText: {
+    color: '#4a9eff',
+    fontSize: 15,
+  },
+  pickerTitle: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  // Email rows
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 12,
+  },
+  emailRowContent: {
+    flex: 1,
+    gap: 2,
+  },
+  emailAddress: {
+    color: '#fff',
+    fontSize: 15,
+  },
+  emailLabel: {
+    color: '#888',
+    fontSize: 12,
+  },
+  defaultBadge: {
+    color: '#4a9eff',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
 });

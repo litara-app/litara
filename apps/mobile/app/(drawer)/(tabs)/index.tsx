@@ -4,52 +4,34 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { BookCard } from '@/src/components/BookCard';
 import { BookOptionsSheet } from '@/src/components/BookOptionsSheet';
 import { getBooks } from '@/src/api/books';
 import type { BookSummary } from '@/src/api/books';
-import { serverUrlStore } from '@/src/auth/serverUrlStore';
-import { tokenStore } from '@/src/auth/tokenStore';
 
-function CoverThumb({ book }: { book: BookSummary }) {
-  const baseUrl = serverUrlStore.get();
-  const token = tokenStore.get();
-  const source =
-    book.hasCover && baseUrl
-      ? {
-          uri: `${baseUrl}/api/v1/books/${book.id}/cover`,
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }
-      : require('@/assets/images/icon.png');
-
-  return (
-    <Pressable
-      style={styles.thumbWrapper}
-      onPress={() =>
-        router.push({ pathname: '/book/[id]', params: { id: book.id } })
-      }
-    >
-      <Image source={source} style={styles.thumb} contentFit="cover" />
-      <Text style={styles.thumbTitle} numberOfLines={2}>
-        {book.title}
-      </Text>
-    </Pressable>
-  );
-}
+const CARD_WIDTH = 110;
 
 export default function DashboardScreen() {
   const [selectedBook, setSelectedBook] = useState<BookSummary | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['books', 'dashboard'],
     queryFn: () => getBooks({ limit: 40, sortBy: 'createdAt', order: 'desc' }),
   });
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   const books = data ?? [];
   const recentlyAdded = books.slice(0, 20);
@@ -60,8 +42,31 @@ export default function DashboardScreen() {
       b.readingProgress < 100,
   );
 
+  const renderCard = (item: BookSummary) => (
+    <Pressable
+      style={styles.cardWrapper}
+      onPress={() =>
+        router.push({ pathname: '/book/[id]', params: { id: item.id } })
+      }
+      onLongPress={() => setSelectedBook(item)}
+      delayLongPress={400}
+    >
+      <BookCard book={item} />
+    </Pressable>
+  );
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#4a9eff"
+        />
+      }
+    >
       {inProgress.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Continue Reading</Text>
@@ -69,14 +74,7 @@ export default function DashboardScreen() {
             horizontal
             data={inProgress}
             keyExtractor={(b) => b.id}
-            renderItem={({ item }) => (
-              <Pressable
-                onLongPress={() => setSelectedBook(item)}
-                delayLongPress={400}
-              >
-                <CoverThumb book={item} />
-              </Pressable>
-            )}
+            renderItem={({ item }) => renderCard(item)}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.row}
           />
@@ -94,14 +92,7 @@ export default function DashboardScreen() {
             horizontal
             data={recentlyAdded}
             keyExtractor={(b) => b.id}
-            renderItem={({ item }) => (
-              <Pressable
-                onLongPress={() => setSelectedBook(item)}
-                delayLongPress={400}
-              >
-                <CoverThumb book={item} />
-              </Pressable>
-            )}
+            renderItem={({ item }) => renderCard(item)}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.row}
           />
@@ -128,13 +119,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   row: { paddingHorizontal: 12 },
-  thumbWrapper: { width: 100, marginHorizontal: 4 },
-  thumb: { width: 100, height: 150, borderRadius: 6 },
-  thumbTitle: {
-    color: '#ccc',
-    fontSize: 11,
-    marginTop: 6,
-    lineHeight: 15,
+  cardWrapper: {
+    width: CARD_WIDTH,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   spinner: { margin: 20 },
   emptyText: { color: '#555', fontSize: 14, paddingHorizontal: 16 },

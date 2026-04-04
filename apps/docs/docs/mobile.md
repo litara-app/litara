@@ -35,7 +35,7 @@ To change the server address later, tap your current server URL on the sign-in s
 
 ## Signing in
 
-![Sign in screen](@site/static/screenshots/mobile/sign_in.png)
+<img src="@site/static/screenshots/mobile/sign_in.png" alt="Sign in screen" width="300" />
 
 Enter the email and password for your Litara account and tap **Sign In**. The same credentials you use on the web app work here.
 
@@ -43,7 +43,7 @@ Enter the email and password for your Litara account and tap **Sign In**. The sa
 
 ### Dashboard
 
-![Dashboard](@site/static/screenshots/mobile/dashboard.png)
+<img src="@site/static/screenshots/mobile/dashboard.png" alt="Dashboard" width="300" />
 
 The **Dashboard** tab shows two horizontal scroll lists:
 
@@ -54,18 +54,17 @@ Tap a cover to open the book detail page.
 
 ### All Books
 
-![All Books](@site/static/screenshots/mobile/all_books.png)
+<img src="@site/static/screenshots/mobile/all_books.png" alt="All Books" width="300" />
 
 The **All Books** tab shows your entire library in a two-column grid, sorted alphabetically. Scroll to the bottom to load more books.
 
-Tap the search icon in the top-right to search by title or author.
-
 - **Tap** a book to open the book detail page.
 - **Long-press** a book for a quick-action sheet.
+- Tap the **grid icon** in the top-right to cycle between 2, 3, and 4-column layouts.
 
 ## Book details
 
-![Book Details](@site/static/screenshots/mobile/book_details.png)
+<img src="@site/static/screenshots/mobile/book_details.png" alt="Book Details" width="300" />
 
 The book detail page shows the cover, title, authors, series, description, and metadata (pages, language, publisher, ISBN, Goodreads rating). Genres and tags appear as chips below the description.
 
@@ -73,26 +72,37 @@ The **Files** section lists every file format available for the book. Tap **Down
 
 ## Navigation
 
-The bottom tab bar has three tabs:
+The bottom tab bar provides quick access to your main views:
 
 | Tab       | Description                          |
 | --------- | ------------------------------------ |
 | Dashboard | Recently added and in-progress books |
-| All Books | Full library grid with search        |
-| Series    | Series view (coming soon)            |
+| All Books | Full library grid                    |
+| Search    | Search across your entire library    |
+| Libraries | Browse by library folder             |
+| Shelves   | Books organised into named shelves   |
 
-Tap the **hamburger menu** (≡) in the top-left to open the side drawer, which contains links to Annotations and Sign Out.
+Tap the **hamburger menu** (≡) in the top-left on any screen to open the side drawer.
+
+### Side drawer
+
+<img src="@site/static/screenshots/mobile/burger_menu.png" alt="Side drawer" width="300" />
+
+The side drawer gives access to additional views and account info:
+
+- **Series** — browse books grouped by series
+- **Annotations** — search and view all your highlights, underlines, bookmarks, and notes
+- **Smart Shelves** — automatically populated shelves based on rules
+- **Logout** — sign out of the app
+
+The drawer also shows your server version and app version at the bottom.
 
 ## Known limitations
 
 The following features from the web app are not yet available on mobile:
 
 - In-app reader — tap a book to open its details, not to read it directly
-- Annotations and highlights
 - Metadata editing
-- Shelf management
-- Smart shelves
 - OPDS
-- Email delivery to e-reader
 
 These are planned for future releases.

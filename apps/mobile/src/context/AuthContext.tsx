@@ -6,14 +6,23 @@ import { serverUrlStore } from '@/src/auth/serverUrlStore';
 
 const TOKEN_KEY = 'litara_token';
 const SERVER_URL_KEY = 'litara_server_url';
+const USER_KEY = 'litara_user';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'USER' | 'ADMIN';
+}
 
 interface AuthContextValue {
   serverUrl: string | null;
   token: string | null;
+  user: AuthUser | null;
   loading: boolean;
   setServerUrl: (url: string) => Promise<void>;
   clearServerUrl: () => Promise<void>;
-  setToken: (token: string) => Promise<void>;
+  setToken: (token: string, user: AuthUser) => Promise<void>;
   clearToken: () => Promise<void>;
 }
 
@@ -22,17 +31,26 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [serverUrl, setServerUrlState] = useState<string | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
+  const [user, setUserState] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       secureStorage.getItemAsync(SERVER_URL_KEY),
       secureStorage.getItemAsync(TOKEN_KEY),
-    ]).then(([url, tok]) => {
+      secureStorage.getItemAsync(USER_KEY),
+    ]).then(([url, tok, userJson]) => {
       serverUrlStore.set(url);
       setServerUrlState(url);
       tokenStore.set(tok);
       setTokenState(tok);
+      if (userJson) {
+        try {
+          setUserState(JSON.parse(userJson) as AuthUser);
+        } catch {
+          // ignore corrupt data
+        }
+      }
       setLoading(false);
     });
   }, []);
@@ -49,16 +67,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setServerUrlState(null);
   };
 
-  const setToken = async (newToken: string) => {
-    await secureStorage.setItemAsync(TOKEN_KEY, newToken);
+  const setToken = async (newToken: string, newUser: AuthUser) => {
+    await Promise.all([
+      secureStorage.setItemAsync(TOKEN_KEY, newToken),
+      secureStorage.setItemAsync(USER_KEY, JSON.stringify(newUser)),
+    ]);
     tokenStore.set(newToken);
     setTokenState(newToken);
+    setUserState(newUser);
   };
 
   const clearToken = async () => {
-    await secureStorage.deleteItemAsync(TOKEN_KEY);
+    await Promise.all([
+      secureStorage.deleteItemAsync(TOKEN_KEY),
+      secureStorage.deleteItemAsync(USER_KEY),
+    ]);
     tokenStore.set(null);
     setTokenState(null);
+    setUserState(null);
   };
 
   return (
@@ -66,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         serverUrl,
         token,
+        user,
         loading,
         setServerUrl,
         clearServerUrl,
