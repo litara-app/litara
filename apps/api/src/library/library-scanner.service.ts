@@ -34,7 +34,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    await this.ensureDefaultLibraryAndFolder();
+    await this.ensureWatchedFolder();
     await this.fullScan();
     void this.startWatching();
   }
@@ -46,24 +46,10 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ---------------------------------------------------------------------------
-  // Seeding: ensure a default Library and WatchedFolder exist
+  // Seeding: ensure a WatchedFolder exists
   // ---------------------------------------------------------------------------
 
-  private async ensureDefaultLibraryAndFolder() {
-    // Ensure a "Default Library" exists
-    let library = await this.prisma.library.findFirst({
-      where: { name: 'Default Library' },
-    });
-    if (!library) {
-      library = await this.prisma.library.create({
-        data: {
-          name: 'Default Library',
-          description: 'Auto-created default library',
-        },
-      });
-      this.logger.log('Created Default Library');
-    }
-
+  private async ensureWatchedFolder() {
     const ebookLibraryPath = this.config.get<string>('ebookLibraryPath')!;
 
     if (fs.existsSync(ebookLibraryPath)) {
@@ -205,16 +191,10 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
         `Metadata for ${path.basename(filePath)}: title="${metadata.title}" authors=[${metadata.authors.join(', ')}]`,
       );
 
-      // Find or create a Library
-      const library = await this.prisma.library.findFirst({
-        where: { name: 'Default Library' },
-      });
-      if (!library) return;
-
-      // Create Book
+      // Create Book (libraryId is null — user assigns books to libraries explicitly)
       const book = await this.prisma.book.create({
         data: {
-          libraryId: library.id,
+          libraryId: null,
           title:
             metadata.title || path.basename(filePath, path.extname(filePath)),
           description: metadata.description || null,
@@ -278,20 +258,37 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleSidecarAdded(sidecarPath: string): Promise<void> {
-    const dir = path.dirname(sidecarPath);
+    // Normalise to forward slashes so comparisons work on Windows regardless
+    // of whether chokidar or the DB stored paths with backslashes.
+    const normSidecar = sidecarPath.replace(/\\/g, '/');
+    const dir = path.dirname(normSidecar);
     const sidecarBase = path
-      .basename(sidecarPath, '.metadata.json')
+      .basename(normSidecar, '.metadata.json')
       .toLowerCase();
 
-    // Find a book whose file lives in the same directory with a matching base name
+    // Skip silently if a book already has this exact sidecar linked —
+    // writeSidecar() updates Book.sidecarFile before chokidar fires.
+    const alreadyLinked = await this.prisma.book.findFirst({
+      where: { sidecarFile: { in: [sidecarPath, normSidecar] } },
+      select: { id: true },
+    });
+    if (alreadyLinked) return;
+
+    // Find a book whose file lives in the same directory with a matching base name.
+    // Fetch all BookFiles and filter in-process to avoid path-separator issues
+    // with Prisma's startsWith on Windows.
     const candidates = await this.prisma.bookFile.findMany({
-      where: { filePath: { startsWith: dir } },
       include: { book: true },
     });
 
+    const normalizedDir = dir.replace(/\\/g, '/');
+
     for (const bf of candidates) {
+      const normFilePath = bf.filePath.replace(/\\/g, '/');
+      if (!normFilePath.startsWith(normalizedDir + '/')) continue;
+
       const fileBase = path
-        .basename(bf.filePath, path.extname(bf.filePath))
+        .basename(normFilePath, path.extname(normFilePath))
         .toLowerCase();
       if (fileBase === sidecarBase) {
         await this.prisma.book.update({
@@ -305,7 +302,9 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    this.logger.log(`Sidecar added but no matching book found: ${sidecarPath}`);
+    this.logger.debug(
+      `Sidecar added but no matching book found: ${sidecarPath}`,
+    );
   }
 
   async handleFileRemoved(filePath: string) {

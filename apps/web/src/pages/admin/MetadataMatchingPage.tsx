@@ -18,7 +18,14 @@ import {
   SimpleGrid,
   Divider,
 } from '@mantine/core';
-import { IconPlayerPlay, IconCheck, IconLock } from '@tabler/icons-react';
+import {
+  IconPlayerPlay,
+  IconCheck,
+  IconLock,
+  IconAlertTriangle,
+  IconWriting,
+} from '@tabler/icons-react';
+import { Tooltip } from '@mantine/core';
 import { api } from '../../utils/api';
 import {
   MetadataSourcesSection,
@@ -563,7 +570,7 @@ function RunSection({ onRunStarted }: { onRunStarted?: () => void }) {
     }
     if (scope === 'library' && scopeId) {
       const res = await api.get<{ id: string }[]>(
-        `/libraries/${scopeId}/books?limit=10000`,
+        `/books?libraryId=${scopeId}&limit=10000`,
       );
       return res.data.map((b) => b.id);
     }
@@ -756,6 +763,103 @@ function RunSection({ onRunStarted }: { onRunStarted?: () => void }) {
   );
 }
 
+// ── Bulk Sidecar Section ──────────────────────────────────────────────────────
+
+interface DiskSettings {
+  allowDiskWrites: boolean;
+  isReadOnlyMount: boolean;
+}
+
+function BulkSidecarSection({ onRunStarted }: { onRunStarted?: () => void }) {
+  const [diskSettings, setDiskSettings] = useState<DiskSettings | null>(null);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<'success' | 'error' | null>(null);
+
+  useEffect(() => {
+    api
+      .get<DiskSettings>('/admin/settings/disk')
+      .then((r) => setDiskSettings(r.data))
+      .catch(() => {});
+  }, []);
+
+  async function handleBulkWrite() {
+    setRunning(true);
+    setResult(null);
+    try {
+      await api.post('/admin/sidecar/bulk-write');
+      setResult('success');
+      onRunStarted?.();
+    } catch {
+      setResult('error');
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  if (!diskSettings) return <Skeleton height={60} radius="sm" />;
+
+  const writesEnabled = diskSettings.allowDiskWrites;
+
+  return (
+    <Stack gap="sm">
+      <Text size="sm" c="dimmed">
+        Write a <code>.metadata.json</code> sidecar file alongside every ebook
+        in the library. Ebook files are never modified. Enable disk writes in{' '}
+        <strong>General → Disk Writes</strong> first.
+      </Text>
+
+      {diskSettings.isReadOnlyMount && (
+        <Alert
+          icon={<IconLock size={14} />}
+          color="yellow"
+          variant="light"
+          py="xs"
+        >
+          Library directory is mounted read-only — writes will fail.
+        </Alert>
+      )}
+
+      {result === 'success' && (
+        <Alert
+          icon={<IconCheck size={14} />}
+          color="green"
+          variant="light"
+          py="xs"
+        >
+          Bulk sidecar write started — check the <strong>Tasks</strong> tab for
+          progress.
+        </Alert>
+      )}
+      {result === 'error' && (
+        <Alert
+          icon={<IconAlertTriangle size={14} />}
+          color="red"
+          variant="light"
+          py="xs"
+        >
+          Failed to start. Check that disk writes are enabled in Admin →
+          General.
+        </Alert>
+      )}
+
+      <Tooltip
+        label="Enable disk writes in Admin → General first"
+        disabled={writesEnabled}
+      >
+        <Button
+          leftSection={<IconWriting size={16} />}
+          onClick={() => void handleBulkWrite()}
+          loading={running}
+          disabled={!writesEnabled}
+          w="fit-content"
+        >
+          Write All Sidecars
+        </Button>
+      </Tooltip>
+    </Stack>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export function MetadataMatchingPage({
@@ -796,6 +900,13 @@ export function MetadataMatchingPage({
             library, or a specific shelf.
           </Text>
           <RunSection onRunStarted={onRunStarted} />
+        </Stack>
+      </Paper>
+
+      <Paper withBorder p="md" radius="md">
+        <Stack gap="sm">
+          <Title order={4}>Bulk Sidecar Write</Title>
+          <BulkSidecarSection onRunStarted={onRunStarted} />
         </Stack>
       </Paper>
     </Stack>

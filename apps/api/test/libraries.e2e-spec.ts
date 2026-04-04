@@ -30,14 +30,13 @@ describe('Libraries Routes (e2e)', () => {
         .expect(401);
     });
 
-    it('auto-seeds a Default Library on first call', async () => {
+    it('returns empty array when no libraries exist', async () => {
       const res = await request(testApp.app.getHttpServer())
         .get('/api/v1/libraries')
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body).toHaveLength(1);
-      expect(res.body[0]).toHaveProperty('name', 'Default Library');
+      expect(res.body).toHaveLength(0);
     });
 
     it('returns all libraries for the user', async () => {

@@ -28,6 +28,7 @@ import {
   IconTrash,
   IconUserPlus,
   IconCopy,
+  IconLock,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { api } from '../../utils/api';
@@ -553,6 +554,75 @@ function LibraryScanSection() {
   );
 }
 
+interface DiskSettings {
+  allowDiskWrites: boolean;
+  isReadOnlyMount: boolean;
+}
+
+function DiskSettingsSection() {
+  const [settings, setSettings] = useState<DiskSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<DiskSettings>('/admin/settings/disk')
+      .then((r) => setSettings(r.data))
+      .catch(() => {});
+  }, []);
+
+  async function handleToggle(enabled: boolean) {
+    if (!settings) return;
+    setSaving(true);
+    try {
+      const res = await api.patch<DiskSettings>('/admin/settings/disk', {
+        allowDiskWrites: enabled,
+      });
+      setSettings(res.data);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!settings) return <Skeleton height={100} radius="md" />;
+
+  return (
+    <Paper withBorder p="md" radius="md">
+      <Stack gap="sm">
+        <Group justify="space-between">
+          <Title order={4}>Disk Writes</Title>
+          <Switch
+            checked={settings.allowDiskWrites}
+            onChange={(e) => void handleToggle(e.currentTarget.checked)}
+            disabled={saving}
+            label={settings.allowDiskWrites ? 'Enabled' : 'Disabled'}
+          />
+        </Group>
+
+        <Text size="sm" c="dimmed">
+          When enabled, Litara can write metadata sidecar files (
+          <code>.metadata.json</code>) alongside your ebook files. Ebook files
+          themselves are never modified. For a hard guarantee, mount your
+          library volume read-only in Docker (<code>:ro</code>).
+        </Text>
+
+        {settings.isReadOnlyMount && (
+          <Alert
+            icon={<IconLock size={16} />}
+            color="yellow"
+            variant="light"
+            title="Library directory is read-only"
+          >
+            The library directory appears to be mounted read-only. Disk write
+            operations will fail even if enabled above. Remove the{' '}
+            <code>:ro</code> flag from your Docker volume mount if you want to
+            allow writes.
+          </Alert>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
 export function GeneralTab() {
   return (
     <Stack gap="lg">
@@ -572,6 +642,7 @@ export function GeneralTab() {
         </Stack>
       </Paper>
       <LibraryScanSection />
+      <DiskSettingsSection />
     </Stack>
   );
 }

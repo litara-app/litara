@@ -14,6 +14,7 @@ import {
   MetadataService,
   MetadataProvider,
 } from '../metadata/metadata.service';
+import { DiskWriteGuardService } from '../common/disk-write-guard.service';
 import type { MetadataResult } from '../metadata/interfaces/metadata-result.interface';
 
 export class GetBooksQueryDto {
@@ -65,6 +66,7 @@ export class BooksService {
   constructor(
     private readonly prisma: DatabaseService,
     private readonly metadataService: MetadataService,
+    private readonly diskWriteGuard: DiskWriteGuardService,
   ) {}
 
   async findAll(query: GetBooksQueryDto, userId: string) {
@@ -686,6 +688,58 @@ export class BooksService {
     const filename =
       book.title.replace(/[/\\:*?"<>|]/g, '_') + '.metadata.json';
     return { filename, json };
+  }
+
+  async writeSidecar(bookId: string): Promise<{ sidecarFile: string }> {
+    await this.diskWriteGuard.assertDiskWritesAllowed();
+
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      include: {
+        files: { where: { missingAt: null }, orderBy: { format: 'asc' } },
+      },
+    });
+    if (!book) throw new NotFoundException('Book not found');
+
+    // Prefer EPUB; fall back to first available file
+    const primaryFile =
+      book.files.find((f) => f.format === 'EPUB') ?? book.files[0];
+    if (!primaryFile) {
+      throw new NotFoundException(
+        'Book has no on-disk file to determine write location',
+      );
+    }
+
+    const dir = path.dirname(primaryFile.filePath);
+    const base = path.basename(
+      primaryFile.filePath,
+      path.extname(primaryFile.filePath),
+    );
+    const sidecarPath = path.join(dir, `${base}.metadata.json`);
+    const tmpPath = sidecarPath + '.tmp';
+
+    const { json } = await this.exportSidecar(bookId);
+
+    fs.writeFileSync(tmpPath, JSON.stringify(json, null, 2), 'utf8');
+    try {
+      fs.renameSync(tmpPath, sidecarPath);
+    } catch {
+      // Windows: renameSync over existing file throws EPERM
+      try {
+        fs.rmSync(sidecarPath, { force: true });
+        fs.renameSync(tmpPath, sidecarPath);
+      } catch (err2) {
+        fs.rmSync(tmpPath, { force: true });
+        throw err2;
+      }
+    }
+
+    await this.prisma.book.update({
+      where: { id: bookId },
+      data: { sidecarFile: sidecarPath },
+    });
+
+    return { sidecarFile: sidecarPath };
   }
 
   async matchBook(targetBookId: string, sourceBookId: string) {

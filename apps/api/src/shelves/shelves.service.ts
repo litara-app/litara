@@ -11,20 +11,6 @@ export class ShelvesService {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Seed default shelves on first use
-    if (shelves.length === 0) {
-      await this.prisma.shelf.createMany({
-        data: [
-          { userId, name: 'Favorites' },
-          { userId, name: 'To Read' },
-        ],
-      });
-      return this.prisma.shelf.findMany({
-        where: { userId, isSmart: false },
-        orderBy: { createdAt: 'asc' },
-      });
-    }
-
     return shelves;
   }
 

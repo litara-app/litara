@@ -10,8 +10,8 @@ import type { FieldConfigItemDto, GuidedSelectionDto } from './dto';
 
 export const DEFAULT_FIELD_CONFIG: FieldConfigItemDto[] = [
   { field: 'title', provider: 'open-library', enabled: true },
-  { field: 'subtitle', provider: 'google-books', enabled: true },
-  { field: 'description', provider: 'google-books', enabled: true },
+  { field: 'subtitle', provider: 'open-library', enabled: true },
+  { field: 'description', provider: 'goodreads', enabled: true },
   { field: 'authors', provider: 'open-library', enabled: true },
   { field: 'publisher', provider: 'open-library', enabled: true },
   { field: 'publishedDate', provider: 'open-library', enabled: true },
@@ -19,12 +19,12 @@ export const DEFAULT_FIELD_CONFIG: FieldConfigItemDto[] = [
   { field: 'isbn13', provider: 'open-library', enabled: true },
   { field: 'isbn10', provider: 'open-library', enabled: true },
   { field: 'pageCount', provider: 'open-library', enabled: true },
-  { field: 'genres', provider: 'google-books', enabled: true },
+  { field: 'genres', provider: 'goodreads', enabled: true },
   { field: 'tags', provider: 'open-library', enabled: true },
-  { field: 'seriesName', provider: 'hardcover', enabled: true },
+  { field: 'seriesName', provider: 'goodreads', enabled: true },
   { field: 'googleBooksId', provider: 'google-books', enabled: true },
   { field: 'openLibraryId', provider: 'open-library', enabled: true },
-  { field: 'goodreadsId', provider: 'open-library', enabled: true },
+  { field: 'goodreadsId', provider: 'goodreads', enabled: true },
   { field: 'goodreadsRating', provider: 'goodreads', enabled: true },
   { field: 'asin', provider: 'open-library', enabled: true },
 ];
@@ -131,7 +131,12 @@ export class BulkMetadataService {
       if (!scopeId)
         throw new NotFoundException('scopeId required for library scope');
       const books = await this.prisma.book.findMany({
-        where: { libraryId: scopeId },
+        where: {
+          OR: [
+            { libraryId: scopeId },
+            { userLibraries: { some: { libraryId: scopeId } } },
+          ],
+        },
         select: { id: true },
         orderBy: { title: 'asc' },
       });

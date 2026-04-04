@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { isAxiosError } from 'axios';
 import {
   ActivityIndicator,
   FlatList,
@@ -83,11 +83,7 @@ export default function AllBooksScreen() {
   };
 
   useEffect(() => {
-    if (
-      isError &&
-      axios.isAxiosError(error) &&
-      error.response?.status === 401
-    ) {
+    if (isError && isAxiosError(error) && error.response?.status === 401) {
       clearToken();
     }
   }, [isError, error, clearToken]);
@@ -102,7 +98,7 @@ export default function AllBooksScreen() {
 
   if (isError) {
     let detail = 'Unknown error';
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       if (!error.response) {
         detail = 'Network error — cannot reach server';
       } else {
