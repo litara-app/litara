@@ -15,5 +15,11 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+// Exclude node_modules from other apps — mobile only needs packages/* and root node_modules
+config.resolver.blockList = [
+  /apps\/docs\/node_modules\/.*/,
+  /apps\/web\/node_modules\/.*/,
+  /apps\/api\/node_modules\/.*/,
+];
 
 module.exports = config;

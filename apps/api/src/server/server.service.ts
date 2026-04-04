@@ -33,6 +33,10 @@ export class ServerService {
     }
   }
 
+  getCurrentVersion(): { version: string } {
+    return { version: this.currentVersion };
+  }
+
   async getVersionCheck(): Promise<VersionCheckDto> {
     const now = Date.now();
     if (this.cache && now < this.cache.expiresAt) {
