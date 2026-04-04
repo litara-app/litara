@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/litara-app/litara/compare/v1.15.3...v1.16.0) (2026-04-04)
+
+
+### Features
+
+* mobile application updates, expose server version route ([2991bb7](https://github.com/litara-app/litara/commit/2991bb7d94557cdd10c0b9e1778ff61af259e6c6))
+
 ## [1.15.3](https://github.com/litara-app/litara/compare/v1.15.2...v1.15.3) (2026-04-03)
 
 
