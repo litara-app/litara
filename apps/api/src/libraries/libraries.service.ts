@@ -6,23 +6,10 @@ export class LibrariesService {
   constructor(private readonly prisma: DatabaseService) {}
 
   async findAll(userId: string) {
-    let libs = await this.prisma.library.findMany({
+    return this.prisma.library.findMany({
       where: { userId },
       orderBy: { createdAt: 'asc' },
     });
-
-    // Seed Default Library on first use
-    if (libs.length === 0) {
-      await this.prisma.library.create({
-        data: { name: 'Default Library', userId },
-      });
-      libs = await this.prisma.library.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'asc' },
-      });
-    }
-
-    return libs;
   }
 
   async findOne(id: string, userId: string) {

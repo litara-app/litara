@@ -23,16 +23,13 @@ describe('Shelves (e2e)', () => {
     token = await loginAs(testApp.app, 'test@test.com', 'password123');
   });
 
-  it('GET /shelves auto-seeds Favorites and To Read on first call', async () => {
+  it('GET /shelves returns empty array when no shelves exist', async () => {
     const res = await request(testApp.app.getHttpServer())
       .get('/api/v1/shelves')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body).toHaveLength(2);
-    const names = res.body.map((s: any) => s.name) as string[];
-    expect(names).toContain('Favorites');
-    expect(names).toContain('To Read');
+    expect(res.body).toHaveLength(0);
   });
 
   it('GET /shelves/:id/books returns empty array for a new shelf', async () => {
@@ -126,19 +123,18 @@ describe('Shelves (e2e)', () => {
     expect(res.body).toHaveProperty('name', 'Weekend Reads');
   });
 
-  it('GET /shelves returns seeded shelves on subsequent calls (no re-seeding)', async () => {
-    // First call seeds Favorites + To Read
-    await request(testApp.app.getHttpServer())
-      .get('/api/v1/shelves')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
+  it('GET /shelves returns manually created shelves', async () => {
+    await testApp.db.shelf.create({ data: { name: 'Favorites', userId } });
+    await testApp.db.shelf.create({ data: { name: 'To Read', userId } });
 
-    // Second call should return the same two without duplication
     const res = await request(testApp.app.getHttpServer())
       .get('/api/v1/shelves')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(res.body).toHaveLength(2);
+    const names = (res.body as Array<{ name: string }>).map((s) => s.name);
+    expect(names).toContain('Favorites');
+    expect(names).toContain('To Read');
   });
 
   it('PATCH /shelves/:id returns 404 for a nonexistent shelf', async () => {

@@ -143,6 +143,15 @@ export class BooksController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post(':id/sidecar/write')
+  @ApiOkResponse({
+    schema: { properties: { sidecarFile: { type: 'string' } } },
+  })
+  writeSidecar(@Param('id') id: string) {
+    return this.booksService.writeSidecar(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id/search-metadata')
   @ApiQuery({ name: 'provider', enum: MetadataProvider, required: false })
   @ApiQuery({ name: 'isbn', required: false })

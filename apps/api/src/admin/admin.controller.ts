@@ -140,4 +140,30 @@ export class AdminController {
   testMetadataProvider(@Param('id') id: string) {
     return this.adminService.testMetadataProvider(id);
   }
+
+  @Get('tasks')
+  @ApiOkResponse()
+  getAllTasks() {
+    return this.adminService.getAllTasks();
+  }
+
+  @Get('settings/disk')
+  @ApiOkResponse()
+  getDiskSettings() {
+    return this.adminService.getDiskSettings();
+  }
+
+  @Patch('settings/disk')
+  @ApiOkResponse()
+  setDiskSettings(@Body() body: { allowDiskWrites: boolean }) {
+    return this.adminService.setDiskSettings(body.allowDiskWrites);
+  }
+
+  @Post('sidecar/bulk-write')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse()
+  async bulkWriteSidecars() {
+    await this.adminService.assertDiskWritesAllowed();
+    return this.adminService.bulkWriteSidecars();
+  }
 }

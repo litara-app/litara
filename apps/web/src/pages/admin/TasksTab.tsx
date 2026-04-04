@@ -21,11 +21,16 @@ type TaskStatus =
 
 interface TaskRecord {
   id: string;
+  type: string;
   status: TaskStatus;
   payload: {
     processed?: number;
     total?: number;
     currentBookTitle?: string;
+    written?: number;
+    skipped?: number;
+    failed?: number;
+    log?: string;
   } | null;
   errorMessage?: string | null;
   createdAt: string;
@@ -40,6 +45,15 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   CANCELLED: 'gray',
 };
 
+const TYPE_LABELS: Record<string, string> = {
+  BULK_METADATA_MATCH: 'Metadata Enrichment',
+  BULK_SIDECAR_WRITE: 'Sidecar Write',
+};
+
+function taskLabel(type: string): string {
+  return TYPE_LABELS[type] ?? type;
+}
+
 export function TasksTab() {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +61,7 @@ export function TasksTab() {
   const tasksJsonRef = useRef<string>('');
 
   const fetchTasks = useCallback(async (): Promise<boolean> => {
-    const res = await api.get<TaskRecord[]>('/admin/metadata-match/tasks');
+    const res = await api.get<TaskRecord[]>('/admin/tasks');
     const json = JSON.stringify(res.data);
     if (json !== tasksJsonRef.current) {
       tasksJsonRef.current = json;
@@ -98,7 +112,7 @@ export function TasksTab() {
   if (tasks.length === 0) {
     return (
       <Text size="sm" c="dimmed">
-        No enrichment runs yet. Start one from the Metadata Matching tab.
+        No tasks yet.
       </Text>
     );
   }
@@ -112,6 +126,7 @@ export function TasksTab() {
         const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
         const isActive =
           task.status === 'PENDING' || task.status === 'PROCESSING';
+        const isSidecarWrite = task.type === 'BULK_SIDECAR_WRITE';
 
         return (
           <Paper key={task.id} withBorder p="sm" radius="md">
@@ -124,6 +139,9 @@ export function TasksTab() {
                     variant={isActive ? 'filled' : 'light'}
                   >
                     {task.status}
+                  </Badge>
+                  <Badge size="sm" color="gray" variant="outline">
+                    {taskLabel(task.type)}
                   </Badge>
                   <Text size="xs" c="dimmed">
                     {new Date(task.createdAt).toLocaleString()}
@@ -145,9 +163,16 @@ export function TasksTab() {
                   </>
                 )}
 
-                {task.status === 'COMPLETED' && (
+                {task.status === 'COMPLETED' && !isSidecarWrite && (
                   <Text size="xs" c="dimmed">
                     Enriched {total} books
+                  </Text>
+                )}
+
+                {task.status === 'COMPLETED' && isSidecarWrite && (
+                  <Text size="xs" c="dimmed">
+                    Written: {p?.written ?? 0} &nbsp;·&nbsp; Skipped:{' '}
+                    {p?.skipped ?? 0} &nbsp;·&nbsp; Failed: {p?.failed ?? 0}
                   </Text>
                 )}
 
@@ -164,7 +189,7 @@ export function TasksTab() {
                 )}
               </Stack>
 
-              {isActive && (
+              {isActive && task.type === 'BULK_METADATA_MATCH' && (
                 <ActionIcon
                   size="sm"
                   variant="subtle"

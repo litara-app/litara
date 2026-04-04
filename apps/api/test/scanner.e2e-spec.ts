@@ -18,9 +18,8 @@ describe('LibraryScanner (e2e)', () => {
     await cleanDatabase(testApp.db);
 
     // Re-create the prerequisites that the scanner needs
-    // (ensureDefaultLibraryAndFolder normally does this in onModuleInit).
+    // (ensureWatchedFolder normally does this in onModuleInit).
     const ebookPath = process.env.EBOOK_LIBRARY_PATH!;
-    await testApp.db.library.create({ data: { name: 'Default Library' } });
     await testApp.db.watchedFolder.create({
       data: { path: ebookPath, isActive: true },
     });

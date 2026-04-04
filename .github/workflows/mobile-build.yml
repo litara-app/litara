@@ -1,4 +1,4 @@
-name: Mobile APK Build
+name: Mobile Build
 
 on:
   push:
@@ -6,11 +6,23 @@ on:
     paths:
       - 'apps/mobile/**'
       - 'packages/**'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - android
+          - ios
+          - all
 
 jobs:
-  build:
+  build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || inputs.platform == 'android' || inputs.platform == 'all' }}
 
     steps:
       - name: Checkout
@@ -34,3 +46,31 @@ jobs:
       - name: Build APK
         working-directory: apps/mobile
         run: eas build --platform android --profile preview --non-interactive
+
+  build-ios:
+    name: Build iOS IPA
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || inputs.platform == 'ios' || inputs.platform == 'all' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build IPA
+        working-directory: apps/mobile
+        run: eas build --platform ios --profile preview --non-interactive

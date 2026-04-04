@@ -10,6 +10,7 @@ const sidebars: SidebarsConfig = {
     'email-delivery',
     'smart-shelves',
     'metadata-enrichment',
+    'disk-writing',
     'reader',
     'mobile',
     {

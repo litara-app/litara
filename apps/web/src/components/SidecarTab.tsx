@@ -8,13 +8,23 @@ import {
   Stack,
   Center,
   Code,
+  Tooltip,
 } from '@mantine/core';
-import { IconRefresh, IconFileExport } from '@tabler/icons-react';
+import {
+  IconRefresh,
+  IconFileExport,
+  IconDeviceFloppy,
+} from '@tabler/icons-react';
 import { pushToast } from '../utils/toast';
 import { api } from '../utils/api';
 import type { BookDetail, MetadataResult } from './BookDetailModal.types';
 import { MetadataComparisonTable } from './MetadataComparisonTable';
 import { buildRows, buildApplyPayload } from './metadataApply.shared';
+
+interface DiskSettings {
+  allowDiskWrites: boolean;
+  isReadOnlyMount: boolean;
+}
 
 interface SidecarTabProps {
   bookId: string;
@@ -42,6 +52,16 @@ export function SidecarTab({
   const [scanning, setScanning] = useState(false);
   const [applying, setApplying] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [writing, setWriting] = useState(false);
+  const [allowDiskWrites, setAllowDiskWrites] = useState(false);
+
+  // Fetch disk write guard setting once on mount
+  useEffect(() => {
+    api
+      .get<DiskSettings>('/admin/settings/disk')
+      .then((res) => setAllowDiskWrites(res.data.allowDiskWrites))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!sidecarFile) return;
@@ -127,6 +147,36 @@ export function SidecarTab({
     }
   }
 
+  async function handleWriteToDisk() {
+    setWriting(true);
+    try {
+      const res = await api.post<{ sidecarFile: string }>(
+        `/books/${bookId}/sidecar/write`,
+      );
+      const newPath = res.data.sidecarFile;
+      setSidecarFile(newPath);
+      setSelectedFields(new Set());
+      setContentStatus('loading');
+      const content = await api.get<MetadataResult | null>(
+        `/books/${bookId}/sidecar`,
+      );
+      if (content.data) {
+        setSidecarData(content.data);
+        setContentStatus('ready');
+      } else {
+        setContentStatus('error');
+      }
+      pushToast('Sidecar written to disk', { color: 'green' });
+    } catch (err) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? 'Write failed';
+      pushToast(msg, { title: 'Error', color: 'red' });
+    } finally {
+      setWriting(false);
+    }
+  }
+
   const rows = useMemo(
     () => (sidecarData ? buildRows(detail, sidecarData, false) : []),
     [detail, sidecarData],
@@ -166,6 +216,23 @@ export function SidecarTab({
       .pop()
       ?.replace(/\.[^.]+$/, '') ?? detail.title;
 
+  const writeToDiskButton = (
+    <Tooltip
+      label="Disk writes are disabled. See Admin → Disk Settings."
+      disabled={allowDiskWrites}
+    >
+      <Button
+        variant="light"
+        leftSection={<IconDeviceFloppy size={14} />}
+        loading={writing}
+        disabled={!allowDiskWrites}
+        onClick={() => void handleWriteToDisk()}
+      >
+        Write to Disk
+      </Button>
+    </Tooltip>
+  );
+
   /* ── Not found / error ── */
   if (!sidecarFile || contentStatus === 'error') {
     return (
@@ -183,6 +250,7 @@ export function SidecarTab({
             >
               Scan for Sidecar
             </Button>
+            {writeToDiskButton}
             <Button
               variant="light"
               leftSection={<IconFileExport size={14} />}
@@ -236,6 +304,7 @@ export function SidecarTab({
             >
               Rescan
             </Button>
+            {writeToDiskButton}
             <Button
               variant="light"
               leftSection={<IconFileExport size={14} />}
