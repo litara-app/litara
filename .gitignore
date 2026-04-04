@@ -72,7 +72,6 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 /playwright-screenshots/
 test/fixtures/ebook-library/Pride and Prejudice - Jane Austen.metadata.json
 test/fixtures/ebook-library/Test Man 1 - Jane Doe.metadata.json
-test/fixtures/ebook-library/The Great Gatsby - F Scott Fitzgerald.metadata.json
 test/fixtures/ebook-library/The Picture of Dorian Gray - Oscar Wilde.metadata.json
 test/fixtures/ebook-library/Tin Woodman of Oz _ A Faithful Story of thhe Rainbow's Daughter, The - L. Frank Baum.metadata.json
 test/fixtures/ebook-library/Wonderful Wizard of Oz, The - L. Frank Baum.metadata.json
