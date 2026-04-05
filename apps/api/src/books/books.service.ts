@@ -4,6 +4,7 @@ import {
   NotFoundException,
   GoneException,
   BadRequestException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -15,6 +16,7 @@ import {
   MetadataProvider,
 } from '../metadata/metadata.service';
 import { DiskWriteGuardService } from '../common/disk-write-guard.service';
+import { EpubMetadataWriterService } from './epub-metadata-writer.service';
 import type { MetadataResult } from '../metadata/interfaces/metadata-result.interface';
 
 export class GetBooksQueryDto {
@@ -67,6 +69,7 @@ export class BooksService {
     private readonly prisma: DatabaseService,
     private readonly metadataService: MetadataService,
     private readonly diskWriteGuard: DiskWriteGuardService,
+    private readonly epubWriter: EpubMetadataWriterService,
   ) {}
 
   async findAll(query: GetBooksQueryDto, userId: string) {
@@ -760,5 +763,86 @@ export class BooksService {
     ]);
 
     return { success: true };
+  }
+
+  async writeEpubMetadata(bookId: string): Promise<{ filePath: string }> {
+    await this.diskWriteGuard.assertDiskWritesAllowed();
+
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      include: {
+        authors: { include: { author: true } },
+        genres: true,
+        tags: true,
+        series: { include: { series: true } },
+        files: { where: { missingAt: null } },
+      },
+    });
+    if (!book) throw new NotFoundException('Book not found');
+
+    const epubFile = book.files.find((f) => f.format === 'EPUB');
+    if (!epubFile) {
+      throw new UnprocessableEntityException(
+        'No epub file found for this book',
+      );
+    }
+
+    const seriesBook = book.series[0] ?? null;
+
+    await this.epubWriter.writeMetadataToEpub(epubFile.filePath, {
+      title: book.title,
+      subtitle: book.subtitle,
+      description: book.description,
+      authors: book.authors.map((ba) => ba.author.name),
+      publisher: book.publisher,
+      publishedDate: book.publishedDate
+        ? book.publishedDate.toISOString().slice(0, 10)
+        : null,
+      language: book.language,
+      isbn13: book.isbn13,
+      isbn10: book.isbn10,
+      genres: book.genres.map((g) => g.name),
+      tags: book.tags.map((t) => t.name),
+      seriesName: seriesBook?.series.name ?? null,
+      seriesNumber: seriesBook?.sequence ?? null,
+    });
+
+    return { filePath: epubFile.filePath };
+  }
+
+  async writeEpubMetadataForFile(
+    bookId: string,
+    filePath: string,
+  ): Promise<void> {
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      include: {
+        authors: { include: { author: true } },
+        genres: true,
+        tags: true,
+        series: { include: { series: true } },
+      },
+    });
+    if (!book) return;
+
+    const seriesBook = book.series[0] ?? null;
+
+    await this.epubWriter.writeMetadataToEpub(filePath, {
+      title: book.title,
+      subtitle: book.subtitle,
+      description: book.description,
+      authors: book.authors.map((ba) => ba.author.name),
+      publisher: book.publisher,
+      publishedDate: book.publishedDate
+        ? book.publishedDate.toISOString().slice(0, 10)
+        : null,
+      language: book.language,
+      isbn13: book.isbn13,
+      isbn10: book.isbn10,
+      genres: book.genres.map((g) => g.name),
+      tags: book.tags.map((t) => t.name),
+      seriesName: seriesBook?.series.name ?? null,
+      seriesNumber: seriesBook?.sequence ?? null,
+    });
   }
 }

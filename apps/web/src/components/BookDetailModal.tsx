@@ -24,6 +24,7 @@ import {
   Rating,
   Stack,
   Progress,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconBook2,
@@ -40,6 +41,7 @@ import {
   IconSend,
   IconAlertTriangle,
   IconBookmarks,
+  IconDatabaseImport,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { api } from '../utils/api';
@@ -122,6 +124,22 @@ export function BookDetailModal({
   const [lockedFields, setLockedFields] = useState<Set<string>>(new Set());
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Disk settings (for Write to File button)
+  const [diskSettings, setDiskSettings] = useState<{
+    allowDiskWrites: boolean;
+    isReadOnlyMount: boolean;
+  } | null>(null);
+  const [writingEpub, setWritingEpub] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ allowDiskWrites: boolean; isReadOnlyMount: boolean }>(
+        '/admin/settings/disk',
+      )
+      .then((res) => setDiskSettings(res.data))
+      .catch(() => {});
+  }, []);
 
   // Send book
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -265,6 +283,19 @@ export function BookDetailModal({
     setLockedFields(new Set(updated.lockedFields));
     setIsDirty(false);
     onBookUpdated();
+  }
+
+  async function handleWriteEpub() {
+    if (!detail) return;
+    setWritingEpub(true);
+    try {
+      await api.post(`/books/${detail.id}/write-epub-metadata`);
+      pushToast('Metadata written to epub file', { color: 'green' });
+    } catch {
+      pushToast('Failed to write metadata to epub', { color: 'red' });
+    } finally {
+      setWritingEpub(false);
+    }
   }
 
   async function handleLibraryChange(value: string | null) {
@@ -873,6 +904,36 @@ export function BookDetailModal({
                     Save Changes
                   </Button>
                 )}
+
+                {detail &&
+                  detail.files.some((f) => f.format === 'EPUB') &&
+                  diskSettings !== null && (
+                    <Tooltip
+                      label={
+                        !diskSettings.allowDiskWrites
+                          ? 'Enable disk writes in Admin → Disk Settings'
+                          : diskSettings.isReadOnlyMount
+                            ? 'Library directory is read-only'
+                            : 'Write current metadata to the epub file on disk'
+                      }
+                    >
+                      <span>
+                        <Button
+                          color="yellow"
+                          variant="light"
+                          leftSection={<IconDatabaseImport size={16} />}
+                          loading={writingEpub}
+                          disabled={
+                            !diskSettings.allowDiskWrites ||
+                            diskSettings.isReadOnlyMount
+                          }
+                          onClick={() => void handleWriteEpub()}
+                        >
+                          Write to File
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  )}
               </Group>
               <Button variant="subtle" onClick={onClose}>
                 Close

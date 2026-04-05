@@ -94,4 +94,18 @@ export class BulkMetadataController {
   getTask(@Param('taskId') taskId: string) {
     return this.service.getTask(taskId);
   }
+
+  @Get('settings/auto-write')
+  @ApiOkResponse()
+  getAutoWrite() {
+    return this.service.getAutoWriteOnEnrich().then((enabled) => ({ enabled }));
+  }
+
+  @Put('settings/auto-write')
+  @ApiOkResponse()
+  setAutoWrite(@Body() body: { enabled: boolean }) {
+    return this.service
+      .setAutoWriteOnEnrich(body.enabled)
+      .then((enabled) => ({ enabled }));
+  }
 }

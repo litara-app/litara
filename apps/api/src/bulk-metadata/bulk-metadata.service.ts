@@ -5,6 +5,7 @@ import {
   MetadataProvider,
 } from '../metadata/metadata.service';
 import { OpenLibraryService } from '../metadata/providers/open-library.service';
+import { BooksService } from '../books/books.service';
 import type { MetadataResult } from '../metadata/interfaces/metadata-result.interface';
 import type { FieldConfigItemDto, GuidedSelectionDto } from './dto';
 
@@ -31,6 +32,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfigItemDto[] = [
 
 const FIELD_CONFIG_KEY = 'metadata_field_config';
 const THROTTLE_KEY = 'metadata_match_throttle_ms';
+const AUTO_WRITE_KEY = 'auto_write_metadata_on_enrich';
 const DEFAULT_THROTTLE = 500;
 
 function sleep(ms: number) {
@@ -45,6 +47,7 @@ export class BulkMetadataService {
     private readonly prisma: DatabaseService,
     private readonly metadataService: MetadataService,
     private readonly openLibrary: OpenLibraryService,
+    private readonly booksService: BooksService,
   ) {}
 
   // ── Config ────────────────────────────────────────────────────────────────
@@ -84,6 +87,22 @@ export class BulkMetadataService {
       create: { key: THROTTLE_KEY, value: String(clamped) },
     });
     return clamped;
+  }
+
+  async getAutoWriteOnEnrich(): Promise<boolean> {
+    const row = await this.prisma.serverSettings.findUnique({
+      where: { key: AUTO_WRITE_KEY },
+    });
+    return row?.value === 'true';
+  }
+
+  async setAutoWriteOnEnrich(enabled: boolean): Promise<boolean> {
+    await this.prisma.serverSettings.upsert({
+      where: { key: AUTO_WRITE_KEY },
+      update: { value: String(enabled) },
+      create: { key: AUTO_WRITE_KEY, value: String(enabled) },
+    });
+    return enabled;
   }
 
   // ── Candidates ────────────────────────────────────────────────────────────
@@ -254,6 +273,7 @@ export class BulkMetadataService {
       const fieldConfig = await this.getFieldConfig();
       const throttleMs = opts.throttleMs ?? (await this.getThrottle());
       const overwrite = opts.overwrite ?? false;
+      const autoWrite = await this.getAutoWriteOnEnrich();
 
       const guidedMap = new Map<string, GuidedSelectionDto>(
         (opts.guidedSelections ?? []).map((s) => [s.bookId, s]),
@@ -342,6 +362,26 @@ export class BulkMetadataService {
 
           if (throttleMs > 0) {
             await sleep(throttleMs);
+          }
+        }
+
+        // Auto-write metadata to epub after enrichment if enabled
+        if (autoWrite) {
+          const epubFile = await this.prisma.bookFile.findFirst({
+            where: { bookId, format: 'EPUB', missingAt: null },
+            select: { filePath: true },
+          });
+          if (epubFile) {
+            try {
+              await this.booksService.writeEpubMetadataForFile(
+                bookId,
+                epubFile.filePath,
+              );
+            } catch (writeErr) {
+              this.logger.warn(
+                `Auto-write epub failed for book ${bookId}: ${(writeErr as Error).message}`,
+              );
+            }
           }
         }
       }

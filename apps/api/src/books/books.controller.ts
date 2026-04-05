@@ -11,6 +11,8 @@ import {
   Req,
   Res,
   NotFoundException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { createReadStream } from 'fs';
 import { basename, resolve } from 'path';
@@ -23,6 +25,7 @@ import {
 } from '@nestjs/swagger';
 import { MetadataResultDto } from '../metadata/metadata-result.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import { BooksService, GetBooksQueryDto, UpdateBookDto } from './books.service';
 import { MailService } from '../mail/mail.service';
 import { SendBookDto } from '../mail/dto/send-book.dto';
@@ -240,5 +243,24 @@ export class BooksController {
     res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Cache-Control', 'public, max-age=31536000');
     res.end(data);
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post(':id/write-epub-metadata')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Write current metadata back into the epub file on disk',
+  })
+  @ApiOkResponse({
+    schema: {
+      properties: {
+        success: { type: 'boolean' },
+        filePath: { type: 'string' },
+      },
+    },
+  })
+  async writeEpubMetadata(@Param('id') id: string) {
+    const { filePath } = await this.booksService.writeEpubMetadata(id);
+    return { success: true, filePath };
   }
 }

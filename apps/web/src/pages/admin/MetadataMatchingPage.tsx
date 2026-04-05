@@ -763,6 +763,92 @@ function RunSection({ onRunStarted }: { onRunStarted?: () => void }) {
   );
 }
 
+// ── Auto-Write Epub Section ───────────────────────────────────────────────────
+
+function AutoWriteEpubSection() {
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [diskSettings, setDiskSettings] = useState<{
+    allowDiskWrites: boolean;
+    isReadOnlyMount: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      api
+        .get<{ enabled: boolean }>('/admin/metadata-match/settings/auto-write')
+        .then((r) => setEnabled(r.data.enabled)),
+      api
+        .get<{
+          allowDiskWrites: boolean;
+          isReadOnlyMount: boolean;
+        }>('/admin/settings/disk')
+        .then((r) => setDiskSettings(r.data)),
+    ])
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleToggle(val: boolean) {
+    setEnabled(val);
+    try {
+      await api.put('/admin/metadata-match/settings/auto-write', {
+        enabled: val,
+      });
+    } catch {
+      setEnabled(!val);
+    }
+  }
+
+  if (loading) return <Skeleton height={44} radius="sm" />;
+
+  const writesAllowed =
+    !!diskSettings?.allowDiskWrites && !diskSettings?.isReadOnlyMount;
+
+  return (
+    <Stack gap="sm">
+      <Text size="sm" c="dimmed">
+        When enabled, every enrichment run will also write the updated metadata
+        directly into the epub file on disk. Only epub files are written.
+        Requires disk writes to be enabled and the library directory to be
+        writable.
+      </Text>
+
+      {diskSettings?.isReadOnlyMount && (
+        <Alert
+          icon={<IconLock size={14} />}
+          color="yellow"
+          variant="light"
+          py="xs"
+        >
+          Library directory is mounted read-only — this setting will have no
+          effect.
+        </Alert>
+      )}
+
+      <Tooltip
+        label={
+          !diskSettings?.allowDiskWrites
+            ? 'Enable disk writes in Admin → General first'
+            : diskSettings?.isReadOnlyMount
+              ? 'Library directory is read-only'
+              : ''
+        }
+        disabled={writesAllowed}
+      >
+        <span style={{ width: 'fit-content' }}>
+          <Switch
+            label="Auto-write metadata to epub after enrichment"
+            checked={enabled}
+            onChange={(e) => void handleToggle(e.currentTarget.checked)}
+            disabled={!writesAllowed}
+          />
+        </span>
+      </Tooltip>
+    </Stack>
+  );
+}
+
 // ── Bulk Sidecar Section ──────────────────────────────────────────────────────
 
 interface DiskSettings {
@@ -900,6 +986,13 @@ export function MetadataMatchingPage({
             library, or a specific shelf.
           </Text>
           <RunSection onRunStarted={onRunStarted} />
+        </Stack>
+      </Paper>
+
+      <Paper withBorder p="md" radius="md">
+        <Stack gap="sm">
+          <Title order={4}>Auto-Write Epub on Enrichment</Title>
+          <AutoWriteEpubSection />
         </Stack>
       </Paper>
 
