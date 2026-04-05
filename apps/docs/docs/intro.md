@@ -22,12 +22,13 @@ Litara is a self-hosted ebook library manager. It lets you organize, read, and m
 
 ## Architecture
 
-Litara is composed of two apps and one package:
+Litara is composed of three apps and two packages:
 
 | Component              | Description                                          |
 | ---------------------- | ---------------------------------------------------- |
 | `apps/api`             | NestJS REST API and library scanner                  |
 | `apps/web`             | React + Vite web frontend                            |
+| `apps/mobile`          | React Native mobile apps for ios/android             |
 | `packages/mobi-parser` | Metadata extractor for `.mobi` / `.azw` files        |
 | `packages/cbz-parser`  | Metadata and cover extractor for `.cbz` files (beta) |
 
