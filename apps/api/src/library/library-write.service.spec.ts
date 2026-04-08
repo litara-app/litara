@@ -5,12 +5,21 @@ jest.mock('@litara/cbz-parser', () => ({}), { virtual: true });
 jest.mock('../common/extract-file-metadata', () => ({
   extractFileMetadata: jest.fn(),
 }));
+jest.mock('fs');
 
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { PendingBookStatus } from '@prisma/client';
 import { LibraryWriteService } from './library-write.service';
 import { DatabaseService } from '../database/database.service';
 import { DiskWriteGuardService } from '../common/disk-write-guard.service';
+import { extractFileMetadata } from '../common/extract-file-metadata';
+import * as fs from 'fs';
 import * as path from 'path';
 
 const root = '/library';
@@ -134,5 +143,194 @@ describe('LibraryWriteService.computeTargetPath', () => {
     for (const part of parts.slice(1)) {
       expect(part.length).toBeLessThanOrEqual(205); // ext + 200
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shared factory for tests that need prisma / diskWriteGuard mocks
+// ---------------------------------------------------------------------------
+
+function makePrismaMock() {
+  return {
+    pendingBook: {
+      findUnique: jest.fn(),
+      update: jest.fn().mockResolvedValue({}),
+    },
+    book: { create: jest.fn(), update: jest.fn().mockResolvedValue({}) },
+    author: { upsert: jest.fn().mockResolvedValue({ id: 'a1' }) },
+    bookAuthor: { upsert: jest.fn().mockResolvedValue({}) },
+    series: { upsert: jest.fn().mockResolvedValue({ id: 's1' }) },
+    seriesBook: { upsert: jest.fn().mockResolvedValue({}) },
+    bookFile: { create: jest.fn().mockResolvedValue({}) },
+  };
+}
+
+function makeGuardMock(writable = true) {
+  return {
+    probeLibraryWritable: jest.fn().mockReturnValue(writable),
+    assertDiskWritesAllowed: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
+async function buildService(prisma: object, guard: object) {
+  const module = await Test.createTestingModule({
+    providers: [
+      LibraryWriteService,
+      { provide: DatabaseService, useValue: prisma },
+      { provide: DiskWriteGuardService, useValue: guard },
+      { provide: ConfigService, useValue: { get: () => root } },
+    ],
+  }).compile();
+  return module.get(LibraryWriteService);
+}
+
+// ---------------------------------------------------------------------------
+
+describe('LibraryWriteService.extractMetadataFromFile', () => {
+  let service: LibraryWriteService;
+
+  beforeEach(async () => {
+    service = await buildService({}, {});
+  });
+
+  it('returns metadata from extractFileMetadata on success', async () => {
+    const meta = { title: 'My Book', authors: ['Author One'] };
+    (extractFileMetadata as jest.Mock).mockResolvedValue(meta);
+    await expect(
+      service.extractMetadataFromFile('/some/my-book.epub'),
+    ).resolves.toEqual(meta);
+  });
+
+  it('falls back to filename-derived title and empty authors on error', async () => {
+    (extractFileMetadata as jest.Mock).mockRejectedValue(
+      new Error('parse error'),
+    );
+    const result = await service.extractMetadataFromFile('/some/my-book.epub');
+    expect(result.title).toBe('my-book');
+    expect(result.authors).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('LibraryWriteService.isVolumeReadOnly', () => {
+  it('returns true when diskWriteGuard reports not writable', async () => {
+    const service = await buildService({}, makeGuardMock(false));
+    expect(service.isVolumeReadOnly()).toBe(true);
+  });
+
+  it('returns false when diskWriteGuard reports writable', async () => {
+    const service = await buildService({}, makeGuardMock(true));
+    expect(service.isVolumeReadOnly()).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('LibraryWriteService.approvePendingBook — error paths', () => {
+  let service: LibraryWriteService;
+  let prisma: ReturnType<typeof makePrismaMock>;
+  let guard: ReturnType<typeof makeGuardMock>;
+
+  beforeEach(async () => {
+    prisma = makePrismaMock();
+    guard = makeGuardMock();
+    service = await buildService(prisma, guard);
+  });
+
+  it('throws NotFoundException when pending book does not exist', async () => {
+    prisma.pendingBook.findUnique.mockResolvedValue(null);
+    await expect(service.approvePendingBook('missing')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('throws ConflictException when book status is APPROVED', async () => {
+    prisma.pendingBook.findUnique.mockResolvedValue({
+      id: '1',
+      status: PendingBookStatus.APPROVED,
+    });
+    await expect(service.approvePendingBook('1')).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('throws ConflictException when book status is REJECTED', async () => {
+    prisma.pendingBook.findUnique.mockResolvedValue({
+      id: '1',
+      status: PendingBookStatus.REJECTED,
+    });
+    await expect(service.approvePendingBook('1')).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('throws ForbiddenException when library volume is read-only', async () => {
+    prisma.pendingBook.findUnique.mockResolvedValue({
+      id: '1',
+      status: PendingBookStatus.PENDING,
+      stagedFilePath: '/drop/book.epub',
+      authors: '[]',
+      title: 'Test',
+      seriesName: null,
+      originalFilename: 'book.epub',
+    });
+    guard.probeLibraryWritable.mockReturnValue(false);
+    await expect(service.approvePendingBook('1')).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('sets status COLLISION and throws when target file exists', async () => {
+    prisma.pendingBook.findUnique.mockResolvedValue({
+      id: '1',
+      status: PendingBookStatus.PENDING,
+      stagedFilePath: '/drop/book.epub',
+      authors: '["Author"]',
+      title: 'My Book',
+      seriesName: null,
+      originalFilename: 'book.epub',
+    });
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+
+    await expect(service.approvePendingBook('1')).rejects.toThrow(
+      ConflictException,
+    );
+    expect(prisma.pendingBook.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: PendingBookStatus.COLLISION,
+        }) as unknown,
+      }) as unknown,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('LibraryWriteService.approveOverwrite — error paths', () => {
+  let service: LibraryWriteService;
+  let prisma: ReturnType<typeof makePrismaMock>;
+
+  beforeEach(async () => {
+    prisma = makePrismaMock();
+    service = await buildService(prisma, makeGuardMock());
+  });
+
+  it('throws NotFoundException when pending book does not exist', async () => {
+    prisma.pendingBook.findUnique.mockResolvedValue(null);
+    await expect(service.approveOverwrite('missing')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('throws ConflictException when status is not COLLISION', async () => {
+    prisma.pendingBook.findUnique.mockResolvedValue({
+      id: '1',
+      status: PendingBookStatus.PENDING,
+    });
+    await expect(service.approveOverwrite('1')).rejects.toThrow(
+      ConflictException,
+    );
   });
 });
