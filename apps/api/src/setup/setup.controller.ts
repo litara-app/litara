@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { SetupService } from './setup.service';
 import { isValidEmail } from '../common/is-valid-email';
@@ -27,6 +28,9 @@ export class SetupController {
   async createAdmin(
     @Body() body: { name?: string; email: string; password: string },
   ) {
+    if (!(await this.setupService.isSetupRequired())) {
+      throw new ForbiddenException('Already set up');
+    }
     if (!isValidEmail(body.email)) {
       throw new BadRequestException('Invalid email address');
     }
