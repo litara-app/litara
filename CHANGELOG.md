@@ -1,3 +1,15 @@
+# [1.20.0](https://github.com/litara-app/litara/compare/v1.19.0...v1.20.0) (2026-04-08)
+
+
+### Bug Fixes
+
+* loosening security rules to allow viewing site on http instead of https only ([c922ed3](https://github.com/litara-app/litara/commit/c922ed31590d8acfc286011d8cfcf84fa55da689))
+
+
+### Features
+
+* more detailed setup process, better password reset process ([58de2c7](https://github.com/litara-app/litara/commit/58de2c70a0090b1512eb1ab763a8a18b2860c3a6))
+
 # [1.19.0](https://github.com/litara-app/litara/compare/v1.18.0...v1.19.0) (2026-04-08)
 
 
