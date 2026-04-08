@@ -137,10 +137,6 @@ Docker builds use a specific dist output structure: `dist/apps/api/src/main`. Do
 
 When fixing pre-commit hooks or lint configs, always verify that required packages are actually installed (check `node_modules`) before referencing binaries. Prefer `npx` over direct `node_modules/.bin` paths.
 
-## Data Integrity
-
-**Never modify ebook files on disk.** Code must never write to, rename, move, or delete the ebook files on disk. The files are the user's property. Only the database records describing them may be changed.
-
 ## Metadata fields
 
 Metadata Fields

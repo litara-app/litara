@@ -12,6 +12,11 @@ import { isValidEmail } from '../common/is-valid-email';
 export class SetupController {
   constructor(private readonly setupService: SetupService) {}
 
+  @Get('disk-status')
+  async getDiskStatus() {
+    return this.setupService.getDiskStatus();
+  }
+
   @Get('status')
   async getStatus() {
     const setupRequired = await this.setupService.isSetupRequired();
@@ -24,6 +29,9 @@ export class SetupController {
   ) {
     if (!isValidEmail(body.email)) {
       throw new BadRequestException('Invalid email address');
+    }
+    if (!body.password || body.password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters');
     }
     return this.setupService.createAdmin(body);
   }
