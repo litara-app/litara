@@ -27,7 +27,7 @@ A self-hosted ebook library manager. Automatically scans a folder for ebook file
 
 ## Features
 
-- Scans and indexes `.epub`, `.mobi`, `.azw`, `.azw3`, `.pdf`, and `.cbz` files
+- Scans and indexes `.epub`, `.mobi`, `.azw`, `.azw3`, `.fb2` (beta), and `.cbz` files (beta)
 - Extracts cover art and metadata (title, authors, series, published date)
 - Metadata enrichment via Google Books, Open Library, Goodreads, and Hardcover
 - Write enriched metadata back to `.epub` files; sidecar `.metadata.json` support for all formats
