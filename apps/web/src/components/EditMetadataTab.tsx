@@ -331,15 +331,15 @@ export function EditMetadataTab({
                 label={
                   <FieldLabel
                     label="Book #"
-                    fieldName="seriesSequence"
-                    locked={isLocked('seriesSequence')}
+                    fieldName="seriesPosition"
+                    locked={isLocked('seriesPosition')}
                     onToggle={toggleLock}
                   />
                 }
                 size="xs"
-                value={editedFields.seriesSequence}
+                value={editedFields.seriesPosition}
                 onChange={(v) =>
-                  updateField('seriesSequence', v === '' ? '' : Number(v))
+                  updateField('seriesPosition', v === '' ? '' : Number(v))
                 }
                 placeholder="#"
                 min={0}

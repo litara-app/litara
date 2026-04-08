@@ -11,6 +11,7 @@ Litara is a self-hosted ebook library manager. It is a monorepo managed with **T
 - `apps/api` — NestJS backend (REST API + library scanner)
 - `apps/web` — React + Vite frontend
 - `packages/mobi-parser` (`@litara/mobi-parser`) — Wraps `@lingo-reader/mobi-parser` to extract metadata from `.mobi`, `.azw`, and `.azw3` files. Exposes a single `extractMobiMetadata(filePath)` function.
+- `packages/book-types` (`@litara/book-types`) — **Single source of truth for all enrichable book metadata fields.** Exports `BookMetadataFields` (canonical interface) and `MetadataResult` (extends it with `categories`). **All metadata field additions/renames must start here** and propagate to `MetadataResultDto` and `UpdatePendingBookDto` (both `implements BookMetadataFields`).
 
 ## Commands
 
@@ -98,14 +99,15 @@ React 19 + Vite SPA using **Mantine** for UI components and **React Router v7** 
 
 ### Environment Variables
 
-| Variable               | App | Description                                                                 |
-| ---------------------- | --- | --------------------------------------------------------------------------- |
-| `DATABASE_URL`         | API | PostgreSQL connection string                                                |
-| `JWT_SECRET`           | API | Secret for signing JWT tokens                                               |
-| `EBOOK_LIBRARY_PATH`   | API | Path to ebook directory (optional, has default)                             |
-| `PORT`                 | API | HTTP port (default: 3000)                                                   |
-| `GOOGLE_BOOKS_API_KEY` | API | Optional Google Books API key. Raises rate limit from ~100/day to 1000/day. |
-| `HARDCOVER_API_KEY`    | API | Optional Hardcover API key. Required for Hardcover metadata provider.       |
+| Variable               | App | Description                                                                                                              |
+| ---------------------- | --- | ------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`         | API | PostgreSQL connection string                                                                                             |
+| `JWT_SECRET`           | API | Secret for signing JWT tokens                                                                                            |
+| `EBOOK_LIBRARY_PATH`   | API | Path to ebook directory (optional, has default)                                                                          |
+| `BOOK_DROP_PATH`       | API | Path to book drop folder; files placed here are auto-ingested for admin review (optional, drop folder disabled if unset) |
+| `PORT`                 | API | HTTP port (default: 3000)                                                                                                |
+| `GOOGLE_BOOKS_API_KEY` | API | Optional Google Books API key. Raises rate limit from ~100/day to 1000/day.                                              |
+| `HARDCOVER_API_KEY`    | API | Optional Hardcover API key. Required for Hardcover metadata provider.                                                    |
 
 Docker Compose provides a local PostgreSQL instance (`postgres:16-alpine`) on port 5432 with db `litara`, user/pass `postgres`.
 

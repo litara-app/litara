@@ -159,6 +159,18 @@ export class AdminController {
     return this.adminService.setDiskSettings(body.allowDiskWrites);
   }
 
+  @Get('settings/shelfmark')
+  @ApiOkResponse()
+  getShelfmarkSettings() {
+    return this.adminService.getShelfmarkSettings();
+  }
+
+  @Patch('settings/shelfmark')
+  @ApiOkResponse()
+  setShelfmarkSettings(@Body() body: { shelfmarkUrl?: string | null }) {
+    return this.adminService.setShelfmarkSettings(body.shelfmarkUrl ?? null);
+  }
+
   @Post('sidecar/bulk-write')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse()

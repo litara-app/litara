@@ -29,7 +29,7 @@ export class BookSummaryDto {
   seriesName: string | null;
 
   @ApiProperty({ nullable: true, required: false })
-  seriesSequence: number | null;
+  seriesPosition: number | null;
 
   @ApiProperty({ nullable: true, required: false })
   publishedDate: Date | null;

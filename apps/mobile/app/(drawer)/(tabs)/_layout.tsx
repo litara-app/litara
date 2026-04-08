@@ -97,6 +97,14 @@ export default function TabsLayout() {
           tabBarItemStyle: { display: 'none' },
         }}
       />
+      <Tabs.Screen
+        name="book-drop"
+        options={{ title: 'Book Drop', tabBarItemStyle: { display: 'none' } }}
+      />
+      <Tabs.Screen
+        name="book-review"
+        options={{ title: 'Book Review', tabBarItemStyle: { display: 'none' } }}
+      />
     </Tabs>
   );
 }

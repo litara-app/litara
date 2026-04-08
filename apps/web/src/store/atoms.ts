@@ -52,3 +52,4 @@ export const backendStatusAtom = atom<'ok' | 'error'>('ok');
 export const toastsAtom = atom<Toast[]>([]);
 export const updateAvailableAtom = atom<boolean>(false);
 export const versionCheckResultAtom = atom<VersionCheckResult | null>(null);
+export const pendingBookCountAtom = atom<number>(0);

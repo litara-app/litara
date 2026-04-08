@@ -38,7 +38,7 @@ function mapBook(book: {
       .map((f) => ({ id: f.id, format: f.format, sizeBytes: f.sizeBytes })),
     hasCover: book.coverData !== null,
     seriesName: book.series[0]?.series.name,
-    seriesSequence:
+    seriesPosition:
       book.series[0]?.sequence !== null &&
       book.series[0]?.sequence !== undefined
         ? Number(book.series[0].sequence)

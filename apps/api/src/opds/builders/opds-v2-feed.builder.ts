@@ -97,7 +97,7 @@ export function buildV2Feed(
     if (book.seriesName) {
       pubMeta.belongsToCollection = {
         name: book.seriesName,
-        position: book.seriesSequence,
+        position: book.seriesPosition,
         '@type': 'http://schema.org/Collection',
       };
     }

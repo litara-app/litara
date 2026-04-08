@@ -25,6 +25,7 @@ import {
   Stack,
   Progress,
   Tooltip,
+  Checkbox,
 } from '@mantine/core';
 import {
   IconBook2,
@@ -42,6 +43,7 @@ import {
   IconAlertTriangle,
   IconBookmarks,
   IconDatabaseImport,
+  IconTrash,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { api } from '../utils/api';
@@ -86,7 +88,7 @@ function detailToEdited(d: BookDetail): EditedFields {
     genres: d.genres,
     moods: d.moods,
     seriesName: d.series?.name ?? '',
-    seriesSequence: d.series?.sequence ?? '',
+    seriesPosition: d.series?.sequence ?? '',
     seriesTotalBooks: d.series?.totalBooks ?? '',
   };
 }
@@ -163,6 +165,11 @@ export function BookDetailModal({
   );
   const [matchConfirmOpen, setMatchConfirmOpen] = useState(false);
   const [matching, setMatching] = useState(false);
+
+  // Delete book
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteFiles, setDeleteFiles] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!bookId) {
@@ -254,9 +261,9 @@ export function BookDetailModal({
         genres: editedFields.genres,
         moods: editedFields.moods,
         seriesName: editedFields.seriesName || null,
-        seriesSequence:
-          editedFields.seriesSequence !== ''
-            ? Number(editedFields.seriesSequence)
+        seriesPosition:
+          editedFields.seriesPosition !== ''
+            ? Number(editedFields.seriesPosition)
             : null,
         seriesTotalBooks:
           editedFields.seriesTotalBooks !== ''
@@ -388,6 +395,21 @@ export function BookDetailModal({
       onClose();
     } finally {
       setMatching(false);
+    }
+  }
+
+  async function handleDeleteBook() {
+    if (!detail) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/books/${detail.id}`, { data: { deleteFiles } });
+      setDeleteConfirmOpen(false);
+      onBookUpdated();
+      onClose();
+    } catch {
+      pushToast('Failed to delete book', { color: 'red' });
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -935,9 +957,22 @@ export function BookDetailModal({
                     </Tooltip>
                   )}
               </Group>
-              <Button variant="subtle" onClick={onClose}>
-                Close
-              </Button>
+              <Group gap="sm">
+                <Button
+                  color="red"
+                  variant="light"
+                  leftSection={<IconTrash size={16} />}
+                  onClick={() => {
+                    setDeleteFiles(false);
+                    setDeleteConfirmOpen(true);
+                  }}
+                >
+                  Delete Book
+                </Button>
+                <Button variant="subtle" onClick={onClose}>
+                  Close
+                </Button>
+              </Group>
             </Box>
           </Box>
         )}
@@ -1024,6 +1059,56 @@ export function BookDetailModal({
             Confirm
           </Button>
         </Group>
+      </Modal>
+
+      {/* Delete Book confirmation */}
+      <Modal
+        opened={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        title="Delete Book"
+        size="sm"
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Permanently delete{' '}
+            <Text component="span" fw={600}>
+              "{detail?.title}"
+            </Text>{' '}
+            from the database. This cannot be undone.
+          </Text>
+          <Checkbox
+            label="Also delete files from filesystem"
+            checked={deleteFiles}
+            onChange={(e) => setDeleteFiles(e.currentTarget.checked)}
+            disabled={
+              !diskSettings?.allowDiskWrites || diskSettings?.isReadOnlyMount
+            }
+          />
+          {deleteFiles && (
+            <Alert
+              icon={<IconAlertTriangle size={14} />}
+              color="red"
+              variant="light"
+            >
+              The ebook files on disk will be permanently deleted.
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="subtle"
+              onClick={() => setDeleteConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              loading={deleting}
+              onClick={() => void handleDeleteBook()}
+            >
+              Delete
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
 
       {/* Send Book modal */}

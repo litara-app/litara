@@ -12,6 +12,7 @@ import {
   Modal,
   Anchor,
   Code,
+  Indicator,
 } from '@mantine/core';
 import {
   IconHome,
@@ -26,6 +27,8 @@ import {
   IconTimeline,
   IconFlask,
   IconArrowUpCircle,
+  IconUpload,
+  IconClipboardCheck,
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
@@ -36,6 +39,7 @@ import {
   smartShelvesAtom,
   updateAvailableAtom,
   versionCheckResultAtom,
+  pendingBookCountAtom,
 } from '../../store/atoms';
 import type { Library, Shelf } from '../../store/atoms';
 import type { VersionCheckResult } from '../../types/server';
@@ -90,6 +94,8 @@ export function NavbarContent() {
   const [smartShelves, setSmartShelves] = useAtom(smartShelvesAtom);
   const [smartShelfModalOpen, setSmartShelfModalOpen] = useState(false);
 
+  const [pendingCount, setPendingCount] = useAtom(pendingBookCountAtom);
+
   const updateAvailable = useAtomValue(updateAvailableAtom);
   const versionCheckResult = useAtomValue(versionCheckResultAtom);
   const setUpdateAvailable = useSetAtom(updateAvailableAtom);
@@ -112,10 +118,20 @@ export function NavbarContent() {
   }, [setSmartShelves]);
 
   useEffect(() => {
-    void api.get<Library[]>('/libraries').then((r) => setLibraries(r.data));
-    void api.get<Shelf[]>('/shelves').then((r) => setShelves(r.data));
-    loadSmartShelves();
-  }, [setLibraries, setShelves, loadSmartShelves]);
+    void Promise.all([
+      api.get<Library[]>('/libraries').then((r) => setLibraries(r.data)),
+      api.get<Shelf[]>('/shelves').then((r) => setShelves(r.data)),
+      loadSmartShelves(),
+      ...(user?.role === 'ADMIN'
+        ? [
+            api
+              .get<{ id: string }[]>('/book-drop/pending')
+              .then((r) => setPendingCount(r.data.length))
+              .catch(() => {}),
+          ]
+        : []),
+    ]);
+  }, [setLibraries, setShelves, loadSmartShelves, setPendingCount, user?.role]);
 
   useEffect(() => {
     if (user?.role !== 'ADMIN') return;
@@ -269,6 +285,30 @@ export function NavbarContent() {
             setSmartShelvesOpen(true);
           }}
         />
+      )}
+
+      <NavLink
+        label="Book Drop"
+        leftSection={<IconUpload size={18} />}
+        active={location.pathname === '/book-drop'}
+        onClick={() => navigate('/book-drop')}
+      />
+
+      {user?.role === 'ADMIN' && (
+        <Indicator
+          label={pendingCount}
+          size={18}
+          disabled={pendingCount === 0}
+          color="red"
+          offset={4}
+        >
+          <NavLink
+            label="Book Review"
+            leftSection={<IconClipboardCheck size={18} />}
+            active={location.pathname === '/admin/book-review'}
+            onClick={() => navigate('/admin/book-review')}
+          />
+        </Indicator>
       )}
 
       <NavLink

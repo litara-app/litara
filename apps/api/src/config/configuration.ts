@@ -10,4 +10,11 @@ export default () => ({
    * Override with the EBOOK_LIBRARY_PATH environment variable.
    */
   ebookLibraryPath: process.env.EBOOK_LIBRARY_PATH ?? '/books',
+
+  /**
+   * Path to the book drop folder. Files placed here are automatically
+   * ingested into the admin review queue. Must be separate from ebookLibraryPath.
+   * Override with the BOOK_DROP_PATH environment variable.
+   */
+  bookDropPath: process.env.BOOK_DROP_PATH ?? '',
 });

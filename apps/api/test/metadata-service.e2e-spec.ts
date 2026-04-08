@@ -136,7 +136,7 @@ describe('MetadataService (e2e — mocked providers)', () => {
       expect(updated?.googleBooksId).toBe('gb-123');
       expect(updated?.openLibraryId).toBe('/works/OL123');
       expect(updated?.goodreadsId).toBe('gr-456');
-      expect(updated?.amazonId).toBe('B00TEST');
+      expect(updated?.asin).toBe('B00TEST');
       expect(updated?.goodreadsRating).toBeCloseTo(4.2);
     });
 

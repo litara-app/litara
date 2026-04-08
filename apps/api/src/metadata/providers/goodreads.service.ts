@@ -206,10 +206,11 @@ export class GoodreadsService {
     if (pubInfoText) {
       const cleaned = pubInfoText.replace(/First published/i, '').trim();
       const d = new Date(cleaned);
-      if (!isNaN(d.getTime())) result.publishedDate = d;
+      if (!isNaN(d.getTime()))
+        result.publishedDate = d.toISOString().slice(0, 10);
       else {
         const yearMatch = cleaned.match(/\d{4}/);
-        if (yearMatch) result.publishedDate = new Date(`${yearMatch[0]}-01-01`);
+        if (yearMatch) result.publishedDate = `${yearMatch[0]}-01-01`;
       }
     }
 

@@ -64,6 +64,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # local docker test ebook directory (created by docker-compose.local.yml volume mount)
 /books
 /apps/api/coverage/**
+/book-drop
 
 # Playwright
 /apps/web/test-results/

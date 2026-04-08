@@ -289,7 +289,7 @@ describe('Books Metadata Updates (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           seriesName: 'Austen Classics',
-          seriesSequence: 2,
+          seriesPosition: 2,
           seriesTotalBooks: 6,
         })
         .expect(200);
@@ -309,7 +309,7 @@ describe('Books Metadata Updates (e2e)', () => {
       await request(testApp.app.getHttpServer())
         .patch(`/api/v1/books/${bookId}`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ seriesName: 'Austen Classics', seriesSequence: 1 })
+        .send({ seriesName: 'Austen Classics', seriesPosition: 1 })
         .expect(200);
 
       await request(testApp.app.getHttpServer())

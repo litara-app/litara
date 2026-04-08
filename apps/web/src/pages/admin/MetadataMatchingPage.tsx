@@ -890,8 +890,8 @@ function BulkSidecarSection({ onRunStarted }: { onRunStarted?: () => void }) {
     <Stack gap="sm">
       <Text size="sm" c="dimmed">
         Write a <code>.metadata.json</code> sidecar file alongside every ebook
-        in the library. Ebook files are never modified. Enable disk writes in{' '}
-        <strong>General → Disk Writes</strong> first.
+        in the library. Ebook files are never modified with this action. Enable
+        disk writes in <strong>General → Disk Writes</strong> first.
       </Text>
 
       {diskSettings.isReadOnlyMount && (

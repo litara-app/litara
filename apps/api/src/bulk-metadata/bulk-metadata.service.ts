@@ -439,7 +439,7 @@ export class BulkMetadataService {
         openLibraryId: true,
         goodreadsId: true,
         goodreadsRating: true,
-        amazonId: true,
+        asin: true,
         lockedFields: true,
       },
     });
@@ -551,12 +551,8 @@ export class BulkMetadataService {
     ) {
       update.goodreadsRating = result.goodreadsRating;
     }
-    if (
-      shouldSet('asin') &&
-      result.asin &&
-      (overwrite || isEmpty(book.amazonId))
-    ) {
-      update.amazonId = result.asin;
+    if (shouldSet('asin') && result.asin && (overwrite || isEmpty(book.asin))) {
+      update.asin = result.asin;
     }
 
     if (Object.keys(update).length > 0) {

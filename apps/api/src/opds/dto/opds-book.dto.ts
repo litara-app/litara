@@ -10,7 +10,7 @@ export interface OpdsBookEntry {
   files: { id: string; format: string; sizeBytes: bigint }[];
   hasCover: boolean;
   seriesName?: string;
-  seriesSequence?: number;
+  seriesPosition?: number;
   genres: string[];
   updatedAt: Date;
 }

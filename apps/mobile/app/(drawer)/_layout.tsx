@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, router } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { useAuthContext } from '@/src/context/AuthContext';
 import { getServerInfo } from '@/src/api/server';
+import { api } from '@/src/api/client';
 
 function getInitials(name: string | null, email: string): string {
   const source = name?.trim() || email;
@@ -41,6 +42,16 @@ function DrawerContent(props: DrawerContentComponentProps) {
     queryFn: getServerInfo,
     staleTime: 1000 * 60 * 60, // 1 hour
   });
+
+  const { data: shelfmarkData } = useQuery({
+    queryKey: ['shelfmark-settings'],
+    queryFn: () =>
+      api
+        .get<{ shelfmarkUrl: string | null }>('/admin/settings/shelfmark')
+        .then((r) => r.data),
+    staleTime: 1000 * 60 * 10,
+  });
+  const shelfmarkUrl = shelfmarkData?.shelfmarkUrl ?? null;
 
   const initials = user ? getInitials(user.name, user.email) : '?';
   const avatarColor = user ? getAvatarColor(user.email) : '#4a9eff';
@@ -103,6 +114,40 @@ function DrawerContent(props: DrawerContentComponentProps) {
           activeTintColor="#4a9eff"
           inactiveTintColor="#888"
         />
+        <DrawerItem
+          label="Book Drop"
+          labelStyle={styles.itemLabel}
+          icon={({ color, size }) => (
+            <Ionicons name="cloud-upload-outline" size={size} color={color} />
+          )}
+          onPress={() => router.push('/(drawer)/(tabs)/book-drop')}
+          activeTintColor="#4a9eff"
+          inactiveTintColor="#888"
+        />
+        {user?.role === 'ADMIN' && (
+          <DrawerItem
+            label="Book Review"
+            labelStyle={styles.itemLabel}
+            icon={({ color, size }) => (
+              <Ionicons name="clipboard-outline" size={size} color={color} />
+            )}
+            onPress={() => router.push('/(drawer)/(tabs)/book-review')}
+            activeTintColor="#4a9eff"
+            inactiveTintColor="#888"
+          />
+        )}
+        {shelfmarkUrl && (
+          <DrawerItem
+            label="Shelfmark ↗"
+            labelStyle={styles.itemLabel}
+            icon={({ color, size }) => (
+              <Ionicons name="open-outline" size={size} color={color} />
+            )}
+            onPress={() => void Linking.openURL(shelfmarkUrl)}
+            activeTintColor="#4a9eff"
+            inactiveTintColor="#888"
+          />
+        )}
 
         {/* Version info */}
         <View style={styles.versionSection}>
