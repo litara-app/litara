@@ -22,6 +22,7 @@ import { ReadingProgressModule } from './reading-progress/reading-progress.modul
 import { BulkMetadataModule } from './bulk-metadata/bulk-metadata.module';
 import { ServerModule } from './server/server.module';
 import { AnnotationsModule } from './annotations/annotations.module';
+import { BookDropModule } from './book-drop/book-drop.module';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 
@@ -57,6 +58,7 @@ const staticModules = existsSync(publicPath)
     BulkMetadataModule,
     ServerModule,
     AnnotationsModule,
+    BookDropModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -34,7 +34,7 @@ services:
       DATABASE_URL: postgresql://postgres:change-me@db:5432/litara
       JWT_SECRET: change-me-in-production
     volumes:
-      - /path/to/your/ebooks:/books:ro
+      - /path/to/your/ebooks:/books:ro # remove ':ro' to allow Litara to write to your files
     depends_on:
       - db
 
@@ -42,7 +42,21 @@ volumes:
   db_data:
 ```
 
-Replace `/path/to/your/ebooks` with the absolute path to your ebook directory on the host. Ensure you have secure postgres password.
+Replace `/path/to/your/ebooks` with the absolute path to your ebook directory on the host. Ensure you have a secure postgres password.
+
+:::note Read-only vs. read-write mount
+
+The `:ro` flag mounts your ebook directory as **read-only**. Litara will scan and index your files but will not modify them in any way — metadata write-back, sidecar file creation will only work as a download, and the book drop approval workflow (which copies new files into the library) will all be unavailable.
+
+**Remove `:ro`** if you want Litara to manage your library on disk:
+
+```yaml
+- /path/to/your/ebooks:/books
+```
+
+With a read-write mount you can enable disk writes in **Admin Settings → General** to allow Litara to write enriched metadata back to `.epub` files, create `.metadata.json` sidecar files, and approve books from the book drop queue into the library.
+
+:::
 
 ### 2. Start the services
 

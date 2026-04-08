@@ -13,7 +13,9 @@
     "screenshots": "playwright test --project=screenshots"
   },
   "dependencies": {
+    "@litara/book-types": "*",
     "@mantine/core": "^8.3.16",
+    "@mantine/dropzone": "^8.3.18",
     "@mantine/hooks": "^8.3.16",
     "@tabler/icons-react": "^3.40.0",
     "@types/dompurify": "^3.0.5",

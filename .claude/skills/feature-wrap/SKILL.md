@@ -19,4 +19,5 @@ disable-model-invocation: true
 7. If Docker changes are required, ensure that the Dockerfile and docker-compose.yml are updated accordingly and that the app builds and runs without errors in a containerized environment
 8. If this change needs to be added to the mobile app, ensure that the mobile app is updated with the new API endpoints and that it builds and runs without errors on both iOS and Android, ask the user if unsure about if mobile changes are needed.
 9. Run npm lint and npm test to ensure that there are no linting errors or failing tests before creating the pull request
-10. If any of the above tasks are not completed, provide clear feedback to the user
+10. Ensure that if metadata changes are needed they are made in the packages/book-types shared package and that both the API and web app are updated to use the new types from the shared package, this will help prevent frontend/backend drift in the future and ensure that all metadata changes are consistent across the codebase.
+11. If any of the above tasks are not completed, provide clear feedback to the user

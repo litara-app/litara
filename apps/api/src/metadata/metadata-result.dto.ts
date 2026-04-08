@@ -1,11 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
+import type { BookMetadataFields } from '@litara/book-types';
 
-export class MetadataResultDto {
+export class MetadataResultDto implements BookMetadataFields {
   @ApiProperty({ required: false }) title?: string;
   @ApiProperty({ required: false }) subtitle?: string;
   @ApiProperty({ type: [String], required: false }) authors?: string[];
   @ApiProperty({ required: false }) description?: string;
-  @ApiProperty({ required: false }) publishedDate?: Date;
+  @ApiProperty({ required: false }) publishedDate?: string;
   @ApiProperty({ required: false }) isbn10?: string;
   @ApiProperty({ required: false }) isbn13?: string;
   @ApiProperty({ required: false }) publisher?: string;
@@ -25,6 +26,7 @@ export class MetadataResultDto {
   // Categorisation
   @ApiProperty({ type: [String], required: false }) categories?: string[];
   @ApiProperty({ type: [String], required: false }) genres?: string[];
+  @ApiProperty({ type: [String], required: false }) tags?: string[];
   @ApiProperty({ type: [String], required: false }) moods?: string[];
 
   // Series

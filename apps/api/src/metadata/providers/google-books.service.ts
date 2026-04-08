@@ -108,7 +108,8 @@ export class GoogleBooksService {
 
     if (v.publishedDate) {
       const d = new Date(v.publishedDate);
-      if (!isNaN(d.getTime())) result.publishedDate = d;
+      if (!isNaN(d.getTime()))
+        result.publishedDate = d.toISOString().slice(0, 10);
     }
 
     for (const id of v.industryIdentifiers ?? []) {

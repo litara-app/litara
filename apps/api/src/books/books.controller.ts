@@ -4,6 +4,7 @@ import {
   Patch,
   Post,
   Put,
+  Delete,
   Param,
   Query,
   Body,
@@ -174,6 +175,14 @@ export class BooksController {
       title: title || undefined,
       author: author || undefined,
     });
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SuccessDto })
+  deleteBook(@Param('id') id: string, @Body() body: { deleteFiles?: boolean }) {
+    return this.booksService.deleteBook(id, body.deleteFiles ?? false);
   }
 
   @UseGuards(JwtAuthGuard)

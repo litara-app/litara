@@ -15,7 +15,8 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@litara/mobi-parser": ["../../packages/mobi-parser/src/index.ts"]
+      "@litara/mobi-parser": ["../../packages/mobi-parser/src/index.ts"],
+      "@litara/book-types": ["../../packages/book-types/src/index.ts"]
     },
     "incremental": true,
     "skipLibCheck": true,

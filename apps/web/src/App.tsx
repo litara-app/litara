@@ -23,6 +23,8 @@ import { SeriesPage } from './pages/SeriesPage';
 import { SmartShelfPage } from './pages/SmartShelfPage';
 import { AnnotationsPage } from './pages/AnnotationsPage';
 import { ReaderPage } from './pages/ReaderPage';
+import { BookDropPage } from './pages/BookDropPage';
+import { AdminBookReviewPage } from './pages/AdminBookReviewPage';
 import { AppLayout } from './components/AppLayout/AppLayout';
 import { ToastContainer } from './components/ToastContainer';
 
@@ -56,6 +58,11 @@ export default function App() {
               <Route path="/smart-shelves/:id" element={<SmartShelfPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/admin-settings" element={<AdminSettingsPage />} />
+              <Route path="/book-drop" element={<BookDropPage />} />
+              <Route
+                path="/admin/book-review"
+                element={<AdminBookReviewPage />}
+              />
               <Route path="/profile" element={<ProfilePage />} />
               {/* Legacy redirects */}
               <Route

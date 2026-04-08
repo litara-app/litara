@@ -3,6 +3,7 @@ import {
   AppShell,
   Alert,
   Burger,
+  Button,
   Group,
   Title,
   TextInput,
@@ -22,6 +23,8 @@ import {
   IconServerOff,
   IconSun,
   IconMoon,
+  IconExternalLink,
+  IconBrandGithub,
 } from '@tabler/icons-react';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { NavbarContent } from './NavbarContent';
@@ -40,7 +43,7 @@ interface SearchBook {
   hasCover: boolean;
   coverUpdatedAt: string;
   seriesName: string | null;
-  seriesSequence: number | null;
+  seriesPosition: number | null;
   publishedDate: string | null;
 }
 
@@ -57,7 +60,7 @@ function SearchResultItem({
   const seriesMeta = book.seriesName
     ? [
         book.seriesName +
-          (book.seriesSequence != null ? ` #${book.seriesSequence}` : ''),
+          (book.seriesPosition != null ? ` #${book.seriesPosition}` : ''),
         year,
       ]
         .filter(Boolean)
@@ -118,6 +121,7 @@ export function AppLayout() {
   const [searchResults, setSearchResults] = useState<SearchBook[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchBookId, setSearchBookId] = useState<string | null>(null);
+  const [shelfmarkUrl, setShelfmarkUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const setUserSettings = useSetAtom(userSettingsAtom);
   const backendStatus = useAtomValue(backendStatusAtom);
@@ -125,16 +129,22 @@ export function AppLayout() {
   const computedColorScheme = useComputedColorScheme('light');
 
   useEffect(() => {
-    api
-      .get('/users/me/settings')
-      .then((res) => {
-        setUserSettings({
-          dashboardLayout:
-            res.data.dashboardLayout ?? DEFAULT_USER_SETTINGS.dashboardLayout,
-          bookItemSize: res.data.bookItemSize ?? 'md',
-        });
-      })
-      .catch(() => {});
+    void Promise.all([
+      api
+        .get('/users/me/settings')
+        .then((res) => {
+          setUserSettings({
+            dashboardLayout:
+              res.data.dashboardLayout ?? DEFAULT_USER_SETTINGS.dashboardLayout,
+            bookItemSize: res.data.bookItemSize ?? 'md',
+          });
+        })
+        .catch(() => {}),
+      api
+        .get<{ shelfmarkUrl: string | null }>('/admin/settings/shelfmark')
+        .then((r) => setShelfmarkUrl(r.data.shelfmarkUrl))
+        .catch(() => {}),
+    ]);
   }, [setUserSettings]);
 
   useEffect(() => {
@@ -179,7 +189,6 @@ export function AppLayout() {
             gap: 'var(--mantine-spacing-md)',
           }}
         >
-          {/* Left: burger + logo */}
           <Group gap="md" wrap="nowrap">
             <Burger opened={opened} onClick={toggle} size="sm" />
             <Group gap="xs" wrap="nowrap">
@@ -190,7 +199,6 @@ export function AppLayout() {
             </Group>
           </Group>
 
-          {/* Center: search */}
           <Popover
             opened={searchOpen}
             onClose={() => setSearchOpen(false)}
@@ -234,8 +242,32 @@ export function AppLayout() {
             </Popover.Dropdown>
           </Popover>
 
-          {/* Right: dark/light toggle */}
-          <Group justify="flex-end">
+          <Group justify="flex-end" gap="xs">
+            {shelfmarkUrl && (
+              <Button
+                component="a"
+                href={shelfmarkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="subtle"
+                size="sm"
+                rightSection={<IconExternalLink size={14} />}
+              >
+                Shelfmark
+              </Button>
+            )}
+            <Tooltip label="GitHub" position="bottom-end">
+              <ActionIcon
+                variant="subtle"
+                size="lg"
+                component="a"
+                href="https://github.com/litara-app/litara"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <IconBrandGithub size={18} />
+              </ActionIcon>
+            </Tooltip>
             <Tooltip
               label={
                 computedColorScheme === 'dark' ? 'Light mode' : 'Dark mode'

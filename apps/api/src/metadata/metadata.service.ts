@@ -212,7 +212,7 @@ export class MetadataService {
     if (result.googleBooksId) update.googleBooksId = result.googleBooksId;
     if (result.openLibraryId) update.openLibraryId = result.openLibraryId;
     if (result.goodreadsId) update.goodreadsId = result.goodreadsId;
-    if (result.asin) update.amazonId = result.asin;
+    if (result.asin) update.asin = result.asin;
     if (result.goodreadsRating != null)
       update.goodreadsRating = result.goodreadsRating;
 
@@ -256,6 +256,18 @@ export class MetadataService {
     this.logger.log(
       `Metadata applied for bookId=${bookId} (goodreadsId=${result.goodreadsId ?? 'n/a'}, googleBooksId=${result.googleBooksId ?? 'n/a'}, openLibraryId=${result.openLibraryId ?? 'n/a'})`,
     );
+  }
+
+  async fetchBestMetadata(input: {
+    title: string;
+    authors: string[];
+    isbn13?: string | null;
+  }): Promise<MetadataResult | null> {
+    return this.fetchMetadata({
+      title: input.title,
+      authors: input.authors,
+      isbn13: input.isbn13 ?? undefined,
+    });
   }
 
   private async fetchMetadata(

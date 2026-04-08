@@ -243,7 +243,8 @@ export class HardcoverService {
     // Published date
     if (edition.release_date) {
       const d = new Date(edition.release_date);
-      if (!isNaN(d.getTime())) result.publishedDate = d;
+      if (!isNaN(d.getTime()))
+        result.publishedDate = d.toISOString().slice(0, 10);
     }
 
     // Authors

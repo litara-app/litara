@@ -85,7 +85,7 @@ model Book {
   // External metadata links
   googleBooksId   String?
   openLibraryId   String?
-  amazonId        String?
+  asin            String?
   goodreadsId     String?
   goodreadsRating Float?
 
@@ -350,4 +350,53 @@ model OpdsUser {
   username  String   @unique
   password  String   // bcrypt hashed
   createdAt DateTime @default(now())
+}
+
+enum PendingBookStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COLLISION
+}
+
+model PendingBook {
+  id               String            @id @default(uuid())
+  status           PendingBookStatus @default(PENDING)
+
+  // File info
+  stagedFilePath   String
+  fileHash         String
+  originalFilename String
+
+  // Metadata (editable by admin before approval)
+  title            String?
+  subtitle         String?
+  authors          String    @default("[]") // JSON: string[]
+  seriesName       String?
+  seriesPosition   Float?
+  seriesTotalBooks Int?
+  publisher        String?
+  publishedDate    DateTime?
+  language         String?
+  description      String?
+  isbn10           String?
+  isbn13           String?
+  pageCount        Int?
+  genres           String    @default("[]") // JSON: string[]
+  tags             String    @default("[]") // JSON: string[]
+  moods            String    @default("[]") // JSON: string[]
+  googleBooksId    String?
+  openLibraryId    String?
+  goodreadsId      String?
+  asin             String?
+  goodreadsRating  Float?
+  coverUrl         String?
+
+  // Write resolution
+  targetPath       String?
+  collidingPath    String?
+  overwriteApproved Boolean  @default(false)
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }

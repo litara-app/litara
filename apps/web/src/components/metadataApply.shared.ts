@@ -124,7 +124,7 @@ export function buildRows(
     },
     {
       label: 'Series #',
-      field: 'seriesSequence',
+      field: 'seriesPosition',
       current:
         detail.series?.sequence != null ? String(detail.series.sequence) : null,
       proposed:
@@ -186,7 +186,7 @@ export function buildApplyPayload(
 
   // Series — bundle with current name as anchor when only sequence/totalBooks is selected
   const shouldName = should('seriesName');
-  const shouldSeq = should('seriesSequence');
+  const shouldSeq = should('seriesPosition');
   const shouldTotal = should('seriesTotalBooks');
   if (shouldName || shouldSeq || shouldTotal) {
     const name = shouldName
@@ -194,7 +194,7 @@ export function buildApplyPayload(
       : (detail.series?.name ?? null);
     p.seriesName = name;
     if (name) {
-      if (shouldSeq) p.seriesSequence = result.seriesPosition ?? null;
+      if (shouldSeq) p.seriesPosition = result.seriesPosition ?? null;
       if (shouldTotal) p.seriesTotalBooks = result.seriesTotalBooks ?? null;
     }
   }

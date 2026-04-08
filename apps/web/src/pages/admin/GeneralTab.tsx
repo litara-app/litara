@@ -623,6 +623,121 @@ function DiskSettingsSection() {
   );
 }
 
+function ShelfmarkSettingsSection() {
+  const [savedUrl, setSavedUrl] = useState<string | null>(null);
+  const [editUrl, setEditUrl] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ shelfmarkUrl: string | null }>('/admin/settings/shelfmark')
+      .then((r) => setSavedUrl(r.data.shelfmarkUrl))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await api.patch('/admin/settings/shelfmark', {
+        shelfmarkUrl: editUrl.trim() || null,
+      });
+      setSavedUrl(editUrl.trim() || null);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemove() {
+    setSaving(true);
+    try {
+      await api.patch('/admin/settings/shelfmark', { shelfmarkUrl: null });
+      setSavedUrl(null);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Paper withBorder p="md" radius="md">
+      <Stack gap="sm">
+        <Title order={4}>Shelfmark</Title>
+        <Text size="sm" c="dimmed">
+          Optionally link to your self-hosted Shelfmark instance. When set, a
+          link will appear in the top bar for all users.
+        </Text>
+        {loading ? (
+          <Skeleton height={36} />
+        ) : editing ? (
+          <Group gap="sm">
+            <TextInput
+              placeholder="https://shelfmark.example.com"
+              value={editUrl}
+              onChange={(e) => setEditUrl(e.currentTarget.value)}
+              style={{ flex: 1 }}
+              autoFocus
+            />
+            <Button onClick={() => void handleSave()} loading={saving}>
+              Save
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                setEditing(false);
+                setEditUrl(savedUrl ?? '');
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+          </Group>
+        ) : savedUrl ? (
+          <Group gap="sm">
+            <TextInput value={savedUrl} readOnly style={{ flex: 1 }} />
+            <Button
+              variant="default"
+              onClick={() => {
+                setEditUrl(savedUrl);
+                setEditing(true);
+              }}
+            >
+              Edit
+            </Button>
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              size="lg"
+              onClick={() => void handleRemove()}
+              loading={saving}
+              title="Remove Shelfmark URL"
+            >
+              <IconTrash size={16} />
+            </ActionIcon>
+          </Group>
+        ) : (
+          <Group gap="sm">
+            <Text size="sm" c="dimmed" style={{ flex: 1 }}>
+              No Shelfmark URL configured.
+            </Text>
+            <Button
+              variant="default"
+              onClick={() => {
+                setEditUrl('');
+                setEditing(true);
+              }}
+            >
+              Add URL
+            </Button>
+          </Group>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
 export function GeneralTab() {
   return (
     <Stack gap="lg">
@@ -641,6 +756,7 @@ export function GeneralTab() {
           />
         </Stack>
       </Paper>
+      <ShelfmarkSettingsSection />
       <LibraryScanSection />
       <DiskSettingsSection />
     </Stack>

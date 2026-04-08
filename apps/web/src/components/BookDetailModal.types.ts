@@ -23,7 +23,7 @@ export const ALL_LOCKABLE_FIELDS = [
   'genres',
   'moods',
   'seriesName',
-  'seriesSequence',
+  'seriesPosition',
   'seriesTotalBooks',
 ];
 
@@ -84,34 +84,13 @@ export interface EditedFields {
   genres: string[];
   moods: string[];
   seriesName: string;
-  seriesSequence: number | '';
+  seriesPosition: number | '';
   seriesTotalBooks: number | '';
 }
 
-export interface MetadataResult {
-  title?: string;
-  subtitle?: string;
-  authors?: string[];
-  description?: string;
-  publishedDate?: string;
-  isbn10?: string;
-  isbn13?: string;
-  publisher?: string;
-  coverUrl?: string;
-  googleBooksId?: string;
-  openLibraryId?: string;
-  goodreadsId?: string;
-  goodreadsRating?: number;
-  asin?: string;
-  language?: string;
-  pageCount?: number;
-  categories?: string[];
-  genres?: string[];
-  moods?: string[];
-  seriesName?: string;
-  seriesPosition?: number;
-  seriesTotalBooks?: number;
-}
+import type { MetadataResult } from '@litara/book-types';
+
+export type { MetadataResult };
 
 export interface MetadataSearchResult {
   provider: 'open-library' | 'google-books' | 'goodreads' | 'hardcover';

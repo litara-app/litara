@@ -209,6 +209,31 @@ export class AdminService {
     return { allowDiskWrites };
   }
 
+  async getShelfmarkSettings(): Promise<{ shelfmarkUrl: string | null }> {
+    const setting = await this.prisma.serverSettings.findUnique({
+      where: { key: 'shelfmark_url' },
+    });
+    return { shelfmarkUrl: setting?.value ?? null };
+  }
+
+  async setShelfmarkSettings(
+    shelfmarkUrl: string | null,
+  ): Promise<{ shelfmarkUrl: string | null }> {
+    const value = shelfmarkUrl?.trim() || null;
+    if (value) {
+      await this.prisma.serverSettings.upsert({
+        where: { key: 'shelfmark_url' },
+        create: { key: 'shelfmark_url', value },
+        update: { value },
+      });
+    } else {
+      await this.prisma.serverSettings.deleteMany({
+        where: { key: 'shelfmark_url' },
+      });
+    }
+    return { shelfmarkUrl: value };
+  }
+
   async bulkWriteSidecars(): Promise<{ taskId: string }> {
     const books = await this.prisma.book.findMany({
       select: { id: true, title: true },

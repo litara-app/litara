@@ -20,10 +20,12 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:CHANGE_ME@postgres:5432/litara
       JWT_SECRET: CHANGE_ME_use_a_long_random_string
+      BOOK_DROP_PATH: /book-drop   # must match the volume mount below; omit to disable drop folder
       # GOOGLE_BOOKS_API_KEY: your_key_here   # optional, raises rate limit
       # HARDCOVER_API_KEY: your_key_here      # optional, enables Hardcover metadata
     volumes:
-      - ./books:/books    # point this to your local ebook directory
+      - ./books:/books          # point this to your local ebook directory
+      - ./book-drop:/book-drop  # optional: files dropped here are auto-ingested for admin review
     depends_on:
       postgres:
         condition: service_healthy

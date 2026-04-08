@@ -18,6 +18,9 @@ import {
 import { DiskWriteGuardService } from '../common/disk-write-guard.service';
 import { EpubMetadataWriterService } from './epub-metadata-writer.service';
 import type { MetadataResult } from '../metadata/interfaces/metadata-result.interface';
+import { UpdateBookDto } from './dto/update-book.dto';
+
+export { UpdateBookDto };
 
 export class GetBooksQueryDto {
   limit?: number;
@@ -26,39 +29,6 @@ export class GetBooksQueryDto {
   order?: 'asc' | 'desc';
   libraryId?: string;
   q?: string;
-}
-
-export class UpdateBookDto {
-  // User review
-  rating?: number;
-  readStatus?: string;
-  libraryId?: string;
-
-  // Metadata fields (book table)
-  title?: string;
-  subtitle?: string | null;
-  description?: string | null;
-  isbn13?: string | null;
-  isbn10?: string | null;
-  publisher?: string | null;
-  publishedDate?: string | null;
-  language?: string | null;
-  pageCount?: number | null;
-  ageRating?: string | null;
-  lockedFields?: string[];
-
-  // Cover (fetched from URL and stored as coverData)
-  coverUrl?: string;
-  goodreadsRating?: number;
-
-  // Relational
-  authors?: string[];
-  tags?: string[];
-  genres?: string[];
-  moods?: string[];
-  seriesName?: string | null;
-  seriesSequence?: number | null;
-  seriesTotalBooks?: number | null;
 }
 
 @Injectable()
@@ -129,7 +99,7 @@ export class BooksService {
       formats: [...new Set(book.files.map((f) => f.format))].sort(),
       hasFileMissing: book.files.some((f) => f.missingAt !== null),
       seriesName: book.series[0]?.series.name ?? null,
-      seriesSequence: book.series[0]?.sequence ?? null,
+      seriesPosition: book.series[0]?.sequence ?? null,
       publishedDate: book.publishedDate,
       readingProgress: book.readingProgress[0]?.percentage ?? null,
       readStatus: book.reviews[0]?.readStatus ?? null,
@@ -451,7 +421,7 @@ export class BooksService {
     }
 
     this.logger.debug(
-      `replaceSeries: bookId=${bookId} → "${dto.seriesName}" (seq=${dto.seriesSequence ?? null}, totalBooks=${dto.seriesTotalBooks ?? null})`,
+      `replaceSeries: bookId=${bookId} → "${dto.seriesName}" (seq=${dto.seriesPosition ?? null}, totalBooks=${dto.seriesTotalBooks ?? null})`,
     );
     if (oldLinks.length > 0) {
       this.logger.debug(
@@ -480,7 +450,7 @@ export class BooksService {
       data: {
         seriesId: series.id,
         bookId,
-        sequence: dto.seriesSequence ?? null,
+        sequence: dto.seriesPosition ?? null,
       },
     });
 
@@ -668,7 +638,7 @@ export class BooksService {
       authors: book.authors.map((ba) => ba.author.name),
       description: book.description ?? undefined,
       publishedDate: book.publishedDate
-        ? (book.publishedDate.toISOString().slice(0, 10) as unknown as Date)
+        ? book.publishedDate.toISOString().slice(0, 10)
         : undefined,
       publisher: book.publisher ?? undefined,
       language: book.language ?? undefined,
@@ -685,7 +655,7 @@ export class BooksService {
       goodreadsRating: book.goodreadsRating ?? undefined,
       googleBooksId: book.googleBooksId ?? undefined,
       openLibraryId: book.openLibraryId ?? undefined,
-      asin: book.amazonId ?? undefined,
+      asin: book.asin ?? undefined,
     };
 
     const filename =
@@ -761,6 +731,37 @@ export class BooksService {
       }),
       this.prisma.book.delete({ where: { id: sourceBookId } }),
     ]);
+
+    return { success: true };
+  }
+
+  async deleteBook(
+    bookId: string,
+    deleteFiles: boolean,
+  ): Promise<{ success: true }> {
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      include: { files: true },
+    });
+    if (!book) throw new NotFoundException('Book not found');
+
+    if (deleteFiles) {
+      await this.diskWriteGuard.assertDiskWritesAllowed();
+    }
+
+    await this.prisma.book.delete({ where: { id: bookId } });
+
+    if (deleteFiles) {
+      for (const file of book.files) {
+        try {
+          fs.rmSync(file.filePath, { force: true });
+        } catch (err) {
+          this.logger.warn(
+            `Failed to delete file ${file.filePath}: ${String(err)}`,
+          );
+        }
+      }
+    }
 
     return { success: true };
   }

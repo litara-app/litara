@@ -128,7 +128,7 @@ export class SmartShelvesService {
         formats: [...new Set(book.files.map((f) => f.format))].sort(),
         hasFileMissing: book.files.some((f) => f.missingAt !== null),
         seriesName: book.series[0]?.series.name ?? null,
-        seriesSequence: book.series[0]?.sequence ?? null,
+        seriesPosition: book.series[0]?.sequence ?? null,
         publishedDate: book.publishedDate,
         readingProgress: book.readingProgress[0]?.percentage ?? null,
       })),

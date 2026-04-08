@@ -110,10 +110,12 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
 
     if (watchedFolders.length === 0) return;
 
+    const bookDropPath = this.config.get<string>('bookDropPath');
     const paths = watchedFolders.map((f) => f.path);
     this.logger.log(`Watching ${paths.length} folder(s) for changes...`);
 
     this.watcher = chokidar.watch(paths, {
+      ignored: bookDropPath ? [bookDropPath] : [],
       persistent: true,
       ignoreInitial: true,
       awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 500 },

@@ -118,7 +118,7 @@ export class OpenLibraryService {
 
     // Published date — use first_publish_year for a clean single value
     if (doc.first_publish_year) {
-      result.publishedDate = new Date(`${doc.first_publish_year}-01-01`);
+      result.publishedDate = `${doc.first_publish_year}-01-01`;
     }
 
     // ISBNs — scan the flat array for 10- and 13-digit values
