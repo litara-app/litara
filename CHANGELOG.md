@@ -1,3 +1,11 @@
+# [1.19.0](https://github.com/litara-app/litara/compare/v1.18.0...v1.19.0) (2026-04-08)
+
+
+### Features
+
+* ability to write metadata back to epub ([fb4c399](https://github.com/litara-app/litara/commit/fb4c39992f29b2236c44cc8ec898ae3baa167f3c))
+* metadata write to ebup, book drop ([ae10ee0](https://github.com/litara-app/litara/commit/ae10ee0deffe91a3148b29bce6492daf5a05450e))
+
 # [1.18.0](https://github.com/litara-app/litara/compare/v1.17.0...v1.18.0) (2026-04-05)
 
 
