@@ -15,10 +15,16 @@ async function bootstrap() {
   // KOReader, etc.) aren't blocked by CSP upgrade-insecure-requests or
   // Cross-Origin-Resource-Policy: same-origin.
   const helmetMiddleware = helmet({
+    // HSTS is managed by the reverse proxy (e.g. Caddy); disable here so
+    // direct HTTP access (e.g. on the LAN) isn't permanently locked to HTTPS.
+    hsts: false,
     contentSecurityPolicy: {
       // useDefaults: true (default) applies Helmet's standard directives.
       // We only override imgSrc to allow external cover images.
       directives: {
+        // Disable upgrade-insecure-requests so HTTP deployments (direct LAN
+        // access, testing without a proxy) don't have assets upgraded to HTTPS.
+        upgradeInsecureRequests: null,
         imgSrc: [
           "'self'",
           'data:',
