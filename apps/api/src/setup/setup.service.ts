@@ -1,6 +1,8 @@
+import * as fs from 'fs';
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
+import { DiskWriteGuardService } from '../common/disk-write-guard.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -8,7 +10,31 @@ export class SetupService {
   constructor(
     private readonly prisma: DatabaseService,
     private readonly jwtService: JwtService,
+    private readonly diskWriteGuard: DiskWriteGuardService,
   ) {}
+
+  async getDiskStatus(): Promise<{
+    isReadOnlyMount: boolean;
+    bookDropConfigured: boolean;
+    bookDropReachable: boolean;
+  }> {
+    let libraryPath: string | null = null;
+    const watchedFolder = await this.prisma.watchedFolder.findFirst();
+    if (watchedFolder) {
+      libraryPath = watchedFolder.path;
+    } else {
+      libraryPath = process.env.EBOOK_LIBRARY_PATH ?? null;
+    }
+    const isReadOnlyMount = libraryPath
+      ? !this.diskWriteGuard.probeLibraryWritable(libraryPath)
+      : false;
+
+    const dropPath = process.env.BOOK_DROP_PATH ?? '';
+    const bookDropConfigured = Boolean(dropPath);
+    const bookDropReachable = bookDropConfigured && fs.existsSync(dropPath);
+
+    return { isReadOnlyMount, bookDropConfigured, bookDropReachable };
+  }
 
   async isSetupRequired(): Promise<boolean> {
     const count = await this.prisma.user.count();

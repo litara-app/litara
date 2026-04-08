@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DatabaseModule } from '../database/database.module';
+import { DiskWriteGuardModule } from '../common/disk-write-guard.module';
 import { SetupService } from './setup.service';
 import { SetupController } from './setup.controller';
 
@@ -9,6 +10,7 @@ import { SetupController } from './setup.controller';
   imports: [
     DatabaseModule,
     ConfigModule,
+    DiskWriteGuardModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

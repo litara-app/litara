@@ -82,7 +82,15 @@ docker compose up -d
 
 Navigate to [http://localhost:3000](http://localhost:3000) in your browser.
 
-On first run, create an account and Litara will begin scanning your library.
+On first run, you will be redirected to the **Setup page**, where you create the initial admin account. Once submitted, the setup page is permanently disabled and the admin account is the only way to access the application.
+
+:::warning Secure your instance before exposing it publicly
+
+The setup page is open to anyone who can reach your server — no authentication is required. **Do not expose Litara to the public internet until you have completed setup and the admin account is created.**
+
+More generally, Litara is designed for use on a trusted local network or behind a reverse proxy with appropriate access controls. If you do expose it publicly, ensure you are using HTTPS and a strong password for the admin account.
+
+:::
 
 ## Updating
 

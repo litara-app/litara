@@ -20,16 +20,10 @@ If your current password is incorrect, an error message will appear and your pas
 If a user forgets their password and cannot log in, an administrator with access to the Docker host can reset it directly from the container — no web UI login required.
 
 ```bash
-docker exec <container-name> node dist/apps/api/src/scripts/reset-password.js \
-  --email user@example.com \
-  --password newpassword
-```
-
-To be prompted for the password interactively (input hidden):
-
-```bash
 docker exec -it <container-name> node dist/apps/api/src/scripts/reset-password.js \
   --email user@example.com
 ```
+
+The `-it` flags are required — the script enforces an interactive terminal and will refuse to run otherwise. You will be prompted to enter and confirm the new password (input is hidden). The new password must be at least 8 characters.
 
 Replace `<container-name>` with the name of your API container (e.g. `litara-api-1`). After running the command, the user can log in with the new password immediately.

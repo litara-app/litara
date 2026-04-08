@@ -20,6 +20,7 @@ Litara is configured via environment variables on the API container.
 | Variable             | Default  | Description                                                                                                                                                                                                                |
 | -------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `EBOOK_LIBRARY_PATH` | `/books` | Absolute path to the directory containing your ebook files. The API watches this folder for new and removed files. Matches the standard Docker volume mount path — no override needed in the default Docker Compose setup. |
+| `BOOK_DROP_PATH`     | _(none)_ | Absolute path to the book drop folder. Files placed here are automatically queued for admin review. Omit this variable to disable the book drop feature entirely.                                                          |
 
 ### Server
 
