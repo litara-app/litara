@@ -2,6 +2,7 @@ import { Controller, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse } from '@nestjs/swagger';
 import { MessageDto } from '../common/dto/message.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import { LibraryScannerService } from './library-scanner.service';
 
 @ApiBearerAuth()
@@ -15,5 +16,12 @@ export class LibraryController {
   triggerScan(@Query('rescanMetadata') rescanMetadata?: string) {
     void this.scannerService.fullScan(rescanMetadata === 'true');
     return { message: 'Scan started' };
+  }
+
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Post('backfill-koreader-hashes')
+  @ApiOkResponse()
+  async backfillKoReaderHashes() {
+    return this.scannerService.backfillKoReaderHashes();
   }
 }

@@ -7,6 +7,7 @@ const sidebars: SidebarsConfig = {
     'configuration',
     'account',
     'opds',
+    'koreader-sync',
     'email-delivery',
     'smart-shelves',
     'metadata-enrichment',

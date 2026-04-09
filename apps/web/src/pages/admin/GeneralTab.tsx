@@ -401,10 +401,15 @@ function OpdsCatalogSection() {
             </Text>
             <Button
               size="xs"
-              leftSection={<IconUserPlus size={14} />}
-              onClick={() => setAddOpen(true)}
+              leftSection={addOpen ? undefined : <IconUserPlus size={14} />}
+              variant={addOpen ? 'subtle' : 'filled'}
+              onClick={() => {
+                setAddOpen((o) => !o);
+                setAddForm({ username: '', password: '' });
+                setAddError('');
+              }}
             >
-              Add User
+              {addOpen ? 'Cancel' : 'Add User'}
             </Button>
           </Group>
 
@@ -412,7 +417,7 @@ function OpdsCatalogSection() {
             <Stack gap="xs">
               <Skeleton height={36} radius="sm" />
             </Stack>
-          ) : opdsUsers.length === 0 ? (
+          ) : opdsUsers.length === 0 && !addOpen ? (
             <Text size="sm" c="dimmed">
               No OPDS users yet. Add one to enable access.
             </Text>
@@ -445,49 +450,173 @@ function OpdsCatalogSection() {
               </Table.Tbody>
             </Table>
           )}
+
+          {addOpen && (
+            <Stack
+              gap="sm"
+              pt="xs"
+              style={{
+                borderTop: '1px solid var(--mantine-color-default-border)',
+              }}
+            >
+              <TextInput
+                label="Username"
+                placeholder="e.g. myreader"
+                required
+                value={addForm.username}
+                onChange={(e) => {
+                  const v = e.currentTarget.value;
+                  setAddForm((f) => ({ ...f, username: v }));
+                }}
+              />
+              <PasswordInput
+                label="Password"
+                required
+                value={addForm.password}
+                onChange={(e) => {
+                  const v = e.currentTarget.value;
+                  setAddForm((f) => ({ ...f, password: v }));
+                }}
+              />
+              {addError && (
+                <Alert color="red" icon={<IconAlertTriangle size={14} />}>
+                  {addError}
+                </Alert>
+              )}
+              <Button
+                size="xs"
+                onClick={() => void handleAddUser()}
+                loading={adding}
+                disabled={!addForm.username.trim() || !addForm.password}
+                w="fit-content"
+              >
+                Create User
+              </Button>
+            </Stack>
+          )}
         </Stack>
       </Paper>
+    </>
+  );
+}
 
-      <Modal
-        opened={addOpen}
-        onClose={() => {
-          setAddOpen(false);
-          setAddForm({ username: '', password: '' });
-          setAddError('');
-        }}
-        title="Add OPDS User"
-        size="sm"
-      >
-        <Stack gap="sm">
-          <TextInput
-            label="Username"
-            required
-            value={addForm.username}
-            onChange={(e) => {
-              const v = e.currentTarget.value;
-              setAddForm((f) => ({ ...f, username: v }));
-            }}
+interface KoReaderSettings {
+  enabled: boolean;
+  syncUrl: string;
+}
+
+function KoReaderSyncSection() {
+  const [settings, setSettings] = useState<KoReaderSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<{
+    total: number;
+    done: number;
+    failed: number;
+  } | null>(null);
+
+  useEffect(() => {
+    api
+      .get<KoReaderSettings>('/admin/settings/koreader')
+      .then((r) => setSettings(r.data))
+      .catch(() => {});
+  }, []);
+
+  async function handleToggle(enabled: boolean) {
+    if (!settings) return;
+    setSaving(true);
+    try {
+      await api.patch('/admin/settings/koreader', { enabled });
+      setSettings((s) => (s ? { ...s, enabled } : s));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleBackfill() {
+    setBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const res = await api.post<{
+        total: number;
+        done: number;
+        failed: number;
+      }>('/library/backfill-koreader-hashes');
+      setBackfillResult(res.data);
+    } catch {
+      setBackfillResult({ total: -1, done: 0, failed: -1 });
+    } finally {
+      setBackfilling(false);
+    }
+  }
+
+  if (!settings) return <Skeleton height={100} radius="md" />;
+
+  return (
+    <Paper withBorder p="md" radius="md">
+      <Stack gap="sm">
+        <Group justify="space-between">
+          <Title order={4}>KOReader Sync</Title>
+          <Switch
+            checked={settings.enabled}
+            onChange={(e) => void handleToggle(e.currentTarget.checked)}
+            disabled={saving}
+            label={settings.enabled ? 'Enabled' : 'Disabled'}
           />
-          <PasswordInput
-            label="Password"
-            required
-            value={addForm.password}
-            onChange={(e) => {
-              const v = e.currentTarget.value;
-              setAddForm((f) => ({ ...f, password: v }));
-            }}
-          />
-          {addError && (
-            <Alert color="red" icon={<IconAlertTriangle size={14} />}>
-              {addError}
+        </Group>
+        <Text size="sm" c="dimmed">
+          Allows KOReader devices to sync reading position to Litara. Users
+          create their own KOReader credentials in their profile settings.
+        </Text>
+
+        {settings.enabled && (
+          <UrlField label="KOReader sync server URL" url={settings.syncUrl} />
+        )}
+
+        <Stack gap="xs">
+          <Text size="sm" fw={500}>
+            MD5 hash backfill
+          </Text>
+          <Text size="sm" c="dimmed">
+            KOReader identifies books by their MD5 hash. Run this after
+            importing new files or if KOReader sync says it cannot find a book.
+          </Text>
+          {backfillResult && (
+            <Alert
+              color={
+                backfillResult.total === -1
+                  ? 'red'
+                  : backfillResult.failed > 0
+                    ? 'yellow'
+                    : 'green'
+              }
+              icon={
+                backfillResult.total === -1 ? (
+                  <IconAlertTriangle size={14} />
+                ) : (
+                  <IconCheck size={14} />
+                )
+              }
+            >
+              {backfillResult.total === -1
+                ? 'Backfill failed. Check server logs.'
+                : backfillResult.total === 0
+                  ? 'All files already have MD5 hashes.'
+                  : `Done: ${backfillResult.done}/${backfillResult.total} hashed${backfillResult.failed > 0 ? `, ${backfillResult.failed} failed (check logs)` : ''}.`}
             </Alert>
           )}
-          <Button onClick={() => void handleAddUser()} loading={adding} mt="xs">
-            Create User
+          <Button
+            variant="light"
+            size="xs"
+            loading={backfilling}
+            onClick={() => void handleBackfill()}
+            w="fit-content"
+          >
+            Run MD5 backfill
           </Button>
         </Stack>
-      </Modal>
-    </>
+      </Stack>
+    </Paper>
   );
 }
 
@@ -743,6 +872,7 @@ export function GeneralTab() {
     <Stack gap="lg">
       <UserManagementSection />
       <OpdsCatalogSection />
+      <KoReaderSyncSection />
       <Paper withBorder p="md" radius="md">
         <Stack gap="sm">
           <Title order={4}>Email / SMTP</Title>

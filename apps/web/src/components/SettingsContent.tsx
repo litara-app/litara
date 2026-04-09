@@ -6,12 +6,15 @@ import {
   Text,
   Group,
   TextInput,
+  PasswordInput,
   Button,
   ActionIcon,
   Badge,
   Alert,
   Skeleton,
   SegmentedControl,
+  CopyButton,
+  Code,
 } from '@mantine/core';
 import { useMantineColorScheme } from '@mantine/core';
 import {
@@ -20,6 +23,8 @@ import {
   IconStarFilled,
   IconPlus,
   IconAlertTriangle,
+  IconCopy,
+  IconCheck,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { useAtom } from 'jotai';
@@ -210,6 +215,176 @@ export function RecipientEmailsSection() {
   );
 }
 
+interface KoReaderCredential {
+  username: string;
+  createdAt: string;
+}
+
+export function KoReaderSyncSection() {
+  const [credential, setCredential] = useState<KoReaderCredential | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [syncUrl, setSyncUrl] = useState('');
+
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  const [removing, setRemoving] = useState(false);
+
+  useEffect(() => {
+    const host = window.location.origin;
+    setSyncUrl(`${host}/1`);
+    api
+      .get<{ credential: KoReaderCredential | null }>(
+        '/users/me/koreader-credentials',
+      )
+      .then((r) => setCredential(r.data.credential))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateError('');
+    setCreating(true);
+    try {
+      // MD5-hash the password client-side as KOReader expects
+      const { default: SparkMD5 } = await import('spark-md5');
+      const passwordHash = SparkMD5.hash(password);
+      const res = await api.post<{ credential: KoReaderCredential }>(
+        '/users/me/koreader-credentials',
+        { username, password: passwordHash },
+      );
+      setCredential(res.data.credential);
+      setUsername('');
+      setPassword('');
+    } catch (err) {
+      const msg = axios.isAxiosError(err) && err.response?.data?.message;
+      setCreateError(
+        typeof msg === 'string' ? msg : 'Failed to create credentials.',
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleRemove() {
+    setRemoving(true);
+    try {
+      await api.delete('/users/me/koreader-credentials');
+      setCredential(null);
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Paper withBorder p="md" radius="md">
+        <Skeleton height={80} />
+      </Paper>
+    );
+  }
+
+  return (
+    <Paper withBorder p="md" radius="md">
+      <Stack gap="sm">
+        <Title order={4}>KOReader Sync</Title>
+        <Text size="sm" c="dimmed">
+          Use Litara as your KOReader sync server to keep reading position in
+          sync across devices.
+        </Text>
+
+        {credential ? (
+          <>
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Sync server URL
+              </Text>
+              <Group gap="xs">
+                <Code>{syncUrl}</Code>
+                <CopyButton value={syncUrl} timeout={2000}>
+                  {({ copied, copy }) => (
+                    <ActionIcon
+                      size="sm"
+                      variant="subtle"
+                      color={copied ? 'teal' : 'gray'}
+                      onClick={copy}
+                    >
+                      {copied ? (
+                        <IconCheck size={14} />
+                      ) : (
+                        <IconCopy size={14} />
+                      )}
+                    </ActionIcon>
+                  )}
+                </CopyButton>
+              </Group>
+              <Text size="sm">
+                KOReader username:{' '}
+                <Text component="span" fw={500}>
+                  {credential.username}
+                </Text>
+              </Text>
+              <Text size="xs" c="dimmed">
+                In KOReader with a document open, go to{' '}
+                <strong>Tools → Progress Sync → Login</strong> and enter the URL
+                above with your username and password.
+              </Text>
+            </Stack>
+            <Button
+              variant="light"
+              color="red"
+              size="xs"
+              leftSection={<IconTrash size={14} />}
+              loading={removing}
+              onClick={() => void handleRemove()}
+              w="fit-content"
+            >
+              Remove credentials
+            </Button>
+          </>
+        ) : (
+          <form onSubmit={(e) => void handleCreate(e)}>
+            <Stack gap="sm">
+              <Text size="sm">
+                Create a username and password for KOReader to use.
+              </Text>
+              <TextInput
+                label="KOReader username"
+                placeholder="e.g. mykobo"
+                value={username}
+                onChange={(e) => setUsername(e.currentTarget.value)}
+                required
+              />
+              <PasswordInput
+                label="Password"
+                placeholder="Choose a password"
+                value={password}
+                onChange={(e) => setPassword(e.currentTarget.value)}
+                required
+              />
+              {createError && (
+                <Alert color="red" icon={<IconAlertTriangle size={14} />}>
+                  {createError}
+                </Alert>
+              )}
+              <Button
+                type="submit"
+                loading={creating}
+                disabled={!username.trim() || !password}
+                w="fit-content"
+              >
+                Save credentials
+              </Button>
+            </Stack>
+          </form>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
 export function SettingsContent() {
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
   const { colorScheme, setColorScheme } = useMantineColorScheme();
@@ -261,6 +436,8 @@ export function SettingsContent() {
       <RecipientEmailsSection />
 
       <ChangePasswordSection />
+
+      <KoReaderSyncSection />
 
       <Paper withBorder p="md" radius="md">
         <Stack gap="sm">

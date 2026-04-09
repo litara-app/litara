@@ -114,6 +114,7 @@ Docker Compose provides a local PostgreSQL instance (`postgres:16-alpine`) on po
 ### Code Guidelines
 
 Whenever possible, don't use any types in typescript, create an interface instead.
+Ensure that when making a function async it actually needs to be async and vice versa.
 
 ### Security Notes
 

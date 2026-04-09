@@ -15,15 +15,16 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  settings        UserSettings?
-  readingProgress ReadingProgress[]
-  reviews         UserReview[]
-  annotations     Annotation[]
-  shelves         Shelf[]
-  libraries       Library[]
-  bookLibraries   UserBookLibrary[]
-  recipientEmails RecipientEmail[]
-  smtpConfig      UserSmtpConfig?
+  settings          UserSettings?
+  readingProgress   ReadingProgress[]
+  reviews           UserReview[]
+  annotations       Annotation[]
+  shelves           Shelf[]
+  libraries         Library[]
+  bookLibraries     UserBookLibrary[]
+  recipientEmails   RecipientEmail[]
+  smtpConfig        UserSmtpConfig?
+  koReaderCredential KoReaderCredential?
 }
 
 enum Role {
@@ -177,7 +178,8 @@ model BookFile {
   filePath  String   // Path relative to library storage root
   format    String   // e.g., EPUB, PDF, CBZ
   sizeBytes BigInt
-  fileHash  String?  // For duplicate detection
+  fileHash  String?  // SHA-256 for duplicate detection
+  koReaderHash String? // MD5 for KOReader document identification
   missingAt DateTime? // Set when chokidar detects the file has been removed from disk
 
   createdAt DateTime @default(now())
@@ -198,8 +200,14 @@ model ReadingProgress {
   book         Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
   // Store location in whatever format reader uses (e.g., EPUB CFI, page number)
-  location     String
+  location     String?
   percentage   Float?
+
+  // KOReader-specific fields (null for non-KOReader progress)
+  koReaderProgress  String? // KOReader internal progress string (CFI or page)
+  koReaderDevice    String? // Device name reported by KOReader
+  koReaderDeviceId  String? // Device identifier reported by KOReader
+  koReaderTimestamp Int?    // Unix timestamp from KOReader sync
 
   lastSyncedAt DateTime @default(now())
   createdAt    DateTime @default(now())
@@ -350,6 +358,15 @@ model OpdsUser {
   username  String   @unique
   password  String   // bcrypt hashed
   createdAt DateTime @default(now())
+}
+
+model KoReaderCredential {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String   // MD5 hash as received from KOReader client
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
 }
 
 enum PendingBookStatus {

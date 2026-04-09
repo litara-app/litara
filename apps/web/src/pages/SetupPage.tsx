@@ -70,6 +70,10 @@ export function SetupPage() {
   const [providersLoading, setProvidersLoading] = useState(false);
   const [providersError, setProvidersError] = useState('');
 
+  // Step 4 — KOReader sync
+  const [koReaderEnabled, setKoReaderEnabled] = useState(false);
+  const [koReaderSaving, setKoReaderSaving] = useState(false);
+
   const fetchDiskStatus = () => {
     setDiskLoading(true);
     setDiskError('');
@@ -121,7 +125,25 @@ export function SetupPage() {
     if (active === 2) {
       fetchProviders();
     }
+    if (active === 3) {
+      api
+        .get<{ enabled: boolean }>('/admin/settings/koreader')
+        .then((r) => setKoReaderEnabled(r.data.enabled))
+        .catch(() => {});
+    }
   }, [active]);
+
+  const handleKoReaderToggle = async (checked: boolean) => {
+    setKoReaderSaving(true);
+    try {
+      await api.patch('/admin/settings/koreader', { enabled: checked });
+      setKoReaderEnabled(checked);
+    } catch {
+      // ignore — user can change in admin settings later
+    } finally {
+      setKoReaderSaving(false);
+    }
+  };
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -511,6 +533,51 @@ export function SetupPage() {
                 </Anchor>
                 .
               </Text>
+
+              <Button
+                fullWidth
+                leftSection={<IconCheck size={16} />}
+                onClick={() => setActive(3)}
+              >
+                Continue
+              </Button>
+            </Stack>
+          </Stepper.Step>
+
+          {/* ── Step 4: KOReader Sync ── */}
+          <Stepper.Step label="KOReader" description="Device sync">
+            <Stack mt="md" gap="md">
+              <Text size="sm" c="dimmed">
+                Litara can act as a KOReader Sync Server, keeping your reading
+                position in sync across all your KOReader devices (Kindle, Kobo,
+                Android). You can enable or disable this at any time in Admin
+                Settings.
+              </Text>
+
+              <Switch
+                label="Enable KOReader sync"
+                checked={koReaderEnabled}
+                onChange={(e) =>
+                  void handleKoReaderToggle(e.currentTarget.checked)
+                }
+                disabled={koReaderSaving}
+              />
+
+              {koReaderEnabled && (
+                <Alert
+                  color="blue"
+                  icon={<IconInfoCircle size={16} />}
+                  title="Setup instructions"
+                >
+                  <Text size="sm">
+                    In KOReader, go to{' '}
+                    <strong>Tools → KOReader Sync → Custom sync server</strong>{' '}
+                    and enter your Litara URL as the custom server. Users must
+                    first create their KOReader credentials in{' '}
+                    <strong>Settings → KOReader Sync</strong> before connecting.
+                  </Text>
+                </Alert>
+              )}
 
               <Button
                 fullWidth

@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { computeKoReaderHash } from '../common/koreader-hash';
 import {
   Injectable,
   Logger,
@@ -366,6 +367,8 @@ export class LibraryWriteService {
       });
     }
 
+    const koReaderHash = computeKoReaderHash(targetPath);
+
     await this.prisma.bookFile.create({
       data: {
         bookId: book.id,
@@ -373,6 +376,7 @@ export class LibraryWriteService {
         format,
         sizeBytes: BigInt(stat.size),
         fileHash: pending.fileHash,
+        koReaderHash,
       },
     });
 

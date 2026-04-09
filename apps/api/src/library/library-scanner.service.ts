@@ -12,6 +12,7 @@ import * as chokidar from 'chokidar';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { computeKoReaderHash } from '../common/koreader-hash';
 import { EPub } from 'epub2';
 import { extractMobiCover } from '@litara/mobi-parser';
 import { extractCbzCover } from '@litara/cbz-parser';
@@ -36,6 +37,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     await this.ensureWatchedFolder();
     await this.fullScan();
+    void this.backfillKoReaderHashes();
     void this.startWatching();
   }
 
@@ -158,7 +160,9 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     try {
       const stat = fs.statSync(filePath);
       const sizeBytes = BigInt(stat.size);
-      const fileHash = await this.computeHash(filePath);
+      const hashes = await this.computeHash(filePath);
+      const fileHash = hashes.sha256;
+      const koReaderHash = hashes.md5;
       const format = path.extname(filePath).replace('.', '').toUpperCase();
 
       // If a record exists for this path, handle re-scan/enrich on existing book
@@ -168,7 +172,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       if (existingByPath) {
         await this.prisma.bookFile.update({
           where: { id: existingByPath.id },
-          data: { missingAt: null, fileHash, sizeBytes },
+          data: { missingAt: null, fileHash, koReaderHash, sizeBytes },
         });
         this.logger.log(`File re-appeared, cleared missing flag: ${filePath}`);
 
@@ -228,6 +232,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
           format,
           sizeBytes,
           fileHash,
+          koReaderHash,
         },
       });
 
@@ -442,15 +447,67 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ---------------------------------------------------------------------------
+  // KOReader hash backfill
+  // ---------------------------------------------------------------------------
+
+  async backfillKoReaderHashes(): Promise<{
+    total: number;
+    done: number;
+    failed: number;
+  }> {
+    const files = await this.prisma.bookFile.findMany({
+      where: { missingAt: null },
+      select: { id: true, filePath: true },
+    });
+    if (files.length === 0) {
+      this.logger.log('KOReader hash backfill: all files already have hashes.');
+      return { total: 0, done: 0, failed: 0 };
+    }
+    this.logger.log(
+      `KOReader hash backfill: ${files.length} file(s) need MD5 hashes...`,
+    );
+    let done = 0;
+    let failed = 0;
+    for (const file of files) {
+      try {
+        const hashes = await this.computeHash(file.filePath);
+        await this.prisma.bookFile.update({
+          where: { id: file.id },
+          data: { koReaderHash: hashes.md5 },
+        });
+        done++;
+      } catch (err) {
+        failed++;
+        this.logger.warn(
+          `KOReader hash backfill: failed for "${file.filePath}" — ${(err as Error).message}`,
+        );
+      }
+    }
+    this.logger.log(
+      `KOReader hash backfill complete: ${done} hashed, ${failed} failed, ${files.length} total`,
+    );
+    return { total: files.length, done, failed };
+  }
+
+  // ---------------------------------------------------------------------------
   // Utility
   // ---------------------------------------------------------------------------
 
-  private computeHash(filePath: string): Promise<string> {
+  private computeHash(
+    filePath: string,
+  ): Promise<{ sha256: string; md5: string }> {
     return new Promise((resolve, reject) => {
-      const hash = crypto.createHash('sha256');
+      const sha256 = crypto.createHash('sha256');
       const stream = fs.createReadStream(filePath);
-      stream.on('data', (chunk) => hash.update(chunk));
-      stream.on('end', () => resolve(hash.digest('hex')));
+      stream.on('data', (chunk) => sha256.update(chunk));
+      stream.on('end', () => {
+        try {
+          const md5 = computeKoReaderHash(filePath);
+          resolve({ sha256: sha256.digest('hex'), md5 });
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error(String(err)));
+        }
+      });
       stream.on('error', reject);
     });
   }

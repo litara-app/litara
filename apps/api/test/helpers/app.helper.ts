@@ -41,6 +41,8 @@ export async function createTestApp(options?: {
     exclude: [
       { path: 'opds', method: RequestMethod.ALL },
       { path: 'opds/*path', method: RequestMethod.ALL },
+      { path: '1', method: RequestMethod.ALL },
+      { path: '1/*path', method: RequestMethod.ALL },
     ],
   });
   app.enableCors();
