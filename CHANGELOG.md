@@ -1,3 +1,10 @@
+# [1.21.0](https://github.com/litara-app/litara/compare/v1.20.0...v1.21.0) (2026-04-09)
+
+
+### Features
+
+* adding in koreader sync server ability ([e1b3b64](https://github.com/litara-app/litara/commit/e1b3b6487e3eeaa6ca51c5a82826ea8082d236ce))
+
 # [1.20.0](https://github.com/litara-app/litara/compare/v1.19.0...v1.20.0) (2026-04-08)
 
 
