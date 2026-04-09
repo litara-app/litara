@@ -23,6 +23,7 @@ import { BulkMetadataModule } from './bulk-metadata/bulk-metadata.module';
 import { ServerModule } from './server/server.module';
 import { AnnotationsModule } from './annotations/annotations.module';
 import { BookDropModule } from './book-drop/book-drop.module';
+import { KoReaderSyncModule } from './koreader-sync/koreader-sync.module';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 
@@ -59,6 +60,7 @@ const staticModules = existsSync(publicPath)
     ServerModule,
     AnnotationsModule,
     BookDropModule,
+    KoReaderSyncModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -119,6 +119,24 @@ export class AdminController {
     return this.adminService.setOpdsSetting(body.enabled);
   }
 
+  @Get('settings/koreader')
+  @ApiOkResponse()
+  getKoReaderSettings(@Req() req: RequestWithUser) {
+    const proto = req.protocol;
+    const host = req.get('host') ?? 'localhost:3000';
+    const base = `${proto}://${host}`;
+    return this.adminService.getKoReaderSetting().then((s) => ({
+      ...s,
+      syncUrl: `${base}/1`,
+    }));
+  }
+
+  @Patch('settings/koreader')
+  @ApiOkResponse()
+  setKoReaderSettings(@Body() body: { enabled: boolean }) {
+    return this.adminService.setKoReaderSetting(body.enabled);
+  }
+
   @Get('settings/metadata-providers')
   @ApiOkResponse({ type: MetadataProviderStatusDto, isArray: true })
   getMetadataProviders() {

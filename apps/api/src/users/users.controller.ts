@@ -1,18 +1,24 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
+  Delete,
   Body,
   UseGuards,
   Req,
   HttpCode,
   HttpStatus,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
   ApiNoContentResponse,
+  ApiCreatedResponse,
   ApiProperty,
 } from '@nestjs/swagger';
 import { UserSettingsDto } from './user-settings.dto';
@@ -112,5 +118,86 @@ export class UsersController {
       body.currentPassword,
       body.newPassword,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me/koreader-credentials')
+  @ApiOperation({
+    summary: "Get the authenticated user's KOReader sync credentials",
+  })
+  @ApiOkResponse()
+  async getKoReaderCredentials(@Req() req: RequestWithUser) {
+    const credential = await this.prisma.koReaderCredential.findUnique({
+      where: { userId: req.user.id },
+      select: { username: true, createdAt: true },
+    });
+    return { credential: credential ?? null };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/koreader-credentials')
+  @ApiOperation({
+    summary: 'Create KOReader sync credentials for the authenticated user',
+  })
+  @ApiCreatedResponse()
+  async createKoReaderCredentials(
+    @Req() req: RequestWithUser,
+    @Body() body: { username: string; password: string },
+  ) {
+    if (
+      typeof body.username !== 'string' ||
+      !body.username.trim() ||
+      body.username.includes(':')
+    ) {
+      throw new BadRequestException(
+        'Username must be non-empty and must not contain colons',
+      );
+    }
+    if (typeof body.password !== 'string' || !body.password) {
+      throw new BadRequestException('Password is required');
+    }
+
+    const existing = await this.prisma.koReaderCredential.findUnique({
+      where: { userId: req.user.id },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'KOReader credentials already exist for this user',
+      );
+    }
+
+    const usernameTaken = await this.prisma.koReaderCredential.findUnique({
+      where: { username: body.username },
+    });
+    if (usernameTaken) {
+      throw new ConflictException('Username is already taken');
+    }
+
+    const credential = await this.prisma.koReaderCredential.create({
+      data: {
+        username: body.username,
+        passwordHash: body.password, // client must send MD5(password)
+        userId: req.user.id,
+      },
+      select: { username: true, createdAt: true },
+    });
+    return { credential };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/koreader-credentials')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Delete the authenticated user's KOReader sync credentials",
+  })
+  @ApiNoContentResponse()
+  async deleteKoReaderCredentials(@Req() req: RequestWithUser): Promise<void> {
+    const existing = await this.prisma.koReaderCredential.findUnique({
+      where: { userId: req.user.id },
+    });
+    if (!existing) throw new NotFoundException('No KOReader credentials found');
+    await this.prisma.koReaderCredential.delete({
+      where: { userId: req.user.id },
+    });
   }
 }

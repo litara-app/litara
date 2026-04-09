@@ -23,6 +23,10 @@ OPDS uses dedicated OPDS credentials — **not** your Litara account login. Crea
 2. Enter `http://<host>:3000/opds/v1`
 3. Enter your OPDS username and password when prompted
 
+:::tip
+If you also want KOReader to sync your reading progress back to Litara, see the [KOReader Sync](./koreader-sync.md) guide.
+:::
+
 ### Thorium Reader
 
 1. Open **Catalogs** → **Add an OPDS feed**

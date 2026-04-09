@@ -140,6 +140,22 @@ export class AdminService {
     return { enabled };
   }
 
+  async getKoReaderSetting() {
+    const setting = await this.prisma.serverSettings.findUnique({
+      where: { key: 'koreader_enabled' },
+    });
+    return { enabled: setting?.value === 'true' };
+  }
+
+  async setKoReaderSetting(enabled: boolean) {
+    await this.prisma.serverSettings.upsert({
+      where: { key: 'koreader_enabled' },
+      create: { key: 'koreader_enabled', value: String(enabled) },
+      update: { value: String(enabled) },
+    });
+    return { enabled };
+  }
+
   getMetadataProviderStatuses() {
     return this.metadataService.getProviderStatuses();
   }
