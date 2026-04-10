@@ -147,6 +147,31 @@ Returns a single task for polling. The `payload` field contains progress informa
 }
 ```
 
+---
+
+## Book Drop metadata search
+
+The book drop review flow exposes a separate per-book search endpoint under `BookDropModule`. All routes require a valid JWT and admin role.
+
+### GET `/api/v1/book-drop/:id/search-metadata`
+
+Search external metadata providers for a specific pending book. The pending book's title and authors are used as the default query and can be overridden via query parameters.
+
+**Query parameters:**
+
+| Parameter  | Type               | Default              | Description                                                                        |
+| ---------- | ------------------ | -------------------- | ---------------------------------------------------------------------------------- |
+| `provider` | `MetadataProvider` | `open-library`       | Which provider to query (`open-library`, `google-books`, `goodreads`, `hardcover`) |
+| `isbn`     | string (optional)  | —                    | Override the ISBN-13 lookup value                                                  |
+| `title`    | string (optional)  | pending book title   | Override the title search term                                                     |
+| `author`   | string (optional)  | pending book authors | Override the author search term                                                    |
+
+**Response** — array of `MetadataResultDto` (same shape as `/books/:id/search-metadata`).
+
+This endpoint is used by the **Admin Book Review** page to allow admins to search and apply metadata to books in the drop queue before approving them to the main library.
+
+---
+
 ## Architecture notes
 
 - **Provider chaining** — `BulkMetadataService` always calls the ISBN-13 provider first. The resolved ISBN is injected into `EnrichInput.isbn13` for every subsequent provider call, improving match accuracy.

@@ -809,10 +809,25 @@ export function BookDetailModal({
                 >
                   <SearchMetadataTab
                     key={detail.id}
-                    bookId={detail.id}
                     detail={detail}
                     lockedFields={lockedFields}
-                    onApplied={handleApplied}
+                    onSearch={(provider, params) =>
+                      api
+                        .get<
+                          import('./BookDetailModal.types').MetadataResult[]
+                        >(
+                          `/books/${detail.id}/search-metadata?provider=${provider}&${params.toString()}`,
+                        )
+                        .then((r) => r.data ?? [])
+                        .catch(() => [])
+                    }
+                    onApply={async (payload) => {
+                      await api.patch(`/books/${detail.id}`, payload);
+                      const res = await api.get<BookDetail>(
+                        `/books/${detail.id}`,
+                      );
+                      handleApplied(res.data);
+                    }}
                     onSwitchTab={setActiveTab}
                   />
                 </Tabs.Panel>

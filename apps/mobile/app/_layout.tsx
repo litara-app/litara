@@ -23,6 +23,15 @@ export default function RootLayout() {
             <Stack.Screen name="login" />
             <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
             <Stack.Screen name="book/[id]" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="series/[id]"
+              options={{
+                headerShown: true,
+                headerStyle: { backgroundColor: '#0a0a0a' },
+                headerTintColor: '#fff',
+                headerTitleStyle: { fontWeight: '700' },
+              }}
+            />
             <Stack.Screen name="read/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="search" options={{ headerShown: false }} />
           </Stack>

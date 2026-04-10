@@ -18,9 +18,13 @@ interface MetadataComparisonTableProps {
 }
 
 const COL = '120px 1fr 44px 1fr';
-const BORDER = '1px solid var(--mantine-color-gray-3)';
-const BORDER_LIGHT = '1px solid var(--mantine-color-gray-2)';
-const HEADER_BG = 'var(--mantine-color-gray-1)';
+const BORDER = '1px solid var(--mantine-color-default-border)';
+const BORDER_LIGHT =
+  '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))';
+const HEADER_BG =
+  'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))';
+const SELECTED_BG =
+  'light-dark(var(--mantine-color-teal-0), var(--mantine-color-teal-9))';
 
 export function MetadataComparisonTable({
   rows,
@@ -103,9 +107,7 @@ export function MetadataComparisonTable({
               style={{
                 padding: '8px 10px',
                 borderLeft: BORDER,
-                background: selected
-                  ? 'var(--mantine-color-teal-0)'
-                  : undefined,
+                background: selected ? SELECTED_BG : undefined,
                 transition: 'background 0.15s',
               }}
             >
@@ -133,7 +135,7 @@ export function MetadataComparisonTable({
                 <Text
                   size="xs"
                   style={{ wordBreak: 'break-word' }}
-                  c={selected ? 'teal.7' : undefined}
+                  c={selected ? 'teal' : undefined}
                 >
                   {selected ? proposed || '—' : current || '—'}
                 </Text>

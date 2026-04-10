@@ -9,6 +9,7 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { MetadataProvider } from '../metadata/metadata.service';
 import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from '../database/database.service';
 import { LibraryWriteService } from '../library/library-write.service';
@@ -163,7 +164,7 @@ export class BookDropService implements OnModuleInit, OnModuleDestroy {
         }),
         ...(dto.publisher !== undefined && { publisher: dto.publisher }),
         ...(dto.publishedDate !== undefined && {
-          publishedDate: dto.publishedDate,
+          publishedDate: new Date(dto.publishedDate),
         }),
         ...(dto.language !== undefined && { language: dto.language }),
         ...(dto.description !== undefined && { description: dto.description }),
@@ -186,6 +187,24 @@ export class BookDropService implements OnModuleInit, OnModuleDestroy {
         }),
         ...(dto.coverUrl !== undefined && { coverUrl: dto.coverUrl }),
       },
+    });
+  }
+
+  async searchMetadata(
+    id: string,
+    provider: MetadataProvider,
+    overrides?: { title?: string; author?: string; isbn?: string },
+  ) {
+    const pending = await this.prisma.pendingBook.findUnique({ where: { id } });
+    if (!pending) throw new NotFoundException('PendingBook not found');
+    const authors = JSON.parse(pending.authors) as string[];
+    return this.metadataService.searchFromProvider(provider, {
+      title:
+        overrides?.title ??
+        pending.title ??
+        pending.originalFilename.replace(/\.[^.]+$/, ''),
+      authors: overrides?.author ? [overrides.author] : authors,
+      isbn13: overrides?.isbn ?? pending.isbn13 ?? undefined,
     });
   }
 
@@ -233,7 +252,9 @@ export class BookDropService implements OnModuleInit, OnModuleDestroy {
           seriesTotalBooks: result.seriesTotalBooks,
         }),
         ...(result.publisher && { publisher: result.publisher }),
-        ...(result.publishedDate && { publishedDate: result.publishedDate }),
+        ...(result.publishedDate && {
+          publishedDate: new Date(result.publishedDate),
+        }),
         ...(result.language && { language: result.language }),
         ...(result.description && { description: result.description }),
         ...(result.isbn13 && { isbn13: result.isbn13 }),

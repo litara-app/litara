@@ -38,6 +38,12 @@ export interface BookCardData {
   rating: number | null;
   genres: string[];
   tags: string[];
+  moods?: string[];
+  publisher?: string | null;
+  publishedDate?: string | null;
+  createdAt?: string;
+  pageCount?: number | null;
+  goodreadsRating?: number | null;
 }
 
 interface BookCardProps extends BookCardData {

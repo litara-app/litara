@@ -38,6 +38,9 @@ export function AllBooksPage() {
     availableGenres,
     availableTags,
     availableFormats,
+    availableMoods,
+    availablePublishers,
+    availableAuthors,
   } = useBookFilter(books);
 
   const loadBooks = useCallback(async () => {
@@ -116,6 +119,9 @@ export function AllBooksPage() {
             availableGenres={availableGenres}
             availableTags={availableTags}
             availableFormats={availableFormats}
+            availableMoods={availableMoods}
+            availablePublishers={availablePublishers}
+            availableAuthors={availableAuthors}
             activeCount={activeCount}
           />
         </div>
