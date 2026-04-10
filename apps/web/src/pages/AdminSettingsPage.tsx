@@ -21,7 +21,7 @@ export function AdminSettingsPage() {
         </Tabs.List>
 
         <Tabs.Panel value="general">
-          <GeneralTab />
+          <GeneralTab onTaskStarted={() => setActiveTab('tasks')} />
         </Tabs.Panel>
 
         <Tabs.Panel value="metadata-matching">

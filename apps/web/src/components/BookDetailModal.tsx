@@ -166,6 +166,11 @@ export function BookDetailModal({
   const [matchConfirmOpen, setMatchConfirmOpen] = useState(false);
   const [matching, setMatching] = useState(false);
 
+  // Reset progress
+  const [resetProgressConfirmOpen, setResetProgressConfirmOpen] =
+    useState(false);
+  const [resettingProgress, setResettingProgress] = useState(false);
+
   // Delete book
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
@@ -413,6 +418,21 @@ export function BookDetailModal({
     }
   }
 
+  async function handleResetProgress() {
+    if (!detail) return;
+    setResettingProgress(true);
+    try {
+      await api.delete(`/books/${detail.id}/progress`);
+      setReadingProgress(null);
+      setResetProgressConfirmOpen(false);
+      pushToast('Reading progress reset', { color: 'green' });
+    } catch {
+      pushToast('Failed to reset progress', { color: 'red' });
+    } finally {
+      setResettingProgress(false);
+    }
+  }
+
   const SEND_SIZE_THRESHOLD = 25 * 1024 * 1024; // 25 MB
 
   function resolveDefaultSendFile(
@@ -602,11 +622,23 @@ export function BookDetailModal({
                           color="green"
                           radius="xs"
                         />
-                        <Text size="xs" c="dimmed" ta="center" mt={2}>
-                          {detail.pageCount
-                            ? `Page ~${Math.round(readingProgress.percentage * detail.pageCount)} of ${detail.pageCount}`
-                            : `${Math.round(readingProgress.percentage * 100)}% read`}
-                        </Text>
+                        <Group justify="space-between" align="center" mt={2}>
+                          <Text size="xs" c="dimmed">
+                            {detail.pageCount
+                              ? `Page ~${Math.round(readingProgress.percentage * detail.pageCount)} of ${detail.pageCount}`
+                              : `${Math.round(readingProgress.percentage * 100)}% read`}
+                          </Text>
+                          <Tooltip label="Reset progress" withArrow>
+                            <ActionIcon
+                              size="xs"
+                              variant="subtle"
+                              color="red"
+                              onClick={() => setResetProgressConfirmOpen(true)}
+                            >
+                              <IconX size={12} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
                       </Box>
                     )}
                   </Stack>
@@ -1077,6 +1109,38 @@ export function BookDetailModal({
       </Modal>
 
       {/* Delete Book confirmation */}
+      <Modal
+        opened={resetProgressConfirmOpen}
+        onClose={() => setResetProgressConfirmOpen(false)}
+        title="Reset Reading Progress"
+        size="sm"
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            This will permanently clear all reading progress for{' '}
+            <Text component="span" fw={600}>
+              "{detail?.title}"
+            </Text>
+            , including KOReader sync data and in-app progress.
+          </Text>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="subtle"
+              onClick={() => setResetProgressConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              loading={resettingProgress}
+              onClick={() => void handleResetProgress()}
+            >
+              Reset Progress
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
       <Modal
         opened={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}

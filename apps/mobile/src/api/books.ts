@@ -72,3 +72,16 @@ export async function getBookDetail(id: string): Promise<BookDetail> {
   const { data } = await api.get<BookDetail>(`/books/${id}`);
   return data;
 }
+
+export async function getReadingProgress(
+  bookId: string,
+): Promise<{ percentage: number } | null> {
+  const { data } = await api.get<{ percentage: number } | null>(
+    `/books/${bookId}/progress`,
+  );
+  return data ?? null;
+}
+
+export async function resetReadingProgress(bookId: string): Promise<void> {
+  await api.delete(`/books/${bookId}/progress`);
+}

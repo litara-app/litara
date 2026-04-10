@@ -44,6 +44,12 @@ export class ReadingProgressService {
     }));
   }
 
+  async resetProgress(bookId: string, userId: string) {
+    await this.prisma.readingProgress.deleteMany({
+      where: { userId, bookId },
+    });
+  }
+
   async upsertProgress(
     bookId: string,
     userId: string,

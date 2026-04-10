@@ -29,6 +29,8 @@ import {
   IconUserPlus,
   IconCopy,
   IconLock,
+  IconFolderSearch,
+  IconDownload,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { api } from '../../utils/api';
@@ -867,7 +869,286 @@ function ShelfmarkSettingsSection() {
   );
 }
 
-export function GeneralTab() {
+const TWO_GIB = 2 * 1024 * 1024 * 1024;
+
+function LibraryManagementSection({
+  onTaskStarted,
+}: {
+  onTaskStarted?: () => void;
+}) {
+  const [diskSettings, setDiskSettings] = useState<DiskSettings | null>(null);
+  const [reorganizeConfirmOpen, setReorganizeConfirmOpen] = useState(false);
+  const [reorganizing, setReorganizing] = useState(false);
+  const [reorganizeResult, setReorganizeResult] = useState<
+    'success' | 'error' | null
+  >(null);
+
+  const [backupWarningOpen, setBackupWarningOpen] = useState(false);
+  const [backupSize, setBackupSize] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<DiskSettings>('/admin/settings/disk')
+      .then((r) => setDiskSettings(r.data))
+      .catch(() => {});
+  }, []);
+
+  async function handleReorganizeClick() {
+    setReorganizeResult(null);
+    setReorganizeConfirmOpen(true);
+  }
+
+  async function handleReorganizeConfirm() {
+    setReorganizeConfirmOpen(false);
+    setReorganizing(true);
+    try {
+      await api.post('/admin/library/reorganize');
+      setReorganizeResult('success');
+      onTaskStarted?.();
+    } catch {
+      setReorganizeResult('error');
+    } finally {
+      setReorganizing(false);
+    }
+  }
+
+  async function handleBackupClick() {
+    setDownloading(true);
+    try {
+      const res = await api.get<{ totalBytes: number; fileCount: number }>(
+        '/admin/library/backup/size',
+      );
+      setBackupSize(res.data.totalBytes);
+      if (res.data.totalBytes >= TWO_GIB) {
+        setBackupWarningOpen(true);
+        setDownloading(false);
+        return;
+      }
+    } catch {
+      setBackupSize(null);
+      setBackupWarningOpen(true);
+      setDownloading(false);
+      return;
+    }
+    await doDownload();
+  }
+
+  async function doDownload() {
+    setBackupWarningOpen(false);
+    setDownloading(true);
+    try {
+      const token = localStorage.getItem('token') ?? '';
+      const response = await fetch('/api/v1/admin/library/backup/download', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `litara-backup-${dateStr}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  const reorganizeDisabled =
+    !diskSettings ||
+    !diskSettings.allowDiskWrites ||
+    diskSettings.isReadOnlyMount;
+
+  const reorganizeTooltip = !diskSettings
+    ? ''
+    : !diskSettings.allowDiskWrites
+      ? 'Enable disk writes in settings to use this feature'
+      : diskSettings.isReadOnlyMount
+        ? 'Library volume is mounted read-only'
+        : '';
+
+  const formatBytes = (bytes: number) => {
+    if (bytes >= TWO_GIB)
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+  };
+
+  return (
+    <>
+      <Paper withBorder p="md" radius="md">
+        <Stack gap="sm">
+          <Title order={4}>Library Management</Title>
+          <Text size="sm" c="dimmed">
+            Reorganize your library files into the canonical{' '}
+            <code>Author/[Series/]Title.ext</code> folder structure, or download
+            a full backup as a zip archive.
+          </Text>
+
+          <Group gap="sm" wrap="wrap">
+            <Tooltip
+              label={reorganizeTooltip}
+              disabled={!reorganizeTooltip}
+              withArrow
+            >
+              <span>
+                <Button
+                  leftSection={<IconFolderSearch size={16} />}
+                  variant="light"
+                  disabled={reorganizeDisabled}
+                  loading={reorganizing}
+                  onClick={() => void handleReorganizeClick()}
+                >
+                  Reorganize Library
+                </Button>
+              </span>
+            </Tooltip>
+
+            <Button
+              leftSection={<IconDownload size={16} />}
+              variant="light"
+              loading={downloading}
+              onClick={() => void handleBackupClick()}
+            >
+              Download Backup
+            </Button>
+          </Group>
+
+          {reorganizeResult === 'success' && (
+            <Alert icon={<IconCheck size={16} />} color="green" variant="light">
+              Reorganize task started. Check the Tasks tab to monitor progress.
+            </Alert>
+          )}
+          {reorganizeResult === 'error' && (
+            <Alert
+              icon={<IconAlertTriangle size={16} />}
+              color="red"
+              variant="light"
+            >
+              Failed to start reorganize. Check server logs for details.
+            </Alert>
+          )}
+        </Stack>
+      </Paper>
+
+      <Modal
+        opened={reorganizeConfirmOpen}
+        onClose={() => setReorganizeConfirmOpen(false)}
+        title="Reorganize Library"
+        size="md"
+      >
+        <Stack gap="sm">
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            color="yellow"
+            variant="light"
+          >
+            <Stack gap="xs">
+              <Text size="sm">
+                This will physically move files on disk into the canonical{' '}
+                <code>Author/[Series/]Title.ext</code> folder structure. Files
+                already in the correct location will be skipped. This action
+                cannot be automatically undone — consider downloading a backup
+                first.
+              </Text>
+              <Text size="sm" fw={500}>
+                Files that will be moved:
+              </Text>
+              <Text
+                size="sm"
+                component="ul"
+                style={{ margin: 0, paddingLeft: '1.25rem' }}
+              >
+                <li>
+                  Ebook files (<code>.epub</code>, <code>.mobi</code>, etc.)
+                </li>
+                <li>
+                  Litara sidecar files (<code>.metadata.json</code>) — moved
+                  alongside their ebook
+                </li>
+              </Text>
+              <Text size="sm" fw={500}>
+                Files that will NOT be moved:
+              </Text>
+              <Text
+                size="sm"
+                component="ul"
+                style={{ margin: 0, paddingLeft: '1.25rem' }}
+              >
+                <li>
+                  KOReader progress directories (<code>.sdr/</code>) — these
+                  will be orphaned if present. This is not related to Litara's
+                  KOReader Sync feature, which does not use on-disk files and
+                  will continue to work after reorganizing.
+                </li>
+                <li>
+                  Any other third-party files placed alongside your ebooks
+                </li>
+              </Text>
+            </Stack>
+          </Alert>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setReorganizeConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="orange"
+              onClick={() => void handleReorganizeConfirm()}
+            >
+              Start Reorganize
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={backupWarningOpen}
+        onClose={() => {
+          setBackupWarningOpen(false);
+          setDownloading(false);
+        }}
+        title="Large Backup Warning"
+        size="sm"
+      >
+        <Stack gap="sm">
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            color="yellow"
+            variant="light"
+          >
+            {backupSize !== null
+              ? `This backup is approximately ${formatBytes(backupSize)} — large downloads may time out depending on your network and server configuration.`
+              : 'Could not determine backup size. The download may be large and could time out.'}
+          </Alert>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => {
+                setBackupWarningOpen(false);
+                setDownloading(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => void doDownload()}>Download Anyway</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </>
+  );
+}
+
+export function GeneralTab({
+  onTaskStarted,
+}: {
+  onTaskStarted?: () => void;
+} = {}) {
   return (
     <Stack gap="lg">
       <UserManagementSection />
@@ -889,6 +1170,7 @@ export function GeneralTab() {
       <ShelfmarkSettingsSection />
       <LibraryScanSection />
       <DiskSettingsSection />
+      <LibraryManagementSection onTaskStarted={onTaskStarted} />
     </Stack>
   );
 }

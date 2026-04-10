@@ -11,7 +11,6 @@ export function FileRow({
   file: BookFile;
   onDownload: (fileId: string) => void;
 }) {
-  const filename = file.filePath.split(/[\\/]/).pop() ?? file.filePath;
   return (
     <Group justify="space-between" wrap="nowrap">
       <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
@@ -22,8 +21,8 @@ export function FileRow({
         >
           {file.format}
         </Badge>
-        <Text size="xs" truncate style={{ flex: 1 }}>
-          {filename}
+        <Text size="xs" truncate style={{ flex: 1 }} title={file.filePath}>
+          {file.filePath}
         </Text>
         {file.missingAt && (
           <Badge size="xs" color="red" radius="sm">
