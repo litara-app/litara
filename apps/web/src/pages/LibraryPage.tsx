@@ -55,6 +55,9 @@ export function LibraryPage() {
     availableGenres,
     availableTags,
     availableFormats,
+    availableMoods,
+    availablePublishers,
+    availableAuthors,
   } = useBookFilter(books);
 
   const loadBooks = useCallback(async () => {
@@ -192,6 +195,9 @@ export function LibraryPage() {
             availableGenres={availableGenres}
             availableTags={availableTags}
             availableFormats={availableFormats}
+            availableMoods={availableMoods}
+            availablePublishers={availablePublishers}
+            availableAuthors={availableAuthors}
             activeCount={activeCount}
           />
         </div>

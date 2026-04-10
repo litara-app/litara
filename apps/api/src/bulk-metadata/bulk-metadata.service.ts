@@ -3,32 +3,12 @@ import { DatabaseService } from '../database/database.service';
 import {
   MetadataService,
   MetadataProvider,
+  DEFAULT_FIELD_CONFIG,
 } from '../metadata/metadata.service';
 import { OpenLibraryService } from '../metadata/providers/open-library.service';
 import { BooksService } from '../books/books.service';
 import type { MetadataResult } from '../metadata/interfaces/metadata-result.interface';
 import type { FieldConfigItemDto, GuidedSelectionDto } from './dto';
-
-export const DEFAULT_FIELD_CONFIG: FieldConfigItemDto[] = [
-  { field: 'title', provider: 'open-library', enabled: true },
-  { field: 'subtitle', provider: 'open-library', enabled: true },
-  { field: 'description', provider: 'goodreads', enabled: true },
-  { field: 'authors', provider: 'open-library', enabled: true },
-  { field: 'publisher', provider: 'open-library', enabled: true },
-  { field: 'publishedDate', provider: 'open-library', enabled: true },
-  { field: 'language', provider: 'open-library', enabled: true },
-  { field: 'isbn13', provider: 'open-library', enabled: true },
-  { field: 'isbn10', provider: 'open-library', enabled: true },
-  { field: 'pageCount', provider: 'open-library', enabled: true },
-  { field: 'genres', provider: 'goodreads', enabled: true },
-  { field: 'tags', provider: 'open-library', enabled: true },
-  { field: 'seriesName', provider: 'goodreads', enabled: true },
-  { field: 'googleBooksId', provider: 'google-books', enabled: true },
-  { field: 'openLibraryId', provider: 'open-library', enabled: true },
-  { field: 'goodreadsId', provider: 'goodreads', enabled: true },
-  { field: 'goodreadsRating', provider: 'goodreads', enabled: true },
-  { field: 'asin', provider: 'open-library', enabled: true },
-];
 
 const FIELD_CONFIG_KEY = 'metadata_field_config';
 const THROTTLE_KEY = 'metadata_match_throttle_ms';

@@ -30,11 +30,16 @@ import { isValidIsbn13, isValidIsbn10 } from './BookDetailModal.utils';
 import { buildRows, buildApplyPayload } from './metadataApply.shared';
 
 interface SearchMetadataTabProps {
-  bookId: string;
   detail: BookDetail;
   lockedFields: Set<string>;
-  onApplied: (updated: BookDetail) => void;
-  onSwitchTab: (tab: string) => void;
+  onSearch: (
+    provider: string,
+    params: URLSearchParams,
+  ) => Promise<MetadataResult[]>;
+  onApply: (payload: Record<string, unknown>) => Promise<void>;
+  onSwitchTab?: (tab: string) => void;
+  /** Wrap content in a ScrollArea (true for modal tabs, false for inline use) */
+  scrollable?: boolean;
 }
 
 function providerUrl(provider: string, result: MetadataResult): string | null {
@@ -87,12 +92,14 @@ function countResultFields(r: MetadataResult): number {
 }
 
 export function SearchMetadataTab({
-  bookId,
   detail,
   lockedFields,
-  onApplied,
+  onSearch,
+  onApply,
   onSwitchTab,
+  scrollable = true,
 }: SearchMetadataTabProps) {
+  const Wrapper = scrollable ? ScrollArea : Box;
   const [availableProviders, setAvailableProviders] = useState<
     Array<{ id: string; label: string }>
   >([]);
@@ -133,11 +140,8 @@ export function SearchMetadataTab({
       const labelMap = new Map(availableProviders.map((p) => [p.id, p.label]));
 
       const calls = searchProviders.map((p) =>
-        api
-          .get<MetadataResult[]>(
-            `/books/${bookId}/search-metadata?provider=${p}&${params.toString()}`,
-          )
-          .then((res) => ({ provider: p, results: res.data ?? [] }))
+        onSearch(p, params)
+          .then((results) => ({ provider: p, results: results ?? [] }))
           .catch(() => ({ provider: p, results: [] as MetadataResult[] })),
       );
       const raw = await Promise.all(calls);
@@ -197,10 +201,8 @@ export function SearchMetadataTab({
     }
     setApplying(true);
     try {
-      await api.patch(`/books/${bookId}`, payload);
-      const res = await api.get<BookDetail>(`/books/${bookId}`);
-      onApplied(res.data);
-      onSwitchTab('overview');
+      await onApply(payload);
+      onSwitchTab?.('overview');
       pushToast('Metadata applied', { color: 'green' });
     } catch {
       pushToast('Failed to apply metadata', { title: 'Error', color: 'red' });
@@ -214,7 +216,7 @@ export function SearchMetadataTab({
     const url = providerUrl(selectedResult.provider, selectedResult.result);
 
     return (
-      <ScrollArea style={{ height: '100%' }}>
+      <Wrapper style={{ height: scrollable ? '100%' : undefined }}>
         <Box p="lg">
           <Group justify="space-between" mb="md">
             <Button
@@ -271,13 +273,13 @@ export function SearchMetadataTab({
             </Group>
           </Group>
         </Box>
-      </ScrollArea>
+      </Wrapper>
     );
   }
 
   /* ── Results list ── */
   return (
-    <ScrollArea style={{ height: '100%' }}>
+    <Wrapper style={{ height: scrollable ? '100%' : undefined }}>
       <Box p="lg">
         <Group gap="sm" align="flex-end" mb="md" wrap="nowrap">
           <MultiSelect
@@ -461,6 +463,6 @@ export function SearchMetadataTab({
           })}
         </Box>
       </Box>
-    </ScrollArea>
+    </Wrapper>
   );
 }

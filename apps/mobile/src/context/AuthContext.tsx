@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { secureStorage } from '@/src/auth/storage';
 import { tokenStore } from '@/src/auth/tokenStore';
@@ -86,6 +86,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(null);
     setUserState(null);
   };
+
+  // Keep a stable ref so the 401 interceptor always calls the latest clearToken
+  // without needing to re-register on every render.
+  const clearTokenRef = useRef(clearToken);
+  clearTokenRef.current = clearToken;
+
+  useEffect(() => {
+    tokenStore.registerLogoutCallback(() => {
+      void clearTokenRef.current();
+    });
+    return () => {
+      tokenStore.registerLogoutCallback(null);
+    };
+  }, []);
 
   return (
     <AuthContext.Provider

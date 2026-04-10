@@ -47,6 +47,46 @@ interface EnrichInput {
   isbn13?: string;
 }
 
+interface FieldConfigItem {
+  field: string;
+  provider: string;
+  enabled: boolean;
+}
+
+const FIELD_CONFIG_KEY = 'metadata_field_config';
+
+export const DEFAULT_FIELD_CONFIG: FieldConfigItem[] = [
+  { field: 'title', provider: 'open-library', enabled: true },
+  { field: 'subtitle', provider: 'open-library', enabled: true },
+  { field: 'description', provider: 'goodreads', enabled: true },
+  { field: 'authors', provider: 'open-library', enabled: true },
+  { field: 'publisher', provider: 'open-library', enabled: true },
+  { field: 'publishedDate', provider: 'open-library', enabled: true },
+  { field: 'language', provider: 'open-library', enabled: true },
+  { field: 'isbn13', provider: 'open-library', enabled: true },
+  { field: 'isbn10', provider: 'open-library', enabled: true },
+  { field: 'pageCount', provider: 'open-library', enabled: true },
+  { field: 'genres', provider: 'goodreads', enabled: true },
+  { field: 'tags', provider: 'open-library', enabled: true },
+  { field: 'moods', provider: 'open-library', enabled: true },
+  { field: 'seriesName', provider: 'goodreads', enabled: true },
+  { field: 'seriesPosition', provider: 'goodreads', enabled: true },
+  { field: 'seriesTotalBooks', provider: 'goodreads', enabled: true },
+  { field: 'googleBooksId', provider: 'google-books', enabled: true },
+  { field: 'openLibraryId', provider: 'open-library', enabled: true },
+  { field: 'goodreadsId', provider: 'goodreads', enabled: true },
+  { field: 'goodreadsRating', provider: 'goodreads', enabled: true },
+  { field: 'asin', provider: 'open-library', enabled: true },
+];
+
+// Canonical provider call order for multi-provider enrichment
+const PROVIDER_ORDER: MetadataProvider[] = [
+  MetadataProvider.OpenLibrary,
+  MetadataProvider.GoogleBooks,
+  MetadataProvider.Goodreads,
+  MetadataProvider.Hardcover,
+];
+
 @Injectable()
 export class MetadataService {
   private readonly logger = new Logger(MetadataService.name);
@@ -102,7 +142,7 @@ export class MetadataService {
 
   async enrichBook(bookId: string, input: EnrichInput): Promise<void> {
     try {
-      const result = await this.fetchMetadata(input);
+      const result = await this.fetchBestMetadata(input);
       if (!result) {
         this.logger.debug(`No metadata found for "${input.title}"`);
         return;
@@ -263,37 +303,98 @@ export class MetadataService {
     authors: string[];
     isbn13?: string | null;
   }): Promise<MetadataResult | null> {
-    return this.fetchMetadata({
-      title: input.title,
-      authors: input.authors,
-      isbn13: input.isbn13 ?? undefined,
-    });
-  }
+    const fieldConfig = await this.getFieldConfig();
 
-  private async fetchMetadata(
-    input: EnrichInput,
-  ): Promise<MetadataResult | null> {
-    const firstAuthor = input.authors[0];
-    let result: MetadataResult | null = null;
-
-    if (input.isbn13) {
-      // ISBN is authoritative — try both providers by ISBN only, no title fallback
-      result = await this.googleBooks.searchByIsbn(input.isbn13);
-      if (!result) result = await this.openLibrary.searchByIsbn(input.isbn13);
-    } else {
-      // No ISBN — fall back to title/author search across both providers
-      result = await this.googleBooks.searchByTitleAuthor(
-        input.title,
-        firstAuthor,
-      );
-      if (!result)
-        result = await this.openLibrary.searchByTitleAuthor(
-          input.title,
-          firstAuthor,
-        );
+    // Which providers are needed, and which fields each one owns
+    const providerFields = new Map<MetadataProvider, string[]>();
+    for (const fc of fieldConfig.filter((f) => f.enabled)) {
+      const provider = fc.provider as MetadataProvider;
+      providerFields.set(provider, [
+        ...(providerFields.get(provider) ?? []),
+        fc.field,
+      ]);
     }
 
+    if (providerFields.size === 0) return null;
+
+    const orderedProviders = PROVIDER_ORDER.filter((p) =>
+      providerFields.has(p),
+    );
+
+    // The provider responsible for isbn13 — its result chains the ISBN to later providers
+    const isbn13Provider = fieldConfig.find(
+      (f) => f.field === 'isbn13' && f.enabled,
+    )?.provider as MetadataProvider | undefined;
+
+    let resolvedIsbn13 = input.isbn13 ?? undefined;
+    const providerResults = new Map<MetadataProvider, MetadataResult>();
+
+    for (const provider of orderedProviders) {
+      const result = await this.fetchFromProviderWithFallback(provider, {
+        title: input.title,
+        authors: input.authors,
+        isbn13: resolvedIsbn13,
+      });
+      if (result) {
+        providerResults.set(provider, result);
+        // Chain ISBN from the configured isbn13 provider to all subsequent calls
+        if (!resolvedIsbn13 && result.isbn13 && provider === isbn13Provider) {
+          resolvedIsbn13 = result.isbn13;
+        }
+      }
+    }
+
+    if (providerResults.size === 0) return null;
+
+    return this.mergeProviderResults(fieldConfig, providerResults);
+  }
+
+  private async getFieldConfig(): Promise<FieldConfigItem[]> {
+    const row = await this.prisma.serverSettings.findUnique({
+      where: { key: FIELD_CONFIG_KEY },
+    });
+    if (!row) return DEFAULT_FIELD_CONFIG;
+    return JSON.parse(row.value) as FieldConfigItem[];
+  }
+
+  private async fetchFromProviderWithFallback(
+    provider: MetadataProvider,
+    input: EnrichInput,
+  ): Promise<MetadataResult | null> {
+    let result = await this.fetchFromProvider(provider, input);
+    // If title+author search returned nothing, retry with title only
+    if (!result && !input.isbn13 && input.authors.length > 0) {
+      result = await this.fetchFromProvider(provider, {
+        ...input,
+        authors: [],
+      });
+    }
     return result;
+  }
+
+  private mergeProviderResults(
+    fieldConfig: FieldConfigItem[],
+    providerResults: Map<MetadataProvider, MetadataResult>,
+  ): MetadataResult {
+    const merged: MetadataResult = {};
+    for (const fc of fieldConfig.filter((f) => f.enabled)) {
+      const provider = fc.provider as MetadataProvider;
+      const result = providerResults.get(provider);
+      if (!result) continue;
+
+      // 'tags' in config maps to 'categories' in MetadataResult
+      if (fc.field === 'tags') {
+        if (result.categories?.length) merged.categories = result.categories;
+        continue;
+      }
+
+      const key = fc.field as keyof MetadataResult;
+      const value = result[key];
+      if (value !== null && value !== undefined) {
+        (merged as Record<string, unknown>)[key] = value;
+      }
+    }
+    return merged;
   }
 
   // Public surface for BulkMetadataService — delegates to private helpers

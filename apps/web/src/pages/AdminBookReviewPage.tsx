@@ -7,15 +7,13 @@ import {
   Group,
   Badge,
   Button,
-  TextInput,
-  Textarea,
-  NumberInput,
   Alert,
   Modal,
   Loader,
   Center,
   Divider,
   Switch,
+  Collapse,
 } from '@mantine/core';
 import {
   IconAlertTriangle,
@@ -24,28 +22,51 @@ import {
   IconEdit,
   IconSparkles,
   IconWriting,
+  IconSearch,
 } from '@tabler/icons-react';
 import { useSetAtom } from 'jotai';
 import { api } from '../utils/api';
 import { pendingBookCountAtom } from '../store/atoms';
 import type { AxiosError } from 'axios';
+import { EditMetadataTab } from '../components/EditMetadataTab';
+import { SearchMetadataTab } from '../components/SearchMetadataTab';
+import type {
+  EditedFields,
+  BookDetail,
+  MetadataResult,
+} from '../components/BookDetailModal.types';
 
 interface PendingBook {
   id: string;
   status: 'PENDING' | 'COLLISION';
   originalFilename: string;
   title: string | null;
+  subtitle: string | null;
   authors: string; // JSON string[]
   seriesName: string | null;
   seriesPosition: number | null;
+  seriesTotalBooks: number | null;
   publisher: string | null;
+  publishedDate: string | null;
   language: string | null;
   description: string | null;
   isbn10: string | null;
   isbn13: string | null;
+  pageCount: number | null;
+  genres: string; // JSON string[]
+  tags: string; // JSON string[]
+  moods: string; // JSON string[]
   targetPath: string | null;
   collidingPath: string | null;
   createdAt: string;
+}
+
+function parseJsonArray(raw: string): string[] {
+  try {
+    return JSON.parse(raw) as string[];
+  } catch {
+    return [];
+  }
 }
 
 function parseAuthors(raw: string): string {
@@ -54,6 +75,95 @@ function parseAuthors(raw: string): string {
   } catch {
     return raw;
   }
+}
+
+function pendingBookToEditedFields(book: PendingBook): EditedFields {
+  const publishedYear = book.publishedDate
+    ? String(new Date(book.publishedDate).getFullYear())
+    : '';
+  return {
+    title: book.title ?? '',
+    subtitle: book.subtitle ?? '',
+    description: book.description ?? '',
+    isbn13: book.isbn13 ?? '',
+    isbn10: book.isbn10 ?? '',
+    publisher: book.publisher ?? '',
+    publishedYear,
+    language: book.language ?? '',
+    pageCount: book.pageCount ?? '',
+    ageRating: '',
+    authors: parseJsonArray(book.authors),
+    tags: parseJsonArray(book.tags),
+    genres: parseJsonArray(book.genres),
+    moods: parseJsonArray(book.moods),
+    seriesName: book.seriesName ?? '',
+    seriesPosition: book.seriesPosition ?? '',
+    seriesTotalBooks: book.seriesTotalBooks ?? '',
+  };
+}
+
+function editedFieldsToPatch(fields: EditedFields) {
+  const publishedDate =
+    fields.publishedYear && fields.publishedYear.length === 4
+      ? `${fields.publishedYear}-01-01`
+      : undefined;
+  return {
+    title: fields.title || undefined,
+    subtitle: fields.subtitle || undefined,
+    authors: fields.authors.length ? fields.authors : undefined,
+    seriesName: fields.seriesName || undefined,
+    seriesPosition:
+      fields.seriesPosition !== '' ? fields.seriesPosition : undefined,
+    seriesTotalBooks:
+      fields.seriesTotalBooks !== '' ? fields.seriesTotalBooks : undefined,
+    publisher: fields.publisher || undefined,
+    publishedDate,
+    language: fields.language || undefined,
+    description: fields.description || undefined,
+    isbn10: fields.isbn10 || undefined,
+    isbn13: fields.isbn13 || undefined,
+    pageCount: fields.pageCount !== '' ? fields.pageCount : undefined,
+    genres: fields.genres.length ? fields.genres : undefined,
+    tags: fields.tags.length ? fields.tags : undefined,
+    moods: fields.moods.length ? fields.moods : undefined,
+  };
+}
+
+function pendingBookToDetail(book: PendingBook): BookDetail {
+  return {
+    id: book.id,
+    title: book.title ?? '',
+    subtitle: book.subtitle ?? null,
+    description: book.description ?? null,
+    isbn13: book.isbn13 ?? null,
+    isbn10: book.isbn10 ?? null,
+    goodreadsId: null,
+    goodreadsRating: null,
+    publisher: book.publisher ?? null,
+    publishedDate: book.publishedDate ?? null,
+    language: book.language ?? null,
+    pageCount: book.pageCount ?? null,
+    ageRating: null,
+    lockedFields: [],
+    hasCover: false,
+    coverUpdatedAt: '',
+    library: null,
+    authors: parseJsonArray(book.authors),
+    tags: parseJsonArray(book.tags),
+    genres: parseJsonArray(book.genres),
+    moods: parseJsonArray(book.moods),
+    series: book.seriesName
+      ? {
+          name: book.seriesName,
+          sequence: book.seriesPosition,
+          totalBooks: book.seriesTotalBooks,
+        }
+      : null,
+    files: [],
+    userReview: { rating: null, readStatus: 'UNREAD' },
+    shelves: [],
+    sidecarFile: null,
+  };
 }
 
 function PendingBookCard({
@@ -66,17 +176,11 @@ function PendingBookCard({
   diskWritesEnabled: boolean;
 }) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    title: book.title ?? '',
-    authors: parseAuthors(book.authors),
-    seriesName: book.seriesName ?? '',
-    seriesPosition: book.seriesPosition ?? ('' as number | ''),
-    publisher: book.publisher ?? '',
-    language: book.language ?? '',
-    description: book.description ?? '',
-    isbn10: book.isbn10 ?? '',
-    isbn13: book.isbn13 ?? '',
-  });
+  const [searching, setSearching] = useState(false);
+  const [editedFields, setEditedFields] = useState<EditedFields>(() =>
+    pendingBookToEditedFields(book),
+  );
+  const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
@@ -84,25 +188,26 @@ function PendingBookCard({
   const [overwriteModalOpen, setOverwriteModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const lockedFields = new Set<string>();
+
+  function updateField<K extends keyof EditedFields>(
+    key: K,
+    value: EditedFields[K],
+  ) {
+    setEditedFields((f) => ({ ...f, [key]: value }));
+    setIsDirty(true);
+  }
+
   async function handleSave() {
     setSaving(true);
     setError(null);
     try {
-      await api.patch(`/book-drop/${book.id}`, {
-        title: form.title || undefined,
-        authors: form.authors
-          .split(',')
-          .map((a) => a.trim())
-          .filter(Boolean),
-        seriesName: form.seriesName || undefined,
-        seriesPosition:
-          form.seriesPosition !== '' ? form.seriesPosition : undefined,
-        publisher: form.publisher || undefined,
-        language: form.language || undefined,
-        description: form.description || undefined,
-        isbn10: form.isbn10 || undefined,
-        isbn13: form.isbn13 || undefined,
-      });
+      const updated = await api.patch<PendingBook>(
+        `/book-drop/${book.id}`,
+        editedFieldsToPatch(editedFields),
+      );
+      setEditedFields(pendingBookToEditedFields(updated.data));
+      setIsDirty(false);
       setEditing(false);
       onRefresh();
     } catch {
@@ -112,24 +217,15 @@ function PendingBookCard({
     }
   }
 
-  async function handleEnrich() {
+  async function handleAutoEnrich() {
     setEnriching(true);
     setError(null);
     try {
       const res = await api.post<PendingBook>(`/book-drop/${book.id}/enrich`);
-      const enriched = res.data;
-      setForm({
-        title: enriched.title ?? '',
-        authors: parseAuthors(enriched.authors),
-        seriesName: enriched.seriesName ?? '',
-        seriesPosition: enriched.seriesPosition ?? '',
-        publisher: enriched.publisher ?? '',
-        language: enriched.language ?? '',
-        description: enriched.description ?? '',
-        isbn10: enriched.isbn10 ?? '',
-        isbn13: enriched.isbn13 ?? '',
-      });
+      setEditedFields(pendingBookToEditedFields(res.data));
+      setIsDirty(false);
       setEditing(true);
+      setSearching(false);
     } catch {
       setError('Metadata enrichment failed or no results found.');
     } finally {
@@ -190,6 +286,8 @@ function PendingBookCard({
     }
   }
 
+  const currentDetail = pendingBookToDetail(book);
+
   return (
     <Paper withBorder p="md" radius="md">
       <Stack gap="sm">
@@ -221,18 +319,33 @@ function PendingBookCard({
           <Group gap="xs">
             <Button
               size="xs"
-              variant="subtle"
-              leftSection={<IconSparkles size={14} />}
-              onClick={() => void handleEnrich()}
-              loading={enriching}
+              variant={searching ? 'light' : 'subtle'}
+              leftSection={<IconSearch size={14} />}
+              onClick={() => {
+                setSearching((v) => !v);
+                setEditing(false);
+              }}
             >
-              Enrich
+              Search Metadata
             </Button>
             <Button
               size="xs"
               variant="subtle"
+              leftSection={<IconSparkles size={14} />}
+              onClick={() => void handleAutoEnrich()}
+              loading={enriching}
+              title="Auto-enrich from best provider match"
+            >
+              Auto-Enrich
+            </Button>
+            <Button
+              size="xs"
+              variant={editing ? 'light' : 'subtle'}
               leftSection={<IconEdit size={14} />}
-              onClick={() => setEditing((v) => !v)}
+              onClick={() => {
+                setEditing((v) => !v);
+                setSearching(false);
+              }}
             >
               {editing ? 'Cancel' : 'Edit'}
             </Button>
@@ -255,83 +368,41 @@ function PendingBookCard({
           </Alert>
         )}
 
-        {editing && (
-          <Stack gap="sm">
-            <Divider />
-            <Group grow>
-              <TextInput
-                label="Title"
-                value={form.title}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, title: e.currentTarget.value }))
-                }
-              />
-              <TextInput
-                label="Authors (comma-separated)"
-                value={form.authors}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, authors: e.currentTarget.value }))
-                }
-              />
-            </Group>
-            <Group grow>
-              <TextInput
-                label="Series Name"
-                value={form.seriesName}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, seriesName: e.currentTarget.value }))
-                }
-              />
-              <NumberInput
-                label="Series Position"
-                value={form.seriesPosition}
-                onChange={(v) =>
-                  setForm((f) => ({ ...f, seriesPosition: v as number | '' }))
-                }
-                allowDecimal
-              />
-            </Group>
-            <Group grow>
-              <TextInput
-                label="Publisher"
-                value={form.publisher}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, publisher: e.currentTarget.value }))
-                }
-              />
-              <TextInput
-                label="Language"
-                value={form.language}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, language: e.currentTarget.value }))
-                }
-              />
-            </Group>
-            <Group grow>
-              <TextInput
-                label="ISBN-10"
-                value={form.isbn10}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, isbn10: e.currentTarget.value }))
-                }
-              />
-              <TextInput
-                label="ISBN-13"
-                value={form.isbn13}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, isbn13: e.currentTarget.value }))
-                }
-              />
-            </Group>
-            <Textarea
-              label="Description"
-              value={form.description}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, description: e.currentTarget.value }))
-              }
-              rows={3}
-            />
-            <Group>
+        <Collapse in={searching}>
+          <Divider mb="sm" />
+          <SearchMetadataTab
+            detail={currentDetail}
+            lockedFields={lockedFields}
+            onSearch={(provider, params) =>
+              api
+                .get<MetadataResult[]>(
+                  `/book-drop/${book.id}/search-metadata?provider=${provider}&${params.toString()}`,
+                )
+                .then((r) => r.data ?? [])
+                .catch(() => [])
+            }
+            onApply={async (payload) => {
+              await api.patch(`/book-drop/${book.id}`, payload);
+              setSearching(false);
+              onRefresh();
+            }}
+            scrollable={false}
+          />
+        </Collapse>
+
+        <Collapse in={editing}>
+          <Divider mb="sm" />
+          <EditMetadataTab
+            editedFields={editedFields}
+            lockedFields={lockedFields}
+            updateField={updateField}
+            toggleLock={() => {}}
+            setLockedFields={() => {}}
+            setIsDirty={setIsDirty}
+            scrollable={false}
+          />
+          {isDirty && (
+            <Group mt="xs">
               <Button
                 onClick={() => void handleSave()}
                 loading={saving}
@@ -340,9 +411,9 @@ function PendingBookCard({
                 Save Metadata
               </Button>
             </Group>
-            <Divider />
-          </Stack>
-        )}
+          )}
+          <Divider mt="sm" />
+        </Collapse>
 
         <Group gap="sm">
           {book.status === 'PENDING' && (

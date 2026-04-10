@@ -5,6 +5,7 @@ import {
   Post,
   Patch,
   Param,
+  Query,
   Body,
   UseGuards,
   UseInterceptors,
@@ -25,11 +26,14 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { BookDropService } from './book-drop.service';
 import { PendingBookDto, UpdatePendingBookDto } from './dto/pending-book.dto';
+import { MetadataProvider } from '../metadata/metadata.service';
+import { MetadataResultDto } from '../metadata/metadata-result.dto';
 
 @Injectable()
 class BookDropAvailableGuard implements CanActivate {
@@ -112,6 +116,31 @@ export class BookDropController {
   @ApiOkResponse({ type: PendingBookDto })
   updateMetadata(@Param('id') id: string, @Body() dto: UpdatePendingBookDto) {
     return this.bookDropService.updateMetadata(id, dto);
+  }
+
+  @Get(':id/search-metadata')
+  @UseGuards(AdminGuard)
+  @ApiOperation({
+    summary: 'Search external metadata for a pending book (admin only)',
+  })
+  @ApiQuery({ name: 'provider', enum: MetadataProvider, required: false })
+  @ApiQuery({ name: 'isbn', required: false })
+  @ApiQuery({ name: 'title', required: false })
+  @ApiQuery({ name: 'author', required: false })
+  @ApiOkResponse({ type: [MetadataResultDto] })
+  searchMetadata(
+    @Param('id') id: string,
+    @Query('provider')
+    provider: MetadataProvider = MetadataProvider.OpenLibrary,
+    @Query('isbn') isbn?: string,
+    @Query('title') title?: string,
+    @Query('author') author?: string,
+  ) {
+    return this.bookDropService.searchMetadata(id, provider, {
+      isbn: isbn || undefined,
+      title: title || undefined,
+      author: author || undefined,
+    });
   }
 
   @Post(':id/enrich')

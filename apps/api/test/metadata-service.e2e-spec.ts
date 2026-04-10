@@ -117,7 +117,12 @@ describe('MetadataService (e2e — mocked providers)', () => {
   describe('enrichBook', () => {
     it('fetches metadata and applies all scalar fields to the book', async () => {
       const book = await seedBook();
-      mockGoogleBooks.searchByTitleAuthor.mockResolvedValueOnce(MOCK_RESULT);
+      // open-library is called first by title/author and owns most scalar fields.
+      // Its result includes isbn13, which is then chained to all subsequent providers.
+      mockOpenLibrary.searchByTitleAuthor.mockResolvedValueOnce(MOCK_RESULT);
+      // google-books and goodreads are therefore called by ISBN, not title/author
+      mockGoogleBooks.searchByIsbn.mockResolvedValueOnce(MOCK_RESULT);
+      mockGoodreads.searchByIsbn.mockResolvedValueOnce(MOCK_RESULT);
 
       await metadataService.enrichBook(book.id, {
         title: 'Original Title',
@@ -142,7 +147,10 @@ describe('MetadataService (e2e — mocked providers)', () => {
 
     it('upserts authors, tags, genres, moods, and series', async () => {
       const book = await seedBook();
-      mockGoogleBooks.searchByTitleAuthor.mockResolvedValueOnce(MOCK_RESULT);
+      // open-library called by title/author; its isbn13 is then chained to subsequent providers
+      mockOpenLibrary.searchByTitleAuthor.mockResolvedValueOnce(MOCK_RESULT);
+      // goodreads therefore called by ISBN for genres, seriesName
+      mockGoodreads.searchByIsbn.mockResolvedValueOnce(MOCK_RESULT);
 
       await metadataService.enrichBook(book.id, { title: 'T', authors: ['A'] });
 
@@ -252,7 +260,8 @@ describe('MetadataService (e2e — mocked providers)', () => {
       const book = await seedBook({
         lockedFields: ['title', 'authors', 'isbn13'],
       });
-      mockGoogleBooks.searchByTitleAuthor.mockResolvedValueOnce(MOCK_RESULT);
+      // publisher (a non-locked field asserted below) comes from open-library
+      mockOpenLibrary.searchByTitleAuthor.mockResolvedValueOnce(MOCK_RESULT);
 
       await metadataService.enrichBook(book.id, {
         title: 'Original Title',
@@ -310,7 +319,8 @@ describe('MetadataService (e2e — mocked providers)', () => {
       isbn10: '1234567890',
       isbn13: undefined,
     };
-    mockGoogleBooks.searchByTitleAuthor.mockResolvedValueOnce(resultIsbn10Only);
+    // isbn10 is owned by open-library in DEFAULT_FIELD_CONFIG
+    mockOpenLibrary.searchByTitleAuthor.mockResolvedValueOnce(resultIsbn10Only);
 
     await metadataService.enrichBook(book.id, { title: 'T', authors: ['A'] });
 

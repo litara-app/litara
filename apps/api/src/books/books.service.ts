@@ -86,6 +86,7 @@ export class BooksService {
         },
         tags: { select: { name: true } },
         genres: { select: { name: true } },
+        moods: { select: { name: true } },
       },
     });
 
@@ -106,6 +107,10 @@ export class BooksService {
       rating: book.reviews[0]?.rating ?? null,
       genres: book.genres.map((g) => g.name),
       tags: book.tags.map((t) => t.name),
+      moods: book.moods.map((m) => m.name),
+      publisher: book.publisher,
+      pageCount: book.pageCount,
+      goodreadsRating: book.goodreadsRating,
     }));
   }
 

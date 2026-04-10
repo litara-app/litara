@@ -25,6 +25,8 @@ interface EditMetadataTabProps {
   toggleLock: (field: string) => void;
   setLockedFields: (v: Set<string>) => void;
   setIsDirty: (dirty: boolean) => void;
+  /** Wrap content in a ScrollArea (true for modal tabs, false for inline use) */
+  scrollable?: boolean;
 }
 
 function FieldLabel({
@@ -58,11 +60,13 @@ export function EditMetadataTab({
   toggleLock,
   setLockedFields,
   setIsDirty,
+  scrollable = true,
 }: EditMetadataTabProps) {
   const isLocked = (field: string) => lockedFields.has(field);
+  const Wrapper = scrollable ? ScrollArea : Box;
 
   return (
-    <ScrollArea style={{ height: '100%' }}>
+    <Wrapper style={{ height: scrollable ? '100%' : undefined }}>
       <Box p="lg">
         <TextInput
           label={
@@ -368,6 +372,6 @@ export function EditMetadataTab({
         {/* Spacer so content isn't hidden behind sticky action bar */}
         <Box h={8} />
       </Box>
-    </ScrollArea>
+    </Wrapper>
   );
 }

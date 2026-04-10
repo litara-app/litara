@@ -45,4 +45,16 @@ export class BookSummaryDto {
 
   @ApiProperty({ type: [String] })
   tags: string[];
+
+  @ApiProperty({ type: [String] })
+  moods: string[];
+
+  @ApiProperty({ nullable: true, required: false })
+  publisher: string | null;
+
+  @ApiProperty({ nullable: true, required: false })
+  pageCount: number | null;
+
+  @ApiProperty({ nullable: true, required: false })
+  goodreadsRating: number | null;
 }
