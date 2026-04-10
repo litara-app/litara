@@ -1,3 +1,10 @@
+# [1.22.0](https://github.com/litara-app/litara/compare/v1.21.0...v1.22.0) (2026-04-10)
+
+
+### Features
+
+* improved book filter, mobile series page add ([a4d5d3d](https://github.com/litara-app/litara/commit/a4d5d3d317647bb662347d3c918d12490a73180b))
+
 # [1.21.0](https://github.com/litara-app/litara/compare/v1.20.0...v1.21.0) (2026-04-09)
 
 
