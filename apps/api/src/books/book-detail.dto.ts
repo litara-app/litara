@@ -27,6 +27,9 @@ export class UserReviewDto {
 
 export class BookSeriesDto {
   @ApiProperty()
+  id: string;
+
+  @ApiProperty()
   name: string;
 
   @ApiProperty({ nullable: true })

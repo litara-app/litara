@@ -15,7 +15,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
-import { getBookDetail } from '@/src/api/books';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  getBookDetail,
+  getReadingProgress,
+  resetReadingProgress,
+} from '@/src/api/books';
 import { getRecipientEmails, sendBook } from '@/src/api/mail';
 import type { RecipientEmail } from '@/src/api/mail';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
@@ -114,6 +119,8 @@ export default function BookDetailScreen() {
   );
   const [showEmailPicker, setShowEmailPicker] = useState(false);
   const [sending, setSending] = useState(false);
+  const [resettingProgress, setResettingProgress] = useState(false);
+  const queryClient = useQueryClient();
 
   const serverUrl = serverUrlStore.get() ?? '';
   const token = tokenStore.get() ?? '';
@@ -131,6 +138,12 @@ export default function BookDetailScreen() {
   const { data: recipientEmails = [] } = useQuery({
     queryKey: ['recipient-emails'],
     queryFn: getRecipientEmails,
+    enabled: !!id,
+  });
+
+  const { data: readingProgress, refetch: refetchProgress } = useQuery({
+    queryKey: ['book-progress', id],
+    queryFn: () => getReadingProgress(id),
     enabled: !!id,
   });
 
@@ -201,6 +214,32 @@ export default function BookDetailScreen() {
     }
   };
 
+  const handleResetProgress = () => {
+    Alert.alert(
+      'Reset Reading Progress',
+      'This will clear all reading progress for this book, including KOReader sync data and in-app progress.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            setResettingProgress(true);
+            try {
+              await resetReadingProgress(id);
+              await refetchProgress();
+              await queryClient.invalidateQueries({ queryKey: ['books'] });
+            } catch {
+              Alert.alert('Error', 'Failed to reset reading progress.');
+            } finally {
+              setResettingProgress(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -260,6 +299,43 @@ export default function BookDetailScreen() {
               )}
             </View>
           </View>
+
+          {/* Reading Progress */}
+          {readingProgress != null && readingProgress.percentage > 0 && (
+            <View style={styles.progressSection}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.sectionTitle}>Reading Progress</Text>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.resetBtn,
+                    pressed && styles.resetBtnPressed,
+                  ]}
+                  onPress={handleResetProgress}
+                  disabled={resettingProgress}
+                >
+                  {resettingProgress ? (
+                    <ActivityIndicator size="small" color="#ff6b6b" />
+                  ) : (
+                    <Text style={styles.resetBtnText}>Reset</Text>
+                  )}
+                </Pressable>
+              </View>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width:
+                        `${readingProgress.percentage * 100}%` as `${number}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.progressLabel}>
+                {Math.round(readingProgress.percentage * 100)}% read
+              </Text>
+            </View>
+          )}
 
           {/* Description */}
           {book.description && (
@@ -472,6 +548,48 @@ const styles = StyleSheet.create({
   subtitle: { color: '#aaa', fontSize: 14, lineHeight: 18 },
   authors: { color: '#4a9eff', fontSize: 13 },
   series: { color: '#777', fontSize: 12, fontStyle: 'italic' },
+
+  // Reading progress
+  progressSection: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1e',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: '#222',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 4,
+    backgroundColor: '#4a9eff',
+    borderRadius: 2,
+  },
+  progressLabel: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 6,
+  },
+  resetBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ff6b6b44',
+    minWidth: 52,
+    alignItems: 'center',
+  },
+  resetBtnPressed: { opacity: 0.6 },
+  resetBtnText: { color: '#ff6b6b', fontSize: 13, fontWeight: '600' },
 
   // Sections
   section: { paddingHorizontal: 20, paddingTop: 24 },

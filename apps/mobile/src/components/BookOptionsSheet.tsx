@@ -11,8 +11,9 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { BookSummary } from '@/src/api/books';
+import { resetReadingProgress } from '@/src/api/books';
 import { getRecipientEmails, sendBook } from '@/src/api/mail';
 import type { RecipientEmail } from '@/src/api/mail';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
@@ -67,6 +68,8 @@ function Option({ icon, label, onPress, destructive, loading }: OptionProps) {
 export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
   const [mode, setMode] = useState<'main' | 'pick-email'>('main');
   const [sending, setSending] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const queryClient = useQueryClient();
 
   // Reset to main mode whenever the sheet opens/closes
   useEffect(() => {
@@ -94,6 +97,32 @@ export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
   const handleDetails = () => {
     onClose();
     router.push({ pathname: '/book/[id]', params: { id: book.id } });
+  };
+
+  const handleResetProgress = () => {
+    Alert.alert(
+      'Reset Reading Progress',
+      'This will clear all reading progress for this book, including KOReader sync data and in-app progress.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            setResetting(true);
+            try {
+              await resetReadingProgress(book.id);
+              await queryClient.invalidateQueries({ queryKey: ['books'] });
+              onClose();
+            } catch {
+              Alert.alert('Error', 'Failed to reset reading progress.');
+            } finally {
+              setResetting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleSendEmail = () => {
@@ -175,6 +204,16 @@ export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
               onPress={handleSendEmail}
               loading={sending}
             />
+
+            {book.readingProgress != null && book.readingProgress > 0 && (
+              <Option
+                icon="refresh-outline"
+                label="Reset Progress"
+                onPress={handleResetProgress}
+                destructive
+                loading={resetting}
+              />
+            )}
           </>
         )}
 

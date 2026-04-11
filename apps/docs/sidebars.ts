@@ -13,6 +13,7 @@ const sidebars: SidebarsConfig = {
     'metadata-enrichment',
     'library-filter',
     'disk-writing',
+    'library-management',
     'reader',
     'mobile',
     {

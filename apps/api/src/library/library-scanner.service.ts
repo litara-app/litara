@@ -183,11 +183,21 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      // Skip if file hash already exists (exact duplicate)
+      // Check if file hash already exists
       const existingFile = await this.prisma.bookFile.findFirst({
         where: { fileHash },
       });
       if (existingFile) {
+        if (existingFile.missingAt !== null) {
+          // File moved to a new location — update path and clear missing flag
+          await this.prisma.bookFile.update({
+            where: { id: existingFile.id },
+            data: { filePath, missingAt: null, koReaderHash, sizeBytes },
+          });
+          this.logger.log(
+            `File moved, updated path and cleared missing flag: ${filePath}`,
+          );
+        }
         return;
       }
 

@@ -7,11 +7,13 @@ import {
   Param,
   Body,
   Req,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -28,6 +30,10 @@ import {
   MetadataProviderStatusDto,
   MetadataProviderTestDto,
 } from './dto/metadata-provider-status.dto';
+import {
+  ReorganizeLibraryResponseDto,
+  BackupSizeResponseDto,
+} from './dto/library-action.dto';
 
 @ApiBearerAuth()
 @Controller('admin')
@@ -195,5 +201,24 @@ export class AdminController {
   async bulkWriteSidecars() {
     await this.adminService.assertDiskWritesAllowed();
     return this.adminService.bulkWriteSidecars();
+  }
+
+  @Post('library/reorganize')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOkResponse({ type: ReorganizeLibraryResponseDto })
+  reorganizeLibrary() {
+    return this.adminService.reorganizeLibrary();
+  }
+
+  @Get('library/backup/size')
+  @ApiOkResponse({ type: BackupSizeResponseDto })
+  getLibraryBackupSize() {
+    return this.adminService.getLibraryBackupSize();
+  }
+
+  @Get('library/backup/download')
+  @ApiOkResponse()
+  async downloadLibraryBackup(@Res() res: Response) {
+    await this.adminService.streamLibraryBackup(res);
   }
 }

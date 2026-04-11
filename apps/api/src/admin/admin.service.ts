@@ -1,11 +1,18 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import * as bcrypt from 'bcrypt';
+import JSZip from 'jszip';
+import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from '../database/database.service';
 import {
   MetadataService,
@@ -13,8 +20,15 @@ import {
 } from '../metadata/metadata.service';
 import { DiskWriteGuardService } from '../common/disk-write-guard.service';
 import { BooksService } from '../books/books.service';
+import { LibraryWriteService } from '../library/library-write.service';
 
 const BULK_SIDECAR_CONCURRENCY = 10;
+
+function computeFileHash(filePath: string): string {
+  const hash = crypto.createHash('sha256');
+  hash.update(fs.readFileSync(filePath));
+  return hash.digest('hex');
+}
 
 async function runWithConcurrency<T>(
   items: T[],
@@ -43,6 +57,8 @@ export class AdminService {
     private readonly metadataService: MetadataService,
     private readonly diskWriteGuard: DiskWriteGuardService,
     private readonly booksService: BooksService,
+    private readonly libraryWriteService: LibraryWriteService,
+    private readonly config: ConfigService,
   ) {}
 
   findAll() {
@@ -270,6 +286,306 @@ export class AdminService {
     void this.runBulkSidecarWrite(task.id, books);
 
     return { taskId: task.id };
+  }
+
+  async reorganizeLibrary(): Promise<{ taskId: string }> {
+    await this.diskWriteGuard.assertDiskWritesAllowed();
+
+    const libraryRoot = this.config.get<string>('ebookLibraryPath')!;
+    if (!this.diskWriteGuard.probeLibraryWritable(libraryRoot)) {
+      throw new ForbiddenException(
+        'Library volume is mounted read-only. Cannot reorganize.',
+      );
+    }
+
+    const files = await this.prisma.bookFile.findMany({
+      where: { missingAt: null },
+      include: {
+        book: {
+          include: {
+            authors: { include: { author: true } },
+            series: { include: { series: true } },
+          },
+        },
+      },
+    });
+
+    const task = await this.prisma.task.create({
+      data: {
+        type: 'LIBRARY_REORGANIZE',
+        status: 'PENDING',
+        payload: JSON.stringify({ processed: 0, total: files.length }),
+      },
+    });
+
+    void this.runLibraryReorganize(task.id, files, libraryRoot);
+
+    return { taskId: task.id };
+  }
+
+  private async runLibraryReorganize(
+    taskId: string,
+    files: Array<{
+      id: string;
+      filePath: string;
+      fileHash: string | null;
+      book: {
+        id: string;
+        title: string;
+        sidecarFile: string | null;
+        authors: Array<{ author: { name: string } }>;
+        series: Array<{ series: { name: string }; sequence: number | null }>;
+      };
+    }>,
+    libraryRoot: string,
+  ): Promise<void> {
+    let moved = 0;
+    let skipped = 0;
+    let collisions = 0;
+    let failed = 0;
+    const logLines: string[] = [];
+
+    const appendLog = async (line: string) => {
+      logLines.push(line);
+      await this.prisma.task
+        .update({
+          where: { id: taskId },
+          data: {
+            payload: JSON.stringify({
+              processed: moved + skipped + collisions + failed,
+              total: files.length,
+              moved,
+              skipped,
+              collisions,
+              failed,
+              log: logLines.join('\n'),
+            }),
+          },
+        })
+        .catch(() => {});
+    };
+
+    try {
+      await this.prisma.task.update({
+        where: { id: taskId },
+        data: { status: 'PROCESSING' },
+      });
+
+      for (const file of files) {
+        try {
+          if (!fs.existsSync(file.filePath)) {
+            skipped++;
+            await appendLog(`[skip] ${file.filePath}: source file not found`);
+            continue;
+          }
+
+          const authors = file.book.authors.map((ba) => ba.author.name);
+          const seriesEntry = file.book.series[0] ?? null;
+          const ext = path.extname(file.filePath).toLowerCase();
+          const originalFilename = path.basename(file.filePath);
+
+          const canonicalPath = this.libraryWriteService.computeTargetPath({
+            libraryRoot,
+            authors,
+            seriesName: seriesEntry?.series.name ?? null,
+            title: file.book.title,
+            originalFilename,
+            ext,
+          });
+
+          if (file.filePath === canonicalPath) {
+            skipped++;
+            await appendLog(
+              `[skip] ${file.filePath}: already at canonical location`,
+            );
+            continue;
+          }
+
+          if (fs.existsSync(canonicalPath)) {
+            const targetHash = computeFileHash(canonicalPath);
+            const sourceHash = file.fileHash ?? computeFileHash(file.filePath);
+
+            if (targetHash === sourceHash) {
+              await this.prisma.bookFile.update({
+                where: { id: file.id },
+                data: { filePath: canonicalPath },
+              });
+              skipped++;
+              await appendLog(
+                `[dedup] ${file.filePath}: target is identical, updated DB path`,
+              );
+            } else {
+              collisions++;
+              await appendLog(
+                `[collision] ${file.filePath}: target already exists`,
+              );
+            }
+            continue;
+          }
+
+          fs.mkdirSync(path.dirname(canonicalPath), { recursive: true });
+          try {
+            fs.renameSync(file.filePath, canonicalPath);
+          } catch {
+            fs.copyFileSync(file.filePath, canonicalPath);
+            fs.rmSync(file.filePath, { force: true });
+          }
+
+          await this.prisma.bookFile.update({
+            where: { id: file.id },
+            data: { filePath: canonicalPath },
+          });
+
+          // Move sidecar if present
+          if (file.book.sidecarFile && fs.existsSync(file.book.sidecarFile)) {
+            const canonicalSidecarPath = path.join(
+              path.dirname(canonicalPath),
+              path.basename(canonicalPath, path.extname(canonicalPath)) +
+                '.metadata.json',
+            );
+            if (file.book.sidecarFile !== canonicalSidecarPath) {
+              try {
+                try {
+                  fs.renameSync(file.book.sidecarFile, canonicalSidecarPath);
+                } catch {
+                  fs.copyFileSync(file.book.sidecarFile, canonicalSidecarPath);
+                  fs.rmSync(file.book.sidecarFile, { force: true });
+                }
+                await this.prisma.book.update({
+                  where: { id: file.book.id },
+                  data: { sidecarFile: canonicalSidecarPath },
+                });
+                await appendLog(
+                  `[sidecar-move] ${file.book.sidecarFile} → ${canonicalSidecarPath}`,
+                );
+              } catch (sidecarErr) {
+                await appendLog(
+                  `[sidecar-error] ${file.book.sidecarFile}: ${(sidecarErr as Error).message}`,
+                );
+                this.logger.warn(
+                  `Sidecar move failed for "${file.book.sidecarFile}": ${(sidecarErr as Error).message}`,
+                );
+              }
+            }
+          }
+
+          try {
+            fs.rmdirSync(path.dirname(file.filePath));
+          } catch {
+            // Non-empty or already gone — ignore
+          }
+
+          moved++;
+          await appendLog(`[move] ${file.filePath} → ${canonicalPath}`);
+        } catch (err) {
+          failed++;
+          await appendLog(
+            `[error] ${file.filePath}: ${(err as Error).message}`,
+          );
+          this.logger.warn(
+            `Reorganize failed for "${file.filePath}": ${(err as Error).message}`,
+          );
+        }
+      }
+
+      const summary = `Done. Moved: ${moved}, Skipped: ${skipped}, Collisions: ${collisions}, Failed: ${failed}`;
+      logLines.push(summary);
+
+      await this.prisma.task.update({
+        where: { id: taskId },
+        data: {
+          status: 'COMPLETED',
+          payload: JSON.stringify({
+            processed: files.length,
+            total: files.length,
+            moved,
+            skipped,
+            collisions,
+            failed,
+            log: logLines.join('\n'),
+          }),
+        },
+      });
+    } catch (err) {
+      this.logger.error(
+        `Library reorganize task ${taskId} failed: ${(err as Error).message}`,
+      );
+      await this.prisma.task
+        .update({
+          where: { id: taskId },
+          data: {
+            status: 'FAILED',
+            errorMessage: (err as Error).message,
+          },
+        })
+        .catch(() => {});
+    }
+  }
+
+  async getLibraryBackupSize(): Promise<{
+    totalBytes: number;
+    fileCount: number;
+  }> {
+    const result = await this.prisma.bookFile.aggregate({
+      where: { missingAt: null },
+      _sum: { sizeBytes: true },
+      _count: { id: true },
+    });
+
+    // Add sidecar file sizes
+    const sidecarPaths = await this.prisma.book.findMany({
+      where: { sidecarFile: { not: null } },
+      select: { sidecarFile: true },
+    });
+    let sidecarBytes = 0;
+    for (const { sidecarFile } of sidecarPaths) {
+      if (sidecarFile) {
+        try {
+          sidecarBytes += fs.statSync(sidecarFile).size;
+        } catch {
+          // File missing on disk — skip
+        }
+      }
+    }
+
+    return {
+      totalBytes: Number(result._sum.sizeBytes ?? 0) + sidecarBytes,
+      fileCount: result._count.id,
+    };
+  }
+
+  async streamLibraryBackup(res: Response): Promise<void> {
+    const libraryRoot = this.config.get<string>('ebookLibraryPath')!;
+    const files = await this.prisma.bookFile.findMany({
+      where: { missingAt: null },
+      select: { filePath: true, book: { select: { sidecarFile: true } } },
+    });
+
+    const zip = new JSZip();
+
+    for (const file of files) {
+      if (!fs.existsSync(file.filePath)) {
+        this.logger.warn(`Backup: skipping missing file ${file.filePath}`);
+        continue;
+      }
+      const relativePath = path.relative(libraryRoot, file.filePath);
+      zip.file(relativePath, fs.createReadStream(file.filePath));
+
+      const sidecarPath = file.book.sidecarFile;
+      if (sidecarPath && fs.existsSync(sidecarPath)) {
+        const relativeSidecarPath = path.relative(libraryRoot, sidecarPath);
+        zip.file(relativeSidecarPath, fs.createReadStream(sidecarPath));
+      }
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="litara-backup-${dateStr}.zip"`,
+    );
+
+    zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true }).pipe(res);
   }
 
   private async runBulkSidecarWrite(

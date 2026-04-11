@@ -154,6 +154,7 @@ function pendingBookToDetail(book: PendingBook): BookDetail {
     moods: parseJsonArray(book.moods),
     series: book.seriesName
       ? {
+          id: '',
           name: book.seriesName,
           sequence: book.seriesPosition,
           totalBooks: book.seriesTotalBooks,
