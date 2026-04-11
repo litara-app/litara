@@ -1,3 +1,15 @@
+# [1.24.0](https://github.com/litara-app/litara/compare/v1.23.0...v1.24.0) (2026-04-11)
+
+
+### Bug Fixes
+
+* merge conflict fix ([59b64e0](https://github.com/litara-app/litara/commit/59b64e0c8eccaf100081d2831997f59ff0ff870b))
+
+
+### Features
+
+* authors view and author data enrichment ([e9a7d38](https://github.com/litara-app/litara/commit/e9a7d38f1baff04209a3e0d65d029b8696a324d8))
+
 # [1.23.0](https://github.com/litara-app/litara/compare/v1.22.0...v1.23.0) (2026-04-11)
 
 
