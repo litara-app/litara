@@ -14,6 +14,7 @@ const sidebars: SidebarsConfig = {
     'authors',
     'library-filter',
     'disk-writing',
+    'library-management',
     'reader',
     'mobile',
     {

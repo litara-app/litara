@@ -2,12 +2,20 @@ import {
   Controller,
   Get,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
   Req,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReadingProgressService } from './reading-progress.service';
 import { UpsertReadingProgressDto } from './dto/upsert-reading-progress.dto';
@@ -25,6 +33,14 @@ export class ReadingProgressController {
   @ApiOkResponse({ type: ReadingProgressResponseDto })
   getProgress(@Param('bookId') bookId: string, @Req() req: RequestWithUser) {
     return this.service.getProgress(bookId, req.user.id);
+  }
+
+  @Delete('progress')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Reset reading progress for a book' })
+  @ApiNoContentResponse()
+  resetProgress(@Param('bookId') bookId: string, @Req() req: RequestWithUser) {
+    return this.service.resetProgress(bookId, req.user.id);
   }
 
   @Patch('progress')

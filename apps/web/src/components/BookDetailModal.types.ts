@@ -58,6 +58,7 @@ export interface BookDetail {
   genres: string[];
   moods: string[];
   series: {
+    id: string;
     name: string;
     sequence: number | null;
     totalBooks: number | null;
