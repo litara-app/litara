@@ -989,7 +989,6 @@ function DevToolsSection() {
   );
 }
 
-export function GeneralTab() {
 const TWO_GIB = 2 * 1024 * 1024 * 1024;
 
 function LibraryManagementSection({
