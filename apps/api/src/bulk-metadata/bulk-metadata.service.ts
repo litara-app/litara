@@ -9,15 +9,12 @@ import { OpenLibraryService } from '../metadata/providers/open-library.service';
 import { BooksService } from '../books/books.service';
 import type { MetadataResult } from '../metadata/interfaces/metadata-result.interface';
 import type { FieldConfigItemDto, GuidedSelectionDto } from './dto';
+import { sleep } from '../utils/sleep';
 
 const FIELD_CONFIG_KEY = 'metadata_field_config';
 const THROTTLE_KEY = 'metadata_match_throttle_ms';
 const AUTO_WRITE_KEY = 'auto_write_metadata_on_enrich';
 const DEFAULT_THROTTLE = 500;
-
-function sleep(ms: number) {
-  return new Promise<void>((r) => setTimeout(r, ms));
-}
 
 @Injectable()
 export class BulkMetadataService {

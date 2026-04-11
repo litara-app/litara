@@ -19,6 +19,7 @@ import {
   Tooltip,
   Avatar,
   Table,
+  Badge,
 } from '@mantine/core';
 import {
   IconScan,
@@ -29,6 +30,8 @@ import {
   IconUserPlus,
   IconCopy,
   IconLock,
+  IconUsers,
+  IconCode,
   IconFolderSearch,
   IconDownload,
 } from '@tabler/icons-react';
@@ -622,6 +625,69 @@ function KoReaderSyncSection() {
   );
 }
 
+function AuthorPhotoEnrichmentSection() {
+  const [enriching, setEnriching] = useState(false);
+  const [result, setResult] = useState<{
+    taskId: string;
+    total: number;
+  } | null>(null);
+  const [error, setError] = useState(false);
+
+  async function handleEnrichAll() {
+    setEnriching(true);
+    setResult(null);
+    setError(false);
+    try {
+      const res = await api.post<{ taskId: string; total: number }>(
+        '/authors/enrich',
+      );
+      setResult(res.data);
+    } catch {
+      setError(true);
+    } finally {
+      setEnriching(false);
+    }
+  }
+
+  return (
+    <Paper withBorder p="md" radius="md">
+      <Stack gap="sm">
+        <Title order={4}>Author Data Enrichment</Title>
+        <Text size="sm" c="dimmed">
+          Fetch author photos and biographies from Open Library for all authors
+          that are missing either. Runs as a background task — progress is
+          visible in the Tasks tab.
+        </Text>
+
+        {result && (
+          <Alert icon={<IconCheck size={16} />} color="green" variant="light">
+            Enrichment queued for {result.total} author
+            {result.total !== 1 ? 's' : ''} (task ID: {result.taskId})
+          </Alert>
+        )}
+        {error && (
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            color="red"
+            variant="light"
+          >
+            Failed to start enrichment. Check server logs for details.
+          </Alert>
+        )}
+
+        <Button
+          leftSection={<IconUsers size={16} />}
+          onClick={() => void handleEnrichAll()}
+          loading={enriching}
+          w="fit-content"
+        >
+          Enrich All Author Data
+        </Button>
+      </Stack>
+    </Paper>
+  );
+}
+
 function LibraryScanSection() {
   const [rescanMetadata, setRescanMetadata] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -864,6 +930,60 @@ function ShelfmarkSettingsSection() {
             </Button>
           </Group>
         )}
+      </Stack>
+    </Paper>
+  );
+}
+
+function DevToolsSection() {
+  const isPreviewMode = localStorage.getItem('devOriginalRole') !== null;
+
+  function toggle(enable: boolean) {
+    try {
+      const raw = localStorage.getItem('user');
+      if (!raw) return;
+      const user = JSON.parse(raw) as { role: string };
+      if (enable) {
+        localStorage.setItem('devOriginalRole', user.role);
+        user.role = 'USER';
+      } else {
+        const original = localStorage.getItem('devOriginalRole') ?? 'ADMIN';
+        localStorage.removeItem('devOriginalRole');
+        user.role = original;
+      }
+      localStorage.setItem('user', JSON.stringify(user));
+      window.location.reload();
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <Paper
+      withBorder
+      p="md"
+      radius="md"
+      style={{ borderColor: 'var(--mantine-color-orange-6)' }}
+    >
+      <Stack gap="sm">
+        <Group gap="sm">
+          <IconCode size={18} color="var(--mantine-color-orange-5)" />
+          <Title order={4}>Dev Tools</Title>
+          <Badge color="orange" variant="light" size="sm">
+            Dev only
+          </Badge>
+        </Group>
+        <Text size="sm" c="dimmed">
+          Tools for testing non-admin functionality. Resets automatically on
+          login or logout.
+        </Text>
+        <Switch
+          label="Preview as non-admin user"
+          description="Temporarily sets your role to USER so you can test non-admin views"
+          checked={isPreviewMode}
+          onChange={(e) => toggle(e.currentTarget.checked)}
+          color="orange"
+        />
       </Stack>
     </Paper>
   );
@@ -1169,7 +1289,9 @@ export function GeneralTab({
       </Paper>
       <ShelfmarkSettingsSection />
       <LibraryScanSection />
+      <AuthorPhotoEnrichmentSection />
       <DiskSettingsSection />
+      {import.meta.env.DEV && <DevToolsSection />}
       <LibraryManagementSection onTaskStarted={onTaskStarted} />
     </Stack>
   );

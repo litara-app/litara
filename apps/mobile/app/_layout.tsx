@@ -32,6 +32,15 @@ export default function RootLayout() {
                 headerTitleStyle: { fontWeight: '700' },
               }}
             />
+            <Stack.Screen
+              name="author/[id]"
+              options={{
+                headerShown: true,
+                headerStyle: { backgroundColor: '#0a0a0a' },
+                headerTintColor: '#fff',
+                headerTitleStyle: { fontWeight: '700' },
+              }}
+            />
             <Stack.Screen name="read/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="search" options={{ headerShown: false }} />
           </Stack>
