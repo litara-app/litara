@@ -181,6 +181,7 @@ export class BooksService {
       moods: book.moods.map((m) => m.name),
       series: seriesBook
         ? {
+            id: seriesBook.series.id,
             name: seriesBook.series.name,
             sequence: seriesBook.sequence ?? null,
             totalBooks: seriesBook.series.totalBooks ?? null,

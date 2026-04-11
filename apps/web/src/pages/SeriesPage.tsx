@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Stack,
   Card,
@@ -133,9 +134,12 @@ function SeriesCard({
 }
 
 export function SeriesPage() {
+  const [searchParams] = useSearchParams();
   const [seriesList, setSeriesList] = useState<SeriesListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSeriesId, setActiveSeriesId] = useState<string | null>(null);
+  const [activeSeriesId, setActiveSeriesId] = useState<string | null>(
+    searchParams.get('seriesId'),
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
 

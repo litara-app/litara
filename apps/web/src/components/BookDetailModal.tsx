@@ -102,6 +102,7 @@ export function BookDetailModal({
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [innerBookId, setInnerBookId] = useState<string | null>(null);
   const [readingProgress, setReadingProgress] = useState<{
     percentage: number;
   } | null>(null);
@@ -818,6 +819,11 @@ export function BookDetailModal({
                     key={detail.id}
                     detail={detail}
                     onDownload={handleDownload}
+                    onViewSeries={(seriesId) => {
+                      onClose();
+                      navigate(`/series?seriesId=${seriesId}`);
+                    }}
+                    onOpenBook={(id) => setInnerBookId(id)}
                   />
                 </Tabs.Panel>
 
@@ -1296,6 +1302,14 @@ export function BookDetailModal({
           </Group>
         </Stack>
       </Modal>
+
+      {innerBookId && (
+        <BookDetailModal
+          bookId={innerBookId}
+          onClose={() => setInnerBookId(null)}
+          onBookUpdated={onBookUpdated}
+        />
+      )}
     </>
   );
 }
