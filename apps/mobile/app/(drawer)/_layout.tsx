@@ -95,6 +95,16 @@ function DrawerContent(props: DrawerContentComponentProps) {
           inactiveTintColor="#888"
         />
         <DrawerItem
+          label="Authors"
+          labelStyle={styles.itemLabel}
+          icon={({ color, size }) => (
+            <Ionicons name="people-outline" size={size} color={color} />
+          )}
+          onPress={() => router.push('/(drawer)/(tabs)/authors')}
+          activeTintColor="#4a9eff"
+          inactiveTintColor="#888"
+        />
+        <DrawerItem
           label="Annotations"
           labelStyle={styles.itemLabel}
           icon={({ color, size }) => (

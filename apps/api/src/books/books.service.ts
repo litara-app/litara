@@ -361,6 +361,12 @@ export class BooksService {
     bookId: string,
     authors: string[],
   ): Promise<void> {
+    const existing = await this.prisma.bookAuthor.findMany({
+      where: { bookId },
+      select: { author: { select: { id: true, name: true } } },
+    });
+    const oldAuthors = existing.map((ba) => ba.author);
+
     await this.prisma.bookAuthor.deleteMany({ where: { bookId } });
     for (const name of authors) {
       const trimmed = name.trim();
@@ -376,6 +382,8 @@ export class BooksService {
         create: { bookId, authorId: author.id },
       });
     }
+
+    await this.pruneOrphanedAuthors(oldAuthors);
   }
 
   private async setStringRelation(
@@ -476,6 +484,22 @@ export class BooksService {
         await this.prisma.series.delete({ where: { id: s.id } });
         this.logger.debug(
           `pruneOrphanedSeries: deleted empty series id=${s.id} name="${s.name}"`,
+        );
+      }
+    }
+  }
+
+  private async pruneOrphanedAuthors(
+    candidates: Array<{ id: string; name: string }>,
+  ): Promise<void> {
+    for (const a of candidates) {
+      const remaining = await this.prisma.bookAuthor.count({
+        where: { authorId: a.id },
+      });
+      if (remaining === 0) {
+        await this.prisma.author.delete({ where: { id: a.id } });
+        this.logger.debug(
+          `pruneOrphanedAuthors: deleted empty author id=${a.id} name="${a.name}"`,
         );
       }
     }
@@ -724,9 +748,15 @@ export class BooksService {
     if (targetBookId === sourceBookId) {
       throw new BadRequestException('Source and target book must be different');
     }
-    const target = await this.prisma.book.findUnique({
-      where: { id: targetBookId },
-    });
+    const [target, source] = await Promise.all([
+      this.prisma.book.findUnique({ where: { id: targetBookId } }),
+      this.prisma.book.findUnique({
+        where: { id: sourceBookId },
+        select: {
+          authors: { select: { author: { select: { id: true, name: true } } } },
+        },
+      }),
+    ]);
     if (!target) throw new NotFoundException('Target book not found');
 
     await this.prisma.$transaction([
@@ -737,6 +767,10 @@ export class BooksService {
       this.prisma.book.delete({ where: { id: sourceBookId } }),
     ]);
 
+    if (source) {
+      await this.pruneOrphanedAuthors(source.authors.map((ba) => ba.author));
+    }
+
     return { success: true };
   }
 
@@ -746,7 +780,10 @@ export class BooksService {
   ): Promise<{ success: true }> {
     const book = await this.prisma.book.findUnique({
       where: { id: bookId },
-      include: { files: true },
+      include: {
+        files: true,
+        authors: { select: { author: { select: { id: true, name: true } } } },
+      },
     });
     if (!book) throw new NotFoundException('Book not found');
 
@@ -754,7 +791,9 @@ export class BooksService {
       await this.diskWriteGuard.assertDiskWritesAllowed();
     }
 
+    const authors = book.authors.map((ba) => ba.author);
     await this.prisma.book.delete({ where: { id: bookId } });
+    await this.pruneOrphanedAuthors(authors);
 
     if (deleteFiles) {
       for (const file of book.files) {

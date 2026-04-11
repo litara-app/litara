@@ -20,6 +20,7 @@ import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AllBooksPage } from './pages/AllBooksPage';
 import { SeriesPage } from './pages/SeriesPage';
+import { AuthorsPage } from './pages/AuthorsPage';
 import { SmartShelfPage } from './pages/SmartShelfPage';
 import { AnnotationsPage } from './pages/AnnotationsPage';
 import { ReaderPage } from './pages/ReaderPage';
@@ -52,6 +53,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/books" element={<AllBooksPage />} />
               <Route path="/series" element={<SeriesPage />} />
+              <Route path="/authors" element={<AuthorsPage />} />
               <Route path="/annotations" element={<AnnotationsPage />} />
               <Route path="/library/:id" element={<LibraryPage />} />
               <Route path="/shelf/:id" element={<ShelfPage />} />

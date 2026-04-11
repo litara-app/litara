@@ -17,6 +17,7 @@ import { SetupModule } from './setup/setup.module';
 import { OpdsModule } from './opds/opds.module';
 import { MailModule } from './mail/mail.module';
 import { SeriesModule } from './series/series.module';
+import { AuthorsModule } from './authors/authors.module';
 import { SmartShelvesModule } from './smart-shelves/smart-shelves.module';
 import { ReadingProgressModule } from './reading-progress/reading-progress.module';
 import { BulkMetadataModule } from './bulk-metadata/bulk-metadata.module';
@@ -54,6 +55,7 @@ const staticModules = existsSync(publicPath)
     OpdsModule,
     MailModule,
     SeriesModule,
+    AuthorsModule,
     SmartShelvesModule,
     ReadingProgressModule,
     BulkMetadataModule,

@@ -25,6 +25,7 @@ import {
   IconLibrary,
   IconPlus,
   IconTimeline,
+  IconUsers,
   IconFlask,
   IconArrowUpCircle,
   IconUpload,
@@ -194,6 +195,13 @@ export function NavbarContent() {
           leftSection={<IconTimeline size={18} />}
           active={location.pathname === '/series'}
           onClick={() => navigate('/series')}
+        />
+
+        <NavLink
+          label="Authors"
+          leftSection={<IconUsers size={18} />}
+          active={location.pathname === '/authors'}
+          onClick={() => navigate('/authors')}
         />
 
         <NavLink

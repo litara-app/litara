@@ -87,6 +87,10 @@ export default function TabsLayout() {
         options={{ title: 'Series', tabBarItemStyle: { display: 'none' } }}
       />
       <Tabs.Screen
+        name="authors"
+        options={{ title: 'Authors', tabBarItemStyle: { display: 'none' } }}
+      />
+      <Tabs.Screen
         name="annotations"
         options={{ title: 'Annotations', tabBarItemStyle: { display: 'none' } }}
       />

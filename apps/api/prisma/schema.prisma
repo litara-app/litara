@@ -105,11 +105,13 @@ model Book {
 }
 
 model Author {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  biography String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  name        String   @unique
+  biography   String?
+  photoData   Bytes?
+  goodreadsId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   books BookAuthor[]
 }
