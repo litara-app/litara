@@ -1,3 +1,11 @@
+# [1.23.0](https://github.com/litara-app/litara/compare/v1.22.0...v1.23.0) (2026-04-11)
+
+
+### Features
+
+* library backup and library re-organize ([e2ca930](https://github.com/litara-app/litara/commit/e2ca930a48f7c89171335d99cf3862df5f19c4c1))
+* view book series directly in book modal ([84b56b6](https://github.com/litara-app/litara/commit/84b56b686b239c16920d2e35bf3377e7867f53c1))
+
 # [1.22.0](https://github.com/litara-app/litara/compare/v1.21.0...v1.22.0) (2026-04-10)
 
 
