@@ -67,6 +67,7 @@ export interface BookDetail {
   userReview: { rating: number | null; readStatus: string };
   shelves: { id: string; name: string }[];
   sidecarFile: string | null;
+  inReadingQueue: boolean;
 }
 
 export interface EditedFields {

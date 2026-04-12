@@ -164,6 +164,7 @@ function pendingBookToDetail(book: PendingBook): BookDetail {
     userReview: { rating: null, readStatus: 'UNREAD' },
     shelves: [],
     sidecarFile: null,
+    inReadingQueue: false,
   };
 }
 

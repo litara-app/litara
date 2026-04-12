@@ -14,8 +14,33 @@ export class ReadingProgressService {
   }
 
   async getInProgress(userId: string) {
-    const records = await this.prisma.readingProgress.findMany({
-      where: { userId, percentage: { gt: 0, lt: 1 } },
+    // Primary: books explicitly marked as READING (with their progress if any)
+    const readingReviews = await this.prisma.userReview.findMany({
+      where: { userId, readStatus: 'READING' },
+      orderBy: { updatedAt: 'desc' },
+      take: 20,
+      include: {
+        book: {
+          include: {
+            authors: { include: { author: true } },
+            files: { select: { format: true, missingAt: true } },
+            readingProgress: {
+              where: { userId },
+              select: { percentage: true, lastSyncedAt: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Secondary: books with partial progress that aren't already covered above
+    const readingBookIds = readingReviews.map((r) => r.bookId);
+    const progressRecords = await this.prisma.readingProgress.findMany({
+      where: {
+        userId,
+        percentage: { gt: 0, lt: 1 },
+        bookId: { notIn: readingBookIds },
+      },
       orderBy: { lastSyncedAt: 'desc' },
       take: 20,
       include: {
@@ -28,7 +53,27 @@ export class ReadingProgressService {
       },
     });
 
-    return records.map((r) => ({
+    const fromReading = readingReviews.map((r) => {
+      const progress = r.book.readingProgress[0] ?? null;
+      return {
+        bookId: r.bookId,
+        percentage: progress?.percentage ?? null,
+        lastSyncedAt: progress?.lastSyncedAt ?? r.updatedAt,
+        book: {
+          id: r.book.id,
+          title: r.book.title,
+          authors: r.book.authors.map((ba) => ba.author.name),
+          hasCover: r.book.coverData !== null,
+          coverUpdatedAt: r.book.updatedAt.toISOString(),
+          formats: Array.from(
+            new Set(r.book.files.map((f) => f.format)),
+          ).sort(),
+          hasFileMissing: r.book.files.some((f) => f.missingAt !== null),
+        },
+      };
+    });
+
+    const fromProgress = progressRecords.map((r) => ({
       bookId: r.bookId,
       percentage: r.percentage,
       lastSyncedAt: r.lastSyncedAt,
@@ -38,10 +83,14 @@ export class ReadingProgressService {
         authors: r.book.authors.map((ba) => ba.author.name),
         hasCover: r.book.coverData !== null,
         coverUpdatedAt: r.book.updatedAt.toISOString(),
-        formats: [...new Set(r.book.files.map((f) => f.format))].sort(),
+        formats: Array.from(new Set(r.book.files.map((f) => f.format))).sort(),
         hasFileMissing: r.book.files.some((f) => f.missingAt !== null),
       },
     }));
+
+    return [...fromReading, ...fromProgress]
+      .sort((a, b) => b.lastSyncedAt.getTime() - a.lastSyncedAt.getTime())
+      .slice(0, 20);
   }
 
   async resetProgress(bookId: string, userId: string) {
@@ -55,7 +104,7 @@ export class ReadingProgressService {
     userId: string,
     dto: UpsertReadingProgressDto,
   ) {
-    return this.prisma.readingProgress.upsert({
+    const progressUpsert = this.prisma.readingProgress.upsert({
       where: { userId_bookId: { userId, bookId } },
       update: {
         location: dto.location,
@@ -69,5 +118,19 @@ export class ReadingProgressService {
         percentage: dto.percentage ?? null,
       },
     });
+
+    if (dto.percentage != null && dto.percentage > 0) {
+      const [progress] = await this.prisma.$transaction([
+        progressUpsert,
+        this.prisma.userReview.upsert({
+          where: { userId_bookId: { userId, bookId } },
+          update: { readStatus: 'READING' },
+          create: { userId, bookId, readStatus: 'READING' },
+        }),
+      ]);
+      return progress;
+    }
+
+    return progressUpsert;
   }
 }

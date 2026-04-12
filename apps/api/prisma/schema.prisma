@@ -25,6 +25,7 @@ model User {
   recipientEmails   RecipientEmail[]
   smtpConfig        UserSmtpConfig?
   koReaderCredential KoReaderCredential?
+  readingQueue      ReadingQueueItem[]
 }
 
 enum Role {
@@ -102,6 +103,7 @@ model Book {
   annotations     Annotation[]
   shelves         BookShelf[]
   userLibraries   UserBookLibrary[]
+  readingQueue    ReadingQueueItem[]
 }
 
 model Author {
@@ -299,6 +301,20 @@ model SmartShelfRule {
   field     String   // e.g., "genre", "rating", "author"
   operator  String   // e.g., "EQUALS", "CONTAINS", "GREATER_THAN"
   value     String   // e.g., "Sci-Fi", "4"
+}
+
+model ReadingQueueItem {
+  id       String   @id @default(uuid())
+  userId   String
+  bookId   String
+  position Int
+  addedAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([userId, position])
 }
 
 model Task {

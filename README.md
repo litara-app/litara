@@ -15,7 +15,7 @@ A self-hosted ebook library manager. Automatically scans a folder for ebook file
 
 ![Litara dashboard](./apps/docs/static/screenshots/dashboard.png)
 
-> **Mobile (Android):** A companion mobile app is in very early alpha. See [mobile docs](https://litara-app.github.io/litara/mobile) for details.
+> **Mobile (Android):** A companion mobile app is in beta. See [mobile docs](https://litara-app.github.io/litara/mobile) for details.
 
 <div align="center">
 <img src="./apps/docs/static/screenshots/mobile/sign_in.png" width="200">

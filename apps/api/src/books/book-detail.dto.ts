@@ -133,4 +133,7 @@ export class BookDetailDto {
 
   @ApiProperty({ nullable: true })
   sidecarFile: string | null;
+
+  @ApiProperty()
+  inReadingQueue: boolean;
 }

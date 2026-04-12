@@ -44,9 +44,11 @@ import {
   IconBookmarks,
   IconDatabaseImport,
   IconTrash,
+  IconListNumbers,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { api } from '../utils/api';
+import { useReadingQueueActions } from '../hooks/useReadingQueue';
 import { pushToast } from '../utils/toast';
 import type {
   BookDetail,
@@ -177,6 +179,12 @@ export function BookDetailModal({
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Reading queue
+  const [inReadingQueue, setInReadingQueue] = useState(false);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const { addBook: addToQueue, removeBook: removeFromQueue } =
+    useReadingQueueActions();
+
   useEffect(() => {
     if (!bookId) {
       setDetail(null);
@@ -202,6 +210,7 @@ export function BookDetailModal({
         setReadStatus(d.userReview.readStatus);
         setLibraryId(d.library?.id ?? '');
         setSelectedShelfIds(d.shelves.map((s) => s.id));
+        setInReadingQueue(d.inReadingQueue);
         if (progressRes?.data?.percentage != null)
           setReadingProgress(progressRes.data);
       })
@@ -359,6 +368,22 @@ export function BookDetailModal({
       await api.put(`/books/${detail.id}/shelves`, { shelfIds: newIds });
     } finally {
       setSavingShelf(false);
+    }
+  }
+
+  async function handleToggleQueue() {
+    if (!detail) return;
+    setQueueLoading(true);
+    try {
+      if (inReadingQueue) {
+        await removeFromQueue(detail.id);
+        setInReadingQueue(false);
+      } else {
+        await addToQueue(detail.id);
+        setInReadingQueue(true);
+      }
+    } finally {
+      setQueueLoading(false);
     }
   }
 
@@ -766,6 +791,21 @@ export function BookDetailModal({
                         clearable
                       />
                     )}
+                  </Box>
+
+                  {/* Reading Queue */}
+                  <Box>
+                    <Button
+                      size="xs"
+                      variant={inReadingQueue ? 'filled' : 'default'}
+                      color={inReadingQueue ? 'blue' : undefined}
+                      leftSection={<IconListNumbers size={14} />}
+                      loading={queueLoading}
+                      fullWidth
+                      onClick={() => void handleToggleQueue()}
+                    >
+                      {inReadingQueue ? 'In Reading Queue' : 'Add to Queue'}
+                    </Button>
                   </Box>
                 </Stack>
               </Box>

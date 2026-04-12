@@ -149,6 +149,10 @@ export class BooksService {
           where: { shelf: { userId } },
           include: { shelf: { select: { id: true, name: true } } },
         },
+        readingQueue: {
+          where: { userId },
+          select: { id: true },
+        },
       },
     });
     if (!book) throw new NotFoundException('Book not found');
@@ -203,6 +207,7 @@ export class BooksService {
         name: bs.shelf.name,
       })),
       sidecarFile: book.sidecarFile,
+      inReadingQueue: book.readingQueue.length > 0,
     };
   }
 

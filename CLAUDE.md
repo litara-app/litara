@@ -116,6 +116,12 @@ Docker Compose provides a local PostgreSQL instance (`postgres:16-alpine`) on po
 Whenever possible, don't use any types in typescript, create an interface instead.
 Ensure that when making a function async it actually needs to be async and vice versa.
 
+### State Management (Frontend)
+
+All Jotai atoms that represent shared or global state **must** be defined in `apps/web/src/store/atoms.ts`. This is the single source of truth for global state. Companion interfaces/types for atom values belong there too (e.g. `ReadingQueueItem` lives alongside `readingQueueAtom`).
+
+The only exception is atoms that are purely internal implementation details of a single hook (e.g. a private loading flag used only within that hook file) — these may stay co-located with the hook.
+
 ### Security Notes
 
 - Helmet is applied globally on the API.

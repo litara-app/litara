@@ -85,6 +85,16 @@ function DrawerContent(props: DrawerContentComponentProps) {
 
         {/* Nav items */}
         <DrawerItem
+          label="Reading Queue"
+          labelStyle={styles.itemLabel}
+          icon={({ color, size }) => (
+            <Ionicons name="list-outline" size={size} color={color} />
+          )}
+          onPress={() => router.push('/(drawer)/reading-queue')}
+          activeTintColor="#4a9eff"
+          inactiveTintColor="#888"
+        />
+        <DrawerItem
           label="Series"
           labelStyle={styles.itemLabel}
           icon={({ color, size }) => (
@@ -213,6 +223,16 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="annotations"
         options={{ drawerItemStyle: { display: 'none' }, headerShown: false }}
+      />
+      <Drawer.Screen
+        name="reading-queue"
+        options={{
+          drawerItemStyle: { display: 'none' },
+          title: 'Reading Queue',
+          headerStyle: { backgroundColor: '#0a0a0a' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: '700' },
+        }}
       />
       <Drawer.Screen
         name="index"
