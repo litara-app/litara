@@ -120,6 +120,23 @@ test.describe('Book detail modal', () => {
   });
 });
 
+test.describe('Authors page', () => {
+  test('authors', async ({ page }) => {
+    await page.goto('/authors');
+    await expect(page.getByRole('heading', { name: 'Authors' })).toBeVisible({
+      timeout: 10_000,
+    });
+    await page
+      .locator('.mantine-Card-root')
+      .first()
+      .or(page.getByText('No authors found'))
+      .waitFor({ timeout: 10_000 })
+      .catch(() => {});
+    await settle(page);
+    await page.screenshot({ path: ss('authors'), fullPage: false });
+  });
+});
+
 test.describe('Series page', () => {
   test('series', async ({ page }) => {
     await page.goto('/series');

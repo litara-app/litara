@@ -8,6 +8,8 @@ The Authors page lets you browse every author in your library, view their portra
 
 ## Browsing Authors
 
+![Authors page](../static/screenshots/authors.png)
+
 Navigate to **Authors** in the sidebar to open the author list. Authors are shown alphabetically with a portrait photo (when available) and a book count.
 
 Use the **filter field** at the top to narrow the list by name — filtering is instant and works case-insensitively.

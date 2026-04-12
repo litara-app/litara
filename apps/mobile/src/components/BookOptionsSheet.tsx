@@ -15,6 +15,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { BookSummary } from '@/src/api/books';
 import { resetReadingProgress } from '@/src/api/books';
 import { getRecipientEmails, sendBook } from '@/src/api/mail';
+import {
+  addToQueue,
+  getReadingQueue,
+  removeFromQueue,
+} from '@/src/api/reading-queue';
 import type { RecipientEmail } from '@/src/api/mail';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
 import { tokenStore } from '@/src/auth/tokenStore';
@@ -69,6 +74,7 @@ export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
   const [mode, setMode] = useState<'main' | 'pick-email'>('main');
   const [sending, setSending] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [togglingQueue, setTogglingQueue] = useState(false);
   const queryClient = useQueryClient();
 
   // Reset to main mode whenever the sheet opens/closes
@@ -81,6 +87,37 @@ export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
     queryFn: getRecipientEmails,
     enabled: !!book,
   });
+
+  const { data: queue = [] } = useQuery({
+    queryKey: ['reading-queue'],
+    queryFn: getReadingQueue,
+    enabled: !!book,
+  });
+
+  const isInQueue = book
+    ? queue.some((item) => item.bookId === book.id)
+    : false;
+
+  const handleToggleQueue = async () => {
+    if (!book) return;
+    setTogglingQueue(true);
+    try {
+      if (isInQueue) {
+        queryClient.setQueryData(
+          ['reading-queue'],
+          queue.filter((item) => item.bookId !== book.id),
+        );
+        await removeFromQueue(book.id);
+      } else {
+        await addToQueue(book.id);
+        await queryClient.invalidateQueries({ queryKey: ['reading-queue'] });
+      }
+    } catch {
+      await queryClient.invalidateQueries({ queryKey: ['reading-queue'] });
+    } finally {
+      setTogglingQueue(false);
+    }
+  };
 
   if (!book) return null;
 
@@ -203,6 +240,13 @@ export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
               label="Send to Email"
               onPress={handleSendEmail}
               loading={sending}
+            />
+
+            <Option
+              icon={isInQueue ? 'checkmark-circle-outline' : 'list-outline'}
+              label={isInQueue ? 'Remove from Queue' : 'Add to Queue'}
+              onPress={handleToggleQueue}
+              loading={togglingQueue}
             />
 
             {book.readingProgress != null && book.readingProgress > 0 && (

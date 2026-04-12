@@ -44,9 +44,11 @@ import {
   IconBookmarks,
   IconDatabaseImport,
   IconTrash,
+  IconListNumbers,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { api } from '../utils/api';
+import { useReadingQueueActions } from '../hooks/useReadingQueue';
 import { pushToast } from '../utils/toast';
 import type {
   BookDetail,
@@ -177,6 +179,12 @@ export function BookDetailModal({
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Reading queue
+  const [inReadingQueue, setInReadingQueue] = useState(false);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const { addBook: addToQueue, removeBook: removeFromQueue } =
+    useReadingQueueActions();
+
   useEffect(() => {
     if (!bookId) {
       setDetail(null);
@@ -186,6 +194,9 @@ export function BookDetailModal({
     setActiveTab('overview');
     setIsDirty(false);
     setReadingProgress(null);
+    // Capture current values so we can detect whether setState actually changes them
+    const prevRating = rating;
+    const prevReadStatus = readStatus;
     Promise.all([
       api.get<BookDetail>(`/books/${bookId}`),
       api
@@ -197,16 +208,25 @@ export function BookDetailModal({
         setDetail(d);
         setEditedFields(detailToEdited(d));
         setLockedFields(new Set(d.lockedFields));
+        const newRating = d.userReview.rating ?? 0;
+        const newReadStatus = d.userReview.readStatus;
         skipSaveRef.current = true;
-        setRating(d.userReview.rating ?? 0);
-        setReadStatus(d.userReview.readStatus);
+        setRating(newRating);
+        setReadStatus(newReadStatus);
+        // If neither value changed, React won't re-render and the save effect
+        // won't fire to consume the skip flag — reset it here so the first real
+        // user interaction isn't silently dropped.
+        if (newRating === prevRating && newReadStatus === prevReadStatus) {
+          skipSaveRef.current = false;
+        }
         setLibraryId(d.library?.id ?? '');
         setSelectedShelfIds(d.shelves.map((s) => s.id));
+        setInReadingQueue(d.inReadingQueue);
         if (progressRes?.data?.percentage != null)
           setReadingProgress(progressRes.data);
       })
       .finally(() => setLoading(false));
-  }, [bookId]);
+  }, [bookId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (skipSaveRef.current) {
@@ -215,7 +235,9 @@ export function BookDetailModal({
     }
     if (!detail) return;
     const t = setTimeout(() => {
-      void api.patch(`/books/${detail.id}`, { rating, readStatus });
+      void api
+        .patch(`/books/${detail.id}`, { rating, readStatus })
+        .then(() => onBookUpdated());
     }, 600);
     return () => clearTimeout(t);
   }, [rating, readStatus]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -359,6 +381,22 @@ export function BookDetailModal({
       await api.put(`/books/${detail.id}/shelves`, { shelfIds: newIds });
     } finally {
       setSavingShelf(false);
+    }
+  }
+
+  async function handleToggleQueue() {
+    if (!detail) return;
+    setQueueLoading(true);
+    try {
+      if (inReadingQueue) {
+        await removeFromQueue(detail.id);
+        setInReadingQueue(false);
+      } else {
+        await addToQueue(detail.id);
+        setInReadingQueue(true);
+      }
+    } finally {
+      setQueueLoading(false);
     }
   }
 
@@ -766,6 +804,21 @@ export function BookDetailModal({
                         clearable
                       />
                     )}
+                  </Box>
+
+                  {/* Reading Queue */}
+                  <Box>
+                    <Button
+                      size="xs"
+                      variant={inReadingQueue ? 'filled' : 'default'}
+                      color={inReadingQueue ? 'blue' : undefined}
+                      leftSection={<IconListNumbers size={14} />}
+                      loading={queueLoading}
+                      fullWidth
+                      onClick={() => void handleToggleQueue()}
+                    >
+                      {inReadingQueue ? 'In Reading Queue' : 'Add to Queue'}
+                    </Button>
                   </Box>
                 </Stack>
               </Box>

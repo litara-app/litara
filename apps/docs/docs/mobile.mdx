@@ -4,8 +4,8 @@ sidebar_position: 10
 
 # Mobile App
 
-:::warning Early Alpha
-The Litara mobile app is in **very early alpha**. Expect rough edges, missing features, and breaking changes between releases. It is not yet suitable for everyday use.
+:::warning Beta
+The Litara mobile app is in **beta**. Expect rough edges, missing features, and breaking changes between releases. It is not yet suitable for everyday use.
 :::
 
 Litara has a companion Android app built with [Expo](https://expo.dev) / React Native. It connects to your existing self-hosted Litara server and lets you browse your library and view book details from your phone.
@@ -45,8 +45,9 @@ Enter the email and password for your Litara account and tap **Sign In**. The sa
 
 <img src={require('@site/static/screenshots/mobile/dashboard.png').default} alt="Dashboard" width="300" />
 
-The **Dashboard** tab shows two horizontal scroll lists:
+The **Dashboard** tab shows up to three horizontal scroll strips:
 
+- **Reading Queue** — books you've queued to read next, in priority order (only shown when the queue is not empty). Tap **See all** to open the full queue manager.
 - **Continue Reading** — books you have started but not finished (only shown when at least one is in progress).
 - **Recently Added** — the 20 most recently imported books.
 
@@ -59,7 +60,7 @@ Tap a cover to open the book detail page.
 The **All Books** tab shows your entire library in a two-column grid, sorted alphabetically. Scroll to the bottom to load more books.
 
 - **Tap** a book to open the book detail page.
-- **Long-press** a book for a quick-action sheet.
+- **Long-press** a book for a quick-action sheet with options: View Details, Send to Email, Add to Queue / Remove from Queue, and Reset Progress.
 - Tap the **grid icon** in the top-right to cycle between 2, 3, and 4-column layouts.
 
 ## Book details
@@ -90,6 +91,7 @@ Tap the **hamburger menu** (≡) in the top-left on any screen to open the side 
 
 The side drawer gives access to additional views and account info:
 
+- **Reading Queue** — open the full reading queue screen
 - **Series** — browse books grouped by series
 - **Annotations** — search and view all your highlights, underlines, bookmarks, and notes
 - **Smart Shelves** — automatically populated shelves based on rules
