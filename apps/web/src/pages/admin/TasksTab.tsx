@@ -165,7 +165,10 @@ export function TasksTab() {
 
                 {task.status === 'COMPLETED' && !isSidecarWrite && (
                   <Text size="xs" c="dimmed">
-                    Enriched {total} books
+                    Enriched {total}{' '}
+                    {task.type === 'AUTHOR_PHOTO_ENRICHMENT'
+                      ? 'authors'
+                      : 'books'}
                   </Text>
                 )}
 
