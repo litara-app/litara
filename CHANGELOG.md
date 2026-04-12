@@ -1,3 +1,16 @@
+# [1.25.0](https://github.com/litara-app/litara/compare/v1.24.0...v1.25.0) (2026-04-12)
+
+
+### Bug Fixes
+
+* changing book status was not firing in certain situations ([974e2dc](https://github.com/litara-app/litara/commit/974e2dc82454d10c6dd57664bb8f9cb2b24ea90c))
+* fix wording on author enrichment ([da8de30](https://github.com/litara-app/litara/commit/da8de30db1b3466835f37dabfa109f82589e653a))
+
+
+### Features
+
+* reading queue ([818d35e](https://github.com/litara-app/litara/commit/818d35e2f22bd6b8faa092581c14107cbd084342))
+
 # [1.24.0](https://github.com/litara-app/litara/compare/v1.23.0...v1.24.0) (2026-04-11)
 
 
