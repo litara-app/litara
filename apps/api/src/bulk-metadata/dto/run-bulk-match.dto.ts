@@ -15,13 +15,19 @@ export class GuidedSelectionDto {
 }
 
 export class RunBulkMatchDto {
-  @ApiProperty({ enum: ['all', 'library', 'shelf'] })
-  scope!: 'all' | 'library' | 'shelf';
+  @ApiProperty({ enum: ['all', 'library', 'shelf', 'selection'] })
+  scope!: 'all' | 'library' | 'shelf' | 'selection';
 
   @ApiPropertyOptional({
-    description: 'Library or shelf ID when scope is not "all"',
+    description: 'Library or shelf ID when scope is not "all" or "selection"',
   })
   scopeId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Explicit book IDs when scope is "selection"',
+    type: [String],
+  })
+  bookIds?: string[];
 
   @ApiPropertyOptional({
     description:

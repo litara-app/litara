@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   Stack,
   Modal,
@@ -7,8 +7,10 @@ import {
   SegmentedControl,
   ActionIcon,
   Indicator,
+  Button,
+  Group,
 } from '@mantine/core';
-import { IconFilter } from '@tabler/icons-react';
+import { IconFilter, IconCheckbox } from '@tabler/icons-react';
 import { api } from '../utils/api';
 import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
@@ -16,7 +18,11 @@ import { PageHeader } from '../components/PageHeader';
 import { BookFilterPanel } from '../components/BookFilterPanel';
 import { useBookFilter } from '../hooks/useBookFilter';
 import type { BookCardData } from '../components/BookCard';
-import { userSettingsAtom } from '../store/atoms';
+import {
+  userSettingsAtom,
+  selectedBookIdsAtom,
+  isSelectModeAtom,
+} from '../store/atoms';
 import type { UserSettings } from '../store/atoms';
 import { ITEM_MIN_WIDTHS } from '../utils/book-grid';
 
@@ -27,6 +33,10 @@ export function AllBooksPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
   const minWidth = ITEM_MIN_WIDTHS[userSettings.bookItemSize] ?? 160;
+  const selectedBookIds = useAtomValue(selectedBookIdsAtom);
+  const setSelectedBookIds = useSetAtom(selectedBookIdsAtom);
+  const isSelectMode = useAtomValue(isSelectModeAtom);
+  const [selectModeActive, setSelectModeActive] = useState(false);
 
   const {
     filters,
@@ -42,6 +52,41 @@ export function AllBooksPage() {
     availablePublishers,
     availableAuthors,
   } = useBookFilter(books);
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedBookIds(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
+  function toggleSelectMode() {
+    if (selectModeActive) {
+      setSelectModeActive(false);
+      setSelectedBookIds(new Set());
+    } else {
+      setSelectModeActive(true);
+    }
+  }
+
+  function handleToggleSelect(id: string) {
+    setSelectedBookIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleSelectAll() {
+    const allIds = new Set(filteredBooks.map((b) => b.id));
+    const allSelected = filteredBooks.every((b) => selectedBookIds.has(b.id));
+    setSelectedBookIds(allSelected ? new Set() : allIds);
+  }
+
+  // Exit select mode when selection is cleared externally (e.g. route change)
+  useEffect(() => {
+    if (!isSelectMode) setSelectModeActive(false);
+  }, [isSelectMode]);
 
   const loadBooks = useCallback(async () => {
     setLoading(true);
@@ -70,16 +115,37 @@ export function AllBooksPage() {
         title="All Books"
         onSettingsClick={() => setSettingsOpen(true)}
         rightActions={
-          <Indicator label={activeCount} disabled={activeCount === 0} size={16}>
+          <Group gap="xs">
+            {selectModeActive && (
+              <Button variant="subtle" size="xs" onClick={handleSelectAll}>
+                {filteredBooks.every((b) => selectedBookIds.has(b.id))
+                  ? 'Deselect All'
+                  : 'Select All'}
+              </Button>
+            )}
             <ActionIcon
-              variant={panelOpen ? 'filled' : 'subtle'}
+              variant={selectModeActive ? 'filled' : 'subtle'}
               size="md"
-              onClick={() => setPanelOpen((v) => !v)}
-              aria-label="Toggle filters"
+              onClick={toggleSelectMode}
+              aria-label="Toggle select mode"
             >
-              <IconFilter size={18} />
+              <IconCheckbox size={18} />
             </ActionIcon>
-          </Indicator>
+            <Indicator
+              label={activeCount}
+              disabled={activeCount === 0}
+              size={16}
+            >
+              <ActionIcon
+                variant={panelOpen ? 'filled' : 'subtle'}
+                size="md"
+                onClick={() => setPanelOpen((v) => !v)}
+                aria-label="Toggle filters"
+              >
+                <IconFilter size={18} />
+              </ActionIcon>
+            </Indicator>
+          </Group>
         }
       />
 
@@ -102,6 +168,9 @@ export function AllBooksPage() {
                 prev.map((b) => (b.id === id ? { ...b, rating } : b)),
               )
             }
+            isSelectMode={selectModeActive}
+            selectedIds={selectedBookIds}
+            onToggleSelect={handleToggleSelect}
           />
         </div>
         <div

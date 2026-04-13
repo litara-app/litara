@@ -60,6 +60,10 @@ export interface ReadingQueueItem {
 
 export const librariesAtom = atom<Library[]>([]);
 export const shelvesAtom = atom<Shelf[]>([]);
+export const selectedBookIdsAtom = atom<Set<string>>(new Set<string>());
+export const isSelectModeAtom = atom<boolean>(
+  (get) => get(selectedBookIdsAtom).size > 0,
+);
 export const smartShelvesAtom = atom<SmartShelfSummary[]>([]);
 export const userSettingsAtom = atom<UserSettings>(DEFAULT_USER_SETTINGS);
 export const backendStatusAtom = atom<'ok' | 'error'>('ok');

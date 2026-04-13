@@ -22,6 +22,8 @@ import { ShelvesService } from './shelves.service';
 import type { RequestWithUser } from '../auth/interfaces/authenticated-user.interface';
 import { ShelfDto } from './shelf.dto';
 import { BookSummaryDto } from '../books/book-summary.dto';
+import { BulkBooksDto } from '../books/dto/bulk-books.dto';
+import { SuccessDto } from '../common/dto/success.dto';
 
 @ApiBearerAuth()
 @Controller('shelves')
@@ -54,6 +56,30 @@ export class ShelvesController {
   @ApiOkResponse({ type: BookSummaryDto, isArray: true })
   findBooks(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.shelvesService.findBooks(id, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/books/bulk')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SuccessDto })
+  postBulkBooks(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+    @Body() dto: BulkBooksDto,
+  ) {
+    return this.shelvesService.postBulkBooks(id, dto, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/books/bulk')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SuccessDto })
+  deleteBulkBooks(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+    @Body() dto: BulkBooksDto,
+  ) {
+    return this.shelvesService.deleteBulkBooks(id, dto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)

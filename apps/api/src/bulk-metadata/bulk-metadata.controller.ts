@@ -70,6 +70,7 @@ export class BulkMetadataController {
     return this.service.startBulkRun({
       scope: dto.scope,
       scopeId: dto.scopeId,
+      bookIds: dto.bookIds,
       overwrite: dto.overwrite,
       guidedSelections: dto.guidedSelections,
       throttleMs: dto.throttleMs,

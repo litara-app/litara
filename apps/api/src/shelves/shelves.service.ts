@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import type { BulkBooksDto } from '../books/dto/bulk-books.dto';
 
 @Injectable()
 export class ShelvesService {
@@ -76,5 +77,39 @@ export class ShelvesService {
       hasFileMissing: book.files.some((f) => f.missingAt !== null),
       readingProgress: book.readingProgress[0]?.percentage ?? null,
     }));
+  }
+
+  async postBulkBooks(shelfId: string, dto: BulkBooksDto, userId: string) {
+    const shelf = await this.prisma.shelf.findFirst({
+      where: { id: shelfId, userId },
+    });
+    if (!shelf) throw new NotFoundException('Shelf not found');
+
+    const existing = await this.prisma.bookShelf.findMany({
+      where: { shelfId, bookId: { in: dto.bookIds } },
+      select: { bookId: true },
+    });
+    const existingIds = new Set(existing.map((e) => e.bookId));
+    const toAdd = dto.bookIds.filter((id) => !existingIds.has(id));
+
+    if (toAdd.length > 0) {
+      await this.prisma.bookShelf.createMany({
+        data: toAdd.map((bookId) => ({ shelfId, bookId })),
+        skipDuplicates: true,
+      });
+    }
+    return { success: true };
+  }
+
+  async deleteBulkBooks(shelfId: string, dto: BulkBooksDto, userId: string) {
+    const shelf = await this.prisma.shelf.findFirst({
+      where: { id: shelfId, userId },
+    });
+    if (!shelf) throw new NotFoundException('Shelf not found');
+
+    await this.prisma.bookShelf.deleteMany({
+      where: { shelfId, bookId: { in: dto.bookIds } },
+    });
+    return { success: true };
   }
 }

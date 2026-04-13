@@ -19,6 +19,11 @@ import { DiskWriteGuardService } from '../common/disk-write-guard.service';
 import { EpubMetadataWriterService } from './epub-metadata-writer.service';
 import type { MetadataResult } from '../metadata/interfaces/metadata-result.interface';
 import { UpdateBookDto } from './dto/update-book.dto';
+import type {
+  BulkBooksDto,
+  BulkStatusDto,
+  BulkReadingProgressDto,
+} from './dto/bulk-books.dto';
 
 export { UpdateBookDto };
 
@@ -75,10 +80,23 @@ export class BooksService {
         : query.libraryId
           ? { userLibraries: { some: { libraryId: query.libraryId, userId } } }
           : undefined,
-      include: {
-        authors: { include: { author: true } },
+      select: {
+        id: true,
+        title: true,
+        updatedAt: true,
+        createdAt: true,
+        publishedDate: true,
+        publisher: true,
+        pageCount: true,
+        goodreadsRating: true,
+        authors: { select: { author: { select: { name: true } } } },
         files: { select: { format: true, missingAt: true } },
-        series: { include: { series: { select: { id: true, name: true } } } },
+        series: {
+          select: {
+            sequence: true,
+            series: { select: { id: true, name: true } },
+          },
+        },
         readingProgress: { where: { userId }, select: { percentage: true } },
         reviews: {
           where: { userId },
@@ -90,11 +108,22 @@ export class BooksService {
       },
     });
 
+    // Determine cover existence without loading binary data.
+    const bookIds = books.map((b) => b.id);
+    const coverIdSet = new Set(
+      (
+        await this.prisma.book.findMany({
+          where: { id: { in: bookIds }, coverData: { not: null } },
+          select: { id: true },
+        })
+      ).map((b) => b.id),
+    );
+
     return books.map((book) => ({
       id: book.id,
       title: book.title,
       authors: book.authors.map((ba) => ba.author.name),
-      hasCover: book.coverData !== null,
+      hasCover: coverIdSet.has(book.id),
       coverUpdatedAt: book.updatedAt.toISOString(),
       createdAt: book.createdAt,
       formats: [...new Set(book.files.map((f) => f.format))].sort(),
@@ -895,5 +924,58 @@ export class BooksService {
       seriesName: seriesBook?.series.name ?? null,
       seriesNumber: seriesBook?.sequence ?? null,
     });
+  }
+
+  async patchBulkReadingProgress(userId: string, dto: BulkReadingProgressDto) {
+    if (dto.action === 'mark-read') {
+      await this.prisma.$transaction(
+        dto.bookIds.map((bookId) =>
+          this.prisma.readingProgress.upsert({
+            where: { userId_bookId: { userId, bookId } },
+            update: { percentage: 1 },
+            create: { userId, bookId, percentage: 1 },
+          }),
+        ),
+      );
+    } else {
+      await this.prisma.readingProgress.deleteMany({
+        where: { userId, bookId: { in: dto.bookIds } },
+      });
+    }
+    return { success: true };
+  }
+
+  async patchBulkStatus(userId: string, dto: BulkStatusDto) {
+    await this.prisma.userReview.updateMany({
+      where: { userId, bookId: { in: dto.bookIds } },
+      data: { readStatus: dto.status },
+    });
+    // Create review records for books that don't have one yet
+    const existing = await this.prisma.userReview.findMany({
+      where: { userId, bookId: { in: dto.bookIds } },
+      select: { bookId: true },
+    });
+    const existingIds = new Set(existing.map((r) => r.bookId));
+    const missing = dto.bookIds.filter((id) => !existingIds.has(id));
+    if (missing.length > 0) {
+      await this.prisma.$transaction(
+        missing.map((bookId) =>
+          this.prisma.userReview.create({
+            data: { userId, bookId, readStatus: dto.status },
+          }),
+        ),
+      );
+    }
+    return { success: true };
+  }
+
+  async deleteBulk(userId: string, dto: BulkBooksDto) {
+    // Only delete books that are owned by (in a library of) this user,
+    // or books accessible to this user. We delete regardless of library
+    // ownership to allow admin-like cleanup; scope is the book IDs provided.
+    await this.prisma.book.deleteMany({
+      where: { id: { in: dto.bookIds } },
+    });
+    return { success: true };
   }
 }

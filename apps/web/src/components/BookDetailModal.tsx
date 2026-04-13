@@ -177,6 +177,13 @@ export function BookDetailModal({
   // Delete book
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
+  const isAdmin = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') ?? '{}')?.role === 'ADMIN';
+    } catch {
+      return false;
+    }
+  })();
   const [deleting, setDeleting] = useState(false);
 
   // Reading queue
@@ -1064,17 +1071,19 @@ export function BookDetailModal({
                   )}
               </Group>
               <Group gap="sm">
-                <Button
-                  color="red"
-                  variant="light"
-                  leftSection={<IconTrash size={16} />}
-                  onClick={() => {
-                    setDeleteFiles(false);
-                    setDeleteConfirmOpen(true);
-                  }}
-                >
-                  Delete Book
-                </Button>
+                {isAdmin && (
+                  <Button
+                    color="red"
+                    variant="light"
+                    leftSection={<IconTrash size={16} />}
+                    onClick={() => {
+                      setDeleteFiles(false);
+                      setDeleteConfirmOpen(true);
+                    }}
+                  >
+                    Delete Book
+                  </Button>
+                )}
                 <Button variant="subtle" onClick={onClose}>
                   Close
                 </Button>

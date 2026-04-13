@@ -11,6 +11,9 @@ interface BookGridProps {
   onBookClick: (id: string) => void;
   onBookSend?: (id: string) => void;
   onBookRatingChange?: (id: string, rating: number) => void;
+  isSelectMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 export function BookGrid({
@@ -22,6 +25,9 @@ export function BookGrid({
   onBookClick,
   onBookSend,
   onBookRatingChange,
+  isSelectMode,
+  selectedIds,
+  onToggleSelect,
 }: BookGridProps) {
   const gridStyle = {
     display: 'grid',
@@ -59,6 +65,11 @@ export function BookGrid({
             onBookRatingChange
               ? (r) => onBookRatingChange(book.id, r)
               : undefined
+          }
+          isSelectMode={isSelectMode}
+          isSelected={selectedIds?.has(book.id)}
+          onToggleSelect={
+            onToggleSelect ? () => onToggleSelect(book.id) : undefined
           }
         />
       ))}

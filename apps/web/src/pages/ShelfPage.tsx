@@ -9,11 +9,18 @@ import {
   Divider,
   Text,
   Group,
+  ActionIcon,
 } from '@mantine/core';
+import { IconCheckbox } from '@tabler/icons-react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSetAtom, useAtomValue } from 'jotai';
+import { useSetAtom, useAtomValue, useAtom } from 'jotai';
 import { api } from '../utils/api';
-import { shelvesAtom, userSettingsAtom } from '../store/atoms';
+import {
+  shelvesAtom,
+  userSettingsAtom,
+  selectedBookIdsAtom,
+  isSelectModeAtom,
+} from '../store/atoms';
 import type { Shelf } from '../store/atoms';
 import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
@@ -38,6 +45,43 @@ export function ShelfPage() {
   const setShelves = useSetAtom(shelvesAtom);
   const userSettings = useAtomValue(userSettingsAtom);
   const minWidth = ITEM_MIN_WIDTHS[userSettings.bookItemSize] ?? 160;
+  const [selectedBookIds, setSelectedBookIds] = useAtom(selectedBookIdsAtom);
+  const isSelectMode = useAtomValue(isSelectModeAtom);
+  const [selectModeActive, setSelectModeActive] = useState(false);
+
+  useEffect(() => {
+    setSelectedBookIds(new Set());
+    setSelectModeActive(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    if (!isSelectMode) setSelectModeActive(false);
+  }, [isSelectMode]);
+
+  function toggleSelectMode() {
+    if (selectModeActive) {
+      setSelectModeActive(false);
+      setSelectedBookIds(new Set());
+    } else {
+      setSelectModeActive(true);
+    }
+  }
+
+  function handleToggleSelect(bookId: string) {
+    setSelectedBookIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(bookId)) next.delete(bookId);
+      else next.add(bookId);
+      return next;
+    });
+  }
+
+  function handleSelectAll() {
+    const allIds = new Set(books.map((b) => b.id));
+    const allSelected = books.every((b) => selectedBookIds.has(b.id));
+    setSelectedBookIds(allSelected ? new Set() : allIds);
+  }
 
   const loadBooks = useCallback(async () => {
     if (!id) return;
@@ -117,6 +161,25 @@ export function ShelfPage() {
         <PageHeader
           title={<Title order={2}>{shelf?.name}</Title>}
           onSettingsClick={openSettings}
+          rightActions={
+            <Group gap="xs">
+              {selectModeActive && (
+                <Button variant="subtle" size="xs" onClick={handleSelectAll}>
+                  {books.every((b) => selectedBookIds.has(b.id))
+                    ? 'Deselect All'
+                    : 'Select All'}
+                </Button>
+              )}
+              <ActionIcon
+                variant={selectModeActive ? 'filled' : 'subtle'}
+                size="md"
+                onClick={toggleSelectMode}
+                aria-label="Toggle select mode"
+              >
+                <IconCheckbox size={18} />
+              </ActionIcon>
+            </Group>
+          }
         />
       )}
 
@@ -127,6 +190,9 @@ export function ShelfPage() {
         skeletonCount={5}
         emptyMessage="No books on this shelf yet."
         onBookClick={setSelectedBookId}
+        isSelectMode={selectModeActive}
+        selectedIds={selectedBookIds}
+        onToggleSelect={handleToggleSelect}
       />
 
       <Modal

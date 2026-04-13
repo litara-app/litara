@@ -29,6 +29,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { BooksService, GetBooksQueryDto, UpdateBookDto } from './books.service';
 import { MailService } from '../mail/mail.service';
+import {
+  BulkBooksDto,
+  BulkStatusDto,
+  BulkReadingProgressDto,
+} from './dto/bulk-books.dto';
 import { SendBookDto } from '../mail/dto/send-book.dto';
 import { MetadataProvider } from '../metadata/metadata.service';
 import type { RequestWithUser } from '../auth/interfaces/authenticated-user.interface';
@@ -60,6 +65,33 @@ export class BooksController {
       },
       req.user.id,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('bulk-reading-progress')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SuccessDto })
+  patchBulkReadingProgress(
+    @Req() req: RequestWithUser,
+    @Body() dto: BulkReadingProgressDto,
+  ) {
+    return this.booksService.patchBulkReadingProgress(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('bulk-status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SuccessDto })
+  patchBulkStatus(@Req() req: RequestWithUser, @Body() dto: BulkStatusDto) {
+    return this.booksService.patchBulkStatus(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('bulk')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SuccessDto })
+  deleteBulk(@Req() req: RequestWithUser, @Body() dto: BulkBooksDto) {
+    return this.booksService.deleteBulk(req.user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
