@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   AppShell,
   Alert,
@@ -29,11 +30,13 @@ import {
 import { useSetAtom, useAtomValue } from 'jotai';
 import { NavbarContent } from './NavbarContent';
 import { BookDetailModal } from '../BookDetailModal';
+import { BulkActionBar } from '../BulkActionBar';
 import { api } from '../../utils/api';
 import {
   userSettingsAtom,
   DEFAULT_USER_SETTINGS,
   backendStatusAtom,
+  selectedBookIdsAtom,
 } from '../../store/atoms';
 
 interface SearchBook {
@@ -125,6 +128,12 @@ export function AppLayout() {
   const inputRef = useRef<HTMLInputElement>(null);
   const setUserSettings = useSetAtom(userSettingsAtom);
   const backendStatus = useAtomValue(backendStatusAtom);
+  const setSelectedBookIds = useSetAtom(selectedBookIdsAtom);
+  const location = useLocation();
+
+  useEffect(() => {
+    setSelectedBookIds(new Set());
+  }, [location.pathname, setSelectedBookIds]);
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme('light');
 
@@ -312,6 +321,8 @@ export function AppLayout() {
         )}
         <Outlet />
       </AppShell.Main>
+
+      <BulkActionBar />
 
       <BookDetailModal
         bookId={searchBookId}

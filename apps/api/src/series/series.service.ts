@@ -24,7 +24,6 @@ export class SeriesService {
             book: {
               select: {
                 id: true,
-                coverData: true,
                 updatedAt: true,
                 authors: {
                   select: { author: { select: { name: true } } },
@@ -36,6 +35,19 @@ export class SeriesService {
       },
     });
 
+    // Determine which books have cover data without loading the bytes themselves.
+    const allBookIds = allSeries.flatMap((s) =>
+      s.books.map((sb) => sb.book.id),
+    );
+    const coverBookIdSet = new Set(
+      (
+        await this.db.book.findMany({
+          where: { id: { in: allBookIds }, coverData: { not: null } },
+          select: { id: true },
+        })
+      ).map((b) => b.id),
+    );
+
     return allSeries.map((series) => {
       const ownedCount = series.books.length;
 
@@ -43,7 +55,7 @@ export class SeriesService {
       const coverBooks: { id: string; coverUpdatedAt: string }[] = [];
       for (const sb of series.books) {
         if (coverBooks.length >= 3) break;
-        if (sb.book.coverData) {
+        if (coverBookIdSet.has(sb.book.id)) {
           coverBooks.push({
             id: sb.book.id,
             coverUpdatedAt: sb.book.updatedAt.toISOString(),
@@ -85,7 +97,6 @@ export class SeriesService {
               select: {
                 id: true,
                 title: true,
-                coverData: true,
                 updatedAt: true,
                 publishedDate: true,
                 pageCount: true,
@@ -107,6 +118,16 @@ export class SeriesService {
       throw new NotFoundException(`Series with id ${id} not found`);
     }
 
+    const bookIds = series.books.map((sb) => sb.book.id);
+    const coverBookIdSet = new Set(
+      (
+        await this.db.book.findMany({
+          where: { id: { in: bookIds }, coverData: { not: null } },
+          select: { id: true },
+        })
+      ).map((b) => b.id),
+    );
+
     const authorSet = new Set<string>();
     for (const sb of series.books) {
       for (const ba of sb.book.authors) {
@@ -118,7 +139,7 @@ export class SeriesService {
       id: sb.book.id,
       title: sb.book.title,
       sequence: sb.sequence,
-      hasCover: !!sb.book.coverData,
+      hasCover: coverBookIdSet.has(sb.book.id),
       coverUpdatedAt: sb.book.updatedAt.toISOString(),
       formats: [...new Set(sb.book.files.map((f) => f.format))],
       publishedDate: sb.book.publishedDate?.toISOString() ?? null,

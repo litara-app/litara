@@ -1,7 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Title, Stack, Text, Badge, Box, Group, Skeleton } from '@mantine/core';
-import { useAtomValue } from 'jotai';
+import {
+  Title,
+  Stack,
+  Text,
+  Badge,
+  Box,
+  Group,
+  Skeleton,
+  ActionIcon,
+  Button,
+} from '@mantine/core';
+import { useAtomValue, useSetAtom, useAtom } from 'jotai';
+import { IconCheckbox } from '@tabler/icons-react';
 import { api } from '../utils/api';
 import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
@@ -10,8 +21,12 @@ import { SmartShelfModal } from '../components/SmartShelfModal';
 import type { BookCardData } from '../components/BookCard';
 import type { SmartShelfDetail } from '../types/smartShelf';
 import { SMART_SHELF_FIELDS, SMART_SHELF_OPERATORS } from '../types/smartShelf';
-import { userSettingsAtom, smartShelvesAtom } from '../store/atoms';
-import { useSetAtom } from 'jotai';
+import {
+  userSettingsAtom,
+  smartShelvesAtom,
+  selectedBookIdsAtom,
+  isSelectModeAtom,
+} from '../store/atoms';
 import { ITEM_MIN_WIDTHS } from '../utils/book-grid';
 import { pushToast } from '../utils/toast';
 
@@ -40,6 +55,43 @@ export function SmartShelfPage() {
   const userSettings = useAtomValue(userSettingsAtom);
   const setSmartShelves = useSetAtom(smartShelvesAtom);
   const minWidth = ITEM_MIN_WIDTHS[userSettings.bookItemSize] ?? 160;
+  const [selectedBookIds, setSelectedBookIds] = useAtom(selectedBookIdsAtom);
+  const isSelectMode = useAtomValue(isSelectModeAtom);
+  const [selectModeActive, setSelectModeActive] = useState(false);
+
+  useEffect(() => {
+    setSelectedBookIds(new Set());
+    setSelectModeActive(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    if (!isSelectMode) setSelectModeActive(false);
+  }, [isSelectMode]);
+
+  function toggleSelectMode() {
+    if (selectModeActive) {
+      setSelectModeActive(false);
+      setSelectedBookIds(new Set());
+    } else {
+      setSelectModeActive(true);
+    }
+  }
+
+  function handleToggleSelect(bookId: string) {
+    setSelectedBookIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(bookId)) next.delete(bookId);
+      else next.add(bookId);
+      return next;
+    });
+  }
+
+  function handleSelectAll() {
+    const allIds = new Set(books.map((b) => b.id));
+    const allSelected = books.every((b) => selectedBookIds.has(b.id));
+    setSelectedBookIds(allSelected ? new Set() : allIds);
+  }
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -92,6 +144,25 @@ export function SmartShelfPage() {
         <PageHeader
           title={<Title order={2}>{shelf.name}</Title>}
           onSettingsClick={() => setSettingsOpen(true)}
+          rightActions={
+            <Group gap="xs">
+              {selectModeActive && (
+                <Button variant="subtle" size="xs" onClick={handleSelectAll}>
+                  {books.every((b) => selectedBookIds.has(b.id))
+                    ? 'Deselect All'
+                    : 'Select All'}
+                </Button>
+              )}
+              <ActionIcon
+                variant={selectModeActive ? 'filled' : 'subtle'}
+                size="md"
+                onClick={toggleSelectMode}
+                aria-label="Toggle select mode"
+              >
+                <IconCheckbox size={18} />
+              </ActionIcon>
+            </Group>
+          }
         />
 
         <Box>
@@ -122,6 +193,9 @@ export function SmartShelfPage() {
           skeletonCount={12}
           emptyMessage="No books match these rules yet."
           onBookClick={setSelectedBookId}
+          isSelectMode={selectModeActive}
+          selectedIds={selectedBookIds}
+          onToggleSelect={handleToggleSelect}
         />
       </Stack>
 

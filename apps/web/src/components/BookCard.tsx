@@ -11,6 +11,7 @@ import {
   Group,
   Popover,
   Rating,
+  Checkbox,
 } from '@mantine/core';
 import {
   IconBook2,
@@ -50,6 +51,9 @@ interface BookCardProps extends BookCardData {
   onClick?: () => void;
   onSend?: () => void;
   onRatingChange?: (rating: number) => void;
+  isSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export function BookCard({
@@ -65,6 +69,9 @@ export function BookCard({
   onClick,
   onSend,
   onRatingChange,
+  isSelectMode,
+  isSelected,
+  onToggleSelect,
 }: BookCardProps) {
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
@@ -88,6 +95,14 @@ export function BookCard({
     onRatingChange?.(val);
   }
 
+  function handleCardClick() {
+    if (isSelectMode) {
+      onToggleSelect?.();
+    } else {
+      onClick?.();
+    }
+  }
+
   return (
     <Card
       shadow="sm"
@@ -95,15 +110,44 @@ export function BookCard({
       radius="md"
       withBorder
       className="book-card"
-      onClick={onClick}
+      onClick={handleCardClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => {
         setHovered(false);
         setRatingOpen(false);
       }}
-      style={{ cursor: onClick ? 'pointer' : undefined }}
+      style={{
+        cursor: onClick || isSelectMode ? 'pointer' : undefined,
+        outline: isSelected
+          ? '2px solid var(--mantine-color-blue-5)'
+          : undefined,
+        outlineOffset: isSelected ? '-2px' : undefined,
+      }}
     >
       <Box mb="sm" style={{ position: 'relative' }}>
+        {/* Selection checkbox — top left, visible in select mode */}
+        {isSelectMode && (
+          <Box
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              zIndex: 2,
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.();
+            }}
+          >
+            <Checkbox
+              checked={isSelected ?? false}
+              onChange={() => {}}
+              size="sm"
+              styles={{ input: { cursor: 'pointer' } }}
+            />
+          </Box>
+        )}
+
         <AspectRatio ratio={2 / 3}>
           {showCover ? (
             <img

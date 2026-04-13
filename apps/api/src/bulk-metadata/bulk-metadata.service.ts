@@ -112,9 +112,13 @@ export class BulkMetadataService {
   // ── Scope resolution ──────────────────────────────────────────────────────
 
   async resolveBookIds(
-    scope: 'all' | 'library' | 'shelf',
+    scope: 'all' | 'library' | 'shelf' | 'selection',
     scopeId?: string,
+    bookIds?: string[],
   ): Promise<string[]> {
+    if (scope === 'selection') {
+      return bookIds ?? [];
+    }
     if (scope === 'all') {
       const books = await this.prisma.book.findMany({
         select: { id: true },
@@ -170,13 +174,18 @@ export class BulkMetadataService {
   // ── Bulk run ──────────────────────────────────────────────────────────────
 
   async startBulkRun(opts: {
-    scope: 'all' | 'library' | 'shelf';
+    scope: 'all' | 'library' | 'shelf' | 'selection';
     scopeId?: string;
+    bookIds?: string[];
     overwrite?: boolean;
     guidedSelections?: GuidedSelectionDto[];
     throttleMs?: number;
   }): Promise<{ taskId: string; total: number }> {
-    const bookIds = await this.resolveBookIds(opts.scope, opts.scopeId);
+    const bookIds = await this.resolveBookIds(
+      opts.scope,
+      opts.scopeId,
+      opts.bookIds,
+    );
 
     const task = await this.prisma.task.create({
       data: {
