@@ -1,3 +1,10 @@
+# [1.26.0](https://github.com/litara-app/litara/compare/v1.25.0...v1.26.0) (2026-04-13)
+
+
+### Features
+
+* bulk operations on books via multi-select ([7995f6b](https://github.com/litara-app/litara/commit/7995f6b305cf8e4c7681243422bec111958a5536))
+
 # [1.25.0](https://github.com/litara-app/litara/compare/v1.24.0...v1.25.0) (2026-04-12)
 
 
