@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { RequestMethod, VersioningType } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -9,7 +10,13 @@ async function bootstrap() {
   const logLevels = (process.env.LOG_LEVEL ?? 'log,warn,error').split(
     ',',
   ) as any[];
-  const app = await NestFactory.create(AppModule, { logger: logLevels });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: logLevels,
+  });
+
+  // Trust X-Forwarded-Proto/X-Forwarded-For from a reverse proxy (e.g. Caddy)
+  // so req.protocol reflects https and OPDS feed URLs are generated correctly.
+  app.set('trust proxy', 1);
 
   // Security headers — skip for OPDS routes so ebook reader apps (Thorium,
   // KOReader, etc.) aren't blocked by CSP upgrade-insecure-requests or
