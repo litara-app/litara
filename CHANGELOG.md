@@ -1,3 +1,10 @@
+## [1.26.1](https://github.com/litara-app/litara/compare/v1.26.0...v1.26.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* opds behind proxy was giving redirect error ([922e020](https://github.com/litara-app/litara/commit/922e020f0322fb42ff6ee9d6f77cbf7a51b89753))
+
 # [1.26.0](https://github.com/litara-app/litara/compare/v1.25.0...v1.26.0) (2026-04-13)
 
 
