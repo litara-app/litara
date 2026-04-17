@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/litara-app/litara/compare/v1.26.1...v1.27.0) (2026-04-17)
+
+
+### Features
+
+* splitting reading progress into web and koreader ([65fad33](https://github.com/litara-app/litara/commit/65fad33da6bd7c74c976d79fca7ef07effce8da5))
+
 ## [1.26.1](https://github.com/litara-app/litara/compare/v1.26.0...v1.26.1) (2026-04-14)
 
 
