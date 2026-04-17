@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ProgressSource } from '@prisma/client';
 import { KoReaderSyncService } from './koreader-sync.service';
 import { DatabaseService } from '../database/database.service';
 
@@ -57,7 +58,20 @@ describe('KoReaderSyncService', () => {
       expect(mockDb.bookFile.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({ where: { koReaderHash: 'abc123' } }),
       );
-      expect(mockDb.readingProgress.upsert).toHaveBeenCalled();
+      expect(mockDb.readingProgress.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId_bookId_source: {
+              userId: 'user-1',
+              bookId: 'book-1',
+              source: ProgressSource.KOREADER,
+            },
+          },
+          create: expect.objectContaining({
+            source: ProgressSource.KOREADER,
+          }) as unknown,
+        }),
+      );
       expect(mockDb.book.update).toHaveBeenCalledWith({
         where: { id: 'book-1' },
         data: { updatedAt: expect.any(Date) as unknown },
@@ -94,6 +108,23 @@ describe('KoReaderSyncService', () => {
 
       const result = await service.getProgress(mockCredential, 'abc');
       expect(result).toEqual({});
+    });
+
+    it('queries the KOREADER source row', async () => {
+      mockDb.bookFile.findFirst.mockResolvedValue({ bookId: 'book-1' });
+      mockDb.readingProgress.findUnique.mockResolvedValue(null);
+
+      await service.getProgress(mockCredential, 'abc');
+
+      expect(mockDb.readingProgress.findUnique).toHaveBeenCalledWith({
+        where: {
+          userId_bookId_source: {
+            userId: 'user-1',
+            bookId: 'book-1',
+            source: ProgressSource.KOREADER,
+          },
+        },
+      });
     });
 
     it('returns progress fields when ReadingProgress exists', async () => {

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { KoReaderCredential } from '@prisma/client';
+import { KoReaderCredential, ProgressSource } from '@prisma/client';
 
 interface ProgressUpdate {
   document: string;
@@ -52,11 +52,16 @@ export class KoReaderSyncService {
 
     await this.db.readingProgress.upsert({
       where: {
-        userId_bookId: { userId: credential.userId, bookId: bookFile.bookId },
+        userId_bookId_source: {
+          userId: credential.userId,
+          bookId: bookFile.bookId,
+          source: ProgressSource.KOREADER,
+        },
       },
       create: {
         userId: credential.userId,
         bookId: bookFile.bookId,
+        source: ProgressSource.KOREADER,
         percentage: body.percentage,
         koReaderProgress: body.progress,
         koReaderDevice: body.device,
@@ -99,7 +104,11 @@ export class KoReaderSyncService {
 
     const progress = await this.db.readingProgress.findUnique({
       where: {
-        userId_bookId: { userId: credential.userId, bookId: bookFile.bookId },
+        userId_bookId_source: {
+          userId: credential.userId,
+          bookId: bookFile.bookId,
+          source: ProgressSource.KOREADER,
+        },
       },
     });
 

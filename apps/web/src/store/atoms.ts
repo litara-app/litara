@@ -19,9 +19,16 @@ export interface DashboardSection {
   order: number;
 }
 
+export type ProgressDisplaySource =
+  | 'HIGHEST'
+  | 'MOST_RECENT'
+  | 'KOREADER'
+  | 'LITARA';
+
 export interface UserSettings {
   dashboardLayout: DashboardSection[];
   bookItemSize: 'sm' | 'md' | 'lg' | 'xl';
+  progressDisplaySource: ProgressDisplaySource;
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
@@ -36,6 +43,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
     { key: 'recently-added', label: 'Recently Added', visible: true, order: 2 },
   ],
   bookItemSize: 'md',
+  progressDisplaySource: 'HIGHEST',
 };
 
 export interface Toast {

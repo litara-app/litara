@@ -19,7 +19,17 @@ import { UpdatePendingBookDto } from './dto/pending-book.dto';
 import * as chokidar from 'chokidar';
 import type { FSWatcher } from 'chokidar';
 
-const SUPPORTED_FORMATS = ['epub', 'mobi', 'azw', 'azw3', 'cbz', 'pdf'];
+const SUPPORTED_FORMATS = [
+  'epub',
+  'mobi',
+  'azw',
+  'azw3',
+  'cbz',
+  'pdf',
+  'fb2',
+  'cbr',
+  'cb7',
+];
 
 @Injectable()
 export class BookDropService implements OnModuleInit, OnModuleDestroy {

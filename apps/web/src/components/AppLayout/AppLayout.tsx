@@ -146,6 +146,7 @@ export function AppLayout() {
             dashboardLayout:
               res.data.dashboardLayout ?? DEFAULT_USER_SETTINGS.dashboardLayout,
             bookItemSize: res.data.bookItemSize ?? 'md',
+            progressDisplaySource: res.data.progressDisplaySource ?? 'HIGHEST',
           });
         })
         .catch(() => {}),

@@ -74,6 +74,7 @@ export class UsersController {
     return {
       dashboardLayout: layout,
       bookItemSize: settings?.bookItemSize ?? 'md',
+      progressDisplaySource: settings?.progressDisplaySource ?? 'HIGHEST',
     };
   }
 
@@ -83,13 +84,23 @@ export class UsersController {
   async updateSettings(
     @Req() req: RequestWithUser,
     @Body()
-    body: { dashboardLayout?: DashboardSection[]; bookItemSize?: string },
+    body: {
+      dashboardLayout?: DashboardSection[];
+      bookItemSize?: string;
+      progressDisplaySource?: string;
+    },
   ) {
     const userId = req.user.id;
-    const data: { dashboardLayout?: string; bookItemSize?: string } = {};
+    const data: {
+      dashboardLayout?: string;
+      bookItemSize?: string;
+      progressDisplaySource?: string;
+    } = {};
     if (body.dashboardLayout)
       data.dashboardLayout = JSON.stringify(body.dashboardLayout);
     if (body.bookItemSize) data.bookItemSize = body.bookItemSize;
+    if (body.progressDisplaySource)
+      data.progressDisplaySource = body.progressDisplaySource;
 
     const settings = await this.prisma.userSettings.upsert({
       where: { userId },
@@ -101,6 +112,7 @@ export class UsersController {
         ? (JSON.parse(settings.dashboardLayout) as DashboardSection[])
         : DEFAULT_LAYOUT,
       bookItemSize: settings.bookItemSize ?? 'md',
+      progressDisplaySource: settings.progressDisplaySource ?? 'HIGHEST',
     };
   }
 

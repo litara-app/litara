@@ -119,7 +119,9 @@ export default function BookDetailScreen() {
   );
   const [showEmailPicker, setShowEmailPicker] = useState(false);
   const [sending, setSending] = useState(false);
-  const [resettingProgress, setResettingProgress] = useState(false);
+  const [resettingSource, setResettingSource] = useState<
+    'LITARA' | 'KOREADER' | null
+  >(null);
   const queryClient = useQueryClient();
 
   const serverUrl = serverUrlStore.get() ?? '';
@@ -214,25 +216,26 @@ export default function BookDetailScreen() {
     }
   };
 
-  const handleResetProgress = () => {
+  const handleResetProgress = (source: 'LITARA' | 'KOREADER') => {
+    const label = source === 'LITARA' ? 'Litara' : 'KOReader';
     Alert.alert(
-      'Reset Reading Progress',
-      'This will clear all reading progress for this book, including KOReader sync data and in-app progress.',
+      `Reset ${label} Progress`,
+      `This will clear your ${label} reading progress for this book.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Reset',
           style: 'destructive',
           onPress: async () => {
-            setResettingProgress(true);
+            setResettingSource(source);
             try {
-              await resetReadingProgress(id);
+              await resetReadingProgress(id, source);
               await refetchProgress();
               await queryClient.invalidateQueries({ queryKey: ['books'] });
             } catch {
               Alert.alert('Error', 'Failed to reset reading progress.');
             } finally {
-              setResettingProgress(false);
+              setResettingSource(null);
             }
           },
         },
@@ -301,41 +304,56 @@ export default function BookDetailScreen() {
           </View>
 
           {/* Reading Progress */}
-          {readingProgress != null && readingProgress.percentage > 0 && (
-            <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
+          {readingProgress != null &&
+            readingProgress.filter((p) => (p.percentage ?? 0) > 0).length >
+              0 && (
+              <View style={styles.progressSection}>
                 <Text style={styles.sectionTitle}>Reading Progress</Text>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.resetBtn,
-                    pressed && styles.resetBtnPressed,
-                  ]}
-                  onPress={handleResetProgress}
-                  disabled={resettingProgress}
-                >
-                  {resettingProgress ? (
-                    <ActivityIndicator size="small" color="#ff6b6b" />
-                  ) : (
-                    <Text style={styles.resetBtnText}>Reset</Text>
-                  )}
-                </Pressable>
+                {readingProgress
+                  .filter((p) => (p.percentage ?? 0) > 0)
+                  .map((p) => {
+                    const isLitara = p.source === 'LITARA';
+                    const color = isLitara ? '#4ade80' : '#60a5fa';
+                    const label = isLitara ? 'Litara' : 'KOReader';
+                    const pct = Math.round((p.percentage ?? 0) * 100);
+                    return (
+                      <View key={p.source} style={styles.progressEntry}>
+                        <View style={styles.progressHeader}>
+                          <Text style={[styles.progressSourceLabel, { color }]}>
+                            {label}
+                          </Text>
+                          <Pressable
+                            style={({ pressed }) => [
+                              styles.resetBtn,
+                              pressed && styles.resetBtnPressed,
+                            ]}
+                            onPress={() => handleResetProgress(p.source)}
+                            disabled={resettingSource !== null}
+                          >
+                            {resettingSource === p.source ? (
+                              <ActivityIndicator size="small" color="#ff6b6b" />
+                            ) : (
+                              <Text style={styles.resetBtnText}>Reset</Text>
+                            )}
+                          </Pressable>
+                        </View>
+                        <View style={styles.progressTrack}>
+                          <View
+                            style={[
+                              styles.progressFill,
+                              {
+                                width: `${pct}%` as `${number}%`,
+                                backgroundColor: color,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.progressLabel}>{pct}% read</Text>
+                      </View>
+                    );
+                  })}
               </View>
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width:
-                        `${readingProgress.percentage * 100}%` as `${number}%`,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressLabel}>
-                {Math.round(readingProgress.percentage * 100)}% read
-              </Text>
-            </View>
-          )}
+            )}
 
           {/* Description */}
           {book.description && (
@@ -569,9 +587,17 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     overflow: 'hidden',
   },
+  progressEntry: {
+    marginBottom: 16,
+  },
+  progressSourceLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
   progressFill: {
     height: 4,
-    backgroundColor: '#4a9eff',
     borderRadius: 2,
   },
   progressLabel: {

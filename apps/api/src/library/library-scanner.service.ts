@@ -20,7 +20,17 @@ import { extractFileMetadata } from '../common/extract-file-metadata';
 import { findSidecar } from '../common/find-sidecar';
 import type { FSWatcher } from 'chokidar';
 
-const SUPPORTED_FORMATS = ['epub', 'mobi', 'azw', 'azw3', 'cbz', 'pdf'];
+const SUPPORTED_FORMATS = [
+  'epub',
+  'mobi',
+  'azw',
+  'azw3',
+  'cbz',
+  'pdf',
+  'fb2',
+  'cbr',
+  'cb7',
+];
 const GLOB_PATTERN = `**/*.{${SUPPORTED_FORMATS.join(',')}}`;
 
 @Injectable()
