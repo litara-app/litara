@@ -12,6 +12,10 @@ Litara includes a built-in reader powered by [Foliate.js](https://github.com/joh
 
 Your position is saved automatically as you read (debounced, every ~1 second) and synced across sessions. When you reopen a book, the reader restores your last position. Progress is also shown as a thin green bar on book cards in your library and as a percentage in the book detail panel.
 
+Litara tracks reading progress **per source** — the built-in reader (Litara) and KOReader each maintain their own independent progress record. Opening a book in the Litara reader will never overwrite your KOReader position, and vice versa.
+
+The book detail panel shows a progress bar for each source that has recorded progress, color-coded green (Litara) and blue (KOReader). Each bar has an individual clear button. You can control which source's progress appears on book cards and the dashboard in **Settings → KOReader Sync → Progress display preference**.
+
 ## Keyboard shortcuts
 
 All shortcuts work when the reader iframe has focus (i.e., while reading). Most also work when the toolbar is focused.

@@ -142,6 +142,7 @@ export function ReaderPage() {
           .patch(`/books/${bookId}/progress`, {
             location: cfi,
             percentage: fraction,
+            source: 'LITARA',
           })
           .catch(() => {
             /* silent */
@@ -166,6 +167,7 @@ export function ReaderPage() {
       body: JSON.stringify({
         location: lastCfi.current,
         percentage: lastFraction.current,
+        source: 'LITARA',
       }),
     }).catch(() => {
       /* silent */
@@ -210,7 +212,7 @@ export function ReaderPage() {
         if (!openCfi) {
           try {
             const res = await api.get<{ location: string } | null>(
-              `/books/${bookId}/progress`,
+              `/books/${bookId}/progress?source=LITARA`,
             );
             openCfi = res.data?.location ?? null;
           } catch {

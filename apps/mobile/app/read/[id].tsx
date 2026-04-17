@@ -67,6 +67,7 @@ export default function ReaderScreen() {
           .patch(`/books/${id}/progress`, {
             location: cfi,
             percentage: fraction,
+            source: 'LITARA',
           })
           .catch(() => {});
       }, 1500);
@@ -82,7 +83,7 @@ export default function ReaderScreen() {
     let cfi: string | null = null;
     try {
       const res = await api.get<{ location: string } | null>(
-        `/books/${id}/progress`,
+        `/books/${id}/progress?source=LITARA`,
       );
       cfi = res.data?.location ?? null;
     } catch {
@@ -109,6 +110,7 @@ export default function ReaderScreen() {
           .patch(`/books/${id}/progress`, {
             location: lastCfi.current,
             percentage: lastFraction.current ?? 0,
+            source: 'LITARA',
           })
           .catch(() => {});
       }

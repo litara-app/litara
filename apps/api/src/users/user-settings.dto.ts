@@ -20,4 +20,12 @@ export class UserSettingsDto {
 
   @ApiProperty()
   bookItemSize: string;
+
+  @ApiProperty({
+    description:
+      'Which progress source to display in the UI when both are available',
+    enum: ['HIGHEST', 'MOST_RECENT', 'KOREADER', 'LITARA'],
+    default: 'HIGHEST',
+  })
+  progressDisplaySource: string;
 }

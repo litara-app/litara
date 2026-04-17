@@ -42,9 +42,32 @@ KOReader will now sync your reading position to Litara automatically.
 
 When you read in KOReader and sync, Litara stores your reading position and percentage. The next time KOReader syncs (on the same or another device), it picks up where you left off.
 
+### Per-source progress isolation
+
+Litara tracks reading progress **separately** for the built-in reader and for KOReader. Each source maintains its own independent record, so they can never overwrite each other.
+
+- **Opening a book in the Litara reader will not affect your KOReader position**, even if the book is at 0% in the built-in reader.
+- **KOReader syncing will not affect your Litara reading position.**
+- The book detail panel shows a progress bar for each source that has recorded progress (green = Litara, blue = KOReader), each with its own clear button.
+
+### Progress display preference
+
+When a book has progress from both sources, you can control which percentage is shown on book cards and the dashboard:
+
+1. Open **Settings** (from the sidebar).
+2. Scroll to the **KOReader Sync** section.
+3. Under **Progress display preference**, choose one of:
+
+| Option                | Behaviour                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Highest** (default) | Shows whichever source has read furthest. Safe choice — you never appear to be behind where you actually are. |
+| **Most Recent**       | Shows whichever source synced most recently.                                                                  |
+| **KOReader**          | Always shows KOReader's percentage. Falls back to Litara if no KOReader progress exists yet.                  |
+| **Litara**            | Always shows the built-in reader's percentage. Falls back to KOReader if no Litara progress exists yet.       |
+
 ### Reading position compatibility
 
-Litara's web reader and KOReader use **different position formats** that are not interchangeable:
+Litara's built-in reader and KOReader use **different position formats** that are not interchangeable:
 
 | Client            | Position format                                                               |
 | ----------------- | ----------------------------------------------------------------------------- |
@@ -53,8 +76,8 @@ Litara's web reader and KOReader use **different position formats** that are not
 
 Because of this:
 
-- **Percentage** is synced between KOReader and the Litara web reader. Both will show the same approximate progress (e.g. 42%).
-- **Exact position** is not shared. If you sync from KOReader and then open the book in the Litara web reader, it will not open at the exact same paragraph — the web reader has no record of where you were in CFI terms.
+- **Percentage** is displayed independently per source. Both will reflect the progress that specific reader has made.
+- **Exact position** is not shared between sources. If you sync from KOReader and then open the book in the Litara web reader, it opens at the Litara reader's last saved position (or the beginning if you have never opened it in the built-in reader before).
 - **For consistent exact-position sync across devices, read only in KOReader.** KOReader's own cross-device sync works at the exact position level since all devices use the same format.
 
 ## MD5 hash backfill
