@@ -96,15 +96,18 @@ function detailToEdited(d: BookDetail): EditedFields {
 }
 
 export function BookDetailModal({
-  bookId,
+  bookId: initialBookId,
   onClose,
   onBookUpdated,
 }: BookDetailModalProps) {
   const navigate = useNavigate();
+  const [bookId, setBookId] = useState<string | null>(initialBookId);
+  useEffect(() => {
+    setBookId(initialBookId);
+  }, [initialBookId]);
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [innerBookId, setInnerBookId] = useState<string | null>(null);
   interface ProgressEntry {
     source: 'LITARA' | 'KOREADER';
     percentage: number | null;
@@ -908,7 +911,10 @@ export function BookDetailModal({
                       onClose();
                       navigate(`/series?seriesId=${seriesId}`);
                     }}
-                    onOpenBook={(id) => setInnerBookId(id)}
+                    onOpenBook={(id) => {
+                      setBookId(id);
+                      setActiveTab('overview');
+                    }}
                   />
                 </Tabs.Panel>
 
@@ -1396,14 +1402,6 @@ export function BookDetailModal({
           </Group>
         </Stack>
       </Modal>
-
-      {innerBookId && (
-        <BookDetailModal
-          bookId={innerBookId}
-          onClose={() => setInnerBookId(null)}
-          onBookUpdated={onBookUpdated}
-        />
-      )}
     </>
   );
 }

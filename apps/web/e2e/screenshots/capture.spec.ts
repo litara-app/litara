@@ -190,12 +190,44 @@ test.describe('Admin Settings page', () => {
 });
 
 test.describe('Profile page', () => {
-  test('profile', async ({ page }) => {
+  test('profile-library-stats', async ({ page }) => {
     await page.goto('/profile');
     await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible({
       timeout: 10_000,
     });
+    // The Library Statistics tab is the default — wait for the stat cards to render
+    await expect(page.getByText('Books', { exact: true }).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    // Wait for charts: the pie chart SVG appears once data loads
+    await page
+      .locator('svg')
+      .first()
+      .waitFor({ timeout: 10_000 })
+      .catch(() => {});
     await settle(page);
-    await page.screenshot({ path: ss('profile'), fullPage: false });
+    await page.screenshot({
+      path: ss('profile-library-stats'),
+      fullPage: false,
+    });
+  });
+
+  test('profile-reading-stats', async ({ page }) => {
+    await page.goto('/profile');
+    await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByRole('tab', { name: 'Reading Stats' }).click();
+    // Wait for the heatmap and charts to render
+    await page
+      .locator('svg')
+      .first()
+      .waitFor({ timeout: 10_000 })
+      .catch(() => {});
+    await settle(page);
+    await page.screenshot({
+      path: ss('profile-reading-stats'),
+      fullPage: false,
+    });
   });
 });
