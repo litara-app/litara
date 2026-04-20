@@ -1,3 +1,10 @@
+# [1.28.0](https://github.com/litara-app/litara/compare/v1.27.0...v1.28.0) (2026-04-20)
+
+
+### Features
+
+* adding basic library statistics/graphs/charts ([03e07ff](https://github.com/litara-app/litara/commit/03e07ffa2f74727fa15cb6d86b681559dc357f42))
+
 # [1.27.0](https://github.com/litara-app/litara/compare/v1.26.1...v1.27.0) (2026-04-17)
 
 
