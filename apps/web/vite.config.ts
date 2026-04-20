@@ -13,6 +13,9 @@ const rootPkg = JSON.parse(readFileSync(rootPkgPath, 'utf-8')) as {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
   define: {
     __APP_VERSION__: JSON.stringify(rootPkg.version),
   },

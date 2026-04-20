@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   Stack,
@@ -29,6 +29,8 @@ import { ITEM_MIN_WIDTHS } from '../utils/book-grid';
 export function AllBooksPage() {
   const [books, setBooks] = useState<BookCardData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const cancelRef = useRef(false);
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
@@ -88,20 +90,44 @@ export function AllBooksPage() {
     if (!isSelectMode) setSelectModeActive(false);
   }, [isSelectMode]);
 
+  const BATCH_SIZE = 1000;
+
   const loadBooks = useCallback(async () => {
+    cancelRef.current = false;
     setLoading(true);
+    setLoadingMore(false);
+
     try {
-      const res = await api.get<BookCardData[]>(
-        '/books?limit=500&sortBy=title&order=asc',
-      );
-      setBooks(res.data);
+      let offset = 0;
+      let accumulated: BookCardData[] = [];
+
+      while (!cancelRef.current) {
+        const res = await api.get<BookCardData[]>(
+          `/books?limit=${BATCH_SIZE}&offset=${offset}&sortBy=title&order=asc`,
+        );
+        if (cancelRef.current) break;
+
+        const batch: BookCardData[] = res.data;
+        accumulated = [...accumulated, ...batch];
+        setBooks(accumulated);
+        setLoading(false);
+
+        if (batch.length < BATCH_SIZE) break;
+
+        setLoadingMore(true);
+        offset += BATCH_SIZE;
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
     void loadBooks();
+    return () => {
+      cancelRef.current = true;
+    };
   }, [loadBooks]);
 
   async function handleSizeChange(size: UserSettings['bookItemSize']) {
@@ -148,6 +174,12 @@ export function AllBooksPage() {
           </Group>
         }
       />
+
+      {loadingMore && (
+        <Text size="xs" c="dimmed">
+          Loading more books ({books.length.toLocaleString()} loaded)…
+        </Text>
+      )}
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         <div style={{ flex: 1, minWidth: 0 }}>

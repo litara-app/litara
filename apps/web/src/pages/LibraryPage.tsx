@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSetAtom, useAtomValue, useAtom } from 'jotai';
 import {
   Title,
@@ -40,6 +40,8 @@ export function LibraryPage() {
   const [books, setBooks] = useState<BookCardData[]>([]);
   const [loadingLib, setLoadingLib] = useState(true);
   const [loadingBooks, setLoadingBooks] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const cancelRef = useRef(false);
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editName, setEditName] = useState('');
@@ -103,16 +105,37 @@ export function LibraryPage() {
     setSelectedBookIds(allSelected ? new Set() : allIds);
   }
 
+  const BATCH_SIZE = 1000;
+
   const loadBooks = useCallback(async () => {
     if (!id) return;
+    cancelRef.current = false;
     setLoadingBooks(true);
+    setLoadingMore(false);
+
     try {
-      const res = await api.get<BookCardData[]>(
-        `/books?libraryId=${id}&limit=200&sortBy=title&order=asc`,
-      );
-      setBooks(res.data);
+      let offset = 0;
+      let accumulated: BookCardData[] = [];
+
+      while (!cancelRef.current) {
+        const res = await api.get<BookCardData[]>(
+          `/books?libraryId=${id}&limit=${BATCH_SIZE}&offset=${offset}&sortBy=title&order=asc`,
+        );
+        if (cancelRef.current) break;
+
+        const batch: BookCardData[] = res.data;
+        accumulated = [...accumulated, ...batch];
+        setBooks(accumulated);
+        setLoadingBooks(false);
+
+        if (batch.length < BATCH_SIZE) break;
+
+        setLoadingMore(true);
+        offset += BATCH_SIZE;
+      }
     } finally {
       setLoadingBooks(false);
+      setLoadingMore(false);
     }
   }, [id]);
 
@@ -127,6 +150,9 @@ export function LibraryPage() {
       })
       .finally(() => setLoadingLib(false));
     void loadBooks();
+    return () => {
+      cancelRef.current = true;
+    };
   }, [id, loadBooks]);
 
   function openSettings() {
@@ -217,6 +243,12 @@ export function LibraryPage() {
             </Group>
           }
         />
+      )}
+
+      {loadingMore && (
+        <Text size="xs" c="dimmed">
+          Loading more books ({books.length.toLocaleString()} loaded)…
+        </Text>
       )}
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>

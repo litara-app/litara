@@ -29,7 +29,18 @@ export async function extractFileMetadata(
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === '.epub') {
-    return extractEpubFileMetadata(filePath);
+    try {
+      return await extractEpubFileMetadata(filePath);
+    } catch (err) {
+      console.warn(
+        `[epub] Failed to parse metadata for "${filePath}", falling back to filename:`,
+        err instanceof Error ? err.message : err,
+      );
+      return {
+        title: path.basename(filePath, path.extname(filePath)),
+        authors: [],
+      };
+    }
   }
 
   if (['.mobi', '.azw', '.azw3'].includes(ext)) {
