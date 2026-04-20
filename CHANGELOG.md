@@ -1,3 +1,11 @@
+## [1.28.1](https://github.com/litara-app/litara/compare/v1.28.0...v1.28.1) (2026-04-20)
+
+
+### Bug Fixes
+
+* performance fixes for larger libraries ([22a8497](https://github.com/litara-app/litara/commit/22a84973169d41e1525d5717872a55c037062a52))
+* wrapping epub scanner with error handling for malformed epubs ([e7a86c9](https://github.com/litara-app/litara/commit/e7a86c9d26b254c3476b3026ba253f62befd1b16))
+
 # [1.28.0](https://github.com/litara-app/litara/compare/v1.27.0...v1.28.0) (2026-04-20)
 
 
