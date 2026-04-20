@@ -25,7 +25,8 @@
     "docker:build": "docker build -t litara:local .",
     "docker:up": "docker compose -f docker-compose.local.yml up --force-recreate",
     "docker:down": "docker compose -f docker-compose.local.yml down -v",
-    "wipe-litara": "bash scripts/wipe-litara-db.sh"
+    "wipe-litara": "bash scripts/wipe-litara-db.sh",
+    "screenshots": "npm run seed:fake -w apps/api && npm run screenshots -w apps/web"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",

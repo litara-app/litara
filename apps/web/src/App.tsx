@@ -9,6 +9,7 @@ import {
   Outlet,
 } from 'react-router-dom';
 import '@mantine/core/styles.css';
+import '@mantine/charts/styles.css';
 
 import { Login } from './pages/Login';
 import { SetupPage } from './pages/SetupPage';
