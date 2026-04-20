@@ -73,7 +73,7 @@ export async function extractFileMetadata(
     };
   }
 
-  // PDF — fall back to filename
+  // PDF, FB2, CBR, CB7 — fall back to filename
   return {
     title: path.basename(filePath, path.extname(filePath)),
     authors: [],

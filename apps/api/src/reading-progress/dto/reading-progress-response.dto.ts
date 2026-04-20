@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ProgressSource } from '@prisma/client';
 
 export class ReadingProgressResponseDto {
   @ApiProperty()
@@ -6,6 +7,9 @@ export class ReadingProgressResponseDto {
 
   @ApiProperty()
   bookId: string;
+
+  @ApiProperty({ enum: ProgressSource })
+  source: ProgressSource;
 
   @ApiProperty({
     description:

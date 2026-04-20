@@ -30,7 +30,7 @@ import axios from 'axios';
 import { useAtom } from 'jotai';
 import { api } from '../utils/api';
 import { userSettingsAtom } from '../store/atoms';
-import type { UserSettings } from '../store/atoms';
+import type { UserSettings, ProgressDisplaySource } from '../store/atoms';
 import { SmtpConfigForm } from './SmtpConfigForm';
 import { ChangePasswordSection } from './ChangePasswordSection';
 
@@ -221,6 +221,7 @@ interface KoReaderCredential {
 }
 
 export function KoReaderSyncSection() {
+  const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
   const [credential, setCredential] = useState<KoReaderCredential | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncUrl, setSyncUrl] = useState('');
@@ -276,6 +277,15 @@ export function KoReaderSyncSection() {
     } finally {
       setRemoving(false);
     }
+  }
+
+  async function handleDisplaySourceChange(val: string) {
+    const updated = {
+      ...userSettings,
+      progressDisplaySource: val as ProgressDisplaySource,
+    };
+    setUserSettings(updated);
+    await api.patch('/users/me/settings', { progressDisplaySource: val });
   }
 
   if (loading) {
@@ -380,6 +390,24 @@ export function KoReaderSyncSection() {
             </Stack>
           </form>
         )}
+
+        <Text size="sm" c="dimmed" mt="xs">
+          Progress display preference
+        </Text>
+        <Text size="xs" c="dimmed">
+          When a book has progress from both Litara and KOReader, show:
+        </Text>
+        <SegmentedControl
+          value={userSettings.progressDisplaySource}
+          onChange={(val) => void handleDisplaySourceChange(val)}
+          data={[
+            { label: 'Highest', value: 'HIGHEST' },
+            { label: 'Most Recent', value: 'MOST_RECENT' },
+            { label: 'KOReader', value: 'KOREADER' },
+            { label: 'Litara', value: 'LITARA' },
+          ]}
+          w="fit-content"
+        />
       </Stack>
     </Paper>
   );

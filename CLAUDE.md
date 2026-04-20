@@ -78,7 +78,7 @@ NestJS app with URI versioning (`/api/v1/...`). Swagger UI is served at `/docs`.
 - `DatabaseModule` — Wraps PrismaClient using the `@prisma/adapter-pg` driver (Prisma 7 driver adapters). Runs `prisma migrate deploy` automatically on startup.
 - `AuthModule` — JWT + Passport local strategy. JWT tokens expire in 60 minutes. Secret read from `JWT_SECRET` env var.
 - `UsersModule` — User management with bcrypt password hashing.
-- `LibraryModule` — Contains `LibraryScannerService`, which on startup does a full scan of watched folders using `fast-glob`, then switches to continuous file watching with `chokidar`. Supported formats: `epub`, `mobi`, `azw`, `azw3`, `cbz`, `pdf`. EPUB metadata is extracted via `epub2`. Other formats fall back to filename-based metadata.
+- `LibraryModule` — Contains `LibraryScannerService`, which on startup does a full scan of watched folders using `fast-glob`, then switches to continuous file watching with `chokidar`. Supported formats: `epub`, `mobi`, `azw`, `azw3`, `cbz`, `pdf`, `fb2`, `cbr`, `cb7`. EPUB metadata is extracted via `epub2`, `.mobi`, `.azw`, `.azw3` are parsed via `mobi-parser` (internal package). CBZ parsed by `cbz-parser` (internal package). Other formats fall back to filename-based metadata.
 
 **Prisma schema** is in `apps/api/prisma/schema.prisma`. Key models: `User`, `Library`, `Book`, `Author`, `BookAuthor`, `BookFile`, `WatchedFolder`, `ReadingProgress`, `Annotation`, `Shelf`, `SmartShelfRule`, `Task`, `Log`, `ServerSettings`.
 

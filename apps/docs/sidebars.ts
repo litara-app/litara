@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
     'email-delivery',
     'smart-shelves',
     'reading-queue',
+    'profile-stats',
     'metadata-enrichment',
     'authors',
     'library-filter',

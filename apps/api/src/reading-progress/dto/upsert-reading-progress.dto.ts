@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ProgressSource } from '@prisma/client';
 
 export class UpsertReadingProgressDto {
   @ApiProperty({
@@ -12,4 +13,12 @@ export class UpsertReadingProgressDto {
     required: false,
   })
   percentage?: number;
+
+  @ApiProperty({
+    description: 'Which reader is reporting progress',
+    enum: ProgressSource,
+    required: false,
+    default: ProgressSource.LITARA,
+  })
+  source?: ProgressSource;
 }

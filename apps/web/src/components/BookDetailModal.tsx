@@ -96,18 +96,23 @@ function detailToEdited(d: BookDetail): EditedFields {
 }
 
 export function BookDetailModal({
-  bookId,
+  bookId: initialBookId,
   onClose,
   onBookUpdated,
 }: BookDetailModalProps) {
   const navigate = useNavigate();
+  const [bookId, setBookId] = useState<string | null>(initialBookId);
+  useEffect(() => {
+    setBookId(initialBookId);
+  }, [initialBookId]);
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [innerBookId, setInnerBookId] = useState<string | null>(null);
-  const [readingProgress, setReadingProgress] = useState<{
-    percentage: number;
-  } | null>(null);
+  interface ProgressEntry {
+    source: 'LITARA' | 'KOREADER';
+    percentage: number | null;
+  }
+  const [readingProgress, setReadingProgress] = useState<ProgressEntry[]>([]);
 
   const [rating, setRating] = useState(0);
   const [readStatus, setReadStatus] = useState('UNREAD');
@@ -169,9 +174,10 @@ export function BookDetailModal({
   const [matchConfirmOpen, setMatchConfirmOpen] = useState(false);
   const [matching, setMatching] = useState(false);
 
-  // Reset progress
-  const [resetProgressConfirmOpen, setResetProgressConfirmOpen] =
-    useState(false);
+  // Reset progress — tracks which source is pending clear (null = no confirm open)
+  const [resetProgressSource, setResetProgressSource] = useState<
+    'LITARA' | 'KOREADER' | null
+  >(null);
   const [resettingProgress, setResettingProgress] = useState(false);
 
   // Delete book
@@ -200,14 +206,14 @@ export function BookDetailModal({
     setLoading(true);
     setActiveTab('overview');
     setIsDirty(false);
-    setReadingProgress(null);
+    setReadingProgress([]);
     // Capture current values so we can detect whether setState actually changes them
     const prevRating = rating;
     const prevReadStatus = readStatus;
     Promise.all([
       api.get<BookDetail>(`/books/${bookId}`),
       api
-        .get<{ percentage: number } | null>(`/books/${bookId}/progress`)
+        .get<ProgressEntry[]>(`/books/${bookId}/progress/all`)
         .catch(() => null),
     ])
       .then(([bookRes, progressRes]) => {
@@ -229,8 +235,9 @@ export function BookDetailModal({
         setLibraryId(d.library?.id ?? '');
         setSelectedShelfIds(d.shelves.map((s) => s.id));
         setInReadingQueue(d.inReadingQueue);
-        if (progressRes?.data?.percentage != null)
-          setReadingProgress(progressRes.data);
+        setReadingProgress(
+          (progressRes?.data ?? []).filter((p) => p.percentage != null),
+        );
       })
       .finally(() => setLoading(false));
   }, [bookId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -464,16 +471,16 @@ export function BookDetailModal({
     }
   }
 
-  async function handleResetProgress() {
+  async function handleResetProgress(source: 'LITARA' | 'KOREADER') {
     if (!detail) return;
     setResettingProgress(true);
     try {
-      await api.delete(`/books/${detail.id}/progress`);
-      setReadingProgress(null);
-      setResetProgressConfirmOpen(false);
-      pushToast('Reading progress reset', { color: 'green' });
+      await api.delete(`/books/${detail.id}/progress?source=${source}`);
+      setReadingProgress((prev) => prev.filter((p) => p.source !== source));
+      setResetProgressSource(null);
+      pushToast('Reading progress cleared', { color: 'green' });
     } catch {
-      pushToast('Failed to reset progress', { color: 'red' });
+      pushToast('Failed to clear progress', { color: 'red' });
     } finally {
       setResettingProgress(false);
     }
@@ -660,32 +667,53 @@ export function BookDetailModal({
                     >
                       Read
                     </Button>
-                    {readingProgress && (
-                      <Box>
-                        <Progress
-                          value={readingProgress.percentage * 100}
-                          size="sm"
-                          color="green"
-                          radius="xs"
-                        />
-                        <Group justify="space-between" align="center" mt={2}>
-                          <Text size="xs" c="dimmed">
-                            {detail.pageCount
-                              ? `Page ~${Math.round(readingProgress.percentage * detail.pageCount)} of ${detail.pageCount}`
-                              : `${Math.round(readingProgress.percentage * 100)}% read`}
-                          </Text>
-                          <Tooltip label="Reset progress" withArrow>
-                            <ActionIcon
-                              size="xs"
-                              variant="subtle"
-                              color="red"
-                              onClick={() => setResetProgressConfirmOpen(true)}
-                            >
-                              <IconX size={12} />
-                            </ActionIcon>
-                          </Tooltip>
-                        </Group>
-                      </Box>
+                    {readingProgress.length > 0 && (
+                      <Stack gap={6}>
+                        {readingProgress.map((p) => {
+                          const pct = p.percentage ?? 0;
+                          const label =
+                            p.source === 'KOREADER' ? 'KOReader' : 'Litara';
+                          const color =
+                            p.source === 'KOREADER' ? 'blue' : 'green';
+                          return (
+                            <Box key={p.source}>
+                              <Progress
+                                value={pct * 100}
+                                size="sm"
+                                color={color}
+                                radius="xs"
+                              />
+                              <Group
+                                justify="space-between"
+                                align="center"
+                                mt={2}
+                              >
+                                <Text size="xs" c="dimmed">
+                                  {label}:{' '}
+                                  {detail.pageCount
+                                    ? `~${Math.round(pct * detail.pageCount)} / ${detail.pageCount} pages`
+                                    : `${Math.round(pct * 100)}%`}
+                                </Text>
+                                <Tooltip
+                                  label={`Clear ${label} progress`}
+                                  withArrow
+                                >
+                                  <ActionIcon
+                                    size="xs"
+                                    variant="subtle"
+                                    color="red"
+                                    onClick={() =>
+                                      setResetProgressSource(p.source)
+                                    }
+                                  >
+                                    <IconX size={12} />
+                                  </ActionIcon>
+                                </Tooltip>
+                              </Group>
+                            </Box>
+                          );
+                        })}
+                      </Stack>
                     )}
                   </Stack>
                 )}
@@ -883,7 +911,10 @@ export function BookDetailModal({
                       onClose();
                       navigate(`/series?seriesId=${seriesId}`);
                     }}
-                    onOpenBook={(id) => setInnerBookId(id)}
+                    onOpenBook={(id) => {
+                      setBookId(id);
+                      setActiveTab('overview');
+                    }}
                   />
                 </Tabs.Panel>
 
@@ -1176,34 +1207,41 @@ export function BookDetailModal({
         </Group>
       </Modal>
 
-      {/* Delete Book confirmation */}
+      {/* Clear reading progress confirmation */}
       <Modal
-        opened={resetProgressConfirmOpen}
-        onClose={() => setResetProgressConfirmOpen(false)}
-        title="Reset Reading Progress"
+        opened={resetProgressSource !== null}
+        onClose={() => setResetProgressSource(null)}
+        title="Clear Reading Progress"
         size="sm"
       >
         <Stack gap="md">
           <Text size="sm">
-            This will permanently clear all reading progress for{' '}
+            Clear{' '}
+            <Text component="span" fw={600}>
+              {resetProgressSource === 'KOREADER' ? 'KOReader' : 'Litara'}
+            </Text>{' '}
+            progress for{' '}
             <Text component="span" fw={600}>
               "{detail?.title}"
             </Text>
-            , including KOReader sync data and in-app progress.
+            ? This cannot be undone.
           </Text>
           <Group justify="flex-end" gap="sm">
             <Button
               variant="subtle"
-              onClick={() => setResetProgressConfirmOpen(false)}
+              onClick={() => setResetProgressSource(null)}
             >
               Cancel
             </Button>
             <Button
               color="red"
               loading={resettingProgress}
-              onClick={() => void handleResetProgress()}
+              onClick={() =>
+                resetProgressSource &&
+                void handleResetProgress(resetProgressSource)
+              }
             >
-              Reset Progress
+              Clear
             </Button>
           </Group>
         </Stack>
@@ -1364,14 +1402,6 @@ export function BookDetailModal({
           </Group>
         </Stack>
       </Modal>
-
-      {innerBookId && (
-        <BookDetailModal
-          bookId={innerBookId}
-          onClose={() => setInnerBookId(null)}
-          onBookUpdated={onBookUpdated}
-        />
-      )}
     </>
   );
 }

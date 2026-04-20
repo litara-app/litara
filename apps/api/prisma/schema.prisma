@@ -45,9 +45,10 @@ model UserSettings {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  theme           String  @default("auto")
-  dashboardLayout String? // JSON: DashboardSection[]
-  bookItemSize    String  @default("md") // "sm" | "md" | "lg" | "xl"
+  theme                 String  @default("auto")
+  dashboardLayout       String? // JSON: DashboardSection[]
+  bookItemSize          String  @default("md") // "sm" | "md" | "lg" | "xl"
+  progressDisplaySource String  @default("HIGHEST") // "HIGHEST" | "MOST_RECENT" | "KOREADER" | "LITARA"
 }
 
 model Library {
@@ -196,12 +197,19 @@ model WatchedFolder {
   createdAt DateTime @default(now())
 }
 
+enum ProgressSource {
+  LITARA   // Built-in Litara reader (web now, mobile in future)
+  KOREADER // KOReader device sync
+}
+
 model ReadingProgress {
-  id           String   @id @default(uuid())
+  id           String         @id @default(uuid())
   userId       String
   bookId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  book         Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book         Book           @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  source       ProgressSource @default(LITARA)
 
   // Store location in whatever format reader uses (e.g., EPUB CFI, page number)
   location     String?
@@ -216,7 +224,7 @@ model ReadingProgress {
   lastSyncedAt DateTime @default(now())
   createdAt    DateTime @default(now())
 
-  @@unique([userId, bookId]) // One progress record per user per book
+  @@unique([userId, bookId, source]) // One progress record per user per book per source
 }
 
 model UserReview {

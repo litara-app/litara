@@ -73,15 +73,27 @@ export async function getBookDetail(id: string): Promise<BookDetail> {
   return data;
 }
 
-export async function getReadingProgress(
-  bookId: string,
-): Promise<{ percentage: number } | null> {
-  const { data } = await api.get<{ percentage: number } | null>(
-    `/books/${bookId}/progress`,
-  );
-  return data ?? null;
+export interface ProgressEntry {
+  source: 'LITARA' | 'KOREADER';
+  percentage: number | null;
+  lastSyncedAt: string;
 }
 
-export async function resetReadingProgress(bookId: string): Promise<void> {
-  await api.delete(`/books/${bookId}/progress`);
+export async function getReadingProgress(
+  bookId: string,
+): Promise<ProgressEntry[]> {
+  const { data } = await api.get<ProgressEntry[]>(
+    `/books/${bookId}/progress/all`,
+  );
+  return data ?? [];
+}
+
+export async function resetReadingProgress(
+  bookId: string,
+  source?: 'LITARA' | 'KOREADER',
+): Promise<void> {
+  const url = source
+    ? `/books/${bookId}/progress?source=${source}`
+    : `/books/${bookId}/progress`;
+  await api.delete(url);
 }

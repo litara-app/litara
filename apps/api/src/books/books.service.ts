@@ -6,6 +6,7 @@ import {
   BadRequestException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { ProgressSource } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import { extractFileMetadata } from '../common/extract-file-metadata';
@@ -931,9 +932,20 @@ export class BooksService {
       await this.prisma.$transaction(
         dto.bookIds.map((bookId) =>
           this.prisma.readingProgress.upsert({
-            where: { userId_bookId: { userId, bookId } },
+            where: {
+              userId_bookId_source: {
+                userId,
+                bookId,
+                source: ProgressSource.LITARA,
+              },
+            },
             update: { percentage: 1 },
-            create: { userId, bookId, percentage: 1 },
+            create: {
+              userId,
+              bookId,
+              source: ProgressSource.LITARA,
+              percentage: 1,
+            },
           }),
         ),
       );
