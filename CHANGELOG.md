@@ -1,3 +1,10 @@
+# [1.29.0](https://github.com/litara-app/litara/compare/v1.28.1...v1.29.0) (2026-04-21)
+
+
+### Features
+
+* moving search over to a spotlight element with keybind ([ead006b](https://github.com/litara-app/litara/commit/ead006b118e21c2266636dab3369f6a24c4d20b0))
+
 ## [1.28.1](https://github.com/litara-app/litara/compare/v1.28.0...v1.28.1) (2026-04-20)
 
 
