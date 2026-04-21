@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   AppShell,
@@ -7,13 +7,12 @@ import {
   Button,
   Group,
   Title,
-  TextInput,
-  Popover,
   UnstyledButton,
   Text,
   Box,
   ActionIcon,
   Tooltip,
+  Kbd,
 } from '@mantine/core';
 import { useMantineColorScheme, useComputedColorScheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -27,6 +26,7 @@ import {
   IconExternalLink,
   IconBrandGithub,
 } from '@tabler/icons-react';
+import { Spotlight, spotlight } from '@mantine/spotlight';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { NavbarContent } from './NavbarContent';
 import { BookDetailModal } from '../BookDetailModal';
@@ -39,6 +39,8 @@ import {
   selectedBookIdsAtom,
 } from '../../store/atoms';
 
+type SearchByFilter = 'all' | 'title' | 'author' | 'series';
+
 interface SearchBook {
   id: string;
   title: string;
@@ -50,13 +52,7 @@ interface SearchBook {
   publishedDate: string | null;
 }
 
-function SearchResultItem({
-  book,
-  onClick,
-}: {
-  book: SearchBook;
-  onClick: () => void;
-}) {
+function SearchResultItem({ book }: { book: SearchBook }) {
   const year = book.publishedDate
     ? new Date(book.publishedDate).getFullYear()
     : null;
@@ -71,61 +67,66 @@ function SearchResultItem({
     : (year?.toString() ?? null);
 
   return (
-    <UnstyledButton onClick={onClick} style={{ width: '100%' }}>
-      <Group wrap="nowrap" gap="sm" p="xs" style={{ alignItems: 'center' }}>
-        <Box
-          style={{
-            width: 32,
-            height: 48,
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {book.hasCover ? (
-            <img
-              src={`/api/v1/books/${book.id}/cover?v=${book.coverUpdatedAt}`}
-              alt=""
-              style={{
-                width: 32,
-                height: 48,
-                objectFit: 'cover',
-                borderRadius: 2,
-              }}
-            />
-          ) : (
-            <IconBook2 size={24} color="var(--mantine-color-dimmed)" />
-          )}
-        </Box>
-        <Box style={{ minWidth: 0, flex: 1 }}>
-          <Text size="sm" fw={500} lineClamp={1}>
-            {book.title}
+    <Group wrap="nowrap" gap="sm" p="xs" style={{ alignItems: 'center' }}>
+      <Box
+        style={{
+          width: 32,
+          height: 48,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {book.hasCover ? (
+          <img
+            src={`/api/v1/books/${book.id}/cover?v=${book.coverUpdatedAt}`}
+            alt=""
+            style={{
+              width: 32,
+              height: 48,
+              objectFit: 'cover',
+              borderRadius: 2,
+            }}
+          />
+        ) : (
+          <IconBook2 size={24} style={{ opacity: 0.4 }} />
+        )}
+      </Box>
+      <Box style={{ minWidth: 0, flex: 1 }}>
+        <Text size="sm" fw={500} lineClamp={1}>
+          {book.title}
+        </Text>
+        {book.authors.length > 0 && (
+          <Text
+            size="xs"
+            style={{ color: 'inherit', opacity: 0.65 }}
+            lineClamp={1}
+          >
+            {book.authors.join(', ')}
           </Text>
-          {book.authors.length > 0 && (
-            <Text size="xs" c="dimmed" lineClamp={1}>
-              {book.authors.join(', ')}
-            </Text>
-          )}
-          {seriesMeta && (
-            <Text size="xs" c="dimmed" lineClamp={1}>
-              {seriesMeta}
-            </Text>
-          )}
-        </Box>
-      </Group>
-    </UnstyledButton>
+        )}
+        {seriesMeta && (
+          <Text
+            size="xs"
+            style={{ color: 'inherit', opacity: 0.65 }}
+            lineClamp={1}
+          >
+            {seriesMeta}
+          </Text>
+        )}
+      </Box>
+    </Group>
   );
 }
 
 export function AppLayout() {
   const [opened, { toggle }] = useDisclosure(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [spotlightQuery, setSpotlightQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchBook[]>([]);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchBy, setSearchBy] = useState<SearchByFilter>('all');
   const [searchBookId, setSearchBookId] = useState<string | null>(null);
   const [shelfmarkUrl, setShelfmarkUrl] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const setUserSettings = useSetAtom(userSettingsAtom);
   const backendStatus = useAtomValue(backendStatusAtom);
   const setSelectedBookIds = useSetAtom(selectedBookIdsAtom);
@@ -134,8 +135,13 @@ export function AppLayout() {
   useEffect(() => {
     setSelectedBookIds(new Set());
   }, [location.pathname, setSelectedBookIds]);
+
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme('light');
+
+  const isMac =
+    typeof navigator !== 'undefined' &&
+    /mac/i.test(navigator.platform ?? navigator.userAgent);
 
   useEffect(() => {
     void Promise.all([
@@ -158,178 +164,228 @@ export function AppLayout() {
   }, [setUserSettings]);
 
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSearchResults([]);
-      setSearchOpen(false);
-      return;
-    }
     const t = setTimeout(async () => {
+      if (spotlightQuery.length < 2) {
+        setSearchResults([]);
+        return;
+      }
       try {
-        const res = await api.get<SearchBook[]>(
-          `/books?q=${encodeURIComponent(searchQuery)}&limit=8`,
-        );
+        const params = new URLSearchParams({
+          q: spotlightQuery,
+          limit: '8',
+        });
+        if (searchBy !== 'all') params.set('searchBy', searchBy);
+        const res = await api.get<SearchBook[]>(`/books?${params.toString()}`);
         setSearchResults(res.data);
-        setSearchOpen(true);
       } catch {
         // ignore
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [searchQuery]);
+  }, [spotlightQuery, searchBy]);
+
+  function handleSelectBook(bookId: string) {
+    setSearchBookId(bookId);
+    spotlight.close();
+    setSpotlightQuery('');
+    setSearchResults([]);
+  }
+
+  const filterOptions: { label: string; value: SearchByFilter }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'Title', value: 'title' },
+    { label: 'Author', value: 'author' },
+    { label: 'Series', value: 'series' },
+  ];
 
   return (
-    <AppShell
-      header={{ height: 56 }}
-      navbar={{
-        width: 260,
-        breakpoint: 'sm',
-        collapsed: { desktop: !opened, mobile: !opened },
-      }}
-      padding="md"
-    >
-      <AppShell.Header>
-        <Box
-          h="100%"
-          px="md"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto 1fr',
-            alignItems: 'center',
-            gap: 'var(--mantine-spacing-md)',
-          }}
-        >
-          <Group gap="md" wrap="nowrap">
-            <Burger opened={opened} onClick={toggle} size="sm" />
-            <Group gap="xs" wrap="nowrap">
-              <img src="/logo.svg" alt="Litara logo" width={28} height={28} />
-              <Title order={4} style={{ whiteSpace: 'nowrap' }}>
-                Litara
-              </Title>
+    <>
+      <AppShell
+        header={{ height: 56 }}
+        navbar={{
+          width: 260,
+          breakpoint: 'sm',
+          collapsed: { desktop: !opened, mobile: !opened },
+        }}
+        padding="md"
+      >
+        <AppShell.Header>
+          <Box
+            h="100%"
+            px="md"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto 1fr',
+              alignItems: 'center',
+              gap: 'var(--mantine-spacing-md)',
+            }}
+          >
+            <Group gap="md" wrap="nowrap">
+              <Burger opened={opened} onClick={toggle} size="sm" />
+              <Group gap="xs" wrap="nowrap">
+                <img src="/logo.svg" alt="Litara logo" width={28} height={28} />
+                <Title order={4} style={{ whiteSpace: 'nowrap' }}>
+                  Litara
+                </Title>
+              </Group>
             </Group>
-          </Group>
 
-          <Popover
-            opened={searchOpen}
-            onClose={() => setSearchOpen(false)}
-            width="target"
-            position="bottom"
-            withinPortal
-            trapFocus={false}
-          >
-            <Popover.Target>
-              <TextInput
-                ref={inputRef}
-                placeholder="Search..."
-                leftSection={<IconSearch size={16} />}
-                style={{ width: 400 }}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.currentTarget.value)}
-                onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
-                onFocus={() => {
-                  if (searchResults.length > 0) setSearchOpen(true);
-                }}
-              />
-            </Popover.Target>
-            <Popover.Dropdown p={0}>
-              {searchResults.length === 0 ? (
-                <Text size="sm" c="dimmed" p="sm">
-                  No results
-                </Text>
-              ) : (
-                searchResults.map((book) => (
-                  <SearchResultItem
-                    key={book.id}
-                    book={book}
-                    onClick={() => {
-                      setSearchBookId(book.id);
-                      setSearchOpen(false);
-                      setSearchQuery('');
-                    }}
-                  />
-                ))
-              )}
-            </Popover.Dropdown>
-          </Popover>
-
-          <Group justify="flex-end" gap="xs">
-            {shelfmarkUrl && (
-              <Button
-                component="a"
-                href={shelfmarkUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="subtle"
-                size="sm"
-                rightSection={<IconExternalLink size={14} />}
-              >
-                Shelfmark
-              </Button>
-            )}
-            <Tooltip label="GitHub" position="bottom-end">
-              <ActionIcon
-                variant="subtle"
-                size="lg"
-                component="a"
-                href="https://github.com/litara-app/litara"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <IconBrandGithub size={18} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip
-              label={
-                computedColorScheme === 'dark' ? 'Light mode' : 'Dark mode'
-              }
-              position="bottom-end"
+            <UnstyledButton
+              onClick={() => spotlight.open()}
+              style={{
+                width: 360,
+                height: 36,
+                border: '1px solid var(--mantine-color-default-border)',
+                borderRadius: 'var(--mantine-radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 10px',
+                gap: 8,
+                backgroundColor: 'var(--mantine-color-default)',
+                cursor: 'text',
+              }}
             >
-              <ActionIcon
-                variant="subtle"
-                size="lg"
-                onClick={() =>
-                  setColorScheme(
-                    computedColorScheme === 'dark' ? 'light' : 'dark',
-                  )
-                }
+              <IconSearch size={16} color="var(--mantine-color-placeholder)" />
+              <Text
+                size="sm"
+                c="placeholder"
+                style={{ flex: 1, userSelect: 'none' }}
               >
-                {computedColorScheme === 'dark' ? (
-                  <IconSun size={18} />
-                ) : (
-                  <IconMoon size={18} />
-                )}
-              </ActionIcon>
-            </Tooltip>
-          </Group>
+                Search books...
+              </Text>
+              <Group gap={4} wrap="nowrap">
+                <Kbd size="xs">{isMac ? '⌘' : 'Ctrl'}</Kbd>
+                <Kbd size="xs">K</Kbd>
+              </Group>
+            </UnstyledButton>
+
+            <Group justify="flex-end" gap="xs">
+              {shelfmarkUrl && (
+                <Button
+                  component="a"
+                  href={shelfmarkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="subtle"
+                  size="sm"
+                  rightSection={<IconExternalLink size={14} />}
+                >
+                  Shelfmark
+                </Button>
+              )}
+              <Tooltip label="GitHub" position="bottom-end">
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
+                  component="a"
+                  href="https://github.com/litara-app/litara"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <IconBrandGithub size={18} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip
+                label={
+                  computedColorScheme === 'dark' ? 'Light mode' : 'Dark mode'
+                }
+                position="bottom-end"
+              >
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
+                  onClick={() =>
+                    setColorScheme(
+                      computedColorScheme === 'dark' ? 'light' : 'dark',
+                    )
+                  }
+                >
+                  {computedColorScheme === 'dark' ? (
+                    <IconSun size={18} />
+                  ) : (
+                    <IconMoon size={18} />
+                  )}
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          </Box>
+        </AppShell.Header>
+
+        <AppShell.Navbar>
+          <NavbarContent />
+        </AppShell.Navbar>
+
+        <AppShell.Main className="dot-matrix-bg">
+          {backendStatus === 'error' && (
+            <Alert
+              icon={<IconServerOff size={16} />}
+              color="red"
+              mb="md"
+              title="Cannot reach server"
+            >
+              The backend is not responding. Check that the API and database are
+              running.
+            </Alert>
+          )}
+          <Outlet />
+        </AppShell.Main>
+
+        <BulkActionBar />
+      </AppShell>
+
+      <Spotlight.Root
+        shortcut={['mod + K']}
+        onQueryChange={setSpotlightQuery}
+        scrollable
+        maxHeight={480}
+      >
+        <Spotlight.Search
+          placeholder="Search books..."
+          leftSection={<IconSearch size={16} />}
+        />
+        <Box px="sm" py="xs">
+          <Button.Group>
+            {filterOptions.map(({ label, value }) => (
+              <Button
+                key={value}
+                size="xs"
+                variant={searchBy === value ? 'filled' : 'default'}
+                onClick={() => setSearchBy(value)}
+                style={{ flex: 1 }}
+              >
+                {label}
+              </Button>
+            ))}
+          </Button.Group>
         </Box>
-      </AppShell.Header>
-
-      <AppShell.Navbar>
-        <NavbarContent />
-      </AppShell.Navbar>
-
-      <AppShell.Main className="dot-matrix-bg">
-        {backendStatus === 'error' && (
-          <Alert
-            icon={<IconServerOff size={16} />}
-            color="red"
-            mb="md"
-            title="Cannot reach server"
-          >
-            The backend is not responding. Check that the API and database are
-            running.
-          </Alert>
-        )}
-        <Outlet />
-      </AppShell.Main>
-
-      <BulkActionBar />
+        <Spotlight.ActionsList>
+          {spotlightQuery.length >= 2 ? (
+            searchResults.length > 0 ? (
+              searchResults.map((book) => (
+                <Spotlight.Action
+                  key={book.id}
+                  onClick={() => handleSelectBook(book.id)}
+                  p={0}
+                >
+                  <SearchResultItem book={book} />
+                </Spotlight.Action>
+              ))
+            ) : (
+              <Spotlight.Empty>No books found</Spotlight.Empty>
+            )
+          ) : (
+            <Spotlight.Empty>
+              Type at least 2 characters to search
+            </Spotlight.Empty>
+          )}
+        </Spotlight.ActionsList>
+      </Spotlight.Root>
 
       <BookDetailModal
         bookId={searchBookId}
         onClose={() => setSearchBookId(null)}
         onBookUpdated={() => {}}
       />
-    </AppShell>
+    </>
   );
 }

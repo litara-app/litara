@@ -35,6 +35,37 @@ export class GetBooksQueryDto {
   order?: 'asc' | 'desc';
   libraryId?: string;
   q?: string;
+  searchBy?: 'all' | 'title' | 'author' | 'series';
+}
+
+function buildSearchWhere(
+  q: string,
+  searchBy: 'all' | 'title' | 'author' | 'series',
+) {
+  const titleFilter = { title: { contains: q, mode: 'insensitive' as const } };
+  const authorFilter = {
+    authors: {
+      some: { author: { name: { contains: q, mode: 'insensitive' as const } } },
+    },
+  };
+  const seriesFilter = {
+    series: {
+      some: { series: { name: { contains: q, mode: 'insensitive' as const } } },
+    },
+  };
+
+  if (searchBy === 'title') return titleFilter;
+  if (searchBy === 'author') return authorFilter;
+  if (searchBy === 'series') return seriesFilter;
+
+  return {
+    OR: [
+      titleFilter,
+      authorFilter,
+      seriesFilter,
+      { isbn13: { contains: q, mode: 'insensitive' as const } },
+    ],
+  };
 }
 
 @Injectable()
@@ -54,30 +85,7 @@ export class BooksService {
       skip: query.offset ?? 0,
       orderBy: { [query.sortBy ?? 'createdAt']: query.order ?? 'desc' },
       where: query.q
-        ? {
-            OR: [
-              { title: { contains: query.q, mode: 'insensitive' } },
-              {
-                authors: {
-                  some: {
-                    author: {
-                      name: { contains: query.q, mode: 'insensitive' },
-                    },
-                  },
-                },
-              },
-              {
-                series: {
-                  some: {
-                    series: {
-                      name: { contains: query.q, mode: 'insensitive' },
-                    },
-                  },
-                },
-              },
-              { isbn13: { contains: query.q, mode: 'insensitive' } },
-            ],
-          }
+        ? buildSearchWhere(query.q, query.searchBy ?? 'all')
         : query.libraryId
           ? { userLibraries: { some: { libraryId: query.libraryId, userId } } }
           : undefined,
