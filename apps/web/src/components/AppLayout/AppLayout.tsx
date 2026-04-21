@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   AppShell,
   Alert,
@@ -25,11 +25,12 @@ import {
   IconMoon,
   IconExternalLink,
   IconBrandGithub,
+  IconUser,
+  IconBooks,
 } from '@tabler/icons-react';
 import { Spotlight, spotlight } from '@mantine/spotlight';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { NavbarContent } from './NavbarContent';
-import { BookDetailModal } from '../BookDetailModal';
 import { BulkActionBar } from '../BulkActionBar';
 import { api } from '../../utils/api';
 import {
@@ -39,7 +40,7 @@ import {
   selectedBookIdsAtom,
 } from '../../store/atoms';
 
-type SearchByFilter = 'all' | 'title' | 'author' | 'series';
+type SearchType = 'all' | 'books' | 'authors' | 'series';
 
 interface SearchBook {
   id: string;
@@ -52,7 +53,23 @@ interface SearchBook {
   publishedDate: string | null;
 }
 
-function SearchResultItem({ book }: { book: SearchBook }) {
+interface SearchAuthor {
+  id: string;
+  name: string;
+  hasCover: boolean;
+  bookCount: number;
+}
+
+interface SearchSeries {
+  id: string;
+  name: string;
+  ownedCount: number;
+  totalBooks: number | null;
+  coverBooks: Array<{ id: string; coverUpdatedAt: string }>;
+  authors: string[];
+}
+
+function SearchBookItem({ book }: { book: SearchBook }) {
   const year = book.publishedDate
     ? new Date(book.publishedDate).getFullYear()
     : null;
@@ -120,12 +137,107 @@ function SearchResultItem({ book }: { book: SearchBook }) {
   );
 }
 
+function SearchAuthorItem({ author }: { author: SearchAuthor }) {
+  return (
+    <Group wrap="nowrap" gap="sm" p="xs" style={{ alignItems: 'center' }}>
+      <Box
+        style={{
+          width: 32,
+          height: 32,
+          flexShrink: 0,
+          borderRadius: '50%',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--mantine-color-default-border)',
+        }}
+      >
+        {author.hasCover ? (
+          <img
+            src={`/api/v1/authors/${author.id}/photo`}
+            alt=""
+            style={{ width: 32, height: 32, objectFit: 'cover' }}
+          />
+        ) : (
+          <IconUser size={18} style={{ opacity: 0.5 }} />
+        )}
+      </Box>
+      <Box style={{ minWidth: 0, flex: 1 }}>
+        <Text size="sm" fw={500} lineClamp={1}>
+          {author.name}
+        </Text>
+        <Text size="xs" style={{ color: 'inherit', opacity: 0.65 }}>
+          {author.bookCount} {author.bookCount === 1 ? 'book' : 'books'}
+        </Text>
+      </Box>
+    </Group>
+  );
+}
+
+function SearchSeriesItem({ series }: { series: SearchSeries }) {
+  const firstCover = series.coverBooks[0];
+  const countLabel =
+    series.totalBooks != null
+      ? `${series.ownedCount} / ${series.totalBooks} books`
+      : `${series.ownedCount} ${series.ownedCount === 1 ? 'book' : 'books'}`;
+
+  return (
+    <Group wrap="nowrap" gap="sm" p="xs" style={{ alignItems: 'center' }}>
+      <Box
+        style={{
+          width: 32,
+          height: 48,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {firstCover ? (
+          <img
+            src={`/api/v1/books/${firstCover.id}/cover?v=${firstCover.coverUpdatedAt}`}
+            alt=""
+            style={{
+              width: 32,
+              height: 48,
+              objectFit: 'cover',
+              borderRadius: 2,
+            }}
+          />
+        ) : (
+          <IconBooks size={24} style={{ opacity: 0.4 }} />
+        )}
+      </Box>
+      <Box style={{ minWidth: 0, flex: 1 }}>
+        <Text size="sm" fw={500} lineClamp={1}>
+          {series.name}
+        </Text>
+        {series.authors.length > 0 && (
+          <Text
+            size="xs"
+            style={{ color: 'inherit', opacity: 0.65 }}
+            lineClamp={1}
+          >
+            {series.authors.join(', ')}
+          </Text>
+        )}
+        <Text size="xs" style={{ color: 'inherit', opacity: 0.65 }}>
+          {countLabel}
+        </Text>
+      </Box>
+    </Group>
+  );
+}
+
 export function AppLayout() {
+  const navigate = useNavigate();
   const [opened, { toggle }] = useDisclosure(true);
   const [spotlightQuery, setSpotlightQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchBook[]>([]);
-  const [searchBy, setSearchBy] = useState<SearchByFilter>('all');
-  const [searchBookId, setSearchBookId] = useState<string | null>(null);
+  const [bookResults, setBookResults] = useState<SearchBook[]>([]);
+  const [authorResults, setAuthorResults] = useState<SearchAuthor[]>([]);
+  const [seriesResults, setSeriesResults] = useState<SearchSeries[]>([]);
+  const [searchType, setSearchType] = useState<SearchType>('all');
   const [shelfmarkUrl, setShelfmarkUrl] = useState<string | null>(null);
   const setUserSettings = useSetAtom(userSettingsAtom);
   const backendStatus = useAtomValue(backendStatusAtom);
@@ -166,35 +278,91 @@ export function AppLayout() {
   useEffect(() => {
     const t = setTimeout(async () => {
       if (spotlightQuery.length < 2) {
-        setSearchResults([]);
+        setBookResults([]);
+        setAuthorResults([]);
+        setSeriesResults([]);
         return;
       }
       try {
-        const params = new URLSearchParams({
-          q: spotlightQuery,
-          limit: '8',
-        });
-        if (searchBy !== 'all') params.set('searchBy', searchBy);
-        const res = await api.get<SearchBook[]>(`/books?${params.toString()}`);
-        setSearchResults(res.data);
+        if (searchType === 'all') {
+          const booksParams = new URLSearchParams({
+            q: spotlightQuery,
+            limit: '4',
+            searchBy: 'title',
+          });
+          const authorsParams = new URLSearchParams({ q: spotlightQuery });
+          const seriesParams = new URLSearchParams({ q: spotlightQuery });
+          const [booksRes, authorsRes, seriesRes] = await Promise.all([
+            api.get<SearchBook[]>(`/books?${booksParams.toString()}`),
+            api.get<SearchAuthor[]>(`/authors?${authorsParams.toString()}`),
+            api.get<SearchSeries[]>(`/series?${seriesParams.toString()}`),
+          ]);
+          setBookResults(booksRes.data);
+          setAuthorResults(authorsRes.data.slice(0, 3));
+          setSeriesResults(seriesRes.data.slice(0, 3));
+        } else if (searchType === 'books') {
+          const params = new URLSearchParams({
+            q: spotlightQuery,
+            limit: '8',
+            searchBy: 'title',
+          });
+          const res = await api.get<SearchBook[]>(
+            `/books?${params.toString()}`,
+          );
+          setBookResults(res.data);
+          setAuthorResults([]);
+          setSeriesResults([]);
+        } else if (searchType === 'authors') {
+          const params = new URLSearchParams({ q: spotlightQuery });
+          const res = await api.get<SearchAuthor[]>(
+            `/authors?${params.toString()}`,
+          );
+          setBookResults([]);
+          setAuthorResults(res.data.slice(0, 8));
+          setSeriesResults([]);
+        } else {
+          const params = new URLSearchParams({ q: spotlightQuery });
+          const res = await api.get<SearchSeries[]>(
+            `/series?${params.toString()}`,
+          );
+          setBookResults([]);
+          setAuthorResults([]);
+          setSeriesResults(res.data.slice(0, 8));
+        }
       } catch {
         // ignore
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [spotlightQuery, searchBy]);
+  }, [spotlightQuery, searchType]);
 
-  function handleSelectBook(bookId: string) {
-    setSearchBookId(bookId);
+  function closeSpotlight() {
     spotlight.close();
     setSpotlightQuery('');
-    setSearchResults([]);
+    setBookResults([]);
+    setAuthorResults([]);
+    setSeriesResults([]);
   }
 
-  const filterOptions: { label: string; value: SearchByFilter }[] = [
+  function handleSelectBook(bookId: string) {
+    navigate(`/books/${bookId}`, { state: { from: location.pathname } });
+    closeSpotlight();
+  }
+
+  function handleSelectAuthor(authorId: string) {
+    navigate(`/authors/${authorId}`);
+    closeSpotlight();
+  }
+
+  function handleSelectSeries(seriesId: string) {
+    navigate(`/series/${seriesId}`);
+    closeSpotlight();
+  }
+
+  const searchTypeOptions: { label: string; value: SearchType }[] = [
     { label: 'All', value: 'all' },
-    { label: 'Title', value: 'title' },
-    { label: 'Author', value: 'author' },
+    { label: 'Books', value: 'books' },
+    { label: 'Authors', value: 'authors' },
     { label: 'Series', value: 'series' },
   ];
 
@@ -251,7 +419,7 @@ export function AppLayout() {
                 c="placeholder"
                 style={{ flex: 1, userSelect: 'none' }}
               >
-                Search books...
+                Search...
               </Text>
               <Group gap={4} wrap="nowrap">
                 <Kbd size="xs">{isMac ? '⌘' : 'Ctrl'}</Kbd>
@@ -273,6 +441,18 @@ export function AppLayout() {
                   Shelfmark
                 </Button>
               )}
+              <Tooltip label="Docs" position="bottom-end">
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
+                  component="a"
+                  href="https://litara-app.github.io/litara/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <IconBook2 size={18} />
+                </ActionIcon>
+              </Tooltip>
               <Tooltip label="GitHub" position="bottom-end">
                 <ActionIcon
                   variant="subtle"
@@ -337,20 +517,20 @@ export function AppLayout() {
         shortcut={['mod + K']}
         onQueryChange={setSpotlightQuery}
         scrollable
-        maxHeight={480}
+        maxHeight={520}
       >
         <Spotlight.Search
-          placeholder="Search books..."
+          placeholder="Search..."
           leftSection={<IconSearch size={16} />}
         />
         <Box px="sm" py="xs">
           <Button.Group>
-            {filterOptions.map(({ label, value }) => (
+            {searchTypeOptions.map(({ label, value }) => (
               <Button
                 key={value}
                 size="xs"
-                variant={searchBy === value ? 'filled' : 'default'}
-                onClick={() => setSearchBy(value)}
+                variant={searchType === value ? 'filled' : 'default'}
+                onClick={() => setSearchType(value)}
                 style={{ flex: 1 }}
               >
                 {label}
@@ -360,19 +540,106 @@ export function AppLayout() {
         </Box>
         <Spotlight.ActionsList>
           {spotlightQuery.length >= 2 ? (
-            searchResults.length > 0 ? (
-              searchResults.map((book) => (
-                <Spotlight.Action
-                  key={book.id}
-                  onClick={() => handleSelectBook(book.id)}
-                  p={0}
-                >
-                  <SearchResultItem book={book} />
-                </Spotlight.Action>
-              ))
-            ) : (
-              <Spotlight.Empty>No books found</Spotlight.Empty>
-            )
+            (() => {
+              const hasBooks = bookResults.length > 0;
+              const hasAuthors = authorResults.length > 0;
+              const hasSeries = seriesResults.length > 0;
+              const hasAny = hasBooks || hasAuthors || hasSeries;
+
+              if (!hasAny) {
+                return <Spotlight.Empty>No results found</Spotlight.Empty>;
+              }
+
+              const showSectionLabels =
+                searchType === 'all' &&
+                (hasBooks ? 1 : 0) +
+                  (hasAuthors ? 1 : 0) +
+                  (hasSeries ? 1 : 0) >
+                  1;
+
+              return (
+                <>
+                  {hasBooks && (
+                    <>
+                      {showSectionLabels && (
+                        <Text
+                          size="xs"
+                          fw={600}
+                          px="sm"
+                          pt="xs"
+                          pb={2}
+                          c="dimmed"
+                          tt="uppercase"
+                        >
+                          Books
+                        </Text>
+                      )}
+                      {bookResults.map((book) => (
+                        <Spotlight.Action
+                          key={book.id}
+                          onClick={() => handleSelectBook(book.id)}
+                          p={0}
+                        >
+                          <SearchBookItem book={book} />
+                        </Spotlight.Action>
+                      ))}
+                    </>
+                  )}
+                  {hasAuthors && (
+                    <>
+                      {showSectionLabels && (
+                        <Text
+                          size="xs"
+                          fw={600}
+                          px="sm"
+                          pt="xs"
+                          pb={2}
+                          c="dimmed"
+                          tt="uppercase"
+                        >
+                          Authors
+                        </Text>
+                      )}
+                      {authorResults.map((author) => (
+                        <Spotlight.Action
+                          key={author.id}
+                          onClick={() => handleSelectAuthor(author.id)}
+                          p={0}
+                        >
+                          <SearchAuthorItem author={author} />
+                        </Spotlight.Action>
+                      ))}
+                    </>
+                  )}
+                  {hasSeries && (
+                    <>
+                      {showSectionLabels && (
+                        <Text
+                          size="xs"
+                          fw={600}
+                          px="sm"
+                          pt="xs"
+                          pb={2}
+                          c="dimmed"
+                          tt="uppercase"
+                        >
+                          Series
+                        </Text>
+                      )}
+                      {seriesResults.map((series) => (
+                        <Spotlight.Action
+                          key={series.id}
+                          onClick={() => handleSelectSeries(series.id)}
+                          p={0}
+                        >
+                          <SearchSeriesItem series={series} />
+                        </Spotlight.Action>
+                      ))}
+                    </>
+                  )}
+                </>
+              );
+            })()
           ) : (
             <Spotlight.Empty>
               Type at least 2 characters to search
@@ -380,12 +647,6 @@ export function AppLayout() {
           )}
         </Spotlight.ActionsList>
       </Spotlight.Root>
-
-      <BookDetailModal
-        bookId={searchBookId}
-        onClose={() => setSearchBookId(null)}
-        onBookUpdated={() => {}}
-      />
     </>
   );
 }

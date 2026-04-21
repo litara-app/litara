@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   Stack,
@@ -12,8 +13,8 @@ import {
 } from '@mantine/core';
 import { IconFilter, IconCheckbox } from '@tabler/icons-react';
 import { api } from '../utils/api';
-import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
+import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { PageHeader } from '../components/PageHeader';
 import { BookFilterPanel } from '../components/BookFilterPanel';
 import { useBookFilter } from '../hooks/useBookFilter';
@@ -27,11 +28,12 @@ import type { UserSettings } from '../store/atoms';
 import { ITEM_MIN_WIDTHS } from '../utils/book-grid';
 
 export function AllBooksPage() {
+  const navigate = useNavigate();
+  const { saveScroll, restoreScroll, pathname } = useScrollRestoration();
   const [books, setBooks] = useState<BookCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const cancelRef = useRef(false);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
   const minWidth = ITEM_MIN_WIDTHS[userSettings.bookItemSize] ?? 160;
@@ -130,6 +132,15 @@ export function AllBooksPage() {
     };
   }, [loadBooks]);
 
+  useEffect(() => {
+    if (!loading) restoreScroll();
+  }, [loading, restoreScroll]);
+
+  function handleBookClick(bookId: string) {
+    saveScroll();
+    navigate(`/books/${bookId}`, { state: { from: pathname } });
+  }
+
   async function handleSizeChange(size: UserSettings['bookItemSize']) {
     setUserSettings((prev) => ({ ...prev, bookItemSize: size }));
     await api.patch('/users/me/settings', { bookItemSize: size });
@@ -193,8 +204,8 @@ export function AllBooksPage() {
                 ? 'No books match the current filters.'
                 : 'No books found. Add a watched folder in Settings to start importing.'
             }
-            onBookClick={setSelectedBookId}
-            onBookSend={setSelectedBookId}
+            onBookClick={handleBookClick}
+            onBookSend={handleBookClick}
             onBookRatingChange={(id, rating) =>
               setBooks((prev) =>
                 prev.map((b) => (b.id === id ? { ...b, rating } : b)),
@@ -256,12 +267,6 @@ export function AllBooksPage() {
           </div>
         </Stack>
       </Modal>
-
-      <BookDetailModal
-        bookId={selectedBookId}
-        onClose={() => setSelectedBookId(null)}
-        onBookUpdated={() => void loadBooks()}
-      />
     </Stack>
   );
 }

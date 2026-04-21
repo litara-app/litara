@@ -1,18 +1,17 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Stack,
   SimpleGrid,
   Text,
-  TextInput,
   Center,
   Avatar,
   UnstyledButton,
   Box,
 } from '@mantine/core';
-import { IconUser, IconSearch } from '@tabler/icons-react';
+import { IconUser } from '@tabler/icons-react';
 import { api } from '../utils/api';
 import { PageHeader } from '../components/PageHeader';
-import { AuthorDetailModal } from '../components/AuthorDetailModal';
 import type { AuthorListItem } from '../components/AuthorDetailModal.types';
 
 const CARD_W = 140;
@@ -83,10 +82,10 @@ function AuthorCard({
 }
 
 export function AuthorsPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [authors, setAuthors] = useState<AuthorListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [activeAuthorId, setActiveAuthorId] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -96,57 +95,33 @@ export function AuthorsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return authors;
-    const q = search.toLowerCase();
-    return authors.filter((a) => a.name.toLowerCase().includes(q));
-  }, [authors, search]);
-
   return (
     <>
       <Stack gap="md" p="md">
         <PageHeader title="Authors" />
 
-        <TextInput
-          placeholder="Search authors…"
-          leftSection={<IconSearch size={16} />}
-          value={search}
-          onChange={(e) => setSearch(e.currentTarget.value)}
-          style={{ maxWidth: 340 }}
-        />
-
-        {!loading && filtered.length === 0 && (
+        {!loading && authors.length === 0 && (
           <Center h={200}>
-            <Text c="dimmed">
-              {authors.length === 0
-                ? 'No authors found in your library.'
-                : 'No authors match your search.'}
-            </Text>
+            <Text c="dimmed">No authors found in your library.</Text>
           </Center>
         )}
 
         <Box>
           <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6, xl: 7 }}>
-            {filtered.map((author) => (
+            {authors.map((author) => (
               <AuthorCard
                 key={author.id}
                 author={author}
-                onClick={() => setActiveAuthorId(author.id)}
+                onClick={() =>
+                  navigate(`/authors/${author.id}`, {
+                    state: { from: location.pathname },
+                  })
+                }
               />
             ))}
           </SimpleGrid>
         </Box>
       </Stack>
-
-      <AuthorDetailModal
-        authorId={activeAuthorId}
-        onClose={() => setActiveAuthorId(null)}
-        onPhotoUpdated={(id, hasCover) =>
-          setAuthors((prev) =>
-            prev.map((a) => (a.id === id ? { ...a, hasCover } : a)),
-          )
-        }
-      />
     </>
   );
 }

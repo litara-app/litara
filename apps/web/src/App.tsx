@@ -28,6 +28,9 @@ import { AnnotationsPage } from './pages/AnnotationsPage';
 import { ReaderPage } from './pages/ReaderPage';
 import { BookDropPage } from './pages/BookDropPage';
 import { AdminBookReviewPage } from './pages/AdminBookReviewPage';
+import { BookDetailPage } from './pages/BookDetailPage';
+import { SeriesDetailPage } from './pages/SeriesDetailPage';
+import { AuthorDetailPage } from './pages/AuthorDetailPage';
 import { AppLayout } from './components/AppLayout/AppLayout';
 import { ToastContainer } from './components/ToastContainer';
 
@@ -54,8 +57,11 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/books" element={<AllBooksPage />} />
+              <Route path="/books/:bookId" element={<BookDetailPage />} />
               <Route path="/series" element={<SeriesPage />} />
+              <Route path="/series/:seriesId" element={<SeriesDetailPage />} />
               <Route path="/authors" element={<AuthorsPage />} />
+              <Route path="/authors/:authorId" element={<AuthorDetailPage />} />
               <Route path="/annotations" element={<AnnotationsPage />} />
               <Route path="/library/:id" element={<LibraryPage />} />
               <Route path="/shelf/:id" element={<ShelfPage />} />

@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export class SeriesAuthorItemDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
+}
+
 export class SeriesBookItemDto {
   @ApiProperty()
   id: string;
@@ -39,8 +47,8 @@ export class SeriesDetailDto {
   @ApiProperty({ nullable: true, required: false })
   totalBooks: number | null;
 
-  @ApiProperty({ type: [String] })
-  authors: string[];
+  @ApiProperty({ type: [SeriesAuthorItemDto] })
+  authors: SeriesAuthorItemDto[];
 
   @ApiProperty({ type: [SeriesBookItemDto] })
   books: SeriesBookItemDto[];

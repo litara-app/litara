@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Stack,
   Card,
@@ -14,7 +14,6 @@ import {
 import { IconBook2 } from '@tabler/icons-react';
 import { useAtom } from 'jotai';
 import { api } from '../utils/api';
-import { SeriesDetailModal } from '../components/SeriesDetailModal';
 import { PageHeader } from '../components/PageHeader';
 import { userSettingsAtom } from '../store/atoms';
 import type { UserSettings } from '../store/atoms';
@@ -134,12 +133,10 @@ function SeriesCard({
 }
 
 export function SeriesPage() {
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [seriesList, setSeriesList] = useState<SeriesListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSeriesId, setActiveSeriesId] = useState<string | null>(
-    searchParams.get('seriesId'),
-  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
 
@@ -176,7 +173,11 @@ export function SeriesPage() {
           <SeriesCard
             key={series.id}
             series={series}
-            onClick={() => setActiveSeriesId(series.id)}
+            onClick={() =>
+              navigate(`/series/${series.id}`, {
+                state: { from: location.pathname },
+              })
+            }
           />
         ))}
       </SimpleGrid>
@@ -209,11 +210,6 @@ export function SeriesPage() {
           </div>
         </Stack>
       </Modal>
-
-      <SeriesDetailModal
-        seriesId={activeSeriesId}
-        onClose={() => setActiveSeriesId(null)}
-      />
     </Stack>
   );
 }

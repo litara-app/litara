@@ -65,7 +65,11 @@ describe('Series Routes (e2e)', () => {
 
       expect(res.body.name).toBe('Oz');
       expect(res.body.totalBooks).toBe(14);
-      expect(res.body.authors).toContain('L. Frank Baum');
+      expect(res.body.authors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'L. Frank Baum' }),
+        ]),
+      );
 
       const books = res.body.books as Array<{ id: string; sequence: number }>;
       expect(books.length).toBe(2);
