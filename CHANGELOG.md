@@ -1,3 +1,10 @@
+# [1.30.0](https://github.com/litara-app/litara/compare/v1.29.0...v1.30.0) (2026-04-21)
+
+
+### Features
+
+* lots of UI tweaks and cleanup ([bb037e9](https://github.com/litara-app/litara/commit/bb037e9dee44349f18647d55c120869088f31b9c))
+
 # [1.29.0](https://github.com/litara-app/litara/compare/v1.28.1...v1.29.0) (2026-04-21)
 
 
