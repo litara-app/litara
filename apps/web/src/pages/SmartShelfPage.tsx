@@ -14,8 +14,8 @@ import {
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { IconCheckbox } from '@tabler/icons-react';
 import { api } from '../utils/api';
-import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
+import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { PageHeader } from '../components/PageHeader';
 import { SmartShelfModal } from '../components/SmartShelfModal';
 import type { BookCardData } from '../components/BookCard';
@@ -47,10 +47,10 @@ export function SmartShelfPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [shelf, setShelf] = useState<SmartShelfDetail | null>(null);
+  const { saveScroll, restoreScroll, pathname } = useScrollRestoration();
   const [books, setBooks] = useState<BookCardData[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const userSettings = useAtomValue(userSettingsAtom);
   const setSmartShelves = useSetAtom(smartShelvesAtom);
@@ -112,6 +112,15 @@ export function SmartShelfPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!loading) restoreScroll();
+  }, [loading, restoreScroll]);
+
+  function handleBookClick(bookId: string) {
+    saveScroll();
+    navigate(`/books/${bookId}`, { state: { from: pathname } });
+  }
 
   async function handleDelete() {
     if (!shelf) return;
@@ -192,7 +201,7 @@ export function SmartShelfPage() {
           minWidth={minWidth}
           skeletonCount={12}
           emptyMessage="No books match these rules yet."
-          onBookClick={setSelectedBookId}
+          onBookClick={handleBookClick}
           isSelectMode={selectModeActive}
           selectedIds={selectedBookIds}
           onToggleSelect={handleToggleSelect}
@@ -209,14 +218,6 @@ export function SmartShelfPage() {
         shelf={shelf}
         onDelete={() => handleDelete()}
       />
-
-      {selectedBookId && (
-        <BookDetailModal
-          bookId={selectedBookId}
-          onClose={() => setSelectedBookId(null)}
-          onBookUpdated={() => void load()}
-        />
-      )}
     </>
   );
 }

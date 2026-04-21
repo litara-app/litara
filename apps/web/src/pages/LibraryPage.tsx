@@ -17,8 +17,8 @@ import { IconFilter, IconCheckbox } from '@tabler/icons-react';
 import { useParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
-import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
+import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { PageHeader } from '../components/PageHeader';
 import { BookFilterPanel } from '../components/BookFilterPanel';
 import { useBookFilter } from '../hooks/useBookFilter';
@@ -36,13 +36,13 @@ import { pushToast } from '../utils/toast';
 export function LibraryPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { saveScroll, restoreScroll, pathname } = useScrollRestoration();
   const [library, setLibrary] = useState<Library | null>(null);
   const [books, setBooks] = useState<BookCardData[]>([]);
   const [loadingLib, setLoadingLib] = useState(true);
   const [loadingBooks, setLoadingBooks] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const cancelRef = useRef(false);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -155,6 +155,15 @@ export function LibraryPage() {
     };
   }, [id, loadBooks]);
 
+  useEffect(() => {
+    if (!loadingBooks) restoreScroll();
+  }, [loadingBooks, restoreScroll]);
+
+  function handleBookClick(bookId: string) {
+    saveScroll();
+    navigate(`/books/${bookId}`, { state: { from: pathname } });
+  }
+
   function openSettings() {
     setEditName(library?.name ?? '');
     setConfirmDelete(false);
@@ -263,8 +272,8 @@ export function LibraryPage() {
                 ? 'No books match the current filters.'
                 : 'No books in this library yet.'
             }
-            onBookClick={setSelectedBookId}
-            onBookSend={setSelectedBookId}
+            onBookClick={handleBookClick}
+            onBookSend={handleBookClick}
             onBookRatingChange={(id, rating) =>
               setBooks((prev) =>
                 prev.map((b) => (b.id === id ? { ...b, rating } : b)),
@@ -351,12 +360,6 @@ export function LibraryPage() {
           )}
         </Stack>
       </Modal>
-
-      <BookDetailModal
-        bookId={selectedBookId}
-        onClose={() => setSelectedBookId(null)}
-        onBookUpdated={() => void loadBooks()}
-      />
     </Stack>
   );
 }

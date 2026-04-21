@@ -22,9 +22,12 @@ export class AuthorsService {
 
   constructor(private readonly db: DatabaseService) {}
 
-  async findAll(): Promise<AuthorListItemDto[]> {
+  async findAll(q?: string): Promise<AuthorListItemDto[]> {
     const authors = await this.db.author.findMany({
-      where: { books: { some: {} } },
+      where: {
+        books: { some: {} },
+        ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      },
       orderBy: { name: 'asc' },
       select: {
         id: true,

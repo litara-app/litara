@@ -33,7 +33,9 @@ test.describe('Login page', () => {
 
   test('login', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({
+    await expect(
+      page.getByRole('heading', { name: /welcome to litara/i }),
+    ).toBeVisible({
       timeout: 10_000,
     });
     await settle(page);
@@ -94,12 +96,18 @@ test.describe('All Books', () => {
   });
 });
 
-test.describe('Book detail modal', () => {
+test.describe('Book detail page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/books');
     await page.locator('.book-card').first().waitFor({ timeout: 15_000 });
-    await page.locator('.book-card').first().click();
-    await expect(page.getByLabel('Close')).toBeVisible({ timeout: 8_000 });
+    await page
+      .locator('.book-card')
+      .filter({ hasText: 'Pride and Prejudice' })
+      .first()
+      .click();
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({
+      timeout: 8_000,
+    });
     await settle(page);
   });
 
@@ -127,7 +135,7 @@ test.describe('Authors page', () => {
       timeout: 10_000,
     });
     await page
-      .locator('.mantine-Card-root')
+      .locator('.mantine-Avatar-root')
       .first()
       .or(page.getByText('No authors found'))
       .waitFor({ timeout: 10_000 })

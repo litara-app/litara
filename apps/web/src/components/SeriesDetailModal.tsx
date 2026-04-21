@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Modal,
   Text,
@@ -21,7 +22,6 @@ import {
   IconBuildingStore,
 } from '@tabler/icons-react';
 import { api } from '../utils/api';
-import { BookDetailModal } from './BookDetailModal';
 
 interface SeriesBookItem {
   id: string;
@@ -187,9 +187,10 @@ export function SeriesDetailModal({
   seriesId,
   onClose,
 }: SeriesDetailModalProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [detail, setDetail] = useState<SeriesDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeBookId, setActiveBookId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!seriesId) {
@@ -377,7 +378,11 @@ export function SeriesDetailModal({
                     <BookCard
                       key={book.id}
                       book={book}
-                      onClick={() => setActiveBookId(book.id)}
+                      onClick={() =>
+                        navigate(`/books/${book.id}`, {
+                          state: { from: location.pathname },
+                        })
+                      }
                     />
                   ))}
                 </Box>
@@ -386,12 +391,6 @@ export function SeriesDetailModal({
           </>
         )}
       </Modal>
-
-      <BookDetailModal
-        bookId={activeBookId}
-        onClose={() => setActiveBookId(null)}
-        onBookUpdated={() => {}}
-      />
     </>
   );
 }

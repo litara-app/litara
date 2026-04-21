@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { librariesAtom, shelvesAtom } from '../store/atoms';
 import {
   Modal,
+  Paper,
   Box,
   AspectRatio,
   Center,
@@ -45,6 +46,7 @@ import {
   IconDatabaseImport,
   IconTrash,
   IconListNumbers,
+  IconChevronLeft,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import { api } from '../utils/api';
@@ -56,20 +58,14 @@ import type {
   EditedFields,
   Library,
   Shelf,
-} from './BookDetailModal.types';
-import { FORMAT_COLORS } from './BookDetailModal.types';
-import { formatBytes } from './BookDetailModal.utils';
-import { OverviewTab } from './OverviewTab';
-import { EditMetadataTab } from './EditMetadataTab';
-import { SearchMetadataTab } from './SearchMetadataTab';
-import { SidecarTab } from './SidecarTab';
-import { BookAnnotationsTab } from './BookAnnotationsTab';
-
-export interface BookDetailModalProps {
-  bookId: string | null;
-  onClose: () => void;
-  onBookUpdated: () => void;
-}
+} from '../components/BookDetailModal.types';
+import { FORMAT_COLORS } from '../components/BookDetailModal.types';
+import { formatBytes } from '../components/BookDetailModal.utils';
+import { OverviewTab } from '../components/OverviewTab';
+import { EditMetadataTab } from '../components/EditMetadataTab';
+import { SearchMetadataTab } from '../components/SearchMetadataTab';
+import { SidecarTab } from '../components/SidecarTab';
+import { BookAnnotationsTab } from '../components/BookAnnotationsTab';
 
 function detailToEdited(d: BookDetail): EditedFields {
   return {
@@ -95,16 +91,11 @@ function detailToEdited(d: BookDetail): EditedFields {
   };
 }
 
-export function BookDetailModal({
-  bookId: initialBookId,
-  onClose,
-  onBookUpdated,
-}: BookDetailModalProps) {
+export function BookDetailPage() {
+  const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
-  const [bookId, setBookId] = useState<string | null>(initialBookId);
-  useEffect(() => {
-    setBookId(initialBookId);
-  }, [initialBookId]);
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from ?? '/books';
   const [detail, setDetail] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -135,7 +126,6 @@ export function BookDetailModal({
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Disk settings (for Write to File button)
   const [diskSettings, setDiskSettings] = useState<{
     allowDiskWrites: boolean;
     isReadOnlyMount: boolean;
@@ -151,7 +141,6 @@ export function BookDetailModal({
       .catch(() => {});
   }, []);
 
-  // Send book
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [recipientEmails, setRecipientEmails] = useState<
     { id: string; email: string; label: string | null; isDefault: boolean }[]
@@ -164,7 +153,6 @@ export function BookDetailModal({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
 
-  // Match book
   const [matchModalOpen, setMatchModalOpen] = useState(false);
   const [matchQuery, setMatchQuery] = useState('');
   const [allBooks, setAllBooks] = useState<BookSummary[]>([]);
@@ -174,13 +162,11 @@ export function BookDetailModal({
   const [matchConfirmOpen, setMatchConfirmOpen] = useState(false);
   const [matching, setMatching] = useState(false);
 
-  // Reset progress — tracks which source is pending clear (null = no confirm open)
   const [resetProgressSource, setResetProgressSource] = useState<
     'LITARA' | 'KOREADER' | null
   >(null);
   const [resettingProgress, setResettingProgress] = useState(false);
 
-  // Delete book
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
   const isAdmin = (() => {
@@ -192,22 +178,42 @@ export function BookDetailModal({
   })();
   const [deleting, setDeleting] = useState(false);
 
-  // Reading queue
   const [inReadingQueue, setInReadingQueue] = useState(false);
   const [queueLoading, setQueueLoading] = useState(false);
   const { addBook: addToQueue, removeBook: removeFromQueue } =
     useReadingQueueActions();
 
   useEffect(() => {
-    if (!bookId) {
-      setDetail(null);
-      return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      if (
+        matchModalOpen ||
+        matchConfirmOpen ||
+        deleteConfirmOpen ||
+        sendModalOpen ||
+        resetProgressSource !== null
+      )
+        return;
+      navigate(from);
     }
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [
+    navigate,
+    from,
+    matchModalOpen,
+    matchConfirmOpen,
+    deleteConfirmOpen,
+    sendModalOpen,
+    resetProgressSource,
+  ]);
+
+  useEffect(() => {
+    if (!bookId) return;
     setLoading(true);
     setActiveTab('overview');
     setIsDirty(false);
     setReadingProgress([]);
-    // Capture current values so we can detect whether setState actually changes them
     const prevRating = rating;
     const prevReadStatus = readStatus;
     Promise.all([
@@ -226,9 +232,6 @@ export function BookDetailModal({
         skipSaveRef.current = true;
         setRating(newRating);
         setReadStatus(newReadStatus);
-        // If neither value changed, React won't re-render and the save effect
-        // won't fire to consume the skip flag — reset it here so the first real
-        // user interaction isn't silently dropped.
         if (newRating === prevRating && newReadStatus === prevReadStatus) {
           skipSaveRef.current = false;
         }
@@ -249,9 +252,7 @@ export function BookDetailModal({
     }
     if (!detail) return;
     const t = setTimeout(() => {
-      void api
-        .patch(`/books/${detail.id}`, { rating, readStatus })
-        .then(() => onBookUpdated());
+      void api.patch(`/books/${detail.id}`, { rating, readStatus });
     }, 600);
     return () => clearTimeout(t);
   }, [rating, readStatus]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -319,7 +320,6 @@ export function BookDetailModal({
       setEditedFields(detailToEdited(res.data));
       setLockedFields(new Set(res.data.lockedFields));
       setIsDirty(false);
-      onBookUpdated();
       pushToast('Changes saved', { color: 'green' });
     } finally {
       setSaving(false);
@@ -331,7 +331,6 @@ export function BookDetailModal({
     setEditedFields(detailToEdited(updated));
     setLockedFields(new Set(updated.lockedFields));
     setIsDirty(false);
-    onBookUpdated();
   }
 
   async function handleWriteEpub() {
@@ -449,8 +448,7 @@ export function BookDetailModal({
       });
       setMatchConfirmOpen(false);
       setMatchModalOpen(false);
-      onBookUpdated();
-      onClose();
+      navigate(from);
     } finally {
       setMatching(false);
     }
@@ -462,8 +460,7 @@ export function BookDetailModal({
     try {
       await api.delete(`/books/${detail.id}`, { data: { deleteFiles } });
       setDeleteConfirmOpen(false);
-      onBookUpdated();
-      onClose();
+      navigate(from);
     } catch {
       pushToast('Failed to delete book', { color: 'red' });
     } finally {
@@ -486,7 +483,7 @@ export function BookDetailModal({
     }
   }
 
-  const SEND_SIZE_THRESHOLD = 25 * 1024 * 1024; // 25 MB
+  const SEND_SIZE_THRESHOLD = 25 * 1024 * 1024;
 
   function resolveDefaultSendFile(
     files: BookDetail['files'],
@@ -569,38 +566,45 @@ export function BookDetailModal({
 
   return (
     <>
-      <Modal
-        opened={!!bookId}
-        onClose={onClose}
-        fullScreen
-        padding={0}
-        withCloseButton={false}
-        title={null}
+      <Paper
+        withBorder
+        radius="md"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height:
+            'calc(100dvh - var(--app-shell-header-height) - var(--app-shell-padding) * 2)',
+          overflow: 'hidden',
+        }}
       >
+        {/* Back navigation */}
+        <Group
+          px="md"
+          py="xs"
+          style={{
+            borderBottom: '1px solid var(--mantine-color-default-border)',
+            flexShrink: 0,
+          }}
+        >
+          <Button
+            variant="subtle"
+            leftSection={<IconChevronLeft size={16} />}
+            onClick={() => navigate(from)}
+            size="sm"
+            px="xs"
+          >
+            Back
+          </Button>
+        </Group>
+
         {loading || !detail || !editedFields ? (
-          <Center style={{ height: '100vh' }}>
+          <Center style={{ flex: 1 }}>
             <Loader />
           </Center>
         ) : (
-          <Box
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100vh',
-            }}
-          >
-            <ActionIcon
-              variant="subtle"
-              size="lg"
-              onClick={onClose}
-              style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}
-              aria-label="Close"
-            >
-              <IconX size={18} />
-            </ActionIcon>
-
+          <>
             <Box style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-              {/* Left panel — cover */}
+              {/* Left panel */}
               <Box
                 style={{
                   width: 260,
@@ -660,10 +664,7 @@ export function BookDetailModal({
                     <Button
                       fullWidth
                       leftSection={<IconBook size={16} />}
-                      onClick={() => {
-                        onClose();
-                        navigate(`/read/${detail.id}`);
-                      }}
+                      onClick={() => navigate(`/read/${detail.id}`)}
                     >
                       Read
                     </Button>
@@ -907,14 +908,14 @@ export function BookDetailModal({
                     key={detail.id}
                     detail={detail}
                     onDownload={handleDownload}
-                    onViewSeries={(seriesId) => {
-                      onClose();
-                      navigate(`/series?seriesId=${seriesId}`);
-                    }}
-                    onOpenBook={(id) => {
-                      setBookId(id);
-                      setActiveTab('overview');
-                    }}
+                    onViewSeries={(seriesId) =>
+                      navigate(`/series/${seriesId}`, {
+                        state: { from: location.pathname },
+                      })
+                    }
+                    onOpenBook={(id) =>
+                      navigate(`/books/${id}`, { state: { from } })
+                    }
                   />
                 </Tabs.Panel>
 
@@ -943,7 +944,7 @@ export function BookDetailModal({
                     onSearch={(provider, params) =>
                       api
                         .get<
-                          import('./BookDetailModal.types').MetadataResult[]
+                          import('../components/BookDetailModal.types').MetadataResult[]
                         >(
                           `/books/${detail.id}/search-metadata?provider=${provider}&${params.toString()}`,
                         )
@@ -983,7 +984,7 @@ export function BookDetailModal({
                     <BookAnnotationsTab
                       key={detail.id}
                       bookId={detail.id}
-                      onClose={onClose}
+                      onClose={() => navigate(-1)}
                     />
                   )}
                 </Tabs.Panel>
@@ -1115,14 +1116,11 @@ export function BookDetailModal({
                     Delete Book
                   </Button>
                 )}
-                <Button variant="subtle" onClick={onClose}>
-                  Close
-                </Button>
               </Group>
             </Box>
-          </Box>
+          </>
         )}
-      </Modal>
+      </Paper>
 
       {/* Match Book modal */}
       <Modal

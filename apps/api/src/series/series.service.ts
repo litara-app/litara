@@ -7,10 +7,11 @@ import { SeriesDetailDto } from './dto/series-detail.dto';
 export class SeriesService {
   constructor(private readonly db: DatabaseService) {}
 
-  async findAll(): Promise<SeriesListItemDto[]> {
+  async findAll(q?: string): Promise<SeriesListItemDto[]> {
     const allSeries = await this.db.series.findMany({
       where: {
         books: { some: {} },
+        ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
       },
       orderBy: { name: 'asc' },
       select: {
@@ -102,7 +103,7 @@ export class SeriesService {
                 pageCount: true,
                 publisher: true,
                 authors: {
-                  select: { author: { select: { name: true } } },
+                  select: { author: { select: { id: true, name: true } } },
                 },
                 files: {
                   select: { format: true },
@@ -128,10 +129,15 @@ export class SeriesService {
       ).map((b) => b.id),
     );
 
-    const authorSet = new Set<string>();
+    const authorMap = new Map<string, { id: string; name: string }>();
     for (const sb of series.books) {
       for (const ba of sb.book.authors) {
-        authorSet.add(ba.author.name);
+        if (!authorMap.has(ba.author.id)) {
+          authorMap.set(ba.author.id, {
+            id: ba.author.id,
+            name: ba.author.name,
+          });
+        }
       }
     }
 
@@ -151,7 +157,7 @@ export class SeriesService {
       id: series.id,
       name: series.name,
       totalBooks: series.totalBooks,
-      authors: Array.from(authorSet),
+      authors: Array.from(authorMap.values()),
       books,
     };
   }

@@ -1,5 +1,10 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SeriesService } from './series.service';
 import { SeriesListItemDto } from './dto/series-list-item.dto';
@@ -14,8 +19,9 @@ export class SeriesController {
   @Get()
   @ApiOperation({ summary: 'List all series with at least one owned book' })
   @ApiOkResponse({ type: SeriesListItemDto, isArray: true })
-  findAll(): Promise<SeriesListItemDto[]> {
-    return this.seriesService.findAll();
+  @ApiQuery({ name: 'q', required: false, description: 'Filter by name' })
+  findAll(@Query('q') q?: string): Promise<SeriesListItemDto[]> {
+    return this.seriesService.findAll(q);
   }
 
   @UseGuards(JwtAuthGuard)

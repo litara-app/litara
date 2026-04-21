@@ -31,8 +31,9 @@ export class AuthorsController {
   @Get()
   @ApiOperation({ summary: 'List all authors with at least one owned book' })
   @ApiOkResponse({ type: AuthorListItemDto, isArray: true })
-  findAll(): Promise<AuthorListItemDto[]> {
-    return this.authorsService.findAll();
+  @ApiQuery({ name: 'q', required: false, description: 'Filter by name' })
+  findAll(@Query('q') q?: string): Promise<AuthorListItemDto[]> {
+    return this.authorsService.findAll(q);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Modal,
   Stack,
@@ -17,7 +18,6 @@ import { IconUser, IconExternalLink } from '@tabler/icons-react';
 import { api } from '../utils/api';
 import { pushToast } from '../utils/toast';
 import type { AuthorDetail } from './AuthorDetailModal.types';
-import { BookDetailModal } from './BookDetailModal';
 
 interface AuthorDetailModalProps {
   authorId: string | null;
@@ -32,8 +32,9 @@ export function AuthorDetailModal({
   onClose,
   onPhotoUpdated,
 }: AuthorDetailModalProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [detail, setDetail] = useState<AuthorDetail | null>(null);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
 
   // Loading when an authorId is set but the fetched detail doesn't match yet
   const isLoading = !!authorId && detail?.id !== authorId;
@@ -147,7 +148,11 @@ export function AuthorDetailModal({
               {detail.books.map((book) => (
                 <UnstyledButton
                   key={book.id}
-                  onClick={() => setSelectedBookId(book.id)}
+                  onClick={() =>
+                    navigate(`/books/${book.id}`, {
+                      state: { from: location.pathname },
+                    })
+                  }
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -194,14 +199,6 @@ export function AuthorDetailModal({
           </Stack>
         )}
       </Modal>
-
-      {selectedBookId && (
-        <BookDetailModal
-          bookId={selectedBookId}
-          onClose={() => setSelectedBookId(null)}
-          onBookUpdated={() => {}}
-        />
-      )}
     </>
   );
 }

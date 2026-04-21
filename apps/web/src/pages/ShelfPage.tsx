@@ -22,8 +22,8 @@ import {
   isSelectModeAtom,
 } from '../store/atoms';
 import type { Shelf } from '../store/atoms';
-import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
+import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { PageHeader } from '../components/PageHeader';
 import type { BookCardData } from '../components/BookCard';
 import { ITEM_MIN_WIDTHS } from '../utils/book-grid';
@@ -32,11 +32,11 @@ import { pushToast } from '../utils/toast';
 export function ShelfPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { saveScroll, restoreScroll, pathname } = useScrollRestoration();
   const [shelf, setShelf] = useState<Shelf | null>(null);
   const [books, setBooks] = useState<BookCardData[]>([]);
   const [loadingShelf, setLoadingShelf] = useState(true);
   const [loadingBooks, setLoadingBooks] = useState(true);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -106,6 +106,15 @@ export function ShelfPage() {
       .finally(() => setLoadingShelf(false));
     void loadBooks();
   }, [id, loadBooks]);
+
+  useEffect(() => {
+    if (!loadingBooks) restoreScroll();
+  }, [loadingBooks, restoreScroll]);
+
+  function handleBookClick(bookId: string) {
+    saveScroll();
+    navigate(`/books/${bookId}`, { state: { from: pathname } });
+  }
 
   function openSettings() {
     setEditName(shelf?.name ?? '');
@@ -189,7 +198,7 @@ export function ShelfPage() {
         minWidth={minWidth}
         skeletonCount={5}
         emptyMessage="No books on this shelf yet."
-        onBookClick={setSelectedBookId}
+        onBookClick={handleBookClick}
         isSelectMode={selectModeActive}
         selectedIds={selectedBookIds}
         onToggleSelect={handleToggleSelect}
@@ -248,12 +257,6 @@ export function ShelfPage() {
           )}
         </Stack>
       </Modal>
-
-      <BookDetailModal
-        bookId={selectedBookId}
-        onClose={() => setSelectedBookId(null)}
-        onBookUpdated={() => void loadBooks()}
-      />
     </Stack>
   );
 }

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
 import { Stack, Paper, Title, Group } from '@mantine/core';
 import { IconClock, IconBooks, IconListNumbers } from '@tabler/icons-react';
 import { api } from '../utils/api';
-import { BookDetailModal } from '../components/BookDetailModal';
 import { BookGrid } from '../components/BookGrid';
+import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { PageHeader } from '../components/PageHeader';
 import { DashboardSettingsModal } from '../components/DashboardSettingsModal';
 import { ReadingQueueSection } from '../components/ReadingQueueSection';
@@ -22,10 +23,11 @@ interface InProgressEntry {
 }
 
 export function Dashboard() {
+  const navigate = useNavigate();
+  const { saveScroll, restoreScroll, pathname } = useScrollRestoration();
   const [recentlyAdded, setRecentlyAdded] = useState<BookCardData[]>([]);
   const [inProgress, setInProgress] = useState<BookCardData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
   const {
@@ -66,6 +68,15 @@ export function Dashboard() {
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
+
+  useEffect(() => {
+    if (!loading) restoreScroll();
+  }, [loading, restoreScroll]);
+
+  function handleBookClick(bookId: string) {
+    saveScroll();
+    navigate(`/books/${bookId}`, { state: { from: pathname } });
+  }
 
   async function saveLayout(newLayout: typeof userSettings.dashboardLayout) {
     setUserSettings((prev) => ({ ...prev, dashboardLayout: newLayout }));
@@ -113,7 +124,7 @@ export function Dashboard() {
                 minWidth={minWidth}
                 skeletonCount={4}
                 emptyMessage="No books in progress. Start reading one from your library."
-                onBookClick={setSelectedBookId}
+                onBookClick={handleBookClick}
               />
             </Paper>
           );
@@ -131,7 +142,7 @@ export function Dashboard() {
                 minWidth={minWidth}
                 skeletonCount={5}
                 emptyMessage="No books yet. Add some ebooks to your library folder."
-                onBookClick={setSelectedBookId}
+                onBookClick={handleBookClick}
               />
             </Paper>
           );
@@ -149,7 +160,7 @@ export function Dashboard() {
                 minWidth={minWidth}
                 onReorder={reorder}
                 onRemove={removeBook}
-                onBookClick={setSelectedBookId}
+                onBookClick={handleBookClick}
               />
             </Paper>
           );
@@ -162,12 +173,6 @@ export function Dashboard() {
         onClose={() => setSettingsOpen(false)}
         layout={mergedLayout}
         onSave={(layout) => void saveLayout(layout)}
-      />
-
-      <BookDetailModal
-        bookId={selectedBookId}
-        onClose={() => setSelectedBookId(null)}
-        onBookUpdated={() => void load()}
       />
     </Stack>
   );
