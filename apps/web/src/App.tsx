@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom';
 import '@mantine/core/styles.css';
 import '@mantine/charts/styles.css';
+import '@mantine/spotlight/styles.css';
 
 import { Login } from './pages/Login';
 import { SetupPage } from './pages/SetupPage';

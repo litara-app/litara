@@ -62,6 +62,7 @@ export class BooksController {
         order: query.order,
         libraryId: query.libraryId,
         q: query.q,
+        searchBy: query.searchBy,
       },
       req.user.id,
     );
