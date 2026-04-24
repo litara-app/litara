@@ -33,6 +33,7 @@ import {
 } from './dto/metadata-provider-status.dto';
 import {
   ReorganizeLibraryResponseDto,
+  ReorganizePreviewResponseDto,
   BackupSizeResponseDto,
 } from './dto/library-action.dto';
 
@@ -202,6 +203,12 @@ export class AdminController {
   async bulkWriteSidecars() {
     await this.adminService.assertDiskWritesAllowed();
     return this.adminService.bulkWriteSidecars();
+  }
+
+  @Get('library/reorganize/preview')
+  @ApiOkResponse({ type: ReorganizePreviewResponseDto })
+  previewReorganize() {
+    return this.adminService.previewReorganize();
   }
 
   @Post('library/reorganize')

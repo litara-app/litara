@@ -288,6 +288,199 @@ export class AdminService {
     return { taskId: task.id };
   }
 
+  async previewReorganize(): Promise<{
+    moves: Array<{
+      sourcePath: string;
+      targetPath: string;
+      action: 'move' | 'skip' | 'collision';
+      bookTitle: string;
+      fileType: 'ebook' | 'audiobook';
+    }>;
+    total: number;
+    moveCount: number;
+    skipCount: number;
+    collisionCount: number;
+  }> {
+    const libraryRoot = this.config.get<string>('ebookLibraryPath')!;
+
+    const [files, audiobookBooks] = await Promise.all([
+      this.prisma.bookFile.findMany({
+        where: { missingAt: null },
+        include: {
+          book: {
+            include: {
+              authors: { include: { author: true } },
+              series: { include: { series: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.book.findMany({
+        where: { hasAudiobook: true },
+        include: {
+          audiobookFiles: { orderBy: { fileIndex: 'asc' } },
+          authors: { include: { author: true } },
+          series: { include: { series: true } },
+        },
+      }),
+    ]);
+
+    const moves: Array<{
+      sourcePath: string;
+      targetPath: string;
+      action: 'move' | 'skip' | 'collision';
+      bookTitle: string;
+      fileType: 'ebook' | 'audiobook';
+    }> = [];
+
+    for (const file of files) {
+      if (!fs.existsSync(file.filePath)) {
+        moves.push({
+          sourcePath: file.filePath,
+          targetPath: file.filePath,
+          action: 'skip',
+          bookTitle: file.book.title,
+          fileType: 'ebook',
+        });
+        continue;
+      }
+
+      const authors = file.book.authors.map((ba) => ba.author.name);
+      const seriesEntry = file.book.series[0] ?? null;
+      const ext = path.extname(file.filePath).toLowerCase();
+      const originalFilename = path.basename(file.filePath);
+
+      const canonicalPath = this.libraryWriteService.computeTargetPath({
+        libraryRoot,
+        authors,
+        seriesName: seriesEntry?.series.name ?? null,
+        title: file.book.title,
+        originalFilename,
+        ext,
+      });
+
+      if (file.filePath === canonicalPath) {
+        moves.push({
+          sourcePath: file.filePath,
+          targetPath: canonicalPath,
+          action: 'skip',
+          bookTitle: file.book.title,
+          fileType: 'ebook',
+        });
+        continue;
+      }
+
+      moves.push({
+        sourcePath: file.filePath,
+        targetPath: canonicalPath,
+        action: fs.existsSync(canonicalPath) ? 'collision' : 'move',
+        bookTitle: file.book.title,
+        fileType: 'ebook',
+      });
+    }
+
+    for (const book of audiobookBooks) {
+      const audioFiles = book.audiobookFiles.filter((f) =>
+        fs.existsSync(f.filePath),
+      );
+
+      if (audioFiles.length === 0) {
+        moves.push({
+          sourcePath: book.audiobookFiles[0]?.filePath ?? '',
+          targetPath: '',
+          action: 'skip',
+          bookTitle: book.title,
+          fileType: 'audiobook',
+        });
+        continue;
+      }
+
+      const authors = book.authors.map((ba) => ba.author.name);
+      const seriesEntry = book.series[0] ?? null;
+      const seriesName = seriesEntry?.series.name ?? null;
+
+      if (audioFiles.length === 1) {
+        const file = audioFiles[0];
+        const ext = path.extname(file.filePath).toLowerCase();
+        const canonicalPath = this.libraryWriteService.computeTargetPath({
+          libraryRoot,
+          authors,
+          seriesName,
+          title: book.title,
+          originalFilename: path.basename(file.filePath),
+          ext,
+        });
+
+        if (file.filePath === canonicalPath) {
+          moves.push({
+            sourcePath: file.filePath,
+            targetPath: canonicalPath,
+            action: 'skip',
+            bookTitle: book.title,
+            fileType: 'audiobook',
+          });
+          continue;
+        }
+
+        moves.push({
+          sourcePath: file.filePath,
+          targetPath: canonicalPath,
+          action: fs.existsSync(canonicalPath) ? 'collision' : 'move',
+          bookTitle: book.title,
+          fileType: 'audiobook',
+        });
+      } else {
+        const commonDir = path.dirname(audioFiles[0].filePath);
+        const allSameDir = audioFiles.every(
+          (f) => path.dirname(f.filePath) === commonDir,
+        );
+
+        if (!allSameDir) {
+          moves.push({
+            sourcePath: commonDir,
+            targetPath: '',
+            action: 'skip',
+            bookTitle: book.title,
+            fileType: 'audiobook',
+          });
+          continue;
+        }
+
+        const canonicalDir = this.libraryWriteService.computeTargetDir({
+          libraryRoot,
+          authors,
+          seriesName,
+          title: book.title,
+        });
+
+        if (commonDir === canonicalDir) {
+          moves.push({
+            sourcePath: commonDir,
+            targetPath: canonicalDir,
+            action: 'skip',
+            bookTitle: book.title,
+            fileType: 'audiobook',
+          });
+          continue;
+        }
+
+        moves.push({
+          sourcePath: commonDir,
+          targetPath: canonicalDir,
+          action: fs.existsSync(canonicalDir) ? 'collision' : 'move',
+          bookTitle: book.title,
+          fileType: 'audiobook',
+        });
+      }
+    }
+
+    const moveCount = moves.filter((m) => m.action === 'move').length;
+    const skipCount = moves.filter((m) => m.action === 'skip').length;
+    const collisionCount = moves.filter((m) => m.action === 'collision').length;
+
+    return { moves, total: moves.length, moveCount, skipCount, collisionCount };
+  }
+
   async reorganizeLibrary(): Promise<{ taskId: string }> {
     await this.diskWriteGuard.assertDiskWritesAllowed();
 
