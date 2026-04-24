@@ -28,12 +28,12 @@ describe('Library Scan Routes (e2e)', () => {
         .expect(401);
     });
 
-    it('returns 200 with a scan started message', async () => {
+    it('returns 201 with a taskId', async () => {
       const res = await request(testApp.app.getHttpServer())
         .post('/api/v1/library/scan')
         .set('Authorization', `Bearer ${token}`)
         .expect(201);
-      expect(res.body).toHaveProperty('message', 'Scan started');
+      expect(res.body).toHaveProperty('taskId');
     });
 
     it('accepts rescanMetadata=true query parameter', async () => {
@@ -41,7 +41,7 @@ describe('Library Scan Routes (e2e)', () => {
         .post('/api/v1/library/scan?rescanMetadata=true')
         .set('Authorization', `Bearer ${token}`)
         .expect(201);
-      expect(res.body).toHaveProperty('message', 'Scan started');
+      expect(res.body).toHaveProperty('taskId');
     });
   });
 });

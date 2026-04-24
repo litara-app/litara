@@ -106,13 +106,13 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     try {
       await this.fullScan(rescanMetadata, taskId);
-      await this.prisma.task.update({
+      await this.prisma.task.updateMany({
         where: { id: taskId },
         data: { status: 'COMPLETED' },
       });
       void this.backfillKoReaderHashes();
     } catch (err) {
-      await this.prisma.task.update({
+      await this.prisma.task.updateMany({
         where: { id: taskId },
         data: {
           status: 'FAILED',
@@ -150,7 +150,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (taskId) {
-      await this.prisma.task.update({
+      await this.prisma.task.updateMany({
         where: { id: taskId },
         data: {
           status: 'PROCESSING',
@@ -168,7 +168,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       await this.handleFileAdded(filePath, rescanMetadata);
       processed++;
       if (taskId && (processed % 5 === 0 || processed === allFiles.length)) {
-        await this.prisma.task.update({
+        await this.prisma.task.updateMany({
           where: { id: taskId },
           data: {
             payload: JSON.stringify({
