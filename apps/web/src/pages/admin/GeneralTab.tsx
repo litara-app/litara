@@ -688,7 +688,7 @@ function AuthorPhotoEnrichmentSection() {
   );
 }
 
-function LibraryScanSection() {
+function LibraryScanSection({ onTaskStarted }: { onTaskStarted?: () => void }) {
   const [rescanMetadata, setRescanMetadata] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<'success' | 'error' | null>(null);
@@ -700,6 +700,7 @@ function LibraryScanSection() {
       const qs = rescanMetadata ? '?rescanMetadata=true' : '';
       await api.post(`/library/scan${qs}`);
       setResult('success');
+      onTaskStarted?.();
     } catch {
       setResult('error');
     } finally {
@@ -725,7 +726,7 @@ function LibraryScanSection() {
 
         {result === 'success' && (
           <Alert icon={<IconCheck size={16} />} color="green" variant="light">
-            Scan started. The library will update in the background.
+            Scan started. Check the Tasks tab to monitor progress.
           </Alert>
         )}
         {result === 'error' && (
@@ -1294,7 +1295,7 @@ export function GeneralTab({
         </Stack>
       </Paper>
       <ShelfmarkSettingsSection />
-      <LibraryScanSection />
+      <LibraryScanSection onTaskStarted={onTaskStarted} />
       <AuthorPhotoEnrichmentSection />
       <DiskSettingsSection />
       {import.meta.env.DEV && <DevToolsSection />}

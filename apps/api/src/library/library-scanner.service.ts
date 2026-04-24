@@ -48,8 +48,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     await this.ensureWatchedFolder();
-    await this.fullScan();
-    void this.backfillKoReaderHashes();
+    void this.triggerFullScanTask();
     void this.startWatching();
   }
 
@@ -84,10 +83,50 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ---------------------------------------------------------------------------
+  // Task-based full scan (non-blocking, reports progress)
+  // ---------------------------------------------------------------------------
+
+  async triggerFullScanTask(
+    rescanMetadata = false,
+  ): Promise<{ taskId: string }> {
+    const task = await this.prisma.task.create({
+      data: {
+        type: 'LIBRARY_SCAN',
+        status: 'PENDING',
+        payload: JSON.stringify({ processed: 0, total: 0, currentFile: '' }),
+      },
+    });
+    void this.runFullScanTask(task.id, rescanMetadata);
+    return { taskId: task.id };
+  }
+
+  private async runFullScanTask(
+    taskId: string,
+    rescanMetadata: boolean,
+  ): Promise<void> {
+    try {
+      await this.fullScan(rescanMetadata, taskId);
+      await this.prisma.task.update({
+        where: { id: taskId },
+        data: { status: 'COMPLETED' },
+      });
+      void this.backfillKoReaderHashes();
+    } catch (err) {
+      await this.prisma.task.update({
+        where: { id: taskId },
+        data: {
+          status: 'FAILED',
+          errorMessage: (err as Error).message,
+        },
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Full scan using fast-glob
   // ---------------------------------------------------------------------------
 
-  async fullScan(rescanMetadata = false) {
+  async fullScan(rescanMetadata = false, taskId?: string) {
     const watchedFolders = await this.prisma.watchedFolder.findMany({
       where: { isActive: true },
     });
@@ -101,14 +140,48 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       `Starting full scan of ${watchedFolders.length} folder(s)...${rescanMetadata ? ' (rescan metadata)' : ''}`,
     );
 
+    // Collect all ebook files first so we can report an accurate total
+    const allFiles: string[] = [];
     for (const folder of watchedFolders) {
       const pattern = path.join(folder.path, GLOB_PATTERN).replace(/\\/g, '/');
       const files = await glob.glob(pattern, { absolute: true, dot: false });
       this.logger.log(`Found ${files.length} file(s) in ${folder.path}`);
-      for (const filePath of files) {
-        await this.handleFileAdded(filePath, rescanMetadata);
-      }
+      allFiles.push(...files);
+    }
 
+    if (taskId) {
+      await this.prisma.task.update({
+        where: { id: taskId },
+        data: {
+          status: 'PROCESSING',
+          payload: JSON.stringify({
+            processed: 0,
+            total: allFiles.length,
+            currentFile: '',
+          }),
+        },
+      });
+    }
+
+    let processed = 0;
+    for (const filePath of allFiles) {
+      await this.handleFileAdded(filePath, rescanMetadata);
+      processed++;
+      if (taskId && (processed % 5 === 0 || processed === allFiles.length)) {
+        await this.prisma.task.update({
+          where: { id: taskId },
+          data: {
+            payload: JSON.stringify({
+              processed,
+              total: allFiles.length,
+              currentFile: path.basename(filePath),
+            }),
+          },
+        });
+      }
+    }
+
+    for (const folder of watchedFolders) {
       await this.scanAudiobookFolders(folder.path);
     }
 

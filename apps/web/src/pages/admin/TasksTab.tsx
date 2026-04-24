@@ -27,6 +27,7 @@ interface TaskRecord {
     processed?: number;
     total?: number;
     currentBookTitle?: string;
+    currentFile?: string;
     written?: number;
     skipped?: number;
     failed?: number;
@@ -48,6 +49,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
 const TYPE_LABELS: Record<string, string> = {
   BULK_METADATA_MATCH: 'Metadata Enrichment',
   BULK_SIDECAR_WRITE: 'Sidecar Write',
+  LIBRARY_SCAN: 'Library Scan',
 };
 
 function taskLabel(type: string): string {
@@ -154,7 +156,9 @@ export function TasksTab() {
                     <Text size="xs" c="dimmed">
                       {p?.currentBookTitle
                         ? `Processing: ${p.currentBookTitle}`
-                        : 'Starting...'}
+                        : p?.currentFile
+                          ? `Scanning: ${p.currentFile}`
+                          : 'Starting...'}
                       {'  '}
                       <Text span fw={500}>
                         {processed} / {total}
@@ -165,10 +169,9 @@ export function TasksTab() {
 
                 {task.status === 'COMPLETED' && !isSidecarWrite && (
                   <Text size="xs" c="dimmed">
-                    Enriched {total}{' '}
-                    {task.type === 'AUTHOR_PHOTO_ENRICHMENT'
-                      ? 'authors'
-                      : 'books'}
+                    {task.type === 'LIBRARY_SCAN'
+                      ? `Scanned ${total} file${total !== 1 ? 's' : ''}`
+                      : `Enriched ${total} ${task.type === 'AUTHOR_PHOTO_ENRICHMENT' ? 'authors' : 'books'}`}
                   </Text>
                 )}
 

@@ -1,6 +1,5 @@
 import { Controller, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse } from '@nestjs/swagger';
-import { MessageDto } from '../common/dto/message.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { LibraryScannerService } from './library-scanner.service';
@@ -12,10 +11,9 @@ export class LibraryController {
 
   @UseGuards(JwtAuthGuard)
   @Post('scan')
-  @ApiOkResponse({ type: MessageDto })
+  @ApiOkResponse()
   triggerScan(@Query('rescanMetadata') rescanMetadata?: string) {
-    void this.scannerService.fullScan(rescanMetadata === 'true');
-    return { message: 'Scan started' };
+    return this.scannerService.triggerFullScanTask(rescanMetadata === 'true');
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
