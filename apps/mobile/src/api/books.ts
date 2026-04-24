@@ -1,4 +1,5 @@
 import { api } from './client';
+import type { AudiobookFileInfo, AudiobookProgress } from './audiobooks';
 
 export interface BookSummary {
   id: string;
@@ -54,6 +55,9 @@ export interface BookDetail {
     rating: number | null;
     readStatus: string;
   };
+  hasAudiobook: boolean;
+  audiobookFiles: AudiobookFileInfo[];
+  audiobookProgress: AudiobookProgress | null;
 }
 
 export async function getBooks(params?: {

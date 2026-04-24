@@ -13,11 +13,31 @@ import {
   Anchor,
   UnstyledButton,
   Center,
+  Tabs,
+  ActionIcon,
+  Tooltip,
+  Button,
 } from '@mantine/core';
-import { IconArrowRight, IconBook2 } from '@tabler/icons-react';
+import {
+  IconArrowRight,
+  IconBook2,
+  IconHeadphones,
+  IconDownload,
+} from '@tabler/icons-react';
+import { useSetAtom, useAtomValue } from 'jotai';
 import { api } from '../utils/api';
 import type { BookDetail } from './BookDetailModal.types';
 import { FileRow, DetailRow } from './BookDetailModal.shared';
+import { formatBytesNum } from './BookDetailModal.utils';
+import { audiobookPlayerAtom } from '../store/atoms';
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s}s`;
+}
 
 interface OverviewTabProps {
   detail: BookDetail;
@@ -151,6 +171,9 @@ export function OverviewTab({
   onOpenBook,
 }: OverviewTabProps) {
   const [seriesBooks, setSeriesBooks] = useState<SeriesBookItem[]>([]);
+  const setPlayer = useSetAtom(audiobookPlayerAtom);
+  const currentPlayer = useAtomValue(audiobookPlayerAtom);
+  const isPlayingThisBook = currentPlayer?.bookId === detail.id;
 
   useEffect(() => {
     if (!detail.series?.id) return;
@@ -161,6 +184,24 @@ export function OverviewTab({
   }, [detail.series?.id]);
 
   const showSeriesStrip = seriesBooks.length > 1;
+
+  function handlePlayAudiobook() {
+    setPlayer({
+      bookId: detail.id,
+      bookTitle: detail.title,
+      hasCover: detail.hasCover,
+      narrator: detail.audiobookFiles[0]?.narrator ?? null,
+      audiobookFiles: detail.audiobookFiles.map((f) => ({
+        id: f.id,
+        fileIndex: f.fileIndex,
+        duration: f.duration,
+        mimeType: f.mimeType,
+        narrator: f.narrator,
+        chapters: f.chapters,
+      })),
+      initialProgress: detail.audiobookProgress,
+    });
+  }
 
   function renderDescription(desc: string) {
     if (/<[a-z]/i.test(desc)) {
@@ -202,6 +243,63 @@ export function OverviewTab({
             </Text>
           )}
         </Group>
+
+        {/* Audiobook section */}
+        {detail.hasAudiobook && detail.audiobookFiles.length > 0 && (
+          <Paper withBorder p="md" radius="md" mb="md">
+            <Group justify="space-between" align="flex-start">
+              <Box>
+                <Text fw={600}>Audiobook</Text>
+                {detail.audiobookFiles[0]?.narrator && (
+                  <Text size="sm" c="dimmed">
+                    Narrated by {detail.audiobookFiles[0].narrator}
+                  </Text>
+                )}
+                <Text size="xs" c="dimmed" mt={2}>
+                  {formatDuration(
+                    detail.audiobookFiles.reduce((s, f) => s + f.duration, 0),
+                  )}
+                </Text>
+                {detail.audiobookProgress &&
+                  (() => {
+                    const prog = detail.audiobookProgress;
+                    const preceding = detail.audiobookFiles
+                      .filter((f) => f.fileIndex < prog.currentFileIndex)
+                      .reduce((s, f) => s + f.duration, 0);
+                    const elapsed = preceding + prog.currentTime;
+                    const total = detail.audiobookFiles.reduce(
+                      (s, f) => s + f.duration,
+                      0,
+                    );
+                    return (
+                      <Text size="xs" c="teal" mt={2}>
+                        {formatDuration(elapsed)} / {formatDuration(total)}
+                      </Text>
+                    );
+                  })()}
+              </Box>
+              {isPlayingThisBook ? (
+                <Stack gap={4} align="flex-end">
+                  <Badge color="green" variant="light">
+                    Now Playing
+                  </Badge>
+                  <Text size="xs" c="dimmed">
+                    Active in the bottom player bar
+                  </Text>
+                </Stack>
+              ) : (
+                <Button
+                  leftSection={<IconHeadphones size={16} />}
+                  onClick={handlePlayAudiobook}
+                  variant="filled"
+                  size="sm"
+                >
+                  Play Audiobook
+                </Button>
+              )}
+            </Group>
+          </Paper>
+        )}
 
         {/* Synopsis */}
         {detail.description && (
@@ -316,16 +414,143 @@ export function OverviewTab({
         </Paper>
 
         {/* Files */}
-        {detail.files.length > 0 && (
+        {(detail.files.length > 0 || detail.audiobookFiles.length > 0) && (
           <Paper withBorder p="md" radius="md" mb="md">
-            <Text fw={600} mb="sm">
-              Files
-            </Text>
-            <Stack gap={8}>
-              {detail.files.map((f) => (
-                <FileRow key={f.id} file={f} onDownload={onDownload} />
-              ))}
-            </Stack>
+            <Tabs defaultValue="ebook">
+              <Tabs.List mb="sm">
+                <Tabs.Tab value="ebook">Ebook Files</Tabs.Tab>
+                {detail.audiobookFiles.length > 0 && (
+                  <Tabs.Tab value="audiobook">Audiobook Files</Tabs.Tab>
+                )}
+              </Tabs.List>
+
+              <Tabs.Panel value="ebook">
+                {detail.files.length > 0 ? (
+                  <Stack gap={8}>
+                    {detail.files.map((f) => (
+                      <FileRow key={f.id} file={f} onDownload={onDownload} />
+                    ))}
+                  </Stack>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    No ebook files
+                  </Text>
+                )}
+              </Tabs.Panel>
+
+              <Tabs.Panel value="audiobook">
+                {detail.audiobookFiles.length > 1 && (
+                  <Group justify="flex-end" mb="sm">
+                    <Button
+                      size="xs"
+                      variant="light"
+                      leftSection={<IconDownload size={12} />}
+                      onClick={async () => {
+                        const res = await api.get(
+                          `/audiobooks/${detail.id}/files/download-all`,
+                          { responseType: 'blob' },
+                        );
+                        const url = URL.createObjectURL(res.data as Blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = '';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      Download All
+                    </Button>
+                  </Group>
+                )}
+                <Stack gap={8}>
+                  {detail.audiobookFiles.map((af) => {
+                    const ext =
+                      af.filePath.split('.').pop()?.toUpperCase() ?? '';
+                    return (
+                      <Group key={af.id} gap={10} align="center" wrap="nowrap">
+                        {/* Left: icon + format + duration */}
+                        <Stack
+                          gap={2}
+                          align="center"
+                          style={{ flexShrink: 0, width: 52 }}
+                        >
+                          <IconHeadphones
+                            size={14}
+                            color="var(--mantine-color-teal-6)"
+                          />
+                          <Badge
+                            size="xs"
+                            color="teal"
+                            variant="light"
+                            radius="sm"
+                          >
+                            {ext}
+                          </Badge>
+                          {af.duration > 0 && (
+                            <Text size="xs" c="dimmed" ta="center">
+                              {formatDuration(af.duration)}
+                            </Text>
+                          )}
+                        </Stack>
+                        {/* Middle: full path */}
+                        <Box style={{ flex: 1, minWidth: 0 }}>
+                          <Text
+                            size="xs"
+                            style={{
+                              wordBreak: 'break-all',
+                              fontFamily: 'monospace',
+                            }}
+                          >
+                            {af.filePath}
+                          </Text>
+                          {af.narrator && (
+                            <Text size="xs" c="dimmed" mt={2}>
+                              Narrated by {af.narrator}
+                            </Text>
+                          )}
+                        </Box>
+                        {/* Size */}
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                          style={{
+                            flexShrink: 0,
+                            textAlign: 'right',
+                            minWidth: 56,
+                          }}
+                        >
+                          {formatBytesNum(af.fileSize)}
+                        </Text>
+                        {/* Download */}
+                        <Tooltip label="Download" withinPortal>
+                          <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            color="teal"
+                            style={{ flexShrink: 0 }}
+                            onClick={async () => {
+                              const res = await api.get(
+                                `/audiobooks/${detail.id}/files/${af.fileIndex}/download`,
+                                { responseType: 'blob' },
+                              );
+                              const url = URL.createObjectURL(res.data as Blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download =
+                                af.filePath.split(/[\\/]/).pop() ?? '';
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                          >
+                            <IconDownload size={14} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    );
+                  })}
+                </Stack>
+              </Tabs.Panel>
+            </Tabs>
           </Paper>
         )}
 

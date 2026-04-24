@@ -57,4 +57,18 @@ export class BookSummaryDto {
 
   @ApiProperty({ nullable: true, required: false })
   goodreadsRating: number | null;
+
+  @ApiProperty()
+  hasAudiobook: boolean;
+
+  @ApiProperty({ nullable: true, required: false })
+  audiobookProgress: {
+    currentFileIndex: number;
+    currentTime: number;
+    totalDuration: number;
+    completedAt: Date | null;
+  } | null;
+
+  @ApiProperty({ nullable: true, required: false })
+  audiobookProgressFraction: number | null;
 }

@@ -1006,6 +1006,7 @@ function LibraryManagementSection({
   const [backupWarningOpen, setBackupWarningOpen] = useState(false);
   const [backupSize, setBackupSize] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [includeAudiobooks, setIncludeAudiobooks] = useState(false);
 
   useEffect(() => {
     api
@@ -1038,6 +1039,7 @@ function LibraryManagementSection({
     try {
       const res = await api.get<{ totalBytes: number; fileCount: number }>(
         '/admin/library/backup/size',
+        { params: includeAudiobooks ? { includeAudiobooks: 'true' } : {} },
       );
       setBackupSize(res.data.totalBytes);
       if (res.data.totalBytes >= TWO_GIB) {
@@ -1058,13 +1060,12 @@ function LibraryManagementSection({
     setBackupWarningOpen(false);
     setDownloading(true);
     try {
-      const token = localStorage.getItem('token') ?? '';
-      const response = await fetch('/api/v1/admin/library/backup/download', {
-        headers: { Authorization: `Bearer ${token}` },
+      const params = includeAudiobooks ? { includeAudiobooks: 'true' } : {};
+      const response = await api.get('/admin/library/backup/download', {
+        params,
+        responseType: 'blob',
       });
-      if (!response.ok) throw new Error('Download failed');
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(response.data as Blob);
       const a = document.createElement('a');
       const dateStr = new Date().toISOString().slice(0, 10);
       a.href = url;
@@ -1135,6 +1136,11 @@ function LibraryManagementSection({
             >
               Download Backup
             </Button>
+            <Checkbox
+              label="Include audiobook files"
+              checked={includeAudiobooks}
+              onChange={(e) => setIncludeAudiobooks(e.currentTarget.checked)}
+            />
           </Group>
 
           {reorganizeResult === 'success' && (

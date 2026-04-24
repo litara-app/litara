@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -212,13 +213,19 @@ export class AdminController {
 
   @Get('library/backup/size')
   @ApiOkResponse({ type: BackupSizeResponseDto })
-  getLibraryBackupSize() {
-    return this.adminService.getLibraryBackupSize();
+  getLibraryBackupSize(@Query('includeAudiobooks') includeAudiobooks?: string) {
+    return this.adminService.getLibraryBackupSize(includeAudiobooks === 'true');
   }
 
   @Get('library/backup/download')
   @ApiOkResponse()
-  async downloadLibraryBackup(@Res() res: Response) {
-    await this.adminService.streamLibraryBackup(res);
+  async downloadLibraryBackup(
+    @Res() res: Response,
+    @Query('includeAudiobooks') includeAudiobooks?: string,
+  ) {
+    await this.adminService.streamLibraryBackup(
+      res,
+      includeAudiobooks === 'true',
+    );
   }
 }

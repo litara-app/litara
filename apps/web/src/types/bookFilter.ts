@@ -3,6 +3,7 @@ export type SeriesFilter = 'any' | 'has-series' | 'no-series';
 export type FilterMode = 'and' | 'or' | 'not';
 export type AddedFilter = 'any' | 'last-7' | 'last-30' | 'last-180';
 export type PageCountFilter = 'any' | 'short' | 'medium' | 'long';
+export type MediaTypeFilter = 'any' | 'ebook-only' | 'audiobook-only' | 'both';
 
 export interface BookFilterState {
   filterMode: FilterMode;
@@ -16,6 +17,7 @@ export interface BookFilterState {
   authors: string[];
   publishers: string[];
   seriesFilter: SeriesFilter;
+  mediaTypeFilter: MediaTypeFilter;
   pageCountFilter: PageCountFilter;
   publishedYearFrom: number | null;
   publishedYearTo: number | null;
@@ -34,6 +36,7 @@ export const EMPTY_FILTER: BookFilterState = {
   authors: [],
   publishers: [],
   seriesFilter: 'any',
+  mediaTypeFilter: 'any',
   pageCountFilter: 'any',
   publishedYearFrom: null,
   publishedYearTo: null,
@@ -52,6 +55,7 @@ export function countActiveFilters(f: BookFilterState): number {
     (f.authors.length > 0 ? 1 : 0) +
     (f.publishers.length > 0 ? 1 : 0) +
     (f.seriesFilter !== 'any' ? 1 : 0) +
+    (f.mediaTypeFilter !== 'any' ? 1 : 0) +
     (f.pageCountFilter !== 'any' ? 1 : 0) +
     (f.publishedYearFrom !== null ? 1 : 0) +
     (f.publishedYearTo !== null ? 1 : 0) +

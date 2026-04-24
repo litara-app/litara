@@ -136,4 +136,27 @@ export class BookDetailDto {
 
   @ApiProperty()
   inReadingQueue: boolean;
+
+  @ApiProperty()
+  hasAudiobook: boolean;
+
+  @ApiProperty({ nullable: true, required: false })
+  audiobookProgress: {
+    currentFileIndex: number;
+    currentTime: number;
+    totalDuration: number;
+    completedAt: Date | null;
+    updatedAt: Date;
+  } | null;
+
+  @ApiProperty({ type: 'array', required: false })
+  audiobookFiles: Array<{
+    id: string;
+    fileIndex: number;
+    filePath: string;
+    fileSize: number;
+    duration: number;
+    mimeType: string;
+    narrator: string | null;
+  }>;
 }

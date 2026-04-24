@@ -80,3 +80,37 @@ export const updateAvailableAtom = atom<boolean>(false);
 export const versionCheckResultAtom = atom<VersionCheckResult | null>(null);
 export const pendingBookCountAtom = atom<number>(0);
 export const readingQueueAtom = atom<ReadingQueueItem[]>([]);
+
+export interface AudiobookChapterInfo {
+  index: number;
+  title: string;
+  startTime: number;
+  endTime: number | null;
+}
+
+export interface AudiobookFileInfo {
+  id: string;
+  fileIndex: number;
+  duration: number;
+  mimeType: string;
+  narrator: string | null;
+  chapters: AudiobookChapterInfo[];
+}
+
+export interface AudiobookProgressInfo {
+  currentFileIndex: number;
+  currentTime: number;
+  totalDuration: number;
+  completedAt: string | null;
+}
+
+export interface AudiobookPlayerState {
+  bookId: string;
+  bookTitle: string;
+  hasCover: boolean;
+  narrator: string | null;
+  audiobookFiles: AudiobookFileInfo[];
+  initialProgress: AudiobookProgressInfo | null;
+}
+
+export const audiobookPlayerAtom = atom<AudiobookPlayerState | null>(null);

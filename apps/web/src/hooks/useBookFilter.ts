@@ -70,6 +70,17 @@ function buildPredicates(
     predicates.push(!book.seriesName);
   }
 
+  if (filters.mediaTypeFilter !== 'any') {
+    const hasEbook = book.formats.length > 0;
+    const hasAudio = !!book.hasAudiobook;
+    if (filters.mediaTypeFilter === 'ebook-only')
+      predicates.push(hasEbook && !hasAudio);
+    else if (filters.mediaTypeFilter === 'audiobook-only')
+      predicates.push(hasAudio && !hasEbook);
+    else if (filters.mediaTypeFilter === 'both')
+      predicates.push(hasEbook && hasAudio);
+  }
+
   if (filters.pageCountFilter !== 'any') {
     const pc = book.pageCount ?? null;
     if (pc === null) {

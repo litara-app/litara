@@ -13,6 +13,8 @@ const DOCS_SCREENSHOTS = path.resolve(
   '../../../docs/static/screenshots',
 );
 
+const DOCS_IMG = path.resolve(__dirname, '../../../docs/static/img');
+
 function ss(name: string) {
   return path.join(DOCS_SCREENSHOTS, `${name}.png`);
 }
@@ -235,6 +237,47 @@ test.describe('Profile page', () => {
     await settle(page);
     await page.screenshot({
       path: ss('profile-reading-stats'),
+      fullPage: false,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Audiobook player
+// ---------------------------------------------------------------------------
+
+test.describe('Audiobook player', () => {
+  test('audiobook-player', async ({ page }) => {
+    await page.goto('/books');
+    await page.locator('.book-card').first().waitFor({ timeout: 15_000 });
+
+    // Open The Picture of Dorian Gray — it has a multi-file MP3 audiobook in the fixture library
+    await page
+      .locator('.book-card')
+      .filter({ hasText: 'Dorian Gray' })
+      .first()
+      .click();
+
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({
+      timeout: 8_000,
+    });
+    await settle(page);
+
+    // Start playback
+    await page.getByRole('button', { name: /play audiobook/i }).click();
+
+    // Wait for the persistent player bar to mount in the AppShell footer
+    await expect(page.locator('footer')).toBeVisible({ timeout: 8_000 });
+    // The play/pause action icon confirms the player is live
+    await expect(
+      page
+        .getByRole('button', { name: /pause/i })
+        .or(page.locator('footer').getByRole('button').nth(2)),
+    ).toBeVisible({ timeout: 5_000 });
+
+    await settle(page);
+    await page.screenshot({
+      path: path.join(DOCS_IMG, 'audiobook-player.png'),
       fullPage: false,
     });
   });

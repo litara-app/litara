@@ -26,6 +26,7 @@ import { AnnotationsModule } from './annotations/annotations.module';
 import { BookDropModule } from './book-drop/book-drop.module';
 import { KoReaderSyncModule } from './koreader-sync/koreader-sync.module';
 import { ReadingQueueModule } from './reading-queue/reading-queue.module';
+import { AudiobookModule } from './audiobook/audiobook.module';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
 
@@ -65,6 +66,7 @@ const staticModules = existsSync(publicPath)
     BookDropModule,
     KoReaderSyncModule,
     ReadingQueueModule,
+    AudiobookModule,
   ],
   controllers: [AppController],
   providers: [AppService],

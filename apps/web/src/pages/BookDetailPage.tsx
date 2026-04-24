@@ -166,6 +166,10 @@ export function BookDetailPage() {
     'LITARA' | 'KOREADER' | null
   >(null);
   const [resettingProgress, setResettingProgress] = useState(false);
+  const [resetAudiobookProgressOpen, setResetAudiobookProgressOpen] =
+    useState(false);
+  const [resettingAudiobookProgress, setResettingAudiobookProgress] =
+    useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
@@ -483,6 +487,21 @@ export function BookDetailPage() {
     }
   }
 
+  async function handleResetAudiobookProgress() {
+    if (!detail) return;
+    setResettingAudiobookProgress(true);
+    try {
+      await api.delete(`/audiobooks/${detail.id}/progress`);
+      setDetail((prev) => (prev ? { ...prev, audiobookProgress: null } : prev));
+      setResetAudiobookProgressOpen(false);
+      pushToast('Audiobook progress cleared', { color: 'green' });
+    } catch {
+      pushToast('Failed to clear audiobook progress', { color: 'red' });
+    } finally {
+      setResettingAudiobookProgress(false);
+    }
+  }
+
   const SEND_SIZE_THRESHOLD = 25 * 1024 * 1024;
 
   function resolveDefaultSendFile(
@@ -718,6 +737,57 @@ export function BookDetailPage() {
                     )}
                   </Stack>
                 )}
+                {detail.hasAudiobook &&
+                  detail.audiobookProgress &&
+                  (() => {
+                    const prog = detail.audiobookProgress;
+                    const totalDuration = detail.audiobookFiles.reduce(
+                      (s, f) => s + f.duration,
+                      0,
+                    );
+                    const precedingDuration = detail.audiobookFiles
+                      .filter((f) => f.fileIndex < prog.currentFileIndex)
+                      .reduce((s, f) => s + f.duration, 0);
+                    const absoluteTime = precedingDuration + prog.currentTime;
+                    const fraction =
+                      totalDuration > 0
+                        ? Math.min(1, absoluteTime / totalDuration)
+                        : 0;
+                    const formatTime = (sec: number) => {
+                      const h = Math.floor(sec / 3600);
+                      const m = Math.floor((sec % 3600) / 60);
+                      if (h > 0) return `${h}h ${m}m`;
+                      return `${m}m`;
+                    };
+                    return (
+                      <Stack gap={6}>
+                        <Progress
+                          value={fraction * 100}
+                          size="sm"
+                          color="teal"
+                          radius="xs"
+                        />
+                        <Group justify="space-between" align="center">
+                          <Text size="xs" c="dimmed">
+                            {formatTime(absoluteTime)} /{' '}
+                            {formatTime(totalDuration)}
+                          </Text>
+                          <Tooltip label="Reset audiobook progress" withArrow>
+                            <ActionIcon
+                              size="xs"
+                              variant="subtle"
+                              color="red"
+                              onClick={() =>
+                                setResetAudiobookProgressOpen(true)
+                              }
+                            >
+                              <IconX size={12} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Stack>
+                    );
+                  })()}
                 <Divider />
                 <Stack gap="xs">
                   <Box>
@@ -1240,6 +1310,39 @@ export function BookDetailPage() {
               }
             >
               Clear
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Reset audiobook progress confirmation */}
+      <Modal
+        opened={resetAudiobookProgressOpen}
+        onClose={() => setResetAudiobookProgressOpen(false)}
+        title="Reset Audiobook Progress"
+        size="sm"
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Reset audiobook progress for{' '}
+            <Text component="span" fw={600}>
+              "{detail?.title}"
+            </Text>
+            ? This cannot be undone.
+          </Text>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="subtle"
+              onClick={() => setResetAudiobookProgressOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              loading={resettingAudiobookProgress}
+              onClick={() => void handleResetAudiobookProgress()}
+            >
+              Reset
             </Button>
           </Group>
         </Stack>

@@ -25,7 +25,9 @@ model User {
   recipientEmails   RecipientEmail[]
   smtpConfig        UserSmtpConfig?
   koReaderCredential KoReaderCredential?
-  readingQueue      ReadingQueueItem[]
+  readingQueue       ReadingQueueItem[]
+  audiobookProgress  AudiobookProgress[]
+  audiobookBookmarks AudiobookBookmark[]
 }
 
 enum Role {
@@ -92,12 +94,15 @@ model Book {
   goodreadsId     String?
   goodreadsRating Float?
 
+  hasAudiobook  Boolean   @default(false)
   lockedFields  String    @default("[]") // JSON: string[] of field names
   sidecarFile   String?   // absolute path to matched .metadata.json
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   files           BookFile[]
-
+  audiobookFiles  AudiobookFile[]
+  audiobookProgress  AudiobookProgress[]
+  audiobookBookmarks AudiobookBookmark[]
 
   readingProgress ReadingProgress[]
   reviews         UserReview[]
@@ -400,6 +405,57 @@ enum PendingBookStatus {
   APPROVED
   REJECTED
   COLLISION
+}
+
+model AudiobookFile {
+  id        String   @id @default(uuid())
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  filePath  String   @unique
+  fileHash  String
+  fileIndex Int
+  duration  Float
+  mimeType  String
+  narrator  String?
+  createdAt DateTime @default(now())
+
+  chapters AudiobookChapter[]
+}
+
+model AudiobookChapter {
+  id              String        @id @default(uuid())
+  audiobookFileId String
+  audiobookFile   AudiobookFile @relation(fields: [audiobookFileId], references: [id], onDelete: Cascade)
+  index           Int
+  title           String
+  startTime       Float
+  endTime         Float?
+}
+
+model AudiobookProgress {
+  id               String    @id @default(uuid())
+  userId           String
+  bookId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book             Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  currentFileIndex Int       @default(0)
+  currentTime      Float     @default(0)
+  totalDuration    Float
+  completedAt      DateTime?
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([userId, bookId])
+}
+
+model AudiobookBookmark {
+  id          String   @id @default(uuid())
+  userId      String
+  bookId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  timeSeconds Float
+  note        String   @default("")
+  createdAt   DateTime @default(now())
 }
 
 model PendingBook {

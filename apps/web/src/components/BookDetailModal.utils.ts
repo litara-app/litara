@@ -13,3 +13,10 @@ export function formatBytes(sizeBytes: string): string {
   if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   return `${(n / 1024).toFixed(1)} KB`;
 }
+
+export function formatBytesNum(bytes: number): string {
+  if (bytes === 0) return '—';
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
+  return `${(bytes / 1e3).toFixed(0)} KB`;
+}

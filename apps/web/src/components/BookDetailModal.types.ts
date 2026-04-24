@@ -68,6 +68,29 @@ export interface BookDetail {
   shelves: { id: string; name: string }[];
   sidecarFile: string | null;
   inReadingQueue: boolean;
+  hasAudiobook: boolean;
+  audiobookProgress: {
+    currentFileIndex: number;
+    currentTime: number;
+    totalDuration: number;
+    completedAt: string | null;
+    updatedAt: string;
+  } | null;
+  audiobookFiles: Array<{
+    id: string;
+    fileIndex: number;
+    filePath: string;
+    fileSize: number;
+    duration: number;
+    mimeType: string;
+    narrator: string | null;
+    chapters: Array<{
+      index: number;
+      title: string;
+      startTime: number;
+      endTime: number | null;
+    }>;
+  }>;
 }
 
 export interface EditedFields {

@@ -220,7 +220,7 @@ export class UsersController {
   async getReadingStats(@Req() req: RequestWithUser) {
     const userId = req.user.id;
 
-    const [progressRecords, reviews] = await Promise.all([
+    const [progressRecords, reviews, audiobooksCompleted] = await Promise.all([
       this.prisma.readingProgress.findMany({
         where: { userId },
         select: { source: true, lastSyncedAt: true, koReaderTimestamp: true },
@@ -228,6 +228,9 @@ export class UsersController {
       this.prisma.userReview.findMany({
         where: { userId },
         select: { rating: true, readStatus: true },
+      }),
+      this.prisma.audiobookProgress.count({
+        where: { userId, completedAt: { not: null } },
       }),
     ]);
 
@@ -293,6 +296,7 @@ export class UsersController {
       peakHours,
       ratingDistribution,
       readStatusDistribution,
+      audiobooksCompleted,
     };
   }
 
@@ -303,6 +307,7 @@ export class UsersController {
   async getStats() {
     const [
       totalBooks,
+      totalAudiobooks,
       totalAuthors,
       totalSeries,
       publishers,
@@ -313,6 +318,7 @@ export class UsersController {
       createdDates,
     ] = await Promise.all([
       this.prisma.book.count(),
+      this.prisma.book.count({ where: { hasAudiobook: true } }),
       this.prisma.author.count(),
       this.prisma.series.count(),
       this.prisma.book.findMany({
@@ -381,6 +387,7 @@ export class UsersController {
     return {
       overview: {
         totalBooks,
+        totalAudiobooks,
         totalAuthors,
         totalSeries,
         totalPublishers: publishers.length,

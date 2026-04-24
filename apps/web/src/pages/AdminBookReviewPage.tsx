@@ -165,6 +165,9 @@ function pendingBookToDetail(book: PendingBook): BookDetail {
     shelves: [],
     sidecarFile: null,
     inReadingQueue: false,
+    hasAudiobook: false,
+    audiobookProgress: null,
+    audiobookFiles: [],
   };
 }
 
