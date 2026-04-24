@@ -29,7 +29,12 @@ interface AbsMetadata {
 @Injectable()
 export class AudiobookMetadataService {
   private readonly logger = new Logger(AudiobookMetadataService.name);
-  private readonly mmModule = import('music-metadata');
+  private mmModuleCache: Promise<typeof import('music-metadata')> | null = null;
+
+  private get mmModule(): Promise<typeof import('music-metadata')> {
+    this.mmModuleCache ??= import('music-metadata');
+    return this.mmModuleCache;
+  }
 
   async extractFromFile(
     filePath: string,
