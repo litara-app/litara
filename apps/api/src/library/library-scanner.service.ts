@@ -181,6 +181,19 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    if (taskId) {
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: {
+          payload: JSON.stringify({
+            processed: allFiles.length,
+            total: allFiles.length,
+            currentFile: 'Scanning audiobooks…',
+          }),
+        },
+      });
+    }
+
     for (const folder of watchedFolders) {
       await this.scanAudiobookFolders(folder.path);
     }
