@@ -32,7 +32,7 @@ export class AudiobookScannerService {
       const ext = path.extname(folderPath).toLowerCase();
       if (!AUDIO_EXTENSIONS.includes(ext)) return false;
       return (
-        (await this.getFileDuration(folderPath)) > SINGLE_FILE_MIN_DURATION
+        (await this.metadata.getDuration(folderPath)) > SINGLE_FILE_MIN_DURATION
       );
     }
 
@@ -56,7 +56,7 @@ export class AudiobookScannerService {
 
     if (mp3Files.length === 1) {
       return (
-        (await this.getFileDuration(path.join(folderPath, mp3Files[0]))) >
+        (await this.metadata.getDuration(path.join(folderPath, mp3Files[0]))) >
         SINGLE_FILE_MIN_DURATION
       );
     }
@@ -96,7 +96,7 @@ export class AudiobookScannerService {
       const fileMeta =
         entry.filePath === firstFile.filePath
           ? rawMeta
-          : await this.metadata.extractFromFile(entry.filePath);
+          : await this.metadata.extractFromFile(entry.filePath, true);
 
       totalDuration += fileMeta.duration;
 
@@ -333,16 +333,5 @@ export class AudiobookScannerService {
       stream.on('end', () => resolve(hash.digest('hex')));
       stream.on('error', reject);
     });
-  }
-
-  private async getFileDuration(filePath: string): Promise<number> {
-    try {
-      const meta = await import('music-metadata').then((m) =>
-        m.parseFile(filePath, { duration: true, skipCovers: true }),
-      );
-      return meta.format.duration ?? 0;
-    } catch {
-      return 0;
-    }
   }
 }

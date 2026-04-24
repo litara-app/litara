@@ -29,14 +29,18 @@ interface AbsMetadata {
 @Injectable()
 export class AudiobookMetadataService {
   private readonly logger = new Logger(AudiobookMetadataService.name);
+  private readonly mmModule = import('music-metadata');
 
-  async extractFromFile(filePath: string): Promise<ExtractedAudioMeta> {
+  async extractFromFile(
+    filePath: string,
+    skipCovers = false,
+  ): Promise<ExtractedAudioMeta> {
     let meta: IAudioMetadata;
     try {
-      const mm = await import('music-metadata');
+      const mm = await this.mmModule;
       meta = await mm.parseFile(filePath, {
         duration: true,
-        skipCovers: false,
+        skipCovers,
       });
     } catch (err) {
       this.logger.warn(`music-metadata failed for ${filePath}: ${String(err)}`);
@@ -157,6 +161,19 @@ export class AudiobookMetadataService {
       return JSON.parse(raw) as AbsMetadata;
     } catch {
       return {};
+    }
+  }
+
+  async getDuration(filePath: string): Promise<number> {
+    try {
+      const mm = await this.mmModule;
+      const meta = await mm.parseFile(filePath, {
+        duration: true,
+        skipCovers: true,
+      });
+      return meta.format.duration ?? 0;
+    } catch {
+      return 0;
     }
   }
 
