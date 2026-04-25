@@ -30,6 +30,17 @@ export async function createTestApp(options?: {
   }
 
   const moduleRef = await builder.compile();
+
+  // Suppress the fire-and-forget startup scan that onModuleInit launches.
+  // If allowed to run, it races with cleanDatabase() calls in beforeAll hooks:
+  // the background scan creates a Book row, cleanDatabase truncates it, then
+  // the scan tries to insert BookAuthor for the now-deleted bookId → P2003 FK
+  // violation. Tests that need a scan call fullScan() explicitly after cleanup.
+  if (!options?.mockScanner) {
+    const scanner = moduleRef.get(LibraryScannerService);
+    jest.spyOn(scanner, 'onModuleInit').mockResolvedValue();
+  }
+
   const app = moduleRef.createNestApplication();
 
   // Apply the same middleware pipeline as src/main.ts
