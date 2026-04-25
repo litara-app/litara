@@ -18,6 +18,7 @@ const sidebars: SidebarsConfig = {
     'disk-writing',
     'library-management',
     'reader',
+    'audiobooks',
     'mobile',
     {
       type: 'category',

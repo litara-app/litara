@@ -21,6 +21,12 @@ export class InProgressBookSummaryDto {
 
   @ApiProperty()
   hasFileMissing: boolean;
+
+  @ApiProperty()
+  hasAudiobook: boolean;
+
+  @ApiProperty({ nullable: true, required: false })
+  audiobookProgressFraction: number | null;
 }
 
 export class InProgressBookDto {

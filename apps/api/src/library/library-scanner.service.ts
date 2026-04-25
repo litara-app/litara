@@ -18,6 +18,7 @@ import { extractMobiCover } from '@litara/mobi-parser';
 import { extractCbzCover } from '@litara/cbz-parser';
 import { extractFileMetadata } from '../common/extract-file-metadata';
 import { findSidecar } from '../common/find-sidecar';
+import { AudiobookScannerService } from '../audiobook/audiobook-scanner.service';
 import type { FSWatcher } from 'chokidar';
 
 const SUPPORTED_FORMATS = [
@@ -42,12 +43,12 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: DatabaseService,
     private readonly config: ConfigService,
     private readonly metadataService: MetadataService,
+    private readonly audiobookScanner: AudiobookScannerService,
   ) {}
 
   async onModuleInit() {
     await this.ensureWatchedFolder();
-    await this.fullScan();
-    void this.backfillKoReaderHashes();
+    void this.triggerFullScanTask();
     void this.startWatching();
   }
 
@@ -82,10 +83,50 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ---------------------------------------------------------------------------
+  // Task-based full scan (non-blocking, reports progress)
+  // ---------------------------------------------------------------------------
+
+  async triggerFullScanTask(
+    rescanMetadata = false,
+  ): Promise<{ taskId: string }> {
+    const task = await this.prisma.task.create({
+      data: {
+        type: 'LIBRARY_SCAN',
+        status: 'PENDING',
+        payload: JSON.stringify({ processed: 0, total: 0, currentFile: '' }),
+      },
+    });
+    void this.runFullScanTask(task.id, rescanMetadata);
+    return { taskId: task.id };
+  }
+
+  private async runFullScanTask(
+    taskId: string,
+    rescanMetadata: boolean,
+  ): Promise<void> {
+    try {
+      await this.fullScan(rescanMetadata, taskId);
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: { status: 'COMPLETED' },
+      });
+      void this.backfillKoReaderHashes();
+    } catch (err) {
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: {
+          status: 'FAILED',
+          errorMessage: (err as Error).message,
+        },
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Full scan using fast-glob
   // ---------------------------------------------------------------------------
 
-  async fullScan(rescanMetadata = false) {
+  async fullScan(rescanMetadata = false, taskId?: string) {
     const watchedFolders = await this.prisma.watchedFolder.findMany({
       where: { isActive: true },
     });
@@ -99,13 +140,62 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       `Starting full scan of ${watchedFolders.length} folder(s)...${rescanMetadata ? ' (rescan metadata)' : ''}`,
     );
 
+    // Collect all ebook files first so we can report an accurate total
+    const allFiles: string[] = [];
     for (const folder of watchedFolders) {
       const pattern = path.join(folder.path, GLOB_PATTERN).replace(/\\/g, '/');
       const files = await glob.glob(pattern, { absolute: true, dot: false });
       this.logger.log(`Found ${files.length} file(s) in ${folder.path}`);
-      for (const filePath of files) {
-        await this.handleFileAdded(filePath, rescanMetadata);
+      allFiles.push(...files);
+    }
+
+    if (taskId) {
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: {
+          status: 'PROCESSING',
+          payload: JSON.stringify({
+            processed: 0,
+            total: allFiles.length,
+            currentFile: '',
+          }),
+        },
+      });
+    }
+
+    let processed = 0;
+    for (const filePath of allFiles) {
+      await this.handleFileAdded(filePath, rescanMetadata);
+      processed++;
+      if (taskId && (processed % 5 === 0 || processed === allFiles.length)) {
+        await this.prisma.task.updateMany({
+          where: { id: taskId },
+          data: {
+            payload: JSON.stringify({
+              processed,
+              total: allFiles.length,
+              currentFile: path.basename(filePath),
+            }),
+          },
+        });
       }
+    }
+
+    if (taskId) {
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: {
+          payload: JSON.stringify({
+            processed: allFiles.length,
+            total: allFiles.length,
+            currentFile: 'Scanning audiobooks…',
+          }),
+        },
+      });
+    }
+
+    for (const folder of watchedFolders) {
+      await this.scanAudiobookFolders(folder.path);
     }
 
     this.logger.log('Full scan complete.');
@@ -145,6 +235,20 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
           this.handleFileAdded(filePath).catch((err) =>
             this.logger.error(`Error adding file ${filePath}`, err),
           );
+        } else if (this.audiobookScanner.isAudioFile(filePath)) {
+          this.logger.log(`New audio file detected: ${filePath}`);
+          (async () => {
+            const folder = path.dirname(filePath);
+            if (await this.audiobookScanner.isAudiobookFolder(folder)) {
+              await this.audiobookScanner.scanFolder(folder);
+            } else if (
+              await this.audiobookScanner.isAudiobookFolder(filePath)
+            ) {
+              await this.audiobookScanner.scanFolder(filePath);
+            }
+          })().catch((err) =>
+            this.logger.error(`Error processing audio file ${filePath}`, err),
+          );
         }
       })
       .on('unlink', (filePath: string) => {
@@ -153,6 +257,13 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
           this.handleFileRemoved(filePath).catch((err) =>
             this.logger.error(`Error removing file ${filePath}`, err),
           );
+        } else if (this.audiobookScanner.isAudioFile(filePath)) {
+          this.logger.log(`Audio file removed: ${filePath}`);
+          this.audiobookScanner
+            .handleFileRemoved(filePath)
+            .catch((err) =>
+              this.logger.error(`Error removing audio file ${filePath}`, err),
+            );
         }
       });
   }
@@ -507,6 +618,43 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       `KOReader hash backfill complete: ${done} hashed, ${failed} failed, ${files.length} total`,
     );
     return { total: files.length, done, failed };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Audiobook folder scanning
+  // ---------------------------------------------------------------------------
+
+  private async scanAudiobookFolders(rootPath: string): Promise<void> {
+    if (!fs.existsSync(rootPath)) return;
+
+    const walk = async (dirPath: string) => {
+      const isAudiobook =
+        await this.audiobookScanner.isAudiobookFolder(dirPath);
+      if (isAudiobook) {
+        await this.audiobookScanner.scanFolder(dirPath);
+        return; // don't recurse into audiobook folder
+      }
+
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          await walk(path.join(dirPath, entry.name));
+        } else {
+          // Single large audio file in root
+          const ext = path.extname(entry.name).toLowerCase();
+          if (['.mp3', '.m4a'].includes(ext)) {
+            const filePath = path.join(dirPath, entry.name);
+            const isSingleAudiobook =
+              await this.audiobookScanner.isAudiobookFolder(filePath);
+            if (isSingleAudiobook) {
+              await this.audiobookScanner.scanFolder(filePath);
+            }
+          }
+        }
+      }
+    };
+
+    await walk(rootPath);
   }
 
   // ---------------------------------------------------------------------------

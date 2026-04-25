@@ -66,6 +66,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 /apps/api/coverage/**
 /book-drop
 
+# Large test files
+*.mp3
+
 # Playwright
 /apps/web/test-results/
 /apps/web/playwright-report/

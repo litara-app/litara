@@ -20,6 +20,7 @@ import {
   IconStar,
   IconStarFilled,
   IconSend,
+  IconHeadphones,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
@@ -32,8 +33,10 @@ export interface BookCardData {
   hasCover: boolean;
   coverUpdatedAt?: string;
   formats: string[];
+  hasAudiobook?: boolean;
   hasFileMissing: boolean;
   readingProgress?: number | null;
+  audiobookProgressFraction?: number | null;
   seriesName?: string | null;
   readStatus: string | null;
   rating: number | null;
@@ -63,8 +66,10 @@ export function BookCard({
   hasCover,
   coverUpdatedAt,
   formats,
+  hasAudiobook,
   hasFileMissing,
   readingProgress,
+  audiobookProgressFraction,
   rating,
   onClick,
   onSend,
@@ -203,6 +208,22 @@ export function BookCard({
               {fmt}
             </Badge>
           ))}
+          {hasAudiobook && (
+            <Badge
+              size="xs"
+              color="teal"
+              radius="sm"
+              leftSection={<IconHeadphones size={9} />}
+              style={{
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                paddingLeft: 4,
+                paddingRight: 6,
+              }}
+            >
+              Audio
+            </Badge>
+          )}
         </Box>
 
         {/* Missing file badge — top right */}
@@ -227,29 +248,39 @@ export function BookCard({
           </Box>
         )}
 
-        {/* Reading progress overlay — bottom of cover */}
-        {readingProgress != null && readingProgress > 0 && (
-          <Box
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 4,
-              background: 'rgba(0,0,0,0.3)',
-              borderRadius: '0 0 4px 4px',
-            }}
-          >
+        {/* Progress overlay — bottom of cover */}
+        {(() => {
+          const isAudiobookOnly = formats.length === 0 && hasAudiobook;
+          const fraction = isAudiobookOnly
+            ? (audiobookProgressFraction ?? null)
+            : (readingProgress ?? null);
+          const color = isAudiobookOnly
+            ? 'var(--mantine-color-teal-5)'
+            : 'var(--mantine-color-green-5)';
+          if (fraction == null || fraction <= 0) return null;
+          return (
             <Box
               style={{
-                height: '100%',
-                width: `${Math.min(100, readingProgress * 100)}%`,
-                background: 'var(--mantine-color-green-5)',
-                borderRadius: '0 0 0 4px',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                background: 'rgba(0,0,0,0.3)',
+                borderRadius: '0 0 4px 4px',
               }}
-            />
-          </Box>
-        )}
+            >
+              <Box
+                style={{
+                  height: '100%',
+                  width: `${Math.min(100, fraction * 100)}%`,
+                  background: color,
+                  borderRadius: '0 0 0 4px',
+                }}
+              />
+            </Box>
+          );
+        })()}
 
         {/* Quick actions — bottom right, revealed on hover */}
         <Box

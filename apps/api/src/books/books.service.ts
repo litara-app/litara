@@ -106,7 +106,18 @@ export class BooksService {
             series: { select: { id: true, name: true } },
           },
         },
+        hasAudiobook: true,
         readingProgress: { where: { userId }, select: { percentage: true } },
+        audiobookProgress: {
+          where: { userId },
+          select: {
+            currentFileIndex: true,
+            currentTime: true,
+            totalDuration: true,
+            completedAt: true,
+          },
+        },
+        audiobookFiles: { select: { fileIndex: true, duration: true } },
         reviews: {
           where: { userId },
           select: { rating: true, readStatus: true },
@@ -149,6 +160,19 @@ export class BooksService {
       publisher: book.publisher,
       pageCount: book.pageCount,
       goodreadsRating: book.goodreadsRating,
+      hasAudiobook: book.hasAudiobook,
+      audiobookProgress: book.audiobookProgress[0] ?? null,
+      audiobookProgressFraction: (() => {
+        const prog = book.audiobookProgress[0];
+        if (!prog || prog.totalDuration <= 0) return null;
+        const precedingDuration = book.audiobookFiles
+          .filter((f) => f.fileIndex < prog.currentFileIndex)
+          .reduce((sum, f) => sum + f.duration, 0);
+        return Math.min(
+          1,
+          (precedingDuration + prog.currentTime) / prog.totalDuration,
+        );
+      })(),
     }));
   }
 
@@ -190,6 +214,36 @@ export class BooksService {
         readingQueue: {
           where: { userId },
           select: { id: true },
+        },
+        audiobookProgress: {
+          where: { userId },
+          select: {
+            currentFileIndex: true,
+            currentTime: true,
+            totalDuration: true,
+            completedAt: true,
+            updatedAt: true,
+          },
+        },
+        audiobookFiles: {
+          select: {
+            id: true,
+            fileIndex: true,
+            filePath: true,
+            duration: true,
+            mimeType: true,
+            narrator: true,
+            chapters: {
+              select: {
+                index: true,
+                title: true,
+                startTime: true,
+                endTime: true,
+              },
+              orderBy: { index: 'asc' },
+            },
+          },
+          orderBy: { fileIndex: 'asc' },
         },
       },
     });
@@ -246,6 +300,17 @@ export class BooksService {
       })),
       sidecarFile: book.sidecarFile,
       inReadingQueue: book.readingQueue.length > 0,
+      hasAudiobook: book.hasAudiobook,
+      audiobookProgress: book.audiobookProgress[0] ?? null,
+      audiobookFiles: book.audiobookFiles.map((af) => {
+        let fileSize = 0;
+        try {
+          fileSize = fs.statSync(af.filePath).size;
+        } catch {
+          /* file may be missing */
+        }
+        return { ...af, fileSize };
+      }),
     };
   }
 

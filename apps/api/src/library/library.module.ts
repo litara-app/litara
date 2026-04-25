@@ -6,9 +6,16 @@ import { DatabaseModule } from '../database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { MetadataModule } from '../metadata/metadata.module';
 import { DiskWriteGuardModule } from '../common/disk-write-guard.module';
+import { AudiobookModule } from '../audiobook/audiobook.module';
 
 @Module({
-  imports: [DatabaseModule, ConfigModule, MetadataModule, DiskWriteGuardModule],
+  imports: [
+    DatabaseModule,
+    ConfigModule,
+    MetadataModule,
+    DiskWriteGuardModule,
+    AudiobookModule,
+  ],
   controllers: [LibraryController],
   providers: [LibraryScannerService, LibraryWriteService],
   exports: [LibraryScannerService, LibraryWriteService],

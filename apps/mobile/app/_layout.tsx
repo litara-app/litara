@@ -43,6 +43,16 @@ export default function RootLayout() {
             />
             <Stack.Screen name="read/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="search" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="audiobook/[id]"
+              options={{
+                headerShown: true,
+                headerStyle: { backgroundColor: '#0a0a0a' },
+                headerTintColor: '#fff',
+                headerTitleStyle: { fontWeight: '700' },
+                title: 'Now Playing',
+              }}
+            />
           </Stack>
         </GridSizeProvider>
       </QueryClientProvider>

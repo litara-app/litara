@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Title,
   Stack,
@@ -20,6 +20,8 @@ import {
   Avatar,
   Table,
   Badge,
+  Loader,
+  Center,
 } from '@mantine/core';
 import {
   IconScan,
@@ -34,7 +36,9 @@ import {
   IconCode,
   IconFolderSearch,
   IconDownload,
+  IconArrowRight,
 } from '@tabler/icons-react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import axios from 'axios';
 import { api } from '../../utils/api';
 import { SmtpConfigForm } from '../../components/SmtpConfigForm';
@@ -688,7 +692,7 @@ function AuthorPhotoEnrichmentSection() {
   );
 }
 
-function LibraryScanSection() {
+function LibraryScanSection({ onTaskStarted }: { onTaskStarted?: () => void }) {
   const [rescanMetadata, setRescanMetadata] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<'success' | 'error' | null>(null);
@@ -700,6 +704,7 @@ function LibraryScanSection() {
       const qs = rescanMetadata ? '?rescanMetadata=true' : '';
       await api.post(`/library/scan${qs}`);
       setResult('success');
+      onTaskStarted?.();
     } catch {
       setResult('error');
     } finally {
@@ -725,7 +730,7 @@ function LibraryScanSection() {
 
         {result === 'success' && (
           <Alert icon={<IconCheck size={16} />} color="green" variant="light">
-            Scan started. The library will update in the background.
+            Scan started. Check the Tasks tab to monitor progress.
           </Alert>
         )}
         {result === 'error' && (
@@ -991,13 +996,172 @@ function DevToolsSection() {
 
 const TWO_GIB = 2 * 1024 * 1024 * 1024;
 
+interface ReorganizePreviewMove {
+  sourcePath: string;
+  targetPath: string;
+  action: 'move' | 'skip' | 'collision';
+  bookTitle: string;
+  fileType: 'ebook' | 'audiobook';
+}
+
+interface ReorganizePreviewResponse {
+  moves: ReorganizePreviewMove[];
+  total: number;
+  moveCount: number;
+  skipCount: number;
+  collisionCount: number;
+}
+
+const ACTION_COLOR: Record<ReorganizePreviewMove['action'], string> = {
+  move: 'green',
+  skip: 'gray',
+  collision: 'red',
+};
+
+function VirtualizedPreviewTable({
+  moves,
+}: {
+  moves: ReorganizePreviewMove[];
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: moves.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 40,
+    overscan: 8,
+  });
+
+  if (moves.length === 0) {
+    return (
+      <Center h={80}>
+        <Text size="sm" c="dimmed">
+          No entries to display.
+        </Text>
+      </Center>
+    );
+  }
+
+  const headerStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: '88px 1fr',
+    gap: 8,
+    padding: '6px 12px',
+    borderBottom: '1px solid var(--mantine-color-default-border)',
+    fontSize: 11,
+    fontWeight: 600,
+    color: 'var(--mantine-color-dimmed)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  };
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--mantine-color-default-border)',
+        borderRadius: 6,
+        overflow: 'hidden',
+      }}
+    >
+      <div style={headerStyle}>
+        <span>Action</span>
+        <span>Title / Paths</span>
+      </div>
+      <div ref={parentRef} style={{ height: 400, overflowY: 'auto' }}>
+        <div
+          style={{
+            height: rowVirtualizer.getTotalSize(),
+            position: 'relative',
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+            const move = moves[virtualItem.index];
+            return (
+              <div
+                key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={rowVirtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualItem.start}px)`,
+                  display: 'grid',
+                  gridTemplateColumns: '88px 1fr',
+                  gap: 8,
+                  padding: '8px 12px',
+                  alignItems: 'start',
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                  backgroundColor:
+                    virtualItem.index % 2 === 1
+                      ? 'var(--mantine-color-default-hover)'
+                      : undefined,
+                  minWidth: 0,
+                }}
+              >
+                <Badge
+                  color={ACTION_COLOR[move.action]}
+                  size="sm"
+                  variant="light"
+                  style={{ textTransform: 'capitalize', marginTop: 2 }}
+                >
+                  {move.action}
+                </Badge>
+                <div style={{ minWidth: 0 }}>
+                  <Text size="xs" fw={500} truncate>
+                    {move.bookTitle}
+                  </Text>
+                  <Text
+                    size="xs"
+                    ff="monospace"
+                    c="dimmed"
+                    style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={move.sourcePath}
+                  >
+                    {move.sourcePath}
+                  </Text>
+                  {move.action !== 'skip' && move.targetPath && (
+                    <Text
+                      size="xs"
+                      ff="monospace"
+                      c={move.action === 'move' ? 'green' : 'red'}
+                      style={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={move.targetPath}
+                    >
+                      → {move.targetPath}
+                    </Text>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LibraryManagementSection({
   onTaskStarted,
 }: {
   onTaskStarted?: () => void;
 }) {
   const [diskSettings, setDiskSettings] = useState<DiskSettings | null>(null);
-  const [reorganizeConfirmOpen, setReorganizeConfirmOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewMoves, setPreviewMoves] = useState<ReorganizePreviewMove[]>([]);
+  const [previewCounts, setPreviewCounts] =
+    useState<ReorganizePreviewResponse | null>(null);
+  const [showSkipped, setShowSkipped] = useState(false);
   const [reorganizing, setReorganizing] = useState(false);
   const [reorganizeResult, setReorganizeResult] = useState<
     'success' | 'error' | null
@@ -1006,6 +1170,7 @@ function LibraryManagementSection({
   const [backupWarningOpen, setBackupWarningOpen] = useState(false);
   const [backupSize, setBackupSize] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [includeAudiobooks, setIncludeAudiobooks] = useState(false);
 
   useEffect(() => {
     api
@@ -1016,11 +1181,27 @@ function LibraryManagementSection({
 
   async function handleReorganizeClick() {
     setReorganizeResult(null);
-    setReorganizeConfirmOpen(true);
+    setPreviewMoves([]);
+    setPreviewCounts(null);
+    setShowSkipped(false);
+    setPreviewLoading(true);
+    setPreviewOpen(true);
+    try {
+      const res = await api.get<ReorganizePreviewResponse>(
+        '/admin/library/reorganize/preview',
+      );
+      setPreviewMoves(res.data.moves);
+      setPreviewCounts(res.data);
+    } catch {
+      setPreviewOpen(false);
+      setReorganizeResult('error');
+    } finally {
+      setPreviewLoading(false);
+    }
   }
 
   async function handleReorganizeConfirm() {
-    setReorganizeConfirmOpen(false);
+    setPreviewOpen(false);
     setReorganizing(true);
     try {
       await api.post('/admin/library/reorganize');
@@ -1038,6 +1219,7 @@ function LibraryManagementSection({
     try {
       const res = await api.get<{ totalBytes: number; fileCount: number }>(
         '/admin/library/backup/size',
+        { params: includeAudiobooks ? { includeAudiobooks: 'true' } : {} },
       );
       setBackupSize(res.data.totalBytes);
       if (res.data.totalBytes >= TWO_GIB) {
@@ -1058,13 +1240,12 @@ function LibraryManagementSection({
     setBackupWarningOpen(false);
     setDownloading(true);
     try {
-      const token = localStorage.getItem('token') ?? '';
-      const response = await fetch('/api/v1/admin/library/backup/download', {
-        headers: { Authorization: `Bearer ${token}` },
+      const params = includeAudiobooks ? { includeAudiobooks: 'true' } : {};
+      const response = await api.get('/admin/library/backup/download', {
+        params,
+        responseType: 'blob',
       });
-      if (!response.ok) throw new Error('Download failed');
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(response.data as Blob);
       const a = document.createElement('a');
       const dateStr = new Date().toISOString().slice(0, 10);
       a.href = url;
@@ -1135,6 +1316,11 @@ function LibraryManagementSection({
             >
               Download Backup
             </Button>
+            <Checkbox
+              label="Include audiobook files"
+              checked={includeAudiobooks}
+              onChange={(e) => setIncludeAudiobooks(e.currentTarget.checked)}
+            />
           </Group>
 
           {reorganizeResult === 'success' && (
@@ -1155,76 +1341,90 @@ function LibraryManagementSection({
       </Paper>
 
       <Modal
-        opened={reorganizeConfirmOpen}
-        onClose={() => setReorganizeConfirmOpen(false)}
-        title="Reorganize Library"
-        size="md"
+        opened={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        title="Reorganize Library — Preview"
+        size="90vw"
       >
-        <Stack gap="sm">
-          <Alert
-            icon={<IconAlertTriangle size={16} />}
-            color="yellow"
-            variant="light"
-          >
-            <Stack gap="xs">
-              <Text size="sm">
-                This will physically move files on disk into the canonical{' '}
-                <code>Author/[Series/]Title.ext</code> folder structure. Files
-                already in the correct location will be skipped. This action
-                cannot be automatically undone — consider downloading a backup
-                first.
-              </Text>
-              <Text size="sm" fw={500}>
-                Files that will be moved:
-              </Text>
-              <Text
-                size="sm"
-                component="ul"
-                style={{ margin: 0, paddingLeft: '1.25rem' }}
-              >
-                <li>
-                  Ebook files (<code>.epub</code>, <code>.mobi</code>, etc.)
-                </li>
-                <li>
-                  Litara sidecar files (<code>.metadata.json</code>) — moved
-                  alongside their ebook
-                </li>
-              </Text>
-              <Text size="sm" fw={500}>
-                Files that will NOT be moved:
-              </Text>
-              <Text
-                size="sm"
-                component="ul"
-                style={{ margin: 0, paddingLeft: '1.25rem' }}
-              >
-                <li>
-                  KOReader progress directories (<code>.sdr/</code>) — these
-                  will be orphaned if present. This is not related to Litara's
-                  KOReader Sync feature, which does not use on-disk files and
-                  will continue to work after reorganizing.
-                </li>
-                <li>
-                  Any other third-party files placed alongside your ebooks
-                </li>
+        {previewLoading ? (
+          <Center h={160}>
+            <Stack align="center" gap="sm">
+              <Loader size="md" />
+              <Text size="sm" c="dimmed">
+                Calculating moves…
               </Text>
             </Stack>
-          </Alert>
-          <Group justify="flex-end" gap="sm">
-            <Button
-              variant="default"
-              onClick={() => setReorganizeConfirmOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
+          </Center>
+        ) : (
+          <Stack gap="sm">
+            {previewCounts && (
+              <Group gap="xs">
+                <Badge color="green" size="lg" variant="light">
+                  {previewCounts.moveCount} to move
+                </Badge>
+                {previewCounts.collisionCount > 0 && (
+                  <Badge color="red" size="lg" variant="light">
+                    {previewCounts.collisionCount} collision
+                    {previewCounts.collisionCount !== 1 ? 's' : ''}
+                  </Badge>
+                )}
+                <Badge color="gray" size="lg" variant="light">
+                  {previewCounts.skipCount} already in place
+                </Badge>
+              </Group>
+            )}
+
+            <Checkbox
+              label={`Show files already in place (${previewCounts?.skipCount ?? 0})`}
+              checked={showSkipped}
+              onChange={(e) => setShowSkipped(e.currentTarget.checked)}
+            />
+
+            <VirtualizedPreviewTable
+              moves={
+                showSkipped
+                  ? previewMoves
+                  : previewMoves.filter((m) => m.action !== 'skip')
+              }
+            />
+
+            {previewCounts && previewCounts.collisionCount > 0 && (
+              <Alert
+                icon={<IconAlertTriangle size={16} />}
+                color="yellow"
+                variant="light"
+              >
+                {previewCounts.collisionCount} file
+                {previewCounts.collisionCount !== 1 ? 's' : ''} cannot be moved
+                because a different file already exists at the target path.
+                These will be skipped during the reorganize.
+              </Alert>
+            )}
+
+            <Alert
+              icon={<IconAlertTriangle size={16} />}
               color="orange"
-              onClick={() => void handleReorganizeConfirm()}
+              variant="light"
             >
-              Start Reorganize
-            </Button>
-          </Group>
-        </Stack>
+              This will physically move files on disk. It cannot be
+              automatically undone — consider downloading a backup first.
+            </Alert>
+
+            <Group justify="flex-end" gap="sm">
+              <Button variant="default" onClick={() => setPreviewOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                color="orange"
+                leftSection={<IconArrowRight size={16} />}
+                disabled={!previewCounts || previewCounts.moveCount === 0}
+                onClick={() => void handleReorganizeConfirm()}
+              >
+                Start Reorganize
+              </Button>
+            </Group>
+          </Stack>
+        )}
       </Modal>
 
       <Modal
@@ -1288,7 +1488,7 @@ export function GeneralTab({
         </Stack>
       </Paper>
       <ShelfmarkSettingsSection />
-      <LibraryScanSection />
+      <LibraryScanSection onTaskStarted={onTaskStarted} />
       <AuthorPhotoEnrichmentSection />
       <DiskSettingsSection />
       {import.meta.env.DEV && <DevToolsSection />}

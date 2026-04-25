@@ -302,6 +302,17 @@ export default function BookDetailScreen() {
             </View>
           </View>
 
+          {/* Listen button */}
+          {book.hasAudiobook && (
+            <Pressable
+              style={styles.listenBtn}
+              onPress={() => router.push(`/audiobook/${id}`)}
+            >
+              <Ionicons name="headset-outline" size={20} color="#000" />
+              <Text style={styles.listenBtnText}>Listen</Text>
+            </Pressable>
+          )}
+
           {/* Reading Progress */}
           {readingProgress != null &&
             readingProgress.filter((p) => (p.percentage ?? 0) > 0).length >
@@ -565,6 +576,23 @@ const styles = StyleSheet.create({
   subtitle: { color: '#aaa', fontSize: 14, lineHeight: 18 },
   authors: { color: '#4a9eff', fontSize: 13 },
   series: { color: '#777', fontSize: 12, fontStyle: 'italic' },
+
+  listenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginTop: 16,
+  },
+  listenBtnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 
   // Reading progress
   progressSection: {

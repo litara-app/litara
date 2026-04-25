@@ -36,6 +36,34 @@ export class LibraryWriteService {
   // Path computation
   // ---------------------------------------------------------------------------
 
+  computeTargetDir(opts: {
+    libraryRoot: string;
+    authors: string[];
+    seriesName?: string | null;
+    title?: string | null;
+  }): string {
+    const { libraryRoot, authors, seriesName, title } = opts;
+    const sanitize = (s: string) =>
+      s
+        .normalize('NFC')
+        .replace(ILLEGAL_CHARS, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 200);
+
+    const safeAuthor = authors[0]?.trim() ? sanitize(authors[0].trim()) : null;
+    const safeSeries = seriesName ? sanitize(seriesName) : null;
+    const safeTitle = title ? sanitize(title) : null;
+
+    if (safeAuthor && safeSeries && safeTitle) {
+      return path.join(libraryRoot, safeAuthor, safeSeries, safeTitle);
+    }
+    if (safeAuthor && safeTitle) {
+      return path.join(libraryRoot, safeAuthor, safeTitle);
+    }
+    return path.join(libraryRoot, 'unknown', safeTitle ?? 'unknown-audiobook');
+  }
+
   computeTargetPath(opts: {
     libraryRoot: string;
     authors: string[];

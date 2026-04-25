@@ -32,12 +32,14 @@ import { Spotlight, spotlight } from '@mantine/spotlight';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { NavbarContent } from './NavbarContent';
 import { BulkActionBar } from '../BulkActionBar';
+import { PersistentAudiobookPlayer, PLAYER_HEIGHT } from '../AudiobookPlayer';
 import { api } from '../../utils/api';
 import {
   userSettingsAtom,
   DEFAULT_USER_SETTINGS,
   backendStatusAtom,
   selectedBookIdsAtom,
+  audiobookPlayerAtom,
 } from '../../store/atoms';
 
 type SearchType = 'all' | 'books' | 'authors' | 'series';
@@ -242,6 +244,7 @@ export function AppLayout() {
   const setUserSettings = useSetAtom(userSettingsAtom);
   const backendStatus = useAtomValue(backendStatusAtom);
   const setSelectedBookIds = useSetAtom(selectedBookIdsAtom);
+  const playerState = useAtomValue(audiobookPlayerAtom);
   const location = useLocation();
 
   useEffect(() => {
@@ -375,6 +378,7 @@ export function AppLayout() {
           breakpoint: 'sm',
           collapsed: { desktop: !opened, mobile: !opened },
         }}
+        footer={playerState ? { height: PLAYER_HEIGHT } : undefined}
         padding="md"
       >
         <AppShell.Header>
@@ -509,6 +513,12 @@ export function AppLayout() {
           )}
           <Outlet />
         </AppShell.Main>
+
+        {playerState && (
+          <AppShell.Footer>
+            <PersistentAudiobookPlayer key={playerState.bookId} />
+          </AppShell.Footer>
+        )}
 
         <BulkActionBar />
       </AppShell>

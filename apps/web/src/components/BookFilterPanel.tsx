@@ -21,6 +21,7 @@ import type {
   FilterMode,
   AddedFilter,
   PageCountFilter,
+  MediaTypeFilter,
 } from '../types/bookFilter';
 import { EMPTY_FILTER } from '../types/bookFilter';
 import type { AuthorOption } from '../hooks/useBookFilter';
@@ -480,6 +481,23 @@ export function BookFilterPanel({
           </Accordion.Control>
           <Accordion.Panel>
             <Stack gap="sm">
+              <Stack gap={4}>
+                <Text size="xs" c="dimmed">
+                  Media Type
+                </Text>
+                <SegmentedControl
+                  size="xs"
+                  fullWidth
+                  value={filters.mediaTypeFilter}
+                  onChange={(v) => set('mediaTypeFilter', v as MediaTypeFilter)}
+                  data={[
+                    { label: 'Any', value: 'any' },
+                    { label: 'Ebook', value: 'ebook-only' },
+                    { label: 'Audio', value: 'audiobook-only' },
+                    { label: 'Both', value: 'both' },
+                  ]}
+                />
+              </Stack>
               <Stack gap={4}>
                 <Text size="xs" c="dimmed">
                   Series

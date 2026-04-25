@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -32,6 +33,7 @@ import {
 } from './dto/metadata-provider-status.dto';
 import {
   ReorganizeLibraryResponseDto,
+  ReorganizePreviewResponseDto,
   BackupSizeResponseDto,
 } from './dto/library-action.dto';
 
@@ -203,6 +205,12 @@ export class AdminController {
     return this.adminService.bulkWriteSidecars();
   }
 
+  @Get('library/reorganize/preview')
+  @ApiOkResponse({ type: ReorganizePreviewResponseDto })
+  previewReorganize() {
+    return this.adminService.previewReorganize();
+  }
+
   @Post('library/reorganize')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOkResponse({ type: ReorganizeLibraryResponseDto })
@@ -212,13 +220,19 @@ export class AdminController {
 
   @Get('library/backup/size')
   @ApiOkResponse({ type: BackupSizeResponseDto })
-  getLibraryBackupSize() {
-    return this.adminService.getLibraryBackupSize();
+  getLibraryBackupSize(@Query('includeAudiobooks') includeAudiobooks?: string) {
+    return this.adminService.getLibraryBackupSize(includeAudiobooks === 'true');
   }
 
   @Get('library/backup/download')
   @ApiOkResponse()
-  async downloadLibraryBackup(@Res() res: Response) {
-    await this.adminService.streamLibraryBackup(res);
+  async downloadLibraryBackup(
+    @Res() res: Response,
+    @Query('includeAudiobooks') includeAudiobooks?: string,
+  ) {
+    await this.adminService.streamLibraryBackup(
+      res,
+      includeAudiobooks === 'true',
+    );
   }
 }

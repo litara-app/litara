@@ -25,6 +25,7 @@ export async function createTestApp(options?: {
       onModuleInit: () => Promise.resolve(),
       onModuleDestroy: () => {},
       fullScan: () => Promise.resolve(),
+      triggerFullScanTask: () => Promise.resolve({ taskId: 'mock-task-id' }),
     });
   }
 

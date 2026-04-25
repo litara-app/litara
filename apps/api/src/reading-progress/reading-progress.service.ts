@@ -149,7 +149,60 @@ export class ReadingProgressService {
       },
     );
 
-    return [...fromReading, ...fromProgress]
+    const coveredBookIds = new Set([
+      ...fromReading.map((r) => r.bookId),
+      ...fromProgress.map((r) => r.bookId),
+    ]);
+
+    const audiobookProgressRecords =
+      await this.prisma.audiobookProgress.findMany({
+        where: {
+          userId,
+          completedAt: null,
+          currentTime: { gt: 0 },
+          bookId: { notIn: Array.from(coveredBookIds) },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 20,
+        include: {
+          book: {
+            include: {
+              authors: { include: { author: true } },
+              files: { select: { format: true, missingAt: true } },
+              audiobookFiles: { select: { fileIndex: true, duration: true } },
+            },
+          },
+        },
+      });
+
+    const fromAudiobooks = audiobookProgressRecords.map((r) => {
+      const precedingDuration = r.book.audiobookFiles
+        .filter((f) => f.fileIndex < r.currentFileIndex)
+        .reduce((s, f) => s + f.duration, 0);
+      const absoluteTime = precedingDuration + r.currentTime;
+      const fraction =
+        r.totalDuration > 0 ? Math.min(1, absoluteTime / r.totalDuration) : 0;
+      return {
+        bookId: r.bookId,
+        percentage: null as number | null,
+        lastSyncedAt: r.updatedAt,
+        book: {
+          id: r.book.id,
+          title: r.book.title,
+          authors: r.book.authors.map((ba) => ba.author.name),
+          hasCover: r.book.coverData !== null,
+          coverUpdatedAt: r.book.updatedAt.toISOString(),
+          formats: Array.from(
+            new Set(r.book.files.map((f) => f.format)),
+          ).sort(),
+          hasFileMissing: r.book.files.some((f) => f.missingAt !== null),
+          hasAudiobook: true,
+          audiobookProgressFraction: fraction,
+        },
+      };
+    });
+
+    return [...fromReading, ...fromProgress, ...fromAudiobooks]
       .sort((a, b) => b.lastSyncedAt.getTime() - a.lastSyncedAt.getTime())
       .slice(0, 20);
   }
