@@ -7,6 +7,7 @@ CREATE TABLE "AudiobookFile" (
     "bookId" TEXT NOT NULL,
     "filePath" TEXT NOT NULL,
     "fileHash" TEXT NOT NULL,
+    "fileSize" BIGINT,
     "fileIndex" INTEGER NOT NULL,
     "duration" DOUBLE PRECISION NOT NULL,
     "mimeType" TEXT NOT NULL,

@@ -413,6 +413,7 @@ model AudiobookFile {
   book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
   filePath  String   @unique
   fileHash  String
+  fileSize  BigInt?
   fileIndex Int
   duration  Float
   mimeType  String

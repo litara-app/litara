@@ -15,7 +15,7 @@ interface ExtractedAudioMeta {
   authors: string[];
   narrator: string | null;
   duration: number;
-  coverData: Buffer | null;
+  coverData: Uint8Array | null;
   publishedYear: number | null;
   chapters: ChapterMeta[];
 }
@@ -58,9 +58,7 @@ export class AudiobookMetadataService {
     const authors = this.extractAuthors(common);
     const narrator = this.extractNarrator(common);
     const duration = format.duration ?? 0;
-    const coverData = common.picture?.[0]
-      ? Buffer.from(common.picture[0].data)
-      : null;
+    const coverData = common.picture?.[0]?.data ?? null;
     const publishedYear = common.year ?? null;
     const chapters = this.extractEmbeddedChapters(meta);
 

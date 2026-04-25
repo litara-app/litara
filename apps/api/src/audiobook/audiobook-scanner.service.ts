@@ -72,6 +72,10 @@ export class AudiobookScannerService {
     const audioFiles = this.collectAudioFiles(resolvedPath);
     if (audioFiles.length === 0) return;
 
+    if (await this.isFolderUnchanged(audioFiles)) {
+      return;
+    }
+
     const firstFile = audioFiles[0];
     const rawMeta = await this.metadata.extractFromFile(firstFile.filePath);
     const absMeta = this.metadata.readAbsMetadata(folder);
@@ -100,6 +104,7 @@ export class AudiobookScannerService {
 
       totalDuration += fileMeta.duration;
 
+      const fileSize = BigInt(fs.statSync(entry.filePath).size);
       const fileHash = await this.computeHash(entry.filePath);
       const mimeType = entry.ext === '.mp3' ? 'audio/mpeg' : 'audio/mp4';
 
@@ -110,11 +115,12 @@ export class AudiobookScannerService {
       let audiobookFileId: string;
 
       if (existing) {
-        if (existing.fileHash !== fileHash) {
+        if (existing.fileHash !== fileHash || existing.fileSize === null) {
           await this.prisma.audiobookFile.update({
             where: { id: existing.id },
             data: {
               fileHash,
+              fileSize,
               duration: fileMeta.duration,
               narrator,
               fileIndex: entry.fileIndex,
@@ -128,6 +134,7 @@ export class AudiobookScannerService {
             bookId: book.id,
             filePath: entry.filePath,
             fileHash,
+            fileSize,
             fileIndex: entry.fileIndex,
             duration: fileMeta.duration,
             mimeType,
@@ -231,7 +238,7 @@ export class AudiobookScannerService {
     data: {
       title: string;
       authors: string[];
-      coverData: Buffer | null;
+      coverData: Uint8Array | null;
       publishedYear: number | null;
     },
     libraryId?: string,
@@ -245,7 +252,7 @@ export class AudiobookScannerService {
       if (!existing.coverData && data.coverData) {
         await this.prisma.book.update({
           where: { id: existing.id },
-          data: { coverData: new Uint8Array(data.coverData) },
+          data: { coverData: data.coverData as Uint8Array<ArrayBuffer> },
         });
       }
       return existing;
@@ -259,7 +266,7 @@ export class AudiobookScannerService {
       data: {
         libraryId: libraryId ?? null,
         title: data.title,
-        coverData: data.coverData ? new Uint8Array(data.coverData) : null,
+        coverData: data.coverData as Uint8Array<ArrayBuffer> | null,
         publishedDate,
         hasAudiobook: true,
       },
@@ -323,6 +330,26 @@ export class AudiobookScannerService {
     } catch {
       return [];
     }
+  }
+
+  private async isFolderUnchanged(
+    audioFiles: AudioFileEntry[],
+  ): Promise<boolean> {
+    const paths = audioFiles.map((f) => f.filePath);
+    const records = await this.prisma.audiobookFile.findMany({
+      where: { filePath: { in: paths } },
+      select: { filePath: true, fileSize: true },
+    });
+
+    if (records.length !== audioFiles.length) return false;
+
+    const sizeMap = new Map(records.map((r) => [r.filePath, r.fileSize]));
+    for (const { filePath } of audioFiles) {
+      const stored = sizeMap.get(filePath);
+      if (stored === null || stored === undefined) return false;
+      if (BigInt(fs.statSync(filePath).size) !== stored) return false;
+    }
+    return true;
   }
 
   private computeHash(filePath: string): Promise<string> {

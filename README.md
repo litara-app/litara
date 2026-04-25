@@ -11,7 +11,7 @@
 
 </div>
 
-A self-hosted ebook library manager. Automatically scans a folder for ebook files, extracts metadata, and serves a clean web UI for browsing, reading progress, shelves, and annotations.
+A self-hosted ebook and audiobook library manager. Automatically scans a folder for ebook and audiobook files, extracts metadata, and serves a clean web UI for browsing, reading progress, shelves, and annotations.
 
 ![Litara dashboard](./apps/docs/static/screenshots/dashboard.png)
 
@@ -37,6 +37,7 @@ A self-hosted ebook library manager. Automatically scans a folder for ebook file
 - OPDS catalog (v1.2 Atom + v2.0 JSON) for ebook reader apps
 - Email delivery to e-readers via SMTP
 - Docker-first deployment
+- **Audiobook support (Beta)** — scans `.m4b`, `.m4a`, and `.mp3` audiobooks; built-in player on web and mobile with chapter navigation, bookmarks, and per-user progress
 
 ## Quick Start
 
