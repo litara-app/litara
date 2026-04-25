@@ -1,3 +1,21 @@
+# [1.31.0](https://github.com/litara-app/litara/compare/v1.30.0...v1.31.0) (2026-04-25)
+
+
+### Bug Fixes
+
+* lazy getter pattern ([2c3baf7](https://github.com/litara-app/litara/commit/2c3baf77ad87c30e1b391f10263acdae524f1312))
+* lazy getter pattern ([266f560](https://github.com/litara-app/litara/commit/266f56084ae539202db21f475df3c672aa711320))
+* library scan kicked off in background ([e04a62f](https://github.com/litara-app/litara/commit/e04a62ff10a1405e1f5c2ad4bfa3c8a588643055))
+* library scanner will still show scanning audiobooks ([4263068](https://github.com/litara-app/litara/commit/42630687372abeb7bcf373bba9db541aa1f2dc6c))
+* memory usage optimization ([552be52](https://github.com/litara-app/litara/commit/552be5281a433e3f079c9e9c422a5744e8ea5208))
+* tweaks and fix tests ([e9f3b7d](https://github.com/litara-app/litara/commit/e9f3b7db0d93cc0153cac8cdb724399e3bf4a86a))
+
+
+### Features
+
+* adding basic audiobook support with player ([7c457de](https://github.com/litara-app/litara/commit/7c457dea952aae950bebe6bf9f12d380aff632a2))
+* preview reorganize of files ([9be9092](https://github.com/litara-app/litara/commit/9be90926fad57ba8ba04c98597b99dee0db91557))
+
 # [1.30.0](https://github.com/litara-app/litara/compare/v1.29.0...v1.30.0) (2026-04-21)
 
 
