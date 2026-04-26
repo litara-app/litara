@@ -1,3 +1,10 @@
+# [1.32.0](https://github.com/litara-app/litara/compare/v1.31.0...v1.32.0) (2026-04-26)
+
+
+### Features
+
+* allow 30 day login for web/mobile ([df39c2a](https://github.com/litara-app/litara/commit/df39c2a140023fefbeb5624042f15b2655812650))
+
 # [1.31.0](https://github.com/litara-app/litara/compare/v1.30.0...v1.31.0) (2026-04-25)
 
 
