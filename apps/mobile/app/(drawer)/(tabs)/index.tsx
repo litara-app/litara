@@ -17,6 +17,7 @@ import { getBooks } from '@/src/api/books';
 import type { BookSummary } from '@/src/api/books';
 import { getReadingQueue } from '@/src/api/reading-queue';
 import type { ReadingQueueItem } from '@/src/api/reading-queue';
+import { getInProgressBooks } from '@/src/api/reading-progress';
 
 const CARD_WIDTH = 110;
 
@@ -38,20 +39,38 @@ export default function DashboardScreen() {
     queryFn: getReadingQueue,
   });
 
+  const {
+    data: inProgressData = [],
+    isLoading: inProgressLoading,
+    refetch: refetchInProgress,
+  } = useQuery({
+    queryKey: ['reading-progress'],
+    queryFn: getInProgressBooks,
+  });
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchBooks(), refetchQueue()]);
+    await Promise.all([refetchBooks(), refetchQueue(), refetchInProgress()]);
     setRefreshing(false);
   };
 
   const books = data ?? [];
   const recentlyAdded = books.slice(0, 20);
-  const inProgress = books.filter(
-    (b) =>
-      b.readingProgress != null &&
-      b.readingProgress > 0 &&
-      b.readingProgress < 100,
-  );
+
+  const inProgress: BookSummary[] = inProgressData.map((entry) => ({
+    id: entry.book.id,
+    title: entry.book.title,
+    authors: entry.book.authors,
+    hasCover: entry.book.hasCover,
+    coverUpdatedAt: entry.book.coverUpdatedAt,
+    formats: entry.book.formats,
+    hasFileMissing: entry.book.hasFileMissing,
+    readingProgress: entry.percentage ?? undefined,
+    readStatus: null,
+    rating: null,
+    genres: [],
+    tags: [],
+  }));
 
   const renderCard = (item: BookSummary) => (
     <Pressable
@@ -106,14 +125,18 @@ export default function DashboardScreen() {
         />
       }
     >
-      {readingQueue.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Reading Queue</Text>
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Reading Queue</Text>
+          {readingQueue.length > 0 && (
             <Pressable onPress={() => router.push('/(drawer)/reading-queue')}>
               <Text style={styles.seeAll}>See all</Text>
             </Pressable>
-          </View>
+          )}
+        </View>
+        {readingQueue.length === 0 ? (
+          <Text style={styles.emptyText}>Your reading queue is empty.</Text>
+        ) : (
           <FlatList
             horizontal
             data={readingQueue}
@@ -122,14 +145,18 @@ export default function DashboardScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.row}
           />
-        </View>
-      )}
+        )}
+      </View>
 
-      {inProgress.length > 0 && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, styles.sectionTitlePad]}>
-            Continue Reading
-          </Text>
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, styles.sectionTitlePad]}>
+          Continue Reading
+        </Text>
+        {inProgressLoading ? (
+          <ActivityIndicator color="#4a9eff" style={styles.spinner} />
+        ) : inProgress.length === 0 ? (
+          <Text style={styles.emptyText}>No books in progress.</Text>
+        ) : (
           <FlatList
             horizontal
             data={inProgress}
@@ -138,8 +165,8 @@ export default function DashboardScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.row}
           />
-        </View>
-      )}
+        )}
+      </View>
 
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, styles.sectionTitlePad]}>
@@ -184,6 +211,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 17,
     fontWeight: '700',
+  },
+  sectionTitlePad: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   seeAll: {
     color: '#4a9eff',

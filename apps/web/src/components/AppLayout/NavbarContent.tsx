@@ -84,7 +84,11 @@ function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function NavbarContent() {
+interface NavbarContentProps {
+  onNavigate?: () => void;
+}
+
+export function NavbarContent({ onNavigate }: NavbarContentProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [librariesOpen, setLibrariesOpen] = useState(false);
@@ -180,35 +184,50 @@ export function NavbarContent() {
           label="Dashboard"
           leftSection={<IconHome size={18} />}
           active={location.pathname === '/'}
-          onClick={() => navigate('/')}
+          onClick={() => {
+            navigate('/');
+            onNavigate?.();
+          }}
         />
 
         <NavLink
           label="All Books"
           leftSection={<IconBook size={18} />}
           active={location.pathname === '/books'}
-          onClick={() => navigate('/books')}
+          onClick={() => {
+            navigate('/books');
+            onNavigate?.();
+          }}
         />
 
         <NavLink
           label="Series"
           leftSection={<IconTimeline size={18} />}
           active={location.pathname === '/series'}
-          onClick={() => navigate('/series')}
+          onClick={() => {
+            navigate('/series');
+            onNavigate?.();
+          }}
         />
 
         <NavLink
           label="Authors"
           leftSection={<IconUsers size={18} />}
           active={location.pathname === '/authors'}
-          onClick={() => navigate('/authors')}
+          onClick={() => {
+            navigate('/authors');
+            onNavigate?.();
+          }}
         />
 
         <NavLink
           label="Annotations"
           leftSection={<IconBookmarks size={18} />}
           active={location.pathname === '/annotations'}
-          onClick={() => navigate('/annotations')}
+          onClick={() => {
+            navigate('/annotations');
+            onNavigate?.();
+          }}
         />
 
         <NavLink
@@ -224,7 +243,10 @@ export function NavbarContent() {
               label={lib.name}
               leftSection={<IconLibrary size={16} />}
               active={location.pathname === `/library/${lib.id}`}
-              onClick={() => navigate(`/library/${lib.id}`)}
+              onClick={() => {
+                navigate(`/library/${lib.id}`);
+                onNavigate?.();
+              }}
             />
           ))}
           <Box>
@@ -248,7 +270,10 @@ export function NavbarContent() {
               label={shelf.name}
               leftSection={<IconBookmarks size={16} />}
               active={location.pathname === `/shelf/${shelf.id}`}
-              onClick={() => navigate(`/shelf/${shelf.id}`)}
+              onClick={() => {
+                navigate(`/shelf/${shelf.id}`);
+                onNavigate?.();
+              }}
             />
           ))}
           <Box>
@@ -272,7 +297,10 @@ export function NavbarContent() {
               label={s.name}
               leftSection={<IconFlask size={16} />}
               active={location.pathname === `/smart-shelves/${s.id}`}
-              onClick={() => navigate(`/smart-shelves/${s.id}`)}
+              onClick={() => {
+                navigate(`/smart-shelves/${s.id}`);
+                onNavigate?.();
+              }}
             />
           ))}
           <Box>
@@ -299,7 +327,10 @@ export function NavbarContent() {
         label="Book Drop"
         leftSection={<IconUpload size={18} />}
         active={location.pathname === '/book-drop'}
-        onClick={() => navigate('/book-drop')}
+        onClick={() => {
+          navigate('/book-drop');
+          onNavigate?.();
+        }}
       />
 
       {user?.role === 'ADMIN' && (
@@ -314,7 +345,10 @@ export function NavbarContent() {
             label="Book Review"
             leftSection={<IconClipboardCheck size={18} />}
             active={location.pathname === '/admin/book-review'}
-            onClick={() => navigate('/admin/book-review')}
+            onClick={() => {
+              navigate('/admin/book-review');
+              onNavigate?.();
+            }}
           />
         </Indicator>
       )}
@@ -323,21 +357,30 @@ export function NavbarContent() {
         label="Settings"
         leftSection={<IconSettings size={18} />}
         active={location.pathname === '/settings'}
-        onClick={() => navigate('/settings')}
+        onClick={() => {
+          navigate('/settings');
+          onNavigate?.();
+        }}
       />
       {user?.role === 'ADMIN' && (
         <NavLink
           label="Admin Settings"
           leftSection={<IconShieldCog size={18} />}
           active={location.pathname === '/admin-settings'}
-          onClick={() => navigate('/admin-settings')}
+          onClick={() => {
+            navigate('/admin-settings');
+            onNavigate?.();
+          }}
         />
       )}
 
       <Divider />
 
       <UnstyledButton
-        onClick={() => navigate('/profile')}
+        onClick={() => {
+          navigate('/profile');
+          onNavigate?.();
+        }}
         p="sm"
         w="100%"
         style={{

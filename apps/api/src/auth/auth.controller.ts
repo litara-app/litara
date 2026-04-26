@@ -1,4 +1,4 @@
-import { Controller, Post, UseGuards, Get } from '@nestjs/common';
+import { Controller, Post, UseGuards, Get, Body } from '@nestjs/common';
 import { Request } from '@nestjs/common';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthService } from './auth.service';
@@ -29,11 +29,15 @@ export class AuthController {
       properties: {
         email: { type: 'string' },
         password: { type: 'string' },
+        rememberMe: { type: 'boolean' },
       },
     },
   })
-  login(@Request() req: RequestWithUser) {
-    return this.authService.login(req.user);
+  login(
+    @Request() req: RequestWithUser,
+    @Body('rememberMe') rememberMe?: boolean,
+  ) {
+    return this.authService.login(req.user, rememberMe);
   }
 
   @UseGuards(JwtAuthGuard)
