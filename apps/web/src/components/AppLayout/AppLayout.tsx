@@ -234,7 +234,9 @@ function SearchSeriesItem({ series }: { series: SearchSeries }) {
 
 export function AppLayout() {
   const navigate = useNavigate();
-  const [opened, { toggle }] = useDisclosure(true);
+  const [opened, { toggle, close }] = useDisclosure(
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
+  );
   const [spotlightQuery, setSpotlightQuery] = useState('');
   const [bookResults, setBookResults] = useState<SearchBook[]>([]);
   const [authorResults, setAuthorResults] = useState<SearchAuthor[]>([]);
@@ -403,6 +405,7 @@ export function AppLayout() {
             </Group>
 
             <UnstyledButton
+              visibleFrom="sm"
               onClick={() => spotlight.open()}
               style={{
                 width: 360,
@@ -432,8 +435,18 @@ export function AppLayout() {
             </UnstyledButton>
 
             <Group justify="flex-end" gap="xs">
+              <ActionIcon
+                hiddenFrom="sm"
+                variant="subtle"
+                size="lg"
+                onClick={() => spotlight.open()}
+                aria-label="Search"
+              >
+                <IconSearch size={18} />
+              </ActionIcon>
               {shelfmarkUrl && (
                 <Button
+                  visibleFrom="sm"
                   component="a"
                   href={shelfmarkUrl}
                   target="_blank"
@@ -447,6 +460,7 @@ export function AppLayout() {
               )}
               <Tooltip label="Docs" position="bottom-end">
                 <ActionIcon
+                  visibleFrom="sm"
                   variant="subtle"
                   size="lg"
                   component="a"
@@ -459,6 +473,7 @@ export function AppLayout() {
               </Tooltip>
               <Tooltip label="GitHub" position="bottom-end">
                 <ActionIcon
+                  visibleFrom="sm"
                   variant="subtle"
                   size="lg"
                   component="a"
@@ -496,7 +511,11 @@ export function AppLayout() {
         </AppShell.Header>
 
         <AppShell.Navbar>
-          <NavbarContent />
+          <NavbarContent
+            onNavigate={() => {
+              if (window.innerWidth < 768) close();
+            }}
+          />
         </AppShell.Navbar>
 
         <AppShell.Main className="dot-matrix-bg">

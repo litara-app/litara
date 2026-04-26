@@ -8,6 +8,7 @@ import {
   Title,
   Text,
   Alert,
+  Checkbox,
 } from '@mantine/core';
 import { IconMail, IconLock, IconLogin } from '@tabler/icons-react';
 import axios from 'axios';
@@ -16,6 +17,7 @@ import { api } from '../utils/api';
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -37,7 +39,11 @@ export function Login() {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const response = await api.post('/auth/login', {
+        email,
+        password,
+        rememberMe,
+      });
       localStorage.setItem('token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       navigate('/');
@@ -117,9 +123,15 @@ export function Login() {
             onChange={(event) => setPassword(event.currentTarget.value)}
             leftSection={<IconLock size={16} />}
           />
+          <Checkbox
+            mt="md"
+            label="Remember me for 30 days"
+            checked={rememberMe}
+            onChange={(event) => setRememberMe(event.currentTarget.checked)}
+          />
           <Button
             fullWidth
-            mt="xl"
+            mt="md"
             type="submit"
             loading={loading}
             leftSection={<IconLogin size={16} />}

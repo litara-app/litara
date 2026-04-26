@@ -17,6 +17,7 @@ export async function login(
   const { data } = await api.post<LoginResponse>('/auth/login', {
     email,
     password,
+    rememberMe: true,
   });
   return data;
 }

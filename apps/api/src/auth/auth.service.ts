@@ -27,10 +27,12 @@ export class AuthService {
     return null;
   }
 
-  login(user: AuthenticatedUser) {
+  login(user: AuthenticatedUser, rememberMe?: boolean) {
     const payload = { email: user.email, sub: user.id, role: user.role };
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, {
+        expiresIn: rememberMe ? '30d' : '60m',
+      }),
       user: {
         id: user.id,
         email: user.email,
