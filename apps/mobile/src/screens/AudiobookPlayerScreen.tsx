@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   Pressable,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { File } from 'expo-file-system';
 import Slider from '@react-native-community/slider';
 import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
@@ -21,6 +23,7 @@ import {
 } from 'expo-audio';
 import { getBookDetail } from '@/src/api/books';
 import {
+  buildLocalFilePath,
   buildStreamUrl,
   getAudiobookProgress,
   issueStreamToken,
@@ -28,6 +31,7 @@ import {
 } from '@/src/api/audiobooks';
 import type { AudiobookFileInfo } from '@/src/api/audiobooks';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
+import { useAudiobookDownload } from '@/src/hooks/useAudiobookDownload';
 
 const SPEEDS = [0.5, 1.0, 1.5, 2.0];
 const SPEED_KEY = 'litara-audiobook-speed';
@@ -88,6 +92,7 @@ function AudiobookPlayerImpl({ bookId }: Props) {
 
   const player = useAudioPlayer(null, { updateInterval: 500 });
   const status = useAudioPlayerStatus(player);
+  const [useLocalFiles, setUseLocalFiles] = useState(false);
 
   const { data: book, isLoading: bookLoading } = useQuery({
     queryKey: ['book', bookId],
@@ -95,6 +100,9 @@ function AudiobookPlayerImpl({ bookId }: Props) {
   });
 
   const audiobookFiles = book?.audiobookFiles ?? [];
+
+  const { downloadStatus, downloadProgress, startDownload, cancelAndDelete } =
+    useAudiobookDownload(bookId, audiobookFiles);
 
   const fileStartOffsets = useMemo(() => {
     const offsets: number[] = [];
@@ -152,15 +160,32 @@ function AudiobookPlayerImpl({ bookId }: Props) {
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Stream token
+  // Check for fully-cached local files; set useLocalFiles when all present
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (audiobookFiles.length === 0) return;
+    const allLocal = audiobookFiles.every(
+      (f) =>
+        new File(buildLocalFilePath(bookId, f.fileIndex, f.mimeType)).exists,
+    );
+    if (allLocal) {
+      setUseLocalFiles(true);
+      setStreamToken('__local__');
+    }
+  }, [audiobookFiles]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------------------------------------------------------------------------
+  // Stream token (skipped when using local files)
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
     if (!book?.hasAudiobook) return;
+    if (useLocalFiles) return;
     issueStreamToken()
       .then((res) => setStreamToken(res.token))
       .catch(console.error);
-  }, [book]);
+  }, [book, useLocalFiles]);
 
   // ---------------------------------------------------------------------------
   // Seek-after-replace: fire once the new source becomes loaded
@@ -185,13 +210,15 @@ function AudiobookPlayerImpl({ bookId }: Props) {
         (f: AudiobookFileInfo) => f.fileIndex === fileIndex,
       );
       if (!file || !streamToken) return;
-      const url = buildStreamUrl(bookId, fileIndex, streamToken);
+      const uri = useLocalFiles
+        ? buildLocalFilePath(bookId, fileIndex, file.mimeType)
+        : buildStreamUrl(bookId, fileIndex, streamToken);
       wasLoadedRef.current = false;
       if (seekTo > 0) pendingSeekRef.current = seekTo;
-      player.replace({ uri: url });
+      player.replace({ uri });
       setCurrentFileIndex(fileIndex);
     },
-    [audiobookFiles, streamToken, bookId, player],
+    [audiobookFiles, streamToken, bookId, player, useLocalFiles],
   );
 
   // ---------------------------------------------------------------------------
@@ -302,6 +329,8 @@ function AudiobookPlayerImpl({ bookId }: Props) {
   // Progress auto-save
   // ---------------------------------------------------------------------------
 
+  const pendingProgressKey = `litara-audiobook-progress-pending-${bookId}`;
+
   const doSave = useCallback(
     async (fileIndex: number, time: number) => {
       if (!isFinite(time) || time < 0) return;
@@ -313,12 +342,49 @@ function AudiobookPlayerImpl({ bookId }: Props) {
       )
         return;
       lastSavedRef.current = { fileIndex, time };
-      await saveAudiobookProgress(bookId, fileIndex, time, totalDuration).catch(
-        console.error,
+      // Write locally first so no progress is lost when offline
+      await AsyncStorage.setItem(
+        pendingProgressKey,
+        JSON.stringify({ fileIndex, time, totalDuration }),
       );
+      try {
+        await saveAudiobookProgress(bookId, fileIndex, time, totalDuration);
+        await AsyncStorage.removeItem(pendingProgressKey);
+      } catch {
+        // Stays in AsyncStorage for flush on next foreground/reconnect
+      }
     },
-    [bookId, totalDuration],
+    [bookId, totalDuration, pendingProgressKey],
   );
+
+  // Flush any pending progress when app returns to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void (async () => {
+        const raw = await AsyncStorage.getItem(pendingProgressKey);
+        if (!raw) return;
+        // Guard: delete key before attempting so concurrent fires are no-ops
+        await AsyncStorage.removeItem(pendingProgressKey);
+        try {
+          const {
+            fileIndex,
+            time,
+            totalDuration: dur,
+          } = JSON.parse(raw) as {
+            fileIndex: number;
+            time: number;
+            totalDuration: number;
+          };
+          await saveAudiobookProgress(bookId, fileIndex, time, dur);
+        } catch {
+          // Restore key if flush failed (still offline)
+          await AsyncStorage.setItem(pendingProgressKey, raw);
+        }
+      })();
+    });
+    return () => sub.remove();
+  }, [bookId, pendingProgressKey]);
 
   useEffect(() => {
     if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
@@ -582,6 +648,27 @@ function AudiobookPlayerImpl({ bookId }: Props) {
             />
           </TouchableOpacity>
         )}
+        {downloadStatus === 'not-downloaded' && (
+          <TouchableOpacity onPress={startDownload} style={styles.speedBtn}>
+            <Ionicons name="download-outline" size={20} color="#aaa" />
+          </TouchableOpacity>
+        )}
+        {downloadStatus === 'downloading' && downloadProgress && (
+          <View style={styles.downloadingRow}>
+            <ActivityIndicator size="small" color="#aaa" />
+            <Text style={styles.downloadingText}>
+              {downloadProgress.currentFile}/{downloadProgress.totalFiles}
+            </Text>
+          </View>
+        )}
+        {downloadStatus === 'downloaded' && (
+          <TouchableOpacity
+            onPress={() => void cancelAndDelete()}
+            style={styles.speedBtn}
+          >
+            <Ionicons name="cloud-done-outline" size={20} color="#4ade80" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {showChapters && allChapters.length > 0 && (
@@ -678,6 +765,13 @@ const styles = StyleSheet.create({
   },
   speedBtn: { padding: 8 },
   speedText: { color: '#aaa', fontSize: 14, fontWeight: '600' },
+  downloadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 8,
+  },
+  downloadingText: { color: '#aaa', fontSize: 12 },
   chapterList: {
     flex: 1,
     borderTopWidth: StyleSheet.hairlineWidth,

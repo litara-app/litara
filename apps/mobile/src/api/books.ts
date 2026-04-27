@@ -15,6 +15,7 @@ export interface BookSummary {
   rating: number | null;
   genres: string[];
   tags: string[];
+  hasAudiobook: boolean;
 }
 
 export interface BookFile {

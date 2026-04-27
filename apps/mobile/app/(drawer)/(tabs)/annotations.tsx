@@ -12,8 +12,18 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getAnnotations } from '@/src/api/annotations';
+import { getAnnotations, parseAudiobookLocation } from '@/src/api/annotations';
 import type { Annotation, AnnotationType } from '@/src/api/annotations';
+
+function formatTimestamp(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 const TYPE_COLORS: Record<AnnotationType, string> = {
   HIGHLIGHT: '#f5c842',
@@ -61,6 +71,15 @@ function AnnotationCard({ item }: { item: Annotation }) {
         <Text style={styles.noteText} numberOfLines={3}>
           {item.note}
         </Text>
+      )}
+
+      {item.type === 'BOOKMARK' && item.location.startsWith('audiobook:') && (
+        <View style={styles.timestampRow}>
+          <Ionicons name="headset-outline" size={13} color="#7c5af3" />
+          <Text style={styles.timestampText}>
+            {formatTimestamp(parseAudiobookLocation(item.location))}
+          </Text>
+        </View>
       )}
 
       <Text style={styles.dateText}>
@@ -328,6 +347,16 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 13,
     lineHeight: 18,
+  },
+  timestampRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  timestampText: {
+    color: '#7c5af3',
+    fontSize: 12,
+    fontWeight: '600',
   },
   dateText: {
     color: '#444',

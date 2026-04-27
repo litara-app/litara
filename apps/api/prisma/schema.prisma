@@ -27,7 +27,6 @@ model User {
   koReaderCredential KoReaderCredential?
   readingQueue       ReadingQueueItem[]
   audiobookProgress  AudiobookProgress[]
-  audiobookBookmarks AudiobookBookmark[]
 }
 
 enum Role {
@@ -102,7 +101,6 @@ model Book {
   files           BookFile[]
   audiobookFiles  AudiobookFile[]
   audiobookProgress  AudiobookProgress[]
-  audiobookBookmarks AudiobookBookmark[]
 
   readingProgress ReadingProgress[]
   reviews         UserReview[]
@@ -446,17 +444,6 @@ model AudiobookProgress {
   updatedAt        DateTime  @updatedAt
 
   @@unique([userId, bookId])
-}
-
-model AudiobookBookmark {
-  id          String   @id @default(uuid())
-  userId      String
-  bookId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  timeSeconds Float
-  note        String   @default("")
-  createdAt   DateTime @default(now())
 }
 
 model PendingBook {

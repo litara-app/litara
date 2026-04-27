@@ -19,6 +19,7 @@ import {
 import type { ReadingQueueItem } from '@/src/api/reading-queue';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
 import { tokenStore } from '@/src/auth/tokenStore';
+import { BottomNavBar } from '@/src/components/BottomNavBar';
 
 export default function ReadingQueueScreen() {
   const queryClient = useQueryClient();
@@ -78,47 +79,44 @@ export default function ReadingQueueScreen() {
     );
   }
 
-  if (isLoading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#4a9eff" />
-      </View>
-    );
-  }
-
-  if (queue.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Ionicons name="list-outline" size={48} color="#333" />
-        <Text style={styles.emptyTitle}>Queue is empty</Text>
-        <Text style={styles.emptySubtitle}>
-          Long-press any book and choose &ldquo;Add to Queue&rdquo; to get
-          started.
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <FlatList
-      style={styles.list}
-      data={queue}
-      keyExtractor={(item) => item.bookId}
-      refreshing={isRefetching}
-      onRefresh={refetch}
-      renderItem={({ item, index }) => (
-        <QueueRow
-          item={item}
-          index={index}
-          isFirst={index === 0}
-          isLast={index === queue.length - 1}
-          onMoveUp={() => handleMove(index, -1)}
-          onMoveDown={() => handleMove(index, 1)}
-          onRemove={() => handleRemove(item)}
+    <View style={styles.screen}>
+      {isLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#4a9eff" />
+        </View>
+      ) : queue.length === 0 ? (
+        <View style={styles.centered}>
+          <Ionicons name="list-outline" size={48} color="#333" />
+          <Text style={styles.emptyTitle}>Queue is empty</Text>
+          <Text style={styles.emptySubtitle}>
+            Long-press any book and choose &ldquo;Add to Queue&rdquo; to get
+            started.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          style={styles.list}
+          data={queue}
+          keyExtractor={(item) => item.bookId}
+          refreshing={isRefetching}
+          onRefresh={refetch}
+          renderItem={({ item, index }) => (
+            <QueueRow
+              item={item}
+              index={index}
+              isFirst={index === 0}
+              isLast={index === queue.length - 1}
+              onMoveUp={() => handleMove(index, -1)}
+              onMoveDown={() => handleMove(index, 1)}
+              onRemove={() => handleRemove(item)}
+            />
+          )}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-    />
+      <BottomNavBar />
+    </View>
   );
 }
 
@@ -211,6 +209,7 @@ function QueueRow({
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#0a0a0a' },
   list: { flex: 1, backgroundColor: '#0a0a0a' },
   centered: {
     flex: 1,
