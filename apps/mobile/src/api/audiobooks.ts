@@ -1,5 +1,7 @@
+import { File, Directory, Paths } from 'expo-file-system';
 import { api } from './client';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
+import { tokenStore } from '@/src/auth/tokenStore';
 
 export interface AudiobookChapter {
   index: number;
@@ -67,4 +69,43 @@ export async function saveAudiobookProgress(
     currentTime,
     totalDuration,
   });
+}
+
+export function buildLocalAudiobookDir(bookId: string): string {
+  return new Directory(Paths.document, `audiobooks/${bookId}`).uri;
+}
+
+export function buildLocalFilePath(
+  bookId: string,
+  fileIndex: number,
+  mimeType: string,
+): string {
+  const ext =
+    mimeType.includes('mp4') || mimeType.includes('m4') ? 'm4b' : 'mp3';
+  return new File(Paths.document, `audiobooks/${bookId}/${fileIndex}.${ext}`)
+    .uri;
+}
+
+export async function downloadAudiobookFile(
+  bookId: string,
+  fileIndex: number,
+  mimeType: string,
+): Promise<string> {
+  const base = serverUrlStore.get() ?? '';
+  const url = `${base}/api/v1/audiobooks/${bookId}/files/${fileIndex}/download`;
+  const token = tokenStore.get();
+
+  const dir = new Directory(Paths.document, `audiobooks/${bookId}`);
+  if (!dir.exists) {
+    dir.create({ intermediates: true });
+  }
+
+  const ext =
+    mimeType.includes('mp4') || mimeType.includes('m4') ? 'm4b' : 'mp3';
+  const file = new File(dir, `${fileIndex}.${ext}`);
+  const downloaded = await File.downloadFileAsync(url, file, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    idempotent: true,
+  });
+  return downloaded.uri;
 }

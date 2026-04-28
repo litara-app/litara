@@ -125,6 +125,16 @@ function DrawerContent(props: DrawerContentComponentProps) {
           inactiveTintColor="#888"
         />
         <DrawerItem
+          label="Downloads"
+          labelStyle={styles.itemLabel}
+          icon={({ color, size }) => (
+            <Ionicons name="download-outline" size={size} color={color} />
+          )}
+          onPress={() => router.push('/(drawer)/downloads')}
+          activeTintColor="#4a9eff"
+          inactiveTintColor="#888"
+        />
+        <DrawerItem
           label="Smart Shelves"
           labelStyle={styles.itemLabel}
           icon={({ color, size }) => (
@@ -229,6 +239,16 @@ export default function DrawerLayout() {
         options={{
           drawerItemStyle: { display: 'none' },
           title: 'Reading Queue',
+          headerStyle: { backgroundColor: '#0a0a0a' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: '700' },
+        }}
+      />
+      <Drawer.Screen
+        name="downloads"
+        options={{
+          drawerItemStyle: { display: 'none' },
+          title: 'Downloads',
           headerStyle: { backgroundColor: '#0a0a0a' },
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: '700' },

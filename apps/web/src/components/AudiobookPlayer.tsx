@@ -35,11 +35,16 @@ import { audiobookPlayerAtom } from '../store/atoms';
 
 export const PLAYER_HEIGHT = 88;
 
-interface AudiobookBookmark {
+interface AudiobookBookmarkAnnotation {
   id: string;
-  timeSeconds: number;
-  note: string;
+  location: string; // "audiobook:<timeSeconds>"
+  note: string | null;
   createdAt: string;
+}
+
+function parseAudiobookLocation(location: string): number {
+  const t = parseFloat(location.replace('audiobook:', ''));
+  return isFinite(t) ? t : 0;
 }
 
 interface ChapterWithAbs {
@@ -120,7 +125,7 @@ export function PersistentAudiobookPlayer() {
   });
   const [isMuted, setIsMuted] = useState(false);
   const [bookmarkNote, setBookmarkNote] = useState('');
-  const [bookmarks, setBookmarks] = useState<AudiobookBookmark[]>([]);
+  const [bookmarks, setBookmarks] = useState<AudiobookBookmarkAnnotation[]>([]);
 
   const currentFile = useMemo(
     () =>
@@ -266,9 +271,19 @@ export function PersistentAudiobookPlayer() {
   useEffect(() => {
     if (!bookId) return;
     void api
-      .get<AudiobookBookmark[]>(`/audiobooks/${bookId}/bookmarks`)
+      .get<AudiobookBookmarkAnnotation[]>(
+        `/books/${bookId}/annotations?type=BOOKMARK`,
+      )
       .then((res) => {
-        setBookmarks(res.data);
+        const audiobookBookmarks = res.data.filter((a) =>
+          a.location.startsWith('audiobook:'),
+        );
+        audiobookBookmarks.sort(
+          (a, b) =>
+            parseAudiobookLocation(a.location) -
+            parseAudiobookLocation(b.location),
+        );
+        setBookmarks(audiobookBookmarks);
       })
       .catch(() => {});
   }, [bookId]);
@@ -276,15 +291,20 @@ export function PersistentAudiobookPlayer() {
   const saveBookmark = useCallback(async () => {
     if (!bookId) return;
     try {
-      const res = await api.post<AudiobookBookmark>(
-        `/audiobooks/${bookId}/bookmarks`,
+      const res = await api.post<AudiobookBookmarkAnnotation>(
+        `/books/${bookId}/annotations`,
         {
-          timeSeconds: absoluteCurrentTime,
-          note: bookmarkNote.trim(),
+          type: 'BOOKMARK',
+          location: `audiobook:${absoluteCurrentTime}`,
+          note: bookmarkNote.trim() || null,
         },
       );
       setBookmarks((prev) =>
-        [...prev, res.data].sort((a, b) => a.timeSeconds - b.timeSeconds),
+        [...prev, res.data].sort(
+          (a, b) =>
+            parseAudiobookLocation(a.location) -
+            parseAudiobookLocation(b.location),
+        ),
       );
       setBookmarkNote('');
     } catch {
@@ -296,7 +316,7 @@ export function PersistentAudiobookPlayer() {
     async (bookmarkId: string) => {
       if (!bookId) return;
       try {
-        await api.delete(`/audiobooks/${bookId}/bookmarks/${bookmarkId}`);
+        await api.delete(`/books/${bookId}/annotations/${bookmarkId}`);
         setBookmarks((prev) => prev.filter((b) => b.id !== bookmarkId));
       } catch {
         // ignore
@@ -739,7 +759,9 @@ export function PersistentAudiobookPlayer() {
                       wrap="nowrap"
                     >
                       <UnstyledButton
-                        onClick={() => seekToAbsolute(bm.timeSeconds)}
+                        onClick={() =>
+                          seekToAbsolute(parseAudiobookLocation(bm.location))
+                        }
                         style={{ flex: 1, minWidth: 0 }}
                       >
                         <Group gap="xs" wrap="nowrap">
@@ -749,7 +771,7 @@ export function PersistentAudiobookPlayer() {
                             fw={500}
                             style={{ flexShrink: 0, width: 44 }}
                           >
-                            {formatTime(bm.timeSeconds)}
+                            {formatTime(parseAudiobookLocation(bm.location))}
                           </Text>
                           <Text size="sm" truncate>
                             {bm.note || '(bookmark)'}

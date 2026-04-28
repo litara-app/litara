@@ -14,7 +14,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system/legacy';
+import { File, Paths } from 'expo-file-system';
 import {
   getBookDetail,
   getReadingProgress,
@@ -164,10 +164,10 @@ export default function BookDetailScreen() {
         .replace(/[^a-zA-Z0-9 _-]/g, '')
         .trim();
       const filename = `${safeName}.${format.toLowerCase()}`;
-      const dest = `${FileSystem.documentDirectory}${filename}`;
-
-      await FileSystem.downloadAsync(url, dest, {
+      const destFile = new File(Paths.document, filename);
+      await File.downloadFileAsync(url, destFile, {
         headers: { Authorization: `Bearer ${token}` },
+        idempotent: true,
       });
 
       Alert.alert('Downloaded', `"${filename}" has been saved to your device.`);

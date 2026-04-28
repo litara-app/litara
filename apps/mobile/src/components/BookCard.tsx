@@ -4,6 +4,15 @@ import type { BookSummary } from '@/src/api/books';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
 import { tokenStore } from '@/src/auth/tokenStore';
 
+const FORMAT_COLORS: Record<string, string> = {
+  EPUB: '#2f9e44',
+  MOBI: '#1971c2',
+  AZW: '#e8590c',
+  AZW3: '#e67700',
+  CBZ: '#7048e8',
+  PDF: '#c92a2a',
+};
+
 interface BookCardProps {
   book: BookSummary;
 }
@@ -31,6 +40,26 @@ export function BookCard({ book }: BookCardProps) {
         contentFit="cover"
         transition={200}
       />
+      {(book.formats.length > 0 || book.hasAudiobook) && (
+        <View style={styles.formatBadges}>
+          {book.formats.map((fmt) => (
+            <View
+              key={fmt}
+              style={[
+                styles.formatBadge,
+                { backgroundColor: FORMAT_COLORS[fmt] ?? '#555' },
+              ]}
+            >
+              <Text style={styles.formatBadgeText}>{fmt}</Text>
+            </View>
+          ))}
+          {book.hasAudiobook && (
+            <View style={[styles.formatBadge, { backgroundColor: '#0ca678' }]}>
+              <Text style={styles.formatBadgeText}>Audio</Text>
+            </View>
+          )}
+        </View>
+      )}
       {progress > 0 && (
         <View style={styles.progressTrack}>
           <View
@@ -72,6 +101,27 @@ const styles = StyleSheet.create({
   progressFill: {
     height: 3,
     backgroundColor: '#4a9eff',
+  },
+  formatBadges: {
+    position: 'absolute',
+    top: 6,
+    left: 0,
+    flexDirection: 'column',
+    gap: 2,
+  },
+  formatBadge: {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  formatBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   info: {
     padding: 8,

@@ -15,6 +15,17 @@ import { IconArrowRight, IconSearch, IconTrash } from '@tabler/icons-react';
 import { useBookAnnotations } from '../hooks/useBookAnnotations';
 import type { AnnotationType } from '../api/annotations';
 
+function formatAudiobookLocation(location: string): string {
+  const secs = parseFloat(location.replace('audiobook:', ''));
+  if (!isFinite(secs)) return '';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  if (h > 0)
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 const TYPE_LABELS: Record<AnnotationType, string> = {
   HIGHLIGHT: 'Highlight',
   UNDERLINE: 'Underline',
@@ -121,16 +132,18 @@ export function BookAnnotationsTab({
                     </Text>
                   </Group>
                   <Group gap={4} wrap="nowrap">
-                    <Tooltip label="Open in reader" withArrow>
-                      <ActionIcon
-                        variant="subtle"
-                        color="blue"
-                        size="xs"
-                        onClick={() => handleJump(ann.location)}
-                      >
-                        <IconArrowRight size={11} />
-                      </ActionIcon>
-                    </Tooltip>
+                    {!ann.location.startsWith('audiobook:') && (
+                      <Tooltip label="Open in reader" withArrow>
+                        <ActionIcon
+                          variant="subtle"
+                          color="blue"
+                          size="xs"
+                          onClick={() => handleJump(ann.location)}
+                        >
+                          <IconArrowRight size={11} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
                     <Tooltip label="Delete" withArrow>
                       <ActionIcon
                         variant="subtle"
@@ -144,6 +157,11 @@ export function BookAnnotationsTab({
                   </Group>
                 </Group>
 
+                {ann.location.startsWith('audiobook:') && (
+                  <Text size="xs" c="dimmed">
+                    {formatAudiobookLocation(ann.location)}
+                  </Text>
+                )}
                 {ann.text && (
                   <Text
                     size="xs"

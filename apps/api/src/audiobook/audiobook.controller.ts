@@ -38,10 +38,6 @@ import {
   UpsertAudiobookProgressDto,
   AudiobookProgressResponseDto,
 } from './dto/audiobook-progress.dto';
-import {
-  CreateAudiobookBookmarkDto,
-  AudiobookBookmarkResponseDto,
-} from './dto/audiobook-bookmark.dto';
 
 // Guard for the stream endpoint — validates a short-lived stream token from the query string.
 // The <audio> element cannot send Authorization headers, so we issue a dedicated token
@@ -298,59 +294,6 @@ export class AudiobookController {
     @Req() req: RequestWithUser,
   ) {
     await this.progressService.resetProgress(req.user.id, bookId);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Bookmarks
-  // ---------------------------------------------------------------------------
-
-  @Get(':bookId/bookmarks')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'List audiobook bookmarks for current user' })
-  @ApiOkResponse({ type: AudiobookBookmarkResponseDto, isArray: true })
-  async getBookmarks(
-    @Param('bookId') bookId: string,
-    @Req() req: RequestWithUser,
-  ) {
-    return this.prisma.audiobookBookmark.findMany({
-      where: { userId: req.user.id, bookId },
-      orderBy: { timeSeconds: 'asc' },
-    });
-  }
-
-  @Post(':bookId/bookmarks')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Create an audiobook bookmark' })
-  @ApiOkResponse({ type: AudiobookBookmarkResponseDto })
-  async createBookmark(
-    @Param('bookId') bookId: string,
-    @Req() req: RequestWithUser,
-    @Body() dto: CreateAudiobookBookmarkDto,
-  ) {
-    return this.prisma.audiobookBookmark.create({
-      data: {
-        userId: req.user.id,
-        bookId,
-        timeSeconds: dto.timeSeconds,
-        note: dto.note ?? '',
-      },
-    });
-  }
-
-  @Delete(':bookId/bookmarks/:bookmarkId')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete an audiobook bookmark' })
-  async deleteBookmark(
-    @Param('bookmarkId') bookmarkId: string,
-    @Req() req: RequestWithUser,
-  ) {
-    await this.prisma.audiobookBookmark.deleteMany({
-      where: { id: bookmarkId, userId: req.user.id },
-    });
   }
 
   // ---------------------------------------------------------------------------
