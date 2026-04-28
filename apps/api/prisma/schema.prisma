@@ -392,7 +392,8 @@ model OpdsUser {
 model KoReaderCredential {
   id           String   @id @default(uuid())
   username     String   @unique
-  passwordHash String   // MD5 hash as received from KOReader client
+  passwordHash String   // bcrypt(MD5) for v2; raw MD5 for v1 legacy rows
+  hashVersion  Int      @default(1) // 1 = raw MD5 (legacy), 2 = bcrypt(MD5)
   userId       String   @unique
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())

@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import * as bcrypt from 'bcrypt';
 import { DatabaseService } from '../database/database.service';
 
 @Injectable()
@@ -42,10 +43,24 @@ export class KoReaderAuthGuard implements CanActivate {
       throw new UnauthorizedException({ code: 2001, message: 'Unauthorized' });
     }
 
-    if (credential.passwordHash !== key) {
+    let authenticated = false;
+
+    if (credential.hashVersion === 1) {
+      if (credential.passwordHash === key) {
+        const upgraded = await bcrypt.hash(key, 10);
+        await this.db.koReaderCredential.update({
+          where: { id: credential.id },
+          data: { passwordHash: upgraded, hashVersion: 2 },
+        });
+        authenticated = true;
+      }
+    } else {
+      authenticated = await bcrypt.compare(key, credential.passwordHash);
+    }
+
+    if (!authenticated) {
       this.logger.warn(
-        `Auth failed — password mismatch for username="${username}" ` +
-          `(stored hash starts with "${credential.passwordHash.slice(0, 6)}...", received starts with "${key.slice(0, 6)}...")`,
+        `Auth failed — password mismatch for username="${username}"`,
       );
       throw new UnauthorizedException({ code: 2001, message: 'Unauthorized' });
     }

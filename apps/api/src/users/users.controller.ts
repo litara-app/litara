@@ -26,6 +26,7 @@ import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DatabaseService } from '../database/database.service';
 import type { RequestWithUser } from '../auth/interfaces/authenticated-user.interface';
+import * as bcrypt from 'bcrypt';
 
 class ChangePasswordDto {
   @ApiProperty()
@@ -188,7 +189,8 @@ export class UsersController {
     const credential = await this.prisma.koReaderCredential.create({
       data: {
         username: body.username,
-        passwordHash: body.password, // client must send MD5(password)
+        passwordHash: await bcrypt.hash(body.password, 10),
+        hashVersion: 2,
         userId: req.user.id,
       },
       select: { username: true, createdAt: true },

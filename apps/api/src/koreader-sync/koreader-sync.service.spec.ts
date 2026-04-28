@@ -13,6 +13,7 @@ const mockCredential = {
   id: 'cred-1',
   username: 'alice',
   passwordHash: 'hash',
+  hashVersion: 2,
   userId: 'user-1',
   createdAt: new Date(),
 };
