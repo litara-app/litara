@@ -1,3 +1,10 @@
+# [1.33.0](https://github.com/litara-app/litara/compare/v1.32.0...v1.33.0) (2026-04-28)
+
+
+### Features
+
+* audiobook download, annotations audiobooks, mobile fixes ([ebd3cbf](https://github.com/litara-app/litara/commit/ebd3cbff2448e8d4b59ff726134bea9ad3f548ea))
+
 # [1.32.0](https://github.com/litara-app/litara/compare/v1.31.0...v1.32.0) (2026-04-26)
 
 
