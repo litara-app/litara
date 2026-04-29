@@ -1,3 +1,10 @@
+## [1.33.1](https://github.com/litara-app/litara/compare/v1.33.0...v1.33.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* bcrypt koreader password hash for better security ([b02e9f8](https://github.com/litara-app/litara/commit/b02e9f87adda62c2d233381fa476621a17c11a5e))
+
 # [1.33.0](https://github.com/litara-app/litara/compare/v1.32.0...v1.33.0) (2026-04-28)
 
 
