@@ -1,3 +1,15 @@
+# [1.34.0](https://github.com/litara-app/litara/compare/v1.33.1...v1.34.0) (2026-05-02)
+
+
+### Bug Fixes
+
+* switching to react-native-track-player ([17b956c](https://github.com/litara-app/litara/commit/17b956ce877bc3ca4461f7a169e203f94ff31f6d))
+
+
+### Features
+
+* adding in filters and other functions to mobile ([3fee637](https://github.com/litara-app/litara/commit/3fee637303fd8a88ce57489a9b5e32598cb75090))
+
 ## [1.33.1](https://github.com/litara-app/litara/compare/v1.33.0...v1.33.1) (2026-04-29)
 
 
