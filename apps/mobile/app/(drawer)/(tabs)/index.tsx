@@ -70,6 +70,13 @@ export default function DashboardScreen() {
     rating: null,
     genres: [],
     tags: [],
+    moods: [],
+    publisher: null,
+    pageCount: null,
+    goodreadsRating: null,
+    publishedDate: null,
+    createdAt: '',
+    hasAudiobook: false,
   }));
 
   const renderCard = (item: BookSummary) => (
@@ -98,6 +105,13 @@ export default function DashboardScreen() {
       rating: null,
       genres: [],
       tags: [],
+      moods: [],
+      publisher: null,
+      pageCount: null,
+      goodreadsRating: null,
+      publishedDate: null,
+      createdAt: '',
+      hasAudiobook: false,
     };
     return (
       <Pressable

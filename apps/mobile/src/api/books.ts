@@ -15,6 +15,12 @@ export interface BookSummary {
   rating: number | null;
   genres: string[];
   tags: string[];
+  moods: string[];
+  publisher: string | null;
+  pageCount: number | null;
+  goodreadsRating: number | null;
+  publishedDate: string | null;
+  createdAt: string;
   hasAudiobook: boolean;
 }
 
@@ -56,6 +62,9 @@ export interface BookDetail {
     rating: number | null;
     readStatus: string;
   };
+  library: { id: string; name: string } | null;
+  shelves: { id: string; name: string }[];
+  inReadingQueue: boolean;
   hasAudiobook: boolean;
   audiobookFiles: AudiobookFileInfo[];
   audiobookProgress: AudiobookProgress | null;
@@ -71,6 +80,24 @@ export async function getBooks(params?: {
 }): Promise<BookSummary[]> {
   const { data } = await api.get<BookSummary[]>('/books', { params });
   return data;
+}
+
+export async function getAllBooks(): Promise<BookSummary[]> {
+  const BATCH = 1000;
+  const all: BookSummary[] = [];
+  let offset = 0;
+  while (true) {
+    const batch = await getBooks({
+      limit: BATCH,
+      offset,
+      sortBy: 'title',
+      order: 'asc',
+    });
+    all.push(...batch);
+    if (batch.length < BATCH) break;
+    offset += BATCH;
+  }
+  return all;
 }
 
 export async function getBookDetail(id: string): Promise<BookDetail> {
@@ -101,4 +128,18 @@ export async function resetReadingProgress(
     ? `/books/${bookId}/progress?source=${source}`
     : `/books/${bookId}/progress`;
   await api.delete(url);
+}
+
+export function updateBook(
+  id: string,
+  dto: { rating?: number | null; libraryId?: string | null },
+): Promise<void> {
+  return api.patch(`/books/${id}`, dto);
+}
+
+export function updateBookShelves(
+  id: string,
+  shelfIds: string[],
+): Promise<void> {
+  return api.put(`/books/${id}/shelves`, { shelfIds });
 }
