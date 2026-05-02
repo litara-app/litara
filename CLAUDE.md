@@ -10,6 +10,7 @@ Litara is a self-hosted ebook library manager. It is a monorepo managed with **T
 
 - `apps/api` — NestJS backend (REST API + library scanner)
 - `apps/web` — React + Vite frontend
+- `apps/mobile` — React Native / Expo mobile app. Audiobook playback uses `react-native-track-player` (singleton service architecture). Playback service, queue builder, and progress saver live under `apps/mobile/src/services/playback/`. The entry point is `apps/mobile/index.ts` which registers the RNTP playback service before loading the expo-router entry.
 - `packages/mobi-parser` (`@litara/mobi-parser`) — Wraps `@lingo-reader/mobi-parser` to extract metadata from `.mobi`, `.azw`, and `.azw3` files. Exposes a single `extractMobiMetadata(filePath)` function.
 - `packages/book-types` (`@litara/book-types`) — **Single source of truth for all enrichable book metadata fields.** Exports `BookMetadataFields` (canonical interface) and `MetadataResult` (extends it with `categories`). **All metadata field additions/renames must start here** and propagate to `MetadataResultDto` and `UpdatePendingBookDto` (both `implements BookMetadataFields`).
 

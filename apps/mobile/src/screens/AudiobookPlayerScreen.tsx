@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  AppState,
+  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -9,33 +9,31 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { File } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import Slider from '@react-native-community/slider';
 import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  useAudioPlayer,
-  useAudioPlayerStatus,
-  setAudioModeAsync,
-} from 'expo-audio';
+import TrackPlayer, {
+  Event,
+  State,
+  useActiveTrack,
+  usePlaybackState,
+  useProgress,
+  useTrackPlayerEvents,
+} from 'react-native-track-player';
 import { getBookDetail } from '@/src/api/books';
-import {
-  buildLocalFilePath,
-  buildStreamUrl,
-  getAudiobookProgress,
-  issueStreamToken,
-  saveAudiobookProgress,
-} from '@/src/api/audiobooks';
-import type { AudiobookFileInfo } from '@/src/api/audiobooks';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
+import { buildLocalFilePath } from '@/src/api/audiobooks';
 import { useAudiobookDownload } from '@/src/hooks/useAudiobookDownload';
+import { ensurePlayerSetup } from '@/src/services/playback/setup';
+import { loadAudiobook } from '@/src/services/playback/loadAudiobook';
+import type { AudiobookFileInfo } from '@/src/api/audiobooks';
 
 const SPEEDS = [0.5, 1.0, 1.5, 2.0];
 const SPEED_KEY = 'litara-audiobook-speed';
-const SAVE_INTERVAL_MS = 10_000;
 
 interface ChapterWithAbs {
   index: number;
@@ -72,34 +70,32 @@ export function AudiobookPlayerScreen({ bookId }: Props) {
 function AudiobookPlayerImpl({ bookId }: Props) {
   const insets = useSafeAreaInsets();
 
-  const [streamToken, setStreamToken] = useState<string | null>(null);
   const [playerReady, setPlayerReady] = useState(false);
   const [speed, setSpeed] = useState(1.0);
   const [showChapters, setShowChapters] = useState(false);
-  const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [activeChapterIdx, setActiveChapterIdx] = useState(-1);
+  // Tracks which queue index is currently active (updated via RNTP event)
+  const [activeQueueIdx, setActiveQueueIdx] = useState(0);
 
   const chaptersListRef = useRef<FlatList<ChapterWithAbs>>(null);
-  const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastSavedRef = useRef<{ fileIndex: number; time: number } | null>(null);
-  // Tracks a seek position to apply once the new source finishes loading
-  const pendingSeekRef = useRef<number | null>(null);
-  const wasLoadedRef = useRef(false);
-  // Prevents re-entrant auto-advance when a file finishes
-  const advancingRef = useRef(false);
-  // Freeze slider position while the user is dragging
-  const isSlidingRef = useRef(false);
 
-  const player = useAudioPlayer(null, { updateInterval: 500 });
-  const status = useAudioPlayerStatus(player);
-  const [useLocalFiles, setUseLocalFiles] = useState(false);
+  // RNTP reactive state
+  const progress = useProgress(500);
+  const { state } = usePlaybackState();
+  useActiveTrack(); // subscribe so RNTP notifies on track changes
+
+  useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], ({ index }) => {
+    if (index != null) setActiveQueueIdx(index);
+  });
+
+  const isPlaying = state === State.Playing;
 
   const { data: book, isLoading: bookLoading } = useQuery({
     queryKey: ['book', bookId],
     queryFn: () => getBookDetail(bookId),
   });
 
-  const audiobookFiles = book?.audiobookFiles ?? [];
+  const audiobookFiles = useMemo(() => book?.audiobookFiles ?? [], [book]);
 
   const { downloadStatus, downloadProgress, startDownload, cancelAndDelete } =
     useAudiobookDownload(bookId, audiobookFiles);
@@ -134,23 +130,13 @@ function AudiobookPlayerImpl({ bookId }: Props) {
     return chapters;
   }, [audiobookFiles, fileStartOffsets]);
 
-  const currentTime = status.currentTime ?? 0;
+  const activeFileIndex = audiobookFiles[activeQueueIdx]?.fileIndex ?? 0;
+  const currentTime = progress.position;
   const absoluteCurrentTime =
-    (fileStartOffsets[currentFileIndex] ?? 0) + currentTime;
+    (fileStartOffsets[activeFileIndex] ?? 0) + currentTime;
 
   // ---------------------------------------------------------------------------
-  // Audio mode (background/silent-mode playback)
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-    }).catch(console.error);
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Restore speed preference
+  // Restore speed preference for UI display
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
@@ -160,151 +146,28 @@ function AudiobookPlayerImpl({ bookId }: Props) {
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Check for fully-cached local files; set useLocalFiles when all present
+  // Setup RNTP and load audiobook queue
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    if (audiobookFiles.length === 0) return;
-    const allLocal = audiobookFiles.every(
-      (f) =>
-        new File(buildLocalFilePath(bookId, f.fileIndex, f.mimeType)).exists,
-    );
-    if (allLocal) {
-      setUseLocalFiles(true);
-      setStreamToken('__local__');
-    }
-  }, [audiobookFiles]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!book || audiobookFiles.length === 0) return;
 
-  // ---------------------------------------------------------------------------
-  // Stream token (skipped when using local files)
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!book?.hasAudiobook) return;
-    if (useLocalFiles) return;
-    issueStreamToken()
-      .then((res) => setStreamToken(res.token))
-      .catch(console.error);
-  }, [book, useLocalFiles]);
-
-  // ---------------------------------------------------------------------------
-  // Seek-after-replace: fire once the new source becomes loaded
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    const nowLoaded = status.isLoaded;
-    if (!wasLoadedRef.current && nowLoaded && pendingSeekRef.current !== null) {
-      player.seekTo(pendingSeekRef.current);
-      pendingSeekRef.current = null;
-    }
-    wasLoadedRef.current = nowLoaded;
-  }, [status.isLoaded, player]);
-
-  // ---------------------------------------------------------------------------
-  // Load a file into the player; optionally seek after it's ready
-  // ---------------------------------------------------------------------------
-
-  const loadFile = useCallback(
-    (fileIndex: number, seekTo = 0) => {
-      const file = audiobookFiles.find(
-        (f: AudiobookFileInfo) => f.fileIndex === fileIndex,
-      );
-      if (!file || !streamToken) return;
-      const uri = useLocalFiles
-        ? buildLocalFilePath(bookId, fileIndex, file.mimeType)
-        : buildStreamUrl(bookId, fileIndex, streamToken);
-      wasLoadedRef.current = false;
-      if (seekTo > 0) pendingSeekRef.current = seekTo;
-      player.replace({ uri });
-      setCurrentFileIndex(fileIndex);
-    },
-    [audiobookFiles, streamToken, bookId, player, useLocalFiles],
-  );
-
-  // ---------------------------------------------------------------------------
-  // Initial load + restore progress
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!streamToken || audiobookFiles.length === 0) return;
-
-    async function init() {
-      const [savedProgress, savedSpeed] = await Promise.all([
-        getAudiobookProgress(bookId).catch(() => null),
-        AsyncStorage.getItem(SPEED_KEY).catch(() => null),
-      ]);
-
-      const rate = savedSpeed ? parseFloat(savedSpeed) : 1.0;
-      setSpeed(rate);
-      player.setPlaybackRate(rate);
-
-      let initialFileIndex = audiobookFiles[0]?.fileIndex ?? 0;
-      let initialSeek = 0;
-
-      if (savedProgress) {
-        const file = audiobookFiles.find(
-          (f: AudiobookFileInfo) =>
-            f.fileIndex === savedProgress.currentFileIndex,
-        );
-        if (file) {
-          initialFileIndex = savedProgress.currentFileIndex;
-          initialSeek = savedProgress.currentTime;
-        }
-      }
-
-      loadFile(initialFileIndex, initialSeek);
-
-      player.setActiveForLockScreen(
-        true,
-        {
-          title: book?.title ?? 'Audiobook',
-          artist: book?.authors.join(', ') ?? '',
-          artworkUrl: buildCoverUrl(bookId),
-        },
-        { showSeekForward: true, showSeekBackward: true },
-      );
-
+    void (async () => {
+      await ensurePlayerSetup();
+      await loadAudiobook({
+        bookId,
+        bookTitle: book.title,
+        bookAuthors: book.authors,
+        audiobookFiles,
+      });
+      const idx = await TrackPlayer.getActiveTrackIndex();
+      if (idx != null) setActiveQueueIdx(idx);
       setPlayerReady(true);
-    }
-
-    init().catch(console.error);
-  }, [streamToken]); // eslint-disable-line react-hooks/exhaustive-deps
+    })();
+  }, [bookId, book]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
-  // Clear lock screen controls on unmount
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    return () => {
-      player.clearLockScreenControls();
-    };
-  }, [player]);
-
-  // ---------------------------------------------------------------------------
-  // Auto-advance to next file when playback finishes
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!status.didJustFinish || !playerReady || advancingRef.current) return;
-    const currentIdx = audiobookFiles.findIndex(
-      (f: AudiobookFileInfo) => f.fileIndex === currentFileIndex,
-    );
-    const nextFile = audiobookFiles[currentIdx + 1];
-    if (!nextFile) return;
-
-    advancingRef.current = true;
-    loadFile(nextFile.fileIndex, 0);
-    // play() once the source loads — handled via wasLoadedRef pattern below
-    pendingSeekRef.current = null; // no seek needed, start from 0
-    // Brief delay to let the replace settle before playing
-    setTimeout(() => {
-      player.play();
-      advancingRef.current = false;
-    }, 400);
-  }, [status.didJustFinish]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ---------------------------------------------------------------------------
-  // Track active chapter
+  // Track active chapter + auto-scroll
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
@@ -326,123 +189,68 @@ function AudiobookPlayerImpl({ bookId }: Props) {
   }, [absoluteCurrentTime, allChapters, activeChapterIdx]);
 
   // ---------------------------------------------------------------------------
-  // Progress auto-save
+  // Seek to absolute audiobook position (handles cross-file)
   // ---------------------------------------------------------------------------
 
-  const pendingProgressKey = `litara-audiobook-progress-pending-${bookId}`;
+  const seekToAbsolutePosition = useCallback(
+    async (absTarget: number) => {
+      const clamped = Math.max(0, Math.min(totalDuration, absTarget));
 
-  const doSave = useCallback(
-    async (fileIndex: number, time: number) => {
-      if (!isFinite(time) || time < 0) return;
-      const last = lastSavedRef.current;
-      if (
-        last &&
-        last.fileIndex === fileIndex &&
-        Math.abs(last.time - time) < 1
-      )
-        return;
-      lastSavedRef.current = { fileIndex, time };
-      // Write locally first so no progress is lost when offline
-      await AsyncStorage.setItem(
-        pendingProgressKey,
-        JSON.stringify({ fileIndex, time, totalDuration }),
-      );
-      try {
-        await saveAudiobookProgress(bookId, fileIndex, time, totalDuration);
-        await AsyncStorage.removeItem(pendingProgressKey);
-      } catch {
-        // Stays in AsyncStorage for flush on next foreground/reconnect
+      let targetQueueIdx = 0;
+      let targetOffset = 0;
+
+      for (let i = 0; i < audiobookFiles.length; i++) {
+        const f = audiobookFiles[i];
+        const start = fileStartOffsets[f.fileIndex] ?? 0;
+        if (clamped < start + f.duration || i === audiobookFiles.length - 1) {
+          targetQueueIdx = i;
+          targetOffset = Math.max(0, clamped - start);
+          break;
+        }
+      }
+
+      if (targetQueueIdx !== activeQueueIdx) {
+        await TrackPlayer.skip(targetQueueIdx, targetOffset);
+      } else {
+        await TrackPlayer.seekTo(targetOffset);
       }
     },
-    [bookId, totalDuration, pendingProgressKey],
+    [totalDuration, audiobookFiles, fileStartOffsets, activeQueueIdx],
   );
-
-  // Flush any pending progress when app returns to foreground
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') return;
-      void (async () => {
-        const raw = await AsyncStorage.getItem(pendingProgressKey);
-        if (!raw) return;
-        // Guard: delete key before attempting so concurrent fires are no-ops
-        await AsyncStorage.removeItem(pendingProgressKey);
-        try {
-          const {
-            fileIndex,
-            time,
-            totalDuration: dur,
-          } = JSON.parse(raw) as {
-            fileIndex: number;
-            time: number;
-            totalDuration: number;
-          };
-          await saveAudiobookProgress(bookId, fileIndex, time, dur);
-        } catch {
-          // Restore key if flush failed (still offline)
-          await AsyncStorage.setItem(pendingProgressKey, raw);
-        }
-      })();
-    });
-    return () => sub.remove();
-  }, [bookId, pendingProgressKey]);
-
-  useEffect(() => {
-    if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
-    if (!playerReady) return;
-    saveIntervalRef.current = setInterval(() => {
-      if (status.playing) void doSave(currentFileIndex, currentTime);
-    }, SAVE_INTERVAL_MS);
-    return () => {
-      if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
-    };
-  }, [status.playing, playerReady, currentFileIndex, currentTime, doSave]);
-
-  useEffect(() => {
-    if (!playerReady || status.playing) return;
-    void doSave(currentFileIndex, currentTime);
-  }, [status.playing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
   // Controls
   // ---------------------------------------------------------------------------
 
   const togglePlay = useCallback(() => {
-    if (status.playing) player.pause();
-    else player.play();
-  }, [status.playing, player]);
+    if (isPlaying) void TrackPlayer.pause();
+    else void TrackPlayer.play();
+  }, [isPlaying]);
 
   const seekRelative = useCallback(
     (delta: number) => {
-      player.seekTo(Math.max(0, currentTime + delta));
+      void seekToAbsolutePosition(absoluteCurrentTime + delta);
     },
-    [currentTime, player],
+    [absoluteCurrentTime, seekToAbsolutePosition],
   );
 
   const cycleSpeed = useCallback(async () => {
     const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
     setSpeed(next);
-    player.setPlaybackRate(next);
+    await TrackPlayer.setRate(next);
     await AsyncStorage.setItem(SPEED_KEY, String(next));
-  }, [speed, player]);
+  }, [speed]);
 
   const seekToChapter = useCallback(
     (ch: ChapterWithAbs) => {
-      if (ch.fileIndex !== currentFileIndex) {
-        const wasPlaying = status.playing;
-        loadFile(ch.fileIndex, ch.startTime);
-        if (wasPlaying) {
-          setTimeout(() => player.play(), 400);
-        }
-      } else {
-        player.seekTo(ch.startTime);
-      }
+      void seekToAbsolutePosition(ch.absoluteStart);
     },
-    [currentFileIndex, status.playing, loadFile, player],
+    [seekToAbsolutePosition],
   );
 
   const prevChapter = useCallback(() => {
     if (activeChapterIdx <= 0) {
-      player.seekTo(0);
+      void seekToAbsolutePosition(0);
       return;
     }
     const ch = allChapters[activeChapterIdx];
@@ -456,7 +264,7 @@ function AudiobookPlayerImpl({ bookId }: Props) {
     allChapters,
     absoluteCurrentTime,
     seekToChapter,
-    player,
+    seekToAbsolutePosition,
   ]);
 
   const nextChapter = useCallback(() => {
@@ -466,39 +274,44 @@ function AudiobookPlayerImpl({ bookId }: Props) {
 
   const onSlidingComplete = useCallback(
     (value: number) => {
-      isSlidingRef.current = false;
-      const targetAbs = (value / 100) * totalDuration;
-      let targetFileIdx = audiobookFiles[0]?.fileIndex ?? 0;
-      let targetOffset = targetAbs;
-      for (const f of audiobookFiles) {
-        const start = fileStartOffsets[f.fileIndex] ?? 0;
-        if (
-          targetAbs < start + f.duration ||
-          f === audiobookFiles[audiobookFiles.length - 1]
-        ) {
-          targetFileIdx = f.fileIndex;
-          targetOffset = Math.max(0, targetAbs - start);
-          break;
-        }
-      }
-      if (targetFileIdx !== currentFileIndex) {
-        const wasPlaying = status.playing;
-        loadFile(targetFileIdx, targetOffset);
-        if (wasPlaying) setTimeout(() => player.play(), 400);
-      } else {
-        player.seekTo(targetOffset);
-      }
+      void seekToAbsolutePosition((value / 100) * totalDuration);
     },
-    [
-      audiobookFiles,
-      fileStartOffsets,
-      totalDuration,
-      currentFileIndex,
-      status.playing,
-      loadFile,
-      player,
-    ],
+    [seekToAbsolutePosition, totalDuration],
   );
+
+  const openWithExternalPlayer = useCallback(() => {
+    if (audiobookFiles.length === 0) return;
+    const firstFile = audiobookFiles[0];
+    const uri = buildLocalFilePath(
+      bookId,
+      firstFile.fileIndex,
+      firstFile.mimeType,
+    );
+    Alert.alert(
+      'Open with External Player',
+      'Your listening position will not sync back when using an external app.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: async () => {
+            const available = await Sharing.isAvailableAsync();
+            if (!available) {
+              Alert.alert(
+                'Unavailable',
+                'File sharing is not supported on this device.',
+              );
+              return;
+            }
+            await Sharing.shareAsync(uri, {
+              mimeType: firstFile.mimeType,
+              dialogTitle: 'Open audiobook with...',
+            });
+          },
+        },
+      ],
+    );
+  }, [audiobookFiles, bookId]);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -564,9 +377,6 @@ function AudiobookPlayerImpl({ bookId }: Props) {
           minimumValue={0}
           maximumValue={100}
           value={progressPercent}
-          onSlidingStart={() => {
-            isSlidingRef.current = true;
-          }}
           onSlidingComplete={onSlidingComplete}
           minimumTrackTintColor="#fff"
           maximumTrackTintColor="#555"
@@ -605,7 +415,7 @@ function AudiobookPlayerImpl({ bookId }: Props) {
 
         <TouchableOpacity onPress={togglePlay} style={styles.playBtn}>
           <Ionicons
-            name={status.playing ? 'pause' : 'play'}
+            name={isPlaying ? 'pause' : 'play'}
             size={34}
             color="#000"
           />
@@ -667,6 +477,14 @@ function AudiobookPlayerImpl({ bookId }: Props) {
             style={styles.speedBtn}
           >
             <Ionicons name="cloud-done-outline" size={20} color="#4ade80" />
+          </TouchableOpacity>
+        )}
+        {downloadStatus === 'downloaded' && (
+          <TouchableOpacity
+            onPress={openWithExternalPlayer}
+            style={styles.speedBtn}
+          >
+            <Ionicons name="share-outline" size={20} color="#aaa" />
           </TouchableOpacity>
         )}
       </View>
