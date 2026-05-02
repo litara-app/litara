@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import {
   ActivityIndicator,
@@ -16,10 +16,10 @@ import { useAuthContext } from '@/src/context/AuthContext';
 import { useGridSize } from '@/src/context/GridSizeContext';
 import { BookCard } from '@/src/components/BookCard';
 import { BookOptionsSheet } from '@/src/components/BookOptionsSheet';
-import { getBooks } from '@/src/api/books';
+import { BookFilterSheet } from '@/src/components/BookFilterSheet';
+import { getAllBooks } from '@/src/api/books';
 import type { BookSummary } from '@/src/api/books';
-
-const PAGE_SIZE = 40;
+import { useBookFilter } from '@/src/hooks/useBookFilter';
 
 const GRID_ICONS: Record<number, keyof typeof Ionicons.glyphMap> = {
   2: 'grid-outline',
@@ -29,52 +29,67 @@ const GRID_ICONS: Record<number, keyof typeof Ionicons.glyphMap> = {
 
 export default function AllBooksScreen() {
   const [selectedBook, setSelectedBook] = useState<BookSummary | null>(null);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const { clearToken, clearServerUrl } = useAuthContext();
   const { numColumns, cycleColumns } = useGridSize();
   const navigation = useNavigation();
 
-  // Inject grid-size toggle into the tab header
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable
-          onPress={cycleColumns}
-          hitSlop={8}
-          style={styles.headerGridBtn}
-        >
-          <Ionicons name={GRID_ICONS[numColumns]} size={22} color="#fff" />
-        </Pressable>
-      ),
-    });
-  }, [navigation, numColumns, cycleColumns]);
-
   const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
+    data: allBooks = [],
     isLoading,
     isError,
     error,
     refetch,
-  } = useInfiniteQuery({
-    queryKey: ['books'],
-    queryFn: ({ pageParam = 0 }) =>
-      getBooks({
-        limit: PAGE_SIZE,
-        offset: pageParam as number,
-        sortBy: 'title',
-        order: 'asc',
-      }),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      if (lastPage.length < PAGE_SIZE) return undefined;
-      return allPages.length * PAGE_SIZE;
-    },
+  } = useQuery({
+    queryKey: ['all-books'],
+    queryFn: getAllBooks,
   });
 
-  const books = data?.pages.flat() ?? [];
+  const {
+    filters,
+    setFilters,
+    filteredBooks,
+    activeCount,
+    availableGenres,
+    availableTags,
+    availableFormats,
+    availableMoods,
+    availablePublishers,
+    availableAuthors,
+  } = useBookFilter(allBooks);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerBtns}>
+          <Pressable
+            onPress={() => setFilterSheetOpen(true)}
+            hitSlop={8}
+            style={styles.headerBtn}
+          >
+            <Ionicons
+              name={activeCount > 0 ? 'filter' : 'filter-outline'}
+              size={22}
+              color={activeCount > 0 ? '#4a9eff' : '#fff'}
+            />
+            {activeCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeCount}</Text>
+              </View>
+            )}
+          </Pressable>
+          <Pressable
+            onPress={cycleColumns}
+            hitSlop={8}
+            style={styles.headerBtn}
+          >
+            <Ionicons name={GRID_ICONS[numColumns]} size={22} color="#fff" />
+          </Pressable>
+        </View>
+      ),
+    });
+  }, [navigation, numColumns, cycleColumns, activeCount]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -129,9 +144,22 @@ export default function AllBooksScreen() {
 
   return (
     <View style={styles.container}>
+      {activeCount > 0 && (
+        <View style={styles.filterBar}>
+          <Ionicons name="filter" size={14} color="#4a9eff" />
+          <Text style={styles.filterBarText}>
+            {filteredBooks.length} of {allBooks.length} books
+          </Text>
+          <Pressable
+            onPress={() =>
+              setFilters({ ...filters, filterMode: filters.filterMode })
+            }
+          />
+        </View>
+      )}
       <FlatList<BookSummary>
-        key={numColumns} // force re-mount when column count changes
-        data={books}
+        key={numColumns}
+        data={filteredBooks}
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         contentContainerStyle={styles.list}
@@ -155,24 +183,32 @@ export default function AllBooksScreen() {
             <BookCard book={item} />
           </Pressable>
         )}
-        onEndReached={() => {
-          if (hasNextPage && !isFetchingNextPage) fetchNextPage();
-        }}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <ActivityIndicator style={styles.footer} color="#4a9eff" />
-          ) : null
-        }
         ListEmptyComponent={
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>No books in your library yet.</Text>
+            <Text style={styles.emptyText}>
+              {allBooks.length === 0
+                ? 'No books in your library yet.'
+                : 'No books match the current filters.'}
+            </Text>
           </View>
         }
       />
       <BookOptionsSheet
         book={selectedBook}
         onClose={() => setSelectedBook(null)}
+      />
+      <BookFilterSheet
+        visible={filterSheetOpen}
+        onClose={() => setFilterSheetOpen(false)}
+        filters={filters}
+        setFilters={setFilters}
+        activeCount={activeCount}
+        availableGenres={availableGenres}
+        availableTags={availableTags}
+        availableFormats={availableFormats}
+        availableMoods={availableMoods}
+        availablePublishers={availablePublishers}
+        availableAuthors={availableAuthors}
       />
     </View>
   );
@@ -182,8 +218,47 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0a' },
   list: { paddingHorizontal: 10, paddingBottom: 20, paddingTop: 8 },
   cardWrapper: { flex: 1, margin: 6, borderRadius: 8, overflow: 'hidden' },
-  headerGridBtn: {
-    marginRight: 16,
+  headerBtns: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+    gap: 4,
+  },
+  headerBtn: {
+    padding: 8,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#4a9eff',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  filterBadgeText: {
+    color: '#000',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#111',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1e',
+  },
+  filterBarText: {
+    color: '#4a9eff',
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
   },
   centered: {
     flex: 1,
@@ -215,5 +290,4 @@ const styles = StyleSheet.create({
   },
   secondaryText: { color: '#888', fontSize: 14, fontWeight: '600' },
   emptyText: { color: '#666', fontSize: 15, textAlign: 'center' },
-  footer: { paddingVertical: 20 },
 });

@@ -23,6 +23,7 @@ import {
 import type { RecipientEmail } from '@/src/api/mail';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
 import { tokenStore } from '@/src/auth/tokenStore';
+import { LibraryShelfPickerContent } from './LibraryShelfPickerContent';
 
 interface BookOptionsSheetProps {
   book: BookSummary | null;
@@ -71,7 +72,9 @@ function Option({ icon, label, onPress, destructive, loading }: OptionProps) {
 }
 
 export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
-  const [mode, setMode] = useState<'main' | 'pick-email'>('main');
+  const [mode, setMode] = useState<'main' | 'pick-email' | 'library-shelf'>(
+    'main',
+  );
   const [sending, setSending] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [togglingQueue, setTogglingQueue] = useState(false);
@@ -249,6 +252,12 @@ export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
               loading={togglingQueue}
             />
 
+            <Option
+              icon="library-outline"
+              label="Add to Library / Shelf"
+              onPress={() => setMode('library-shelf')}
+            />
+
             {book.readingProgress != null && book.readingProgress > 0 && (
               <Option
                 icon="refresh-outline"
@@ -258,6 +267,24 @@ export function BookOptionsSheet({ book, onClose }: BookOptionsSheetProps) {
                 loading={resetting}
               />
             )}
+          </>
+        )}
+
+        {mode === 'library-shelf' && book && (
+          <>
+            <Pressable style={styles.backRow} onPress={() => setMode('main')}>
+              <Ionicons name="chevron-back" size={18} color="#4a9eff" />
+              <Text style={styles.backText}>Back</Text>
+            </Pressable>
+            <Text style={styles.pickerTitle}>Library & Shelves</Text>
+            <View style={styles.divider} />
+            <LibraryShelfPickerContent
+              bookId={book.id}
+              onBack={() => setMode('main')}
+              onSaved={() => {
+                queryClient.invalidateQueries({ queryKey: ['books'] });
+              }}
+            />
           </>
         )}
 

@@ -17,3 +17,17 @@ export function getShelfBooks(shelfId: string): Promise<BookSummary[]> {
     .get<BookSummary[]>(`/shelves/${shelfId}/books`)
     .then((r) => r.data);
 }
+
+export function addBooksToShelf(
+  shelfId: string,
+  bookIds: string[],
+): Promise<void> {
+  return api.post(`/shelves/${shelfId}/books/bulk`, { bookIds });
+}
+
+export function removeBooksFromShelf(
+  shelfId: string,
+  bookIds: string[],
+): Promise<void> {
+  return api.delete(`/shelves/${shelfId}/books/bulk`, { data: { bookIds } });
+}

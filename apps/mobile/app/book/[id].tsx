@@ -19,11 +19,15 @@ import {
   getBookDetail,
   getReadingProgress,
   resetReadingProgress,
+  updateBook,
 } from '@/src/api/books';
 import { getRecipientEmails, sendBook } from '@/src/api/mail';
 import type { RecipientEmail } from '@/src/api/mail';
 import { serverUrlStore } from '@/src/auth/serverUrlStore';
 import { tokenStore } from '@/src/auth/tokenStore';
+import { addToQueue, removeFromQueue } from '@/src/api/reading-queue';
+import { LibraryShelfPickerContent } from '@/src/components/LibraryShelfPickerContent';
+import { StarRating } from '@/src/components/StarRating';
 
 function formatBytes(bytes: string): string {
   const n = parseInt(bytes, 10);
@@ -39,6 +43,28 @@ function formatDate(dateStr: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+function formatAudioDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}
+
+function formatAudioMime(mimeType: string): string {
+  if (
+    mimeType.includes('mp4') ||
+    mimeType.includes('m4b') ||
+    mimeType.includes('m4a')
+  )
+    return 'M4B';
+  if (mimeType.includes('mpeg') || mimeType.includes('mp3')) return 'MP3';
+  if (mimeType.includes('ogg')) return 'OGG';
+  if (mimeType.includes('opus')) return 'OPUS';
+  return mimeType.split('/')[1]?.toUpperCase() ?? mimeType;
 }
 
 interface MetaRowProps {
@@ -121,6 +147,15 @@ export default function BookDetailScreen() {
   const [resettingSource, setResettingSource] = useState<
     'LITARA' | 'KOREADER' | null
   >(null);
+  const [togglingQueue, setTogglingQueue] = useState(false);
+  const [showLibraryShelf, setShowLibraryShelf] = useState(false);
+  const [localRating, setLocalRating] = useState<number | null | undefined>(
+    undefined,
+  );
+  const [savingRating, setSavingRating] = useState(false);
+  const [activeFilesTab, setActiveFilesTab] = useState<'ebooks' | 'audiobooks'>(
+    'ebooks',
+  );
   const queryClient = useQueryClient();
 
   const serverUrl = serverUrlStore.get() ?? '';
@@ -156,6 +191,12 @@ export default function BookDetailScreen() {
         }
       : require('@/assets/images/icon.png');
 
+  const displayRating =
+    localRating === undefined ? (book?.userReview.rating ?? null) : localRating;
+  const isInQueue = book?.inReadingQueue ?? false;
+  const showFileTabs =
+    book != null && book.hasAudiobook && book.audiobookFiles.length > 0;
+
   const handleDownload = async (fileId: string, format: string) => {
     setDownloadingId(fileId);
     try {
@@ -169,7 +210,6 @@ export default function BookDetailScreen() {
         headers: { Authorization: `Bearer ${token}` },
         idempotent: true,
       });
-
       Alert.alert('Downloaded', `"${filename}" has been saved to your device.`);
     } catch {
       Alert.alert(
@@ -242,6 +282,37 @@ export default function BookDetailScreen() {
     );
   };
 
+  const handleToggleQueue = async () => {
+    setTogglingQueue(true);
+    try {
+      if (isInQueue) {
+        await removeFromQueue(id);
+      } else {
+        await addToQueue(id);
+      }
+      await queryClient.invalidateQueries({ queryKey: ['book', id] });
+      await queryClient.invalidateQueries({ queryKey: ['reading-queue'] });
+    } catch {
+      Alert.alert('Error', 'Failed to update reading queue.');
+    } finally {
+      setTogglingQueue(false);
+    }
+  };
+
+  const handleRatingChange = async (newRating: number | null) => {
+    setLocalRating(newRating);
+    setSavingRating(true);
+    try {
+      await updateBook(id, { rating: newRating });
+      await queryClient.invalidateQueries({ queryKey: ['book', id] });
+    } catch {
+      setLocalRating(undefined);
+      Alert.alert('Error', 'Failed to save rating.');
+    } finally {
+      setSavingRating(false);
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -302,16 +373,53 @@ export default function BookDetailScreen() {
             </View>
           </View>
 
-          {/* Listen button */}
-          {book.hasAudiobook && (
+          {/* Action buttons */}
+          <View style={styles.actionRow}>
+            {book.hasAudiobook && (
+              <Pressable
+                style={styles.actionBtn}
+                onPress={() => router.push(`/audiobook/${id}`)}
+              >
+                <Ionicons name="headset-outline" size={20} color="#000" />
+                <Text style={styles.actionBtnText}>Listen</Text>
+              </Pressable>
+            )}
             <Pressable
-              style={styles.listenBtn}
-              onPress={() => router.push(`/audiobook/${id}`)}
+              style={[
+                styles.actionBtn,
+                styles.actionBtnSecondary,
+                isInQueue && styles.actionBtnActive,
+              ]}
+              onPress={handleToggleQueue}
+              disabled={togglingQueue}
             >
-              <Ionicons name="headset-outline" size={20} color="#000" />
-              <Text style={styles.listenBtnText}>Listen</Text>
+              {togglingQueue ? (
+                <ActivityIndicator size="small" color="#4a9eff" />
+              ) : (
+                <Ionicons
+                  name={isInQueue ? 'checkmark-circle' : 'list-outline'}
+                  size={20}
+                  color={isInQueue ? '#4ade80' : '#ccc'}
+                />
+              )}
+              <Text
+                style={[styles.actionBtnText, styles.actionBtnTextSecondary]}
+              >
+                {isInQueue ? 'In Queue' : 'Add to Queue'}
+              </Text>
             </Pressable>
-          )}
+            <Pressable
+              style={[styles.actionBtn, styles.actionBtnSecondary]}
+              onPress={() => setShowLibraryShelf(true)}
+            >
+              <Ionicons name="library-outline" size={20} color="#ccc" />
+              <Text
+                style={[styles.actionBtnText, styles.actionBtnTextSecondary]}
+              >
+                Library
+              </Text>
+            </Pressable>
+          </View>
 
           {/* Reading Progress */}
           {readingProgress != null &&
@@ -400,6 +508,23 @@ export default function BookDetailScreen() {
                   value={`${book.goodreadsRating.toFixed(2)} ★`}
                 />
               )}
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>My Rating</Text>
+                <View style={styles.ratingRow}>
+                  {savingRating && (
+                    <ActivityIndicator
+                      size="small"
+                      color="#4a9eff"
+                      style={styles.ratingSpinner}
+                    />
+                  )}
+                  <StarRating
+                    rating={displayRating}
+                    onChange={handleRatingChange}
+                    size={24}
+                  />
+                </View>
+              </View>
             </View>
           </View>
 
@@ -440,67 +565,113 @@ export default function BookDetailScreen() {
             </View>
           )}
 
-          {/* Files / Downloads */}
-          {book.files.length > 0 && (
+          {/* Files / Downloads — tabbed when audiobook exists */}
+          {(book.files.length > 0 || showFileTabs) && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Files</Text>
-              {book.files.map((file) => (
-                <View key={file.id} style={styles.fileRow}>
-                  <View style={styles.fileInfo}>
-                    <View style={styles.formatBadge}>
-                      <Text style={styles.formatText}>{file.format}</Text>
-                    </View>
-                    <Text style={styles.fileSize}>
-                      {formatBytes(file.sizeBytes)}
-                    </Text>
-                    {file.missingAt && (
-                      <Text style={styles.missingText}>Missing</Text>
-                    )}
-                  </View>
-                  <View style={styles.fileActions}>
+              {showFileTabs ? (
+                <>
+                  <View style={styles.fileTabRow}>
                     <Pressable
                       style={[
-                        styles.sendBtn,
-                        (!!file.missingAt ||
-                          (sending && pendingSendFileId === file.id)) &&
-                          styles.actionBtnDisabled,
+                        styles.fileTab,
+                        activeFilesTab === 'ebooks' && styles.fileTabActive,
                       ]}
-                      onPress={() => handleSendPress(file.id)}
-                      disabled={!!file.missingAt || sending}
+                      onPress={() => setActiveFilesTab('ebooks')}
                     >
-                      {sending && pendingSendFileId === file.id ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Ionicons name="mail-outline" size={18} color="#fff" />
-                      )}
+                      <Text
+                        style={[
+                          styles.fileTabText,
+                          activeFilesTab === 'ebooks' &&
+                            styles.fileTabTextActive,
+                        ]}
+                      >
+                        Ebooks
+                      </Text>
                     </Pressable>
                     <Pressable
                       style={[
-                        styles.downloadBtn,
-                        (!!file.missingAt || downloadingId === file.id) &&
-                          styles.actionBtnDisabled,
+                        styles.fileTab,
+                        activeFilesTab === 'audiobooks' && styles.fileTabActive,
                       ]}
-                      onPress={() => handleDownload(file.id, file.format)}
-                      disabled={!!file.missingAt || downloadingId !== null}
+                      onPress={() => setActiveFilesTab('audiobooks')}
                     >
-                      {downloadingId === file.id ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Ionicons
-                          name="download-outline"
-                          size={18}
-                          color="#fff"
-                        />
-                      )}
-                      <Text style={styles.downloadText}>
-                        {downloadingId === file.id
-                          ? 'Downloading…'
-                          : 'Download'}
+                      <Text
+                        style={[
+                          styles.fileTabText,
+                          activeFilesTab === 'audiobooks' &&
+                            styles.fileTabTextActive,
+                        ]}
+                      >
+                        Audiobooks
                       </Text>
                     </Pressable>
                   </View>
-                </View>
-              ))}
+
+                  {activeFilesTab === 'ebooks' &&
+                    (book.files.length === 0 ? (
+                      <Text style={styles.emptyFilesText}>No ebook files.</Text>
+                    ) : (
+                      book.files.map((file) => (
+                        <FileRow
+                          key={file.id}
+                          file={file}
+                          sending={sending}
+                          pendingSendFileId={pendingSendFileId}
+                          downloadingId={downloadingId}
+                          onSend={() => handleSendPress(file.id)}
+                          onDownload={() =>
+                            handleDownload(file.id, file.format)
+                          }
+                        />
+                      ))
+                    ))}
+
+                  {activeFilesTab === 'audiobooks' &&
+                    book.audiobookFiles.map((af) => (
+                      <View key={af.id} style={styles.audioFileRow}>
+                        <View style={styles.audioFileInfo}>
+                          <View style={styles.formatBadge}>
+                            <Text style={styles.formatText}>
+                              {formatAudioMime(af.mimeType)}
+                            </Text>
+                          </View>
+                          <View style={styles.audioFileMeta}>
+                            <Text style={styles.audioFileTitle}>
+                              Part {af.fileIndex + 1}
+                            </Text>
+                            <Text style={styles.audioFileDetail}>
+                              {formatAudioDuration(af.duration)}
+                              {af.narrator ? ` · ${af.narrator}` : ''}
+                              {' · '}
+                              {(af.fileSize / (1024 * 1024)).toFixed(1)} MB
+                            </Text>
+                          </View>
+                        </View>
+                        <Pressable
+                          style={styles.playBtn}
+                          onPress={() => router.push(`/audiobook/${id}`)}
+                        >
+                          <Ionicons name="play" size={16} color="#000" />
+                        </Pressable>
+                      </View>
+                    ))}
+                </>
+              ) : (
+                <>
+                  <Text style={styles.sectionTitle}>Files</Text>
+                  {book.files.map((file) => (
+                    <FileRow
+                      key={file.id}
+                      file={file}
+                      sending={sending}
+                      pendingSendFileId={pendingSendFileId}
+                      downloadingId={downloadingId}
+                      onSend={() => handleSendPress(file.id)}
+                      onDownload={() => handleDownload(file.id, file.format)}
+                    />
+                  ))}
+                </>
+              )}
             </View>
           )}
         </ScrollView>
@@ -518,6 +689,101 @@ export default function BookDetailScreen() {
           setPendingSendFileId(null);
         }}
       />
+
+      {/* Library & Shelf picker modal */}
+      <Modal
+        visible={showLibraryShelf}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLibraryShelf(false)}
+      >
+        <Pressable
+          style={styles.pickerBackdrop}
+          onPress={() => setShowLibraryShelf(false)}
+        />
+        <View style={styles.libraryPickerSheet}>
+          <View style={styles.pickerHandle} />
+          <Text style={styles.libraryPickerTitle}>Library & Shelves</Text>
+          <View style={styles.pickerDivider} />
+          <LibraryShelfPickerContent
+            bookId={id}
+            onBack={() => setShowLibraryShelf(false)}
+            onSaved={() =>
+              queryClient.invalidateQueries({ queryKey: ['book', id] })
+            }
+          />
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+interface FileRowProps {
+  file: {
+    id: string;
+    format: string;
+    sizeBytes: string;
+    missingAt: Date | null;
+  };
+  sending: boolean;
+  pendingSendFileId: string | null;
+  downloadingId: string | null;
+  onSend: () => void;
+  onDownload: () => void;
+}
+
+function FileRow({
+  file,
+  sending,
+  pendingSendFileId,
+  downloadingId,
+  onSend,
+  onDownload,
+}: FileRowProps) {
+  return (
+    <View style={styles.fileRow}>
+      <View style={styles.fileInfo}>
+        <View style={styles.formatBadge}>
+          <Text style={styles.formatText}>{file.format}</Text>
+        </View>
+        <Text style={styles.fileSize}>{formatBytes(file.sizeBytes)}</Text>
+        {file.missingAt && <Text style={styles.missingText}>Missing</Text>}
+      </View>
+      <View style={styles.fileActions}>
+        <Pressable
+          style={[
+            styles.sendBtn,
+            (!!file.missingAt || (sending && pendingSendFileId === file.id)) &&
+              styles.actionBtnDisabled,
+          ]}
+          onPress={onSend}
+          disabled={!!file.missingAt || sending}
+        >
+          {sending && pendingSendFileId === file.id ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="mail-outline" size={18} color="#fff" />
+          )}
+        </Pressable>
+        <Pressable
+          style={[
+            styles.downloadBtn,
+            (!!file.missingAt || downloadingId === file.id) &&
+              styles.actionBtnDisabled,
+          ]}
+          onPress={onDownload}
+          disabled={!!file.missingAt || downloadingId !== null}
+        >
+          {downloadingId === file.id ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="download-outline" size={18} color="#fff" />
+          )}
+          <Text style={styles.downloadText}>
+            {downloadingId === file.id ? 'Downloading…' : 'Download'}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -577,21 +843,39 @@ const styles = StyleSheet.create({
   authors: { color: '#4a9eff', fontSize: 13 },
   series: { color: '#777', fontSize: 12, fontStyle: 'italic' },
 
-  listenBtn: {
+  // Action buttons
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#fff',
     borderRadius: 10,
-    paddingVertical: 12,
-    marginHorizontal: 20,
-    marginTop: 16,
+    paddingVertical: 11,
   },
-  listenBtnText: {
+  actionBtnSecondary: {
+    backgroundColor: '#1c1c2e',
+  },
+  actionBtnActive: {
+    backgroundColor: '#0f2a1e',
+    borderWidth: 1,
+    borderColor: '#4ade8040',
+  },
+  actionBtnText: {
     color: '#000',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600',
+  },
+  actionBtnTextSecondary: {
+    color: '#ccc',
   },
 
   // Reading progress
@@ -661,12 +945,15 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#1c1c1e',
   },
   metaLabel: { color: '#666', fontSize: 14 },
   metaValue: { color: '#ccc', fontSize: 14, flex: 1, textAlign: 'right' },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ratingSpinner: { marginRight: 4 },
 
   // Chips
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -678,6 +965,24 @@ const styles = StyleSheet.create({
   },
   chipAlt: { backgroundColor: '#1e1e1e' },
   chipText: { color: '#aaa', fontSize: 12 },
+
+  // File tabs
+  fileTabRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  fileTab: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#1c1c2e',
+  },
+  fileTabActive: { backgroundColor: '#4a9eff' },
+  fileTabText: { color: '#888', fontSize: 13, fontWeight: '600' },
+  fileTabTextActive: { color: '#000' },
+  emptyFilesText: { color: '#666', fontSize: 14, paddingVertical: 12 },
 
   // Files
   fileRow: {
@@ -726,6 +1031,33 @@ const styles = StyleSheet.create({
   },
   actionBtnDisabled: { opacity: 0.4 },
   downloadText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
+  // Audiobook file rows
+  audioFileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1e',
+  },
+  audioFileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  audioFileMeta: { flex: 1 },
+  audioFileTitle: { color: '#ccc', fontSize: 14, fontWeight: '600' },
+  audioFileDetail: { color: '#666', fontSize: 12, marginTop: 2 },
+  playBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // Email picker modal
   pickerBackdrop: {
@@ -777,5 +1109,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+  },
+
+  // Library picker sheet (taller than email picker)
+  libraryPickerSheet: {
+    backgroundColor: '#1c1c1e',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 0,
+  },
+  libraryPickerTitle: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
   },
 });

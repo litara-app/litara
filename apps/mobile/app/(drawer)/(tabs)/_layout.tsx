@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { MiniPlayerTabBar } from '@/src/components/MiniPlayerTabBar';
 
 function HamburgerButton() {
   const navigation = useNavigation();
@@ -19,6 +20,7 @@ function HamburgerButton() {
 export default function TabsLayout() {
   return (
     <Tabs
+      tabBar={(props) => <MiniPlayerTabBar {...props} />}
       screenOptions={{
         headerStyle: { backgroundColor: '#0a0a0a' },
         headerTintColor: '#fff',
