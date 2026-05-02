@@ -1,3 +1,10 @@
+## [1.34.1](https://github.com/litara-app/litara/compare/v1.34.0...v1.34.1) (2026-05-02)
+
+
+### Bug Fixes
+
+* removing expo audio plugin ([841e8c8](https://github.com/litara-app/litara/commit/841e8c861d583755abdb1375ae5c1dc0f9e36d9b))
+
 # [1.34.0](https://github.com/litara-app/litara/compare/v1.33.1...v1.34.0) (2026-05-02)
 
 
