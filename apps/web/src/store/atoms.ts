@@ -114,3 +114,15 @@ export interface AudiobookPlayerState {
 }
 
 export const audiobookPlayerAtom = atom<AudiobookPlayerState | null>(null);
+
+export const podcastsEnabledAtom = atom<boolean>(false);
+
+export interface PodcastPlayerState {
+  episodeId: string;
+  episodeTitle: string;
+  podcastTitle: string;
+  artworkUrl: string | null;
+  initialPosition?: number;
+}
+
+export const podcastPlayerAtom = atom<PodcastPlayerState | null>(null);

@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
 import { buildAudiobookQueue, trackId } from './queue';
+import { ensurePlayerSetup } from './setup';
 import { setActiveAudiobook } from './progressSaver';
 import {
   getAudiobookProgress,
@@ -22,6 +23,8 @@ interface LoadAudiobookArgs {
 export async function loadAudiobook(args: LoadAudiobookArgs): Promise<void> {
   const { bookId, bookTitle, bookAuthors, audiobookFiles } = args;
   if (audiobookFiles.length === 0) return;
+
+  await ensurePlayerSetup();
 
   // Short-circuit: same audiobook already queued
   const queue = await TrackPlayer.getQueue();

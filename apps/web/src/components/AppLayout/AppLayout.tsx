@@ -33,6 +33,10 @@ import { useSetAtom, useAtomValue } from 'jotai';
 import { NavbarContent } from './NavbarContent';
 import { BulkActionBar } from '../BulkActionBar';
 import { PersistentAudiobookPlayer, PLAYER_HEIGHT } from '../AudiobookPlayer';
+import {
+  PersistentPodcastPlayer,
+  PODCAST_PLAYER_HEIGHT,
+} from '../PodcastPlayer';
 import { api } from '../../utils/api';
 import {
   userSettingsAtom,
@@ -40,6 +44,8 @@ import {
   backendStatusAtom,
   selectedBookIdsAtom,
   audiobookPlayerAtom,
+  podcastPlayerAtom,
+  podcastsEnabledAtom,
 } from '../../store/atoms';
 
 type SearchType = 'all' | 'books' | 'authors' | 'series';
@@ -247,6 +253,8 @@ export function AppLayout() {
   const backendStatus = useAtomValue(backendStatusAtom);
   const setSelectedBookIds = useSetAtom(selectedBookIdsAtom);
   const playerState = useAtomValue(audiobookPlayerAtom);
+  const podcastPlayer = useAtomValue(podcastPlayerAtom);
+  const setPodcastsEnabled = useSetAtom(podcastsEnabledAtom);
   const location = useLocation();
 
   useEffect(() => {
@@ -277,8 +285,12 @@ export function AppLayout() {
         .get<{ shelfmarkUrl: string | null }>('/admin/settings/shelfmark')
         .then((r) => setShelfmarkUrl(r.data.shelfmarkUrl))
         .catch(() => {}),
+      api
+        .get<{ enabled: boolean }>('/podcasts/settings')
+        .then((r) => setPodcastsEnabled(r.data.enabled))
+        .catch(() => {}),
     ]);
-  }, [setUserSettings]);
+  }, [setUserSettings, setPodcastsEnabled]);
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -380,7 +392,13 @@ export function AppLayout() {
           breakpoint: 'sm',
           collapsed: { desktop: !opened, mobile: !opened },
         }}
-        footer={playerState ? { height: PLAYER_HEIGHT } : undefined}
+        footer={
+          podcastPlayer
+            ? { height: PODCAST_PLAYER_HEIGHT }
+            : playerState
+              ? { height: PLAYER_HEIGHT }
+              : undefined
+        }
         padding="md"
       >
         <AppShell.Header>
@@ -533,9 +551,13 @@ export function AppLayout() {
           <Outlet />
         </AppShell.Main>
 
-        {playerState && (
+        {(podcastPlayer || playerState) && (
           <AppShell.Footer>
-            <PersistentAudiobookPlayer key={playerState.bookId} />
+            {podcastPlayer ? (
+              <PersistentPodcastPlayer key={podcastPlayer.episodeId} />
+            ) : (
+              <PersistentAudiobookPlayer key={playerState!.bookId} />
+            )}
           </AppShell.Footer>
         )}
 

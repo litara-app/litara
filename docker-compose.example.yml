@@ -4,7 +4,8 @@
 #   1. Copy this file:  cp docker-compose.example.yml docker-compose.yml
 #   2. Change the passwords marked with CHANGE_ME
 #   3. Set EBOOK_LIBRARY_PATH (or adjust the books volume mount below)
-#   4. Run:  docker compose up -d
+#   4. (Optional) Mount a podcasts directory and set PODCAST_STORAGE_PATH
+#   5. Run:  docker compose up -d
 #
 # The app will be available at http://localhost:3000
 # API docs are at http://localhost:3000/docs
@@ -23,9 +24,11 @@ services:
       BOOK_DROP_PATH: /book-drop   # must match the volume mount below; omit to disable drop folder
       # GOOGLE_BOOKS_API_KEY: your_key_here   # optional, raises rate limit
       # HARDCOVER_API_KEY: your_key_here      # optional, enables Hardcover metadata
+      # PODCAST_STORAGE_PATH: /podcasts       # where podcast episode files are saved (default: /data/podcasts)
     volumes:
       - ./books:/books          # point this to your local ebook directory
       - ./book-drop:/book-drop  # optional: files dropped here are auto-ingested for admin review
+      # - ./podcasts:/podcasts  # optional: mount an external path for podcast episode storage
     depends_on:
       postgres:
         condition: service_healthy

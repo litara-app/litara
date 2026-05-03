@@ -31,6 +31,8 @@ import { AdminBookReviewPage } from './pages/AdminBookReviewPage';
 import { BookDetailPage } from './pages/BookDetailPage';
 import { SeriesDetailPage } from './pages/SeriesDetailPage';
 import { AuthorDetailPage } from './pages/AuthorDetailPage';
+import { PodcastsPage } from './pages/PodcastsPage';
+import { PodcastDetailPage } from './pages/PodcastDetailPage';
 import { AppLayout } from './components/AppLayout/AppLayout';
 import { ToastContainer } from './components/ToastContainer';
 
@@ -74,6 +76,8 @@ export default function App() {
                 element={<AdminBookReviewPage />}
               />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/podcasts" element={<PodcastsPage />} />
+              <Route path="/podcasts/:id" element={<PodcastDetailPage />} />
               {/* Legacy redirects */}
               <Route
                 path="/user-settings"

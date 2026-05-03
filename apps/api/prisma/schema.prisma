@@ -27,6 +27,7 @@ model User {
   koReaderCredential KoReaderCredential?
   readingQueue       ReadingQueueItem[]
   audiobookProgress  AudiobookProgress[]
+  podcastProgress    PodcastEpisodeProgress[]
 }
 
 enum Role {
@@ -445,6 +446,80 @@ model AudiobookProgress {
   updatedAt        DateTime  @updatedAt
 
   @@unique([userId, bookId])
+}
+
+enum DownloadPolicy {
+  ALL
+  LATEST_N
+  MANUAL
+}
+
+enum RetentionPolicy {
+  KEEP_ALL
+  DELETE_AFTER_LISTENED
+  KEEP_LATEST_N
+}
+
+enum EpisodeDownloadStatus {
+  NOT_DOWNLOADED
+  PENDING
+  DOWNLOADING
+  DOWNLOADED
+  FAILED
+}
+
+model Podcast {
+  id                     String          @id @default(uuid())
+  feedUrl                String          @unique
+  title                  String
+  description            String?
+  artworkUrl             String?
+  author                 String?
+  websiteUrl             String?
+  lastRefreshedAt        DateTime?
+  nextRefreshAt          DateTime?
+  refreshIntervalMinutes Int             @default(60)
+  downloadPolicy         DownloadPolicy  @default(MANUAL)
+  keepLatestN            Int?
+  retentionPolicy        RetentionPolicy @default(KEEP_ALL)
+  subscribed             Boolean         @default(true)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  episodes PodcastEpisode[]
+}
+
+model PodcastEpisode {
+  id             String                @id @default(uuid())
+  podcastId      String
+  podcast        Podcast               @relation(fields: [podcastId], references: [id], onDelete: Cascade)
+  guid           String
+  title          String
+  description    String?
+  publishedAt    DateTime?
+  duration       Float?
+  audioUrl       String
+  downloadStatus EpisodeDownloadStatus @default(NOT_DOWNLOADED)
+  downloadPath   String?
+  fileSize       BigInt?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  progress PodcastEpisodeProgress[]
+
+  @@unique([podcastId, guid])
+}
+
+model PodcastEpisodeProgress {
+  id          String         @id @default(uuid())
+  userId      String
+  episodeId   String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode     PodcastEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  currentTime Float          @default(0)
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([userId, episodeId])
 }
 
 model PendingBook {

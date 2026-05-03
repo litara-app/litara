@@ -27,7 +27,9 @@ import { BookDropModule } from './book-drop/book-drop.module';
 import { KoReaderSyncModule } from './koreader-sync/koreader-sync.module';
 import { ReadingQueueModule } from './reading-queue/reading-queue.module';
 import { AudiobookModule } from './audiobook/audiobook.module';
+import { PodcastModule } from './podcast/podcast.module';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 
 const publicPath = join(__dirname, '../public');
@@ -44,6 +46,7 @@ const staticModules = existsSync(publicPath)
   imports: [
     ...staticModules,
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     UsersModule,
     AuthModule,
@@ -67,6 +70,7 @@ const staticModules = existsSync(publicPath)
     KoReaderSyncModule,
     ReadingQueueModule,
     AudiobookModule,
+    PodcastModule,
   ],
   controllers: [AppController],
   providers: [AppService],

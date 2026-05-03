@@ -30,6 +30,7 @@ import { buildLocalFilePath } from '@/src/api/audiobooks';
 import { useAudiobookDownload } from '@/src/hooks/useAudiobookDownload';
 import { ensurePlayerSetup } from '@/src/services/playback/setup';
 import { loadAudiobook } from '@/src/services/playback/loadAudiobook';
+import { formatTime } from '@/src/utils/formatTime';
 import type { AudiobookFileInfo } from '@/src/api/audiobooks';
 
 const SPEEDS = [0.5, 1.0, 1.5, 2.0];
@@ -46,16 +47,6 @@ interface ChapterWithAbs {
 
 interface Props {
   bookId: string;
-}
-
-function formatTime(seconds: number): string {
-  if (!isFinite(seconds) || seconds < 0) seconds = 0;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0)
-    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 function buildCoverUrl(bookId: string): string {

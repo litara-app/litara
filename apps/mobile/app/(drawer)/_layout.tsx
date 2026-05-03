@@ -9,6 +9,8 @@ import Constants from 'expo-constants';
 import { useAuthContext } from '@/src/context/AuthContext';
 import { getServerInfo } from '@/src/api/server';
 import { api } from '@/src/api/client';
+import { getPodcastSettings } from '@/src/api/podcasts';
+import { podcastsEnabledStore } from '@/src/auth/podcastsEnabledStore';
 
 function getInitials(name: string | null, email: string): string {
   const source = name?.trim() || email;
@@ -51,6 +53,17 @@ function DrawerContent(props: DrawerContentComponentProps) {
         .then((r) => r.data),
     staleTime: 1000 * 60 * 10,
   });
+
+  const { data: podcastSettings } = useQuery({
+    queryKey: ['podcast-settings'],
+    queryFn: () =>
+      getPodcastSettings().then((s) => {
+        podcastsEnabledStore.set(s.enabled);
+        return s;
+      }),
+    staleTime: 1000 * 60 * 5,
+  });
+  const podcastsEnabled = podcastSettings?.enabled ?? false;
   const shelfmarkUrl = shelfmarkData?.shelfmarkUrl ?? null;
 
   const initials = user ? getInitials(user.name, user.email) : '?';
@@ -94,6 +107,18 @@ function DrawerContent(props: DrawerContentComponentProps) {
           activeTintColor="#4a9eff"
           inactiveTintColor="#888"
         />
+        {podcastsEnabled && (
+          <DrawerItem
+            label="Podcasts"
+            labelStyle={styles.itemLabel}
+            icon={({ color, size }) => (
+              <Ionicons name="mic-outline" size={size} color={color} />
+            )}
+            onPress={() => router.push('/(drawer)/(tabs)/podcasts')}
+            activeTintColor="#4a9eff"
+            inactiveTintColor="#888"
+          />
+        )}
         <DrawerItem
           label="Series"
           labelStyle={styles.itemLabel}

@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { AuthProvider } from '@/src/context/AuthContext';
 import { GridSizeProvider } from '@/src/context/GridSizeContext';
+import { ensurePlayerSetup } from '@/src/services/playback/setup';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,6 +15,10 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
+  useEffect(() => {
+    void ensurePlayerSetup();
+  }, []);
+
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClient}>
@@ -45,6 +51,16 @@ export default function RootLayout() {
             <Stack.Screen name="search" options={{ headerShown: false }} />
             <Stack.Screen
               name="audiobook/[id]"
+              options={{
+                headerShown: true,
+                headerStyle: { backgroundColor: '#0a0a0a' },
+                headerTintColor: '#fff',
+                headerTitleStyle: { fontWeight: '700' },
+                title: 'Now Playing',
+              }}
+            />
+            <Stack.Screen
+              name="podcast-player/[id]"
               options={{
                 headerShown: true,
                 headerStyle: { backgroundColor: '#0a0a0a' },
