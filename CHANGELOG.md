@@ -1,3 +1,10 @@
+# [1.35.0](https://github.com/litara-app/litara/compare/v1.34.1...v1.35.0) (2026-05-04)
+
+
+### Features
+
+* adding in podcast archiving and playback ([845df07](https://github.com/litara-app/litara/commit/845df07653a1961386a60a23c62202462c4e14a1))
+
 ## [1.34.1](https://github.com/litara-app/litara/compare/v1.34.0...v1.34.1) (2026-05-02)
 
 
