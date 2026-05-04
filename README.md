@@ -35,9 +35,11 @@ A self-hosted ebook and audiobook library manager. Automatically scans a folder 
 - JWT-authenticated multi-user support
 - Shelves, smart shelves, reading progress, and annotations
 - OPDS catalog (v1.2 Atom + v2.0 JSON) for ebook reader apps
+- koreader progress syncing
 - Email delivery to e-readers via SMTP
 - Docker-first deployment
-- **Audiobook support (Beta)** — scans `.m4b`, `.m4a`, and `.mp3` audiobooks; built-in player on web and mobile with chapter navigation, bookmarks, and per-user progress
+- **Audiobook support** — scans `.m4b`, `.m4a`, and `.mp3` audiobooks; built-in player on web and mobile with chapter navigation, bookmarks, and per-user progress
+- **Podcast support (Beta)** - basic podcast subscriptions and auto downloading on a schedule. Supports playback but primary use if for archiving podcast episodes.
 
 ## Quick Start
 

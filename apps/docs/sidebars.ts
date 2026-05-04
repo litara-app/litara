@@ -19,6 +19,7 @@ const sidebars: SidebarsConfig = {
     'library-management',
     'reader',
     'audiobooks',
+    'podcasts',
     'mobile',
     {
       type: 'category',
@@ -30,6 +31,7 @@ const sidebars: SidebarsConfig = {
         'development/metadata-enrichment-api',
         'development/authors-api',
         'development/reading-queue-api',
+        'development/podcasts-api',
       ],
     },
   ],

@@ -940,6 +940,186 @@ function ShelfmarkSettingsSection() {
   );
 }
 
+interface PodcastSettings {
+  enabled: boolean;
+}
+
+interface ImportResult {
+  newPodcasts: number;
+  newEpisodes: number;
+  updatedEpisodes: number;
+}
+
+function PodcastsSettingsSection() {
+  const [settings, setSettings] = useState<PodcastSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<'success' | 'error' | null>(
+    null,
+  );
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<
+    ImportResult | 'error' | null
+  >(null);
+
+  useEffect(() => {
+    api
+      .get<PodcastSettings>('/podcasts/settings')
+      .then((r) => setSettings(r.data))
+      .catch(() => {});
+  }, []);
+
+  async function handleToggle(enabled: boolean) {
+    if (!settings) return;
+    setSaving(true);
+    try {
+      const res = await api.patch<PodcastSettings>('/podcasts/settings', {
+        enabled,
+      });
+      setSettings(res.data);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleScanStorage() {
+    setScanning(true);
+    setScanResult(null);
+    try {
+      await api.post('/podcasts/scan-storage');
+      setScanResult('success');
+    } catch {
+      setScanResult('error');
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  async function handleImportStorage() {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await api.post<ImportResult>('/podcasts/import-storage');
+      setImportResult(res.data);
+    } catch {
+      setImportResult('error');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  if (!settings) return <Skeleton height={100} radius="md" />;
+
+  return (
+    <Paper withBorder p="md" radius="md">
+      <Stack gap="sm">
+        <Group justify="space-between">
+          <Title order={4}>Podcasts</Title>
+          <Switch
+            checked={settings.enabled}
+            onChange={(e) => void handleToggle(e.currentTarget.checked)}
+            disabled={saving}
+            label={settings.enabled ? 'Enabled' : 'Disabled'}
+          />
+        </Group>
+        <Text size="sm" c="dimmed">
+          Subscribe to podcast RSS feeds and automatically download episodes for
+          offline archiving and playback. Episode files are stored at the path
+          configured by <code>PODCAST_STORAGE_PATH</code> (default:{' '}
+          <code>/data/podcasts</code>). All podcast UI is hidden until this is
+          enabled.
+        </Text>
+
+        {settings.enabled && (
+          <>
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Storage scan
+              </Text>
+              <Text size="sm" c="dimmed">
+                Reconcile episode download statuses against actual files on
+                disk. Runs automatically on startup.
+              </Text>
+              {scanResult === 'success' && (
+                <Alert
+                  icon={<IconCheck size={14} />}
+                  color="green"
+                  variant="light"
+                >
+                  Scan complete. Episode download statuses updated.
+                </Alert>
+              )}
+              {scanResult === 'error' && (
+                <Alert
+                  icon={<IconAlertTriangle size={14} />}
+                  color="red"
+                  variant="light"
+                >
+                  Scan failed. Check server logs for details.
+                </Alert>
+              )}
+              <Button
+                leftSection={<IconScan size={16} />}
+                variant="light"
+                size="xs"
+                loading={scanning}
+                onClick={() => void handleScanStorage()}
+                w="fit-content"
+              >
+                Scan Storage
+              </Button>
+            </Stack>
+
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Import from storage
+              </Text>
+              <Text size="sm" c="dimmed">
+                Walk the podcast storage folder and create podcast/episode
+                records for any audio files that are not yet in the library.
+                Useful for podcasts that no longer have a live RSS feed but
+                whose episodes you still have on disk.
+              </Text>
+              {importResult === 'error' && (
+                <Alert
+                  icon={<IconAlertTriangle size={14} />}
+                  color="red"
+                  variant="light"
+                >
+                  Import failed. Check server logs for details.
+                </Alert>
+              )}
+              {importResult && importResult !== 'error' && (
+                <Alert
+                  icon={<IconCheck size={14} />}
+                  color="green"
+                  variant="light"
+                >
+                  Import complete — {importResult.newPodcasts} new podcast
+                  {importResult.newPodcasts !== 1 ? 's' : ''},{' '}
+                  {importResult.newEpisodes} new episode
+                  {importResult.newEpisodes !== 1 ? 's' : ''},{' '}
+                  {importResult.updatedEpisodes} updated.
+                </Alert>
+              )}
+              <Button
+                leftSection={<IconFolderSearch size={16} />}
+                variant="light"
+                size="xs"
+                loading={importing}
+                onClick={() => void handleImportStorage()}
+                w="fit-content"
+              >
+                Import from Storage
+              </Button>
+            </Stack>
+          </>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
 function DevToolsSection() {
   const isPreviewMode = localStorage.getItem('devOriginalRole') !== null;
 
@@ -1488,6 +1668,7 @@ export function GeneralTab({
         </Stack>
       </Paper>
       <ShelfmarkSettingsSection />
+      <PodcastsSettingsSection />
       <LibraryScanSection onTaskStarted={onTaskStarted} />
       <AuthorPhotoEnrichmentSection />
       <DiskSettingsSection />

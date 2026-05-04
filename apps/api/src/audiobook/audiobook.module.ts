@@ -15,6 +15,6 @@ import { AudiobookStreamTokenService } from './audiobook-stream-token.service';
     AudiobookProgressService,
     AudiobookStreamTokenService,
   ],
-  exports: [AudiobookScannerService],
+  exports: [AudiobookScannerService, AudiobookStreamTokenService],
 })
 export class AudiobookModule {}

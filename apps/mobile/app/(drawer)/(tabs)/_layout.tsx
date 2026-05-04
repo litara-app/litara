@@ -85,6 +85,14 @@ export default function TabsLayout() {
       />
       {/* Hidden tabs — accessible via the drawer menu */}
       <Tabs.Screen
+        name="podcasts"
+        options={{ title: 'Podcasts', tabBarItemStyle: { display: 'none' } }}
+      />
+      <Tabs.Screen
+        name="podcast/[id]"
+        options={{ title: 'Podcast', tabBarItemStyle: { display: 'none' } }}
+      />
+      <Tabs.Screen
         name="series"
         options={{ title: 'Series', tabBarItemStyle: { display: 'none' } }}
       />

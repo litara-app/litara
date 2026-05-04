@@ -13,12 +13,6 @@ import TrackPlayer, {
   useActiveTrack,
   usePlaybackState,
 } from 'react-native-track-player';
-import { serverUrlStore } from '@/src/auth/serverUrlStore';
-
-function buildCoverUrl(bookId: string): string {
-  const base = serverUrlStore.get() ?? '';
-  return `${base}/api/v1/books/${bookId}/cover`;
-}
 
 export function MiniPlayer() {
   const track = useActiveTrack();
@@ -27,7 +21,11 @@ export function MiniPlayer() {
 
   if (!track) return null;
 
-  const bookId = track.id?.split(':')[1] ?? '';
+  const parts = track.id?.split(':') ?? [];
+  const trackType = parts[0];
+  const isPodcast = trackType === 'podcast';
+  // podcast track id: "podcast:{podcastId}:{episodeId}"
+  const entityId = isPodcast ? (parts[2] ?? parts[1] ?? '') : (parts[1] ?? '');
   const isPlaying = state === State.Playing;
 
   const togglePlay = () => {
@@ -39,13 +37,18 @@ export function MiniPlayer() {
     void TrackPlayer.reset();
   };
 
+  const handlePress = () => {
+    if (isPodcast) {
+      router.push(`/podcast-player/${entityId}`);
+    } else {
+      router.push(`/audiobook/${entityId}`);
+    }
+  };
+
   return (
-    <Pressable
-      style={styles.container}
-      onPress={() => router.push(`/audiobook/${bookId}`)}
-    >
+    <Pressable style={styles.container} onPress={handlePress}>
       <Image
-        source={{ uri: buildCoverUrl(bookId) }}
+        source={track.artwork ? { uri: track.artwork as string } : undefined}
         style={styles.cover}
         contentFit="cover"
       />

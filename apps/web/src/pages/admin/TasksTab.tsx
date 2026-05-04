@@ -28,6 +28,8 @@ interface TaskRecord {
     total?: number;
     currentBookTitle?: string;
     currentFile?: string;
+    currentEpisodeTitle?: string;
+    downloaded?: number;
     written?: number;
     skipped?: number;
     failed?: number;
@@ -50,6 +52,7 @@ const TYPE_LABELS: Record<string, string> = {
   BULK_METADATA_MATCH: 'Metadata Enrichment',
   BULK_SIDECAR_WRITE: 'Sidecar Write',
   LIBRARY_SCAN: 'Library Scan',
+  PODCAST_DOWNLOAD: 'Podcast Downloads',
 };
 
 function taskLabel(type: string): string {
@@ -154,11 +157,13 @@ export function TasksTab() {
                   <>
                     <Progress value={pct} animated size="sm" />
                     <Text size="xs" c="dimmed">
-                      {p?.currentBookTitle
-                        ? `Processing: ${p.currentBookTitle}`
-                        : p?.currentFile
-                          ? `Scanning: ${p.currentFile}`
-                          : 'Starting...'}
+                      {p?.currentEpisodeTitle
+                        ? `Downloading: ${p.currentEpisodeTitle}`
+                        : p?.currentBookTitle
+                          ? `Processing: ${p.currentBookTitle}`
+                          : p?.currentFile
+                            ? `Scanning: ${p.currentFile}`
+                            : 'Starting...'}
                       {'  '}
                       <Text span fw={500}>
                         {processed} / {total}
@@ -167,13 +172,25 @@ export function TasksTab() {
                   </>
                 )}
 
-                {task.status === 'COMPLETED' && !isSidecarWrite && (
-                  <Text size="xs" c="dimmed">
-                    {task.type === 'LIBRARY_SCAN'
-                      ? `Scanned ${total} file${total !== 1 ? 's' : ''}`
-                      : `Enriched ${total} ${task.type === 'AUTHOR_PHOTO_ENRICHMENT' ? 'authors' : 'books'}`}
-                  </Text>
-                )}
+                {task.status === 'COMPLETED' &&
+                  task.type === 'PODCAST_DOWNLOAD' && (
+                    <Text size="xs" c="dimmed">
+                      Downloaded: {p?.downloaded ?? 0}
+                      {(p?.failed ?? 0) > 0 && (
+                        <> &nbsp;·&nbsp; Failed: {p?.failed ?? 0}</>
+                      )}
+                    </Text>
+                  )}
+
+                {task.status === 'COMPLETED' &&
+                  !isSidecarWrite &&
+                  task.type !== 'PODCAST_DOWNLOAD' && (
+                    <Text size="xs" c="dimmed">
+                      {task.type === 'LIBRARY_SCAN'
+                        ? `Scanned ${total} file${total !== 1 ? 's' : ''}`
+                        : `Enriched ${total} ${task.type === 'AUTHOR_PHOTO_ENRICHMENT' ? 'authors' : 'books'}`}
+                    </Text>
+                  )}
 
                 {task.status === 'COMPLETED' && isSidecarWrite && (
                   <Text size="xs" c="dimmed">

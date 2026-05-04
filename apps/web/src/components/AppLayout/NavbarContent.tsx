@@ -30,6 +30,7 @@ import {
   IconArrowUpCircle,
   IconUpload,
   IconClipboardCheck,
+  IconMicrophone,
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
@@ -41,6 +42,7 @@ import {
   updateAvailableAtom,
   versionCheckResultAtom,
   pendingBookCountAtom,
+  podcastsEnabledAtom,
 } from '../../store/atoms';
 import type { Library, Shelf } from '../../store/atoms';
 import type { VersionCheckResult } from '../../types/server';
@@ -105,6 +107,7 @@ export function NavbarContent({ onNavigate }: NavbarContentProps) {
   const versionCheckResult = useAtomValue(versionCheckResultAtom);
   const setUpdateAvailable = useSetAtom(updateAvailableAtom);
   const setVersionCheckResult = useSetAtom(versionCheckResultAtom);
+  const podcastsEnabled = useAtomValue(podcastsEnabledAtom);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
 
   const user = (() => {
@@ -229,6 +232,18 @@ export function NavbarContent({ onNavigate }: NavbarContentProps) {
             onNavigate?.();
           }}
         />
+
+        {podcastsEnabled && (
+          <NavLink
+            label="Podcasts"
+            leftSection={<IconMicrophone size={18} />}
+            active={location.pathname.startsWith('/podcasts')}
+            onClick={() => {
+              navigate('/podcasts');
+              onNavigate?.();
+            }}
+          />
+        )}
 
         <NavLink
           label="Libraries"
