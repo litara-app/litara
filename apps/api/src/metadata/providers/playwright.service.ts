@@ -51,7 +51,7 @@ export class PlaywrightService implements OnModuleInit, OnModuleDestroy {
     const setting = await this.db.serverSettings.findUnique({
       where: { key: PLAYWRIGHT_SETTING_KEY },
     });
-    if (setting?.value === 'false') return;
+    if (setting?.value !== 'true') return;
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -61,10 +61,11 @@ export class PlaywrightService implements OnModuleInit, OnModuleDestroy {
         args: ['--disable-blink-features=AutomationControlled'],
       });
       this.logger.log('Playwright browser launched for Goodreads scraping');
-    } catch {
-      this.logger.warn(
-        'goodreads_playwright_enabled is set but playwright is not installed. ' +
-          'Run: npm install playwright && npx playwright install chromium',
+    } catch (err) {
+      this.logger.error(
+        'Failed to launch Playwright browser for Goodreads scraping. ' +
+          'Goodreads metadata will fall back to direct HTTP requests.',
+        err instanceof Error ? err.stack : String(err),
       );
     }
   }

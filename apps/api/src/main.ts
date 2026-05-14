@@ -37,6 +37,7 @@ async function bootstrap() {
           'data:',
           'blob:',
           'https://covers.openlibrary.org',
+          'https://archive.org',
           'https://m.media-amazon.com',
           'https://books.google.com',
           'https://assets.hardcover.app',

@@ -17,6 +17,12 @@ COPY packages/cbz-parser/package.json ./packages/cbz-parser/
 # once the schema is available (see below).
 RUN npm ci --ignore-scripts && npm rebuild bcrypt
 
+# Download Playwright's Chromium browser binaries into a known path so they
+# can be copied to the production image. Must be called explicitly because
+# --ignore-scripts above skipped the postinstall hook.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npx playwright install chromium
+
 # Copy source
 COPY apps/api ./apps/api
 COPY apps/web ./apps/web
@@ -39,8 +45,18 @@ FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
-# libstdc++ is required to load native addons (e.g., bcrypt) on Alpine
-RUN apk add --no-cache libstdc++
+# libstdc++ is required for native addons (e.g., bcrypt); the remaining
+# packages are Chromium runtime dependencies required by Playwright on Alpine.
+RUN apk add --no-cache \
+    libstdc++ \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+COPY --from=builder /ms-playwright /ms-playwright
 
 # Production node_modules (pruned)
 COPY --from=builder /app/node_modules ./node_modules

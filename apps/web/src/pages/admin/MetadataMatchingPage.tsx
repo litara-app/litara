@@ -1098,7 +1098,12 @@ function GoodreadsPlaywrightSection() {
     <Paper withBorder p="md" radius="md">
       <Stack gap="sm">
         <Group justify="space-between">
-          <Title order={4}>Goodreads Playwright Scraping</Title>
+          <Group gap="xs">
+            <Title order={4}>Goodreads Playwright Scraping</Title>
+            <Badge color="orange" variant="light" size="sm">
+              Beta
+            </Badge>
+          </Group>
           <Switch
             checked={settings.enabled}
             onChange={(e) => void handleToggle(e.currentTarget.checked)}
