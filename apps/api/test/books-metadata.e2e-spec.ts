@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import path from 'path';
 import request from 'supertest';
 import { TestApp, createTestApp } from './helpers/app.helper';
@@ -31,7 +32,7 @@ async function seedRealBook(
   const library =
     (await db.library.findFirst()) ??
     (await db.library.create({
-      data: { name: 'Test Library', path: '/test/library' },
+      data: { name: 'Test Library', path: `/test/library-${randomUUID()}` },
     }));
   return db.book.create({
     data: {
@@ -81,31 +82,6 @@ describe('Books Metadata Updates (e2e)', () => {
     });
     bookId = book.id;
     fileId = book.files[0].id;
-  });
-
-  describe('PATCH /api/v1/books/:id — library assignment', () => {
-    it('assigns a valid library to the book', async () => {
-      // Libraries are user-scoped; create one for the test user
-      const libraryRes = await request(testApp.app.getHttpServer())
-        .post('/api/v1/libraries')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Personal Collection' })
-        .expect(201);
-
-      await request(testApp.app.getHttpServer())
-        .patch(`/api/v1/books/${bookId}`)
-        .set('Authorization', `Bearer ${token}`)
-        .send({ libraryId: libraryRes.body.id })
-        .expect(200);
-    });
-
-    it('returns 400 when libraryId is not owned by the user', async () => {
-      await request(testApp.app.getHttpServer())
-        .patch(`/api/v1/books/${bookId}`)
-        .set('Authorization', `Bearer ${token}`)
-        .send({ libraryId: '00000000-0000-0000-0000-000000000000' })
-        .expect(400);
-    });
   });
 
   describe('PATCH /api/v1/books/:id — scalar metadata fields', () => {

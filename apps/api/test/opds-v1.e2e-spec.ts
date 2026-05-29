@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { TestApp, createTestApp } from './helpers/app.helper';
 import { createOpdsUser } from './helpers/auth.helper';
@@ -13,7 +14,7 @@ async function enableOpds(db: any) {
 
 async function seedData(db: any) {
   const library = await db.library.create({
-    data: { name: 'Test Library', path: '/test/library' },
+    data: { name: 'Test Library', path: `/test/library-${randomUUID()}` },
   });
 
   const author = await db.author.create({ data: { name: 'Jane Doe' } });

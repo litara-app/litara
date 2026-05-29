@@ -151,12 +151,13 @@ Each `Library` has an optional `iconKey` field (e.g. `"IconBooks"`, `"IconHeadph
 
 ### Curated icon set
 
-Icons are **not** resolved dynamically from the full Tabler package (which would blow up bundle size). Instead, a fixed set of ~23 icons is defined in `apps/web/src/components/LibraryIconPicker.tsx`. **When adding a new icon option, add it there first, then add the corresponding Ionicons mapping in `apps/mobile/src/utils/libraryIcons.ts`.**
+Icons are **not** resolved dynamically from the full Tabler package (which would blow up bundle size). Instead, a fixed set of ~23 icons is defined in `apps/web/src/components/libraryIcons.ts`. **When adding a new icon option, add it there first, then add the corresponding Ionicons mapping in `apps/mobile/src/utils/libraryIcons.ts`.**
 
 ### Web (`apps/web`)
 
+- `libraryIcons.ts` — non-component module holding the `LIBRARY_ICONS` set, the `IconEntry` type, and the `resolveLibraryIcon` helper. Kept separate from the picker component so Fast Refresh (`react-refresh/only-export-components`) is satisfied.
 - `LibraryIconPicker` — visual grid picker used in both create and edit flows.
-- `resolveLibraryIcon(iconKey)` — exported helper that returns the Tabler `Icon` component for an `iconKey`, falling back to `IconLibrary`.
+- `resolveLibraryIcon(iconKey)` — exported helper (from `libraryIcons.ts`) that returns the Tabler `Icon` component for an `iconKey`, falling back to `IconLibrary`.
 - The navbar (`NavbarContent.tsx`) calls `resolveLibraryIcon` to render each library's icon.
 
 ### Mobile (`apps/mobile`)

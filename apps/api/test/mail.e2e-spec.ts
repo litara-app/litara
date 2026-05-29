@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { TestApp, createTestApp } from './helpers/app.helper';
 import { createTestUser, loginAs } from './helpers/auth.helper';
@@ -32,7 +33,7 @@ async function seedBook(
   opts: { formats?: { filePath: string; format: string }[] } = {},
 ) {
   const library = await db.library.create({
-    data: { name: 'Test Library', path: '/test/library' },
+    data: { name: 'Test Library', path: `/test/library-${randomUUID()}` },
   });
   const formats = opts.formats ?? [
     { filePath: '/books/test.epub', format: 'EPUB' },
