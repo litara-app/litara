@@ -127,6 +127,7 @@ export class SmartShelvesService {
         coverUpdatedAt: book.updatedAt.toISOString(),
         formats: [...new Set(book.files.map((f) => f.format))].sort(),
         hasFileMissing: book.files.some((f) => f.missingAt !== null),
+        isOrphan: book.isOrphan,
         seriesName: book.series[0]?.series.name ?? null,
         seriesPosition: book.series[0]?.sequence ?? null,
         publishedDate: book.publishedDate,

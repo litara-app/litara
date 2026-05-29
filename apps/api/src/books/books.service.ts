@@ -33,7 +33,7 @@ export class GetBooksQueryDto {
   offset?: number;
   sortBy?: 'createdAt' | 'title' | 'publishedDate';
   order?: 'asc' | 'desc';
-  libraryId?: string;
+  libraryId?: string | string[];
   q?: string;
   searchBy?: 'all' | 'title' | 'author' | 'series';
 }
@@ -87,7 +87,11 @@ export class BooksService {
       where: query.q
         ? buildSearchWhere(query.q, query.searchBy ?? 'all')
         : query.libraryId
-          ? { userLibraries: { some: { libraryId: query.libraryId, userId } } }
+          ? {
+              libraryId: Array.isArray(query.libraryId)
+                ? { in: query.libraryId }
+                : query.libraryId,
+            }
           : undefined,
       select: {
         id: true,
@@ -106,6 +110,7 @@ export class BooksService {
             series: { select: { id: true, name: true } },
           },
         },
+        isOrphan: true,
         hasAudiobook: true,
         readingProgress: { where: { userId }, select: { percentage: true } },
         audiobookProgress: {
@@ -148,6 +153,7 @@ export class BooksService {
       createdAt: book.createdAt,
       formats: [...new Set(book.files.map((f) => f.format))].sort(),
       hasFileMissing: book.files.some((f) => f.missingAt !== null),
+      isOrphan: book.isOrphan,
       seriesName: book.series[0]?.series.name ?? null,
       seriesPosition: book.series[0]?.sequence ?? null,
       publishedDate: book.publishedDate,
@@ -199,10 +205,7 @@ export class BooksService {
             series: { select: { id: true, name: true, totalBooks: true } },
           },
         },
-        userLibraries: {
-          where: { userId },
-          include: { library: { select: { id: true, name: true } } },
-        },
+        library: { select: { id: true, name: true, iconKey: true } },
         reviews: {
           where: { userId },
           select: { rating: true, readStatus: true },
@@ -250,7 +253,6 @@ export class BooksService {
     if (!book) throw new NotFoundException('Book not found');
 
     const review = book.reviews[0] ?? null;
-    const userLibrary = book.userLibraries[0]?.library ?? null;
     const seriesBook = book.series[0] ?? null;
 
     return {
@@ -271,7 +273,7 @@ export class BooksService {
       lockedFields: JSON.parse(book.lockedFields) as string[],
       hasCover: book.coverData !== null,
       coverUpdatedAt: book.updatedAt.toISOString(),
-      library: userLibrary,
+      library: book.library,
       authors: book.authors.map((ba) => ba.author.name),
       tags: book.tags.map((t) => t.name),
       genres: book.genres.map((g) => g.name),
@@ -378,23 +380,6 @@ export class BooksService {
             rating: dto.rating ?? null,
             readStatus: dto.readStatus ?? 'UNREAD',
           },
-        }),
-      );
-    }
-
-    // Library assignment
-    if (dto.libraryId !== undefined) {
-      const lib = await this.prisma.library.findFirst({
-        where: { id: dto.libraryId, userId },
-      });
-      if (!lib)
-        throw new BadRequestException('Library not found or not owned by user');
-
-      ops.push(
-        this.prisma.userBookLibrary.upsert({
-          where: { userId_bookId: { userId, bookId } },
-          update: { libraryId: dto.libraryId },
-          create: { userId, bookId, libraryId: dto.libraryId },
         }),
       );
     }

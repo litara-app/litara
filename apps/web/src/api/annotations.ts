@@ -57,9 +57,15 @@ export function listBookAnnotations(bookId: string) {
     .then((r) => r.data);
 }
 
-export function listAllAnnotations(type?: AnnotationType) {
+export function listAllAnnotations(
+  type?: AnnotationType,
+  libraryIds?: string[],
+) {
+  const params: Record<string, unknown> = {};
+  if (type) params.type = type;
+  if (libraryIds && libraryIds.length > 0) params['libraryId'] = libraryIds;
   return api
-    .get<AnnotationWithBook[]>('/annotations', { params: type ? { type } : {} })
+    .get<AnnotationWithBook[]>('/annotations', { params })
     .then((r) => r.data);
 }
 

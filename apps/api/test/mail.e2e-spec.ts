@@ -31,7 +31,9 @@ async function seedBook(
   db: TestApp['db'],
   opts: { formats?: { filePath: string; format: string }[] } = {},
 ) {
-  const library = await db.library.create({ data: { name: 'Test Library' } });
+  const library = await db.library.create({
+    data: { name: 'Test Library', path: '/test/library' },
+  });
   const formats = opts.formats ?? [
     { filePath: '/books/test.epub', format: 'EPUB' },
   ];
@@ -695,7 +697,7 @@ describe('Send Book (e2e)', () => {
 
     it('returns 422 when book has no files', async () => {
       const library = await testApp.db.library.create({
-        data: { name: 'Lib' },
+        data: { name: 'Lib', path: '/test/lib' },
       });
       const emptyBook = await testApp.db.book.create({
         data: { libraryId: library.id, title: 'Empty' },

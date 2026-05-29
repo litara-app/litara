@@ -30,7 +30,9 @@ async function seedRealBook(
 ) {
   const library =
     (await db.library.findFirst()) ??
-    (await db.library.create({ data: { name: 'Test Library' } }));
+    (await db.library.create({
+      data: { name: 'Test Library', path: '/test/library' },
+    }));
   return db.book.create({
     data: {
       libraryId: library.id,

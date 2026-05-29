@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { librariesAtom, shelvesAtom } from '../store/atoms';
+import { shelvesAtom } from '../store/atoms';
 import {
   Modal,
   Paper,
@@ -58,7 +58,6 @@ import type {
   BookDetail,
   BookSummary,
   EditedFields,
-  Library,
   Shelf,
 } from '../components/BookDetailPage.types';
 import { FORMAT_COLORS } from '../components/BookDetailPage.types';
@@ -111,14 +110,8 @@ export function BookDetailPage() {
 
   const [rating, setRating] = useState(0);
   const [readStatus, setReadStatus] = useState('UNREAD');
-  const [libraryId, setLibraryId] = useState('');
-  const libraries = useAtomValue(librariesAtom);
   const allShelves = useAtomValue(shelvesAtom);
-  const setLibrariesAtom = useSetAtom(librariesAtom);
   const setShelvesAtom = useSetAtom(shelvesAtom);
-  const [addingLibrary, setAddingLibrary] = useState(false);
-  const [newLibraryName, setNewLibraryName] = useState('');
-  const [savingLibrary, setSavingLibrary] = useState(false);
   const [selectedShelfIds, setSelectedShelfIds] = useState<string[]>([]);
   const [addingShelf, setAddingShelf] = useState(false);
   const [newShelfName, setNewShelfName] = useState('');
@@ -248,7 +241,6 @@ export function BookDetailPage() {
         if (newRating === prevRating && newReadStatus === prevReadStatus) {
           skipSaveRef.current = false;
         }
-        setLibraryId(d.library?.id ?? '');
         setSelectedShelfIds(d.shelves.map((s) => s.id));
         setInReadingQueue(d.inReadingQueue);
         setReadingProgress(
@@ -357,33 +349,6 @@ export function BookDetailPage() {
       pushToast('Failed to write metadata to epub', { color: 'red' });
     } finally {
       setWritingEpub(false);
-    }
-  }
-
-  async function handleLibraryChange(value: string | null) {
-    if (!detail || !value) return;
-    if (value === '__add__') {
-      setAddingLibrary(true);
-      return;
-    }
-    setLibraryId(value);
-    await api.patch(`/books/${detail.id}`, { libraryId: value });
-  }
-
-  async function handleCreateLibrary() {
-    if (!detail || !newLibraryName.trim()) return;
-    setSavingLibrary(true);
-    try {
-      const res = await api.post<Library>('/libraries', {
-        name: newLibraryName.trim(),
-      });
-      setLibrariesAtom((prev) => [...prev, res.data]);
-      setLibraryId(res.data.id);
-      setAddingLibrary(false);
-      setNewLibraryName('');
-      await api.patch(`/books/${detail.id}`, { libraryId: res.data.id });
-    } finally {
-      setSavingLibrary(false);
     }
   }
 
@@ -845,45 +810,22 @@ export function BookDetailPage() {
                     <Text size="xs" c="dimmed" mb={4}>
                       Library
                     </Text>
-                    {addingLibrary ? (
-                      <Group gap="xs">
-                        <TextInput
-                          size="xs"
-                          placeholder="Library name"
-                          value={newLibraryName}
-                          onChange={(e) =>
-                            setNewLibraryName(e.currentTarget.value)
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') void handleCreateLibrary();
-                            if (e.key === 'Escape') setAddingLibrary(false);
-                          }}
-                          style={{ flex: 1 }}
-                          autoFocus
-                        />
-                        <ActionIcon
-                          size="sm"
-                          variant="filled"
-                          loading={savingLibrary}
-                          onClick={() => void handleCreateLibrary()}
-                        >
-                          <IconCheck size={12} />
-                        </ActionIcon>
-                      </Group>
-                    ) : (
-                      <Select
-                        value={libraryId}
-                        onChange={(v) => void handleLibraryChange(v)}
-                        data={[
-                          ...libraries.map((l) => ({
-                            value: l.id,
-                            label: l.name,
-                          })),
-                          { value: '__add__', label: '＋ Add new library' },
-                        ]}
-                        size="xs"
-                      />
-                    )}
+                    <Text
+                      size="sm"
+                      style={{
+                        cursor: detail?.library ? 'pointer' : 'default',
+                        textDecoration: detail?.library ? 'underline' : 'none',
+                        color: detail?.library
+                          ? 'var(--mantine-color-blue-6)'
+                          : undefined,
+                      }}
+                      onClick={() => {
+                        if (detail?.library)
+                          navigate(`/library/${detail.library.id}`);
+                      }}
+                    >
+                      {detail?.library?.name ?? 'None'}
+                    </Text>
                   </Box>
                   <Box>
                     <Text size="xs" c="dimmed" mb={4}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Stack,
@@ -8,10 +8,14 @@ import {
   Avatar,
   UnstyledButton,
   Box,
+  MultiSelect,
+  Group,
 } from '@mantine/core';
 import { IconUser } from '@tabler/icons-react';
+import { useAtomValue } from 'jotai';
 import { api } from '../utils/api';
 import { PageHeader } from '../components/PageHeader';
+import { librariesAtom } from '../store/atoms';
 import type { AuthorListItem } from '../components/AuthorDetailPage.types';
 
 const CARD_W = 140;
@@ -86,6 +90,8 @@ export function AuthorsPage() {
   const location = useLocation();
   const [authors, setAuthors] = useState<AuthorListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const libraries = useAtomValue(librariesAtom);
+  const [selectedLibraryIds, setSelectedLibraryIds] = useState<string[]>([]);
 
   useEffect(() => {
     api
@@ -95,12 +101,32 @@ export function AuthorsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const filteredAuthors = useMemo(() => {
+    if (selectedLibraryIds.length === 0) return authors;
+    return authors.filter((a) =>
+      selectedLibraryIds.some((id) => (a.libraryIds ?? []).includes(id)),
+    );
+  }, [authors, selectedLibraryIds]);
+
   return (
     <>
       <Stack gap="md" p="md">
         <PageHeader title="Authors" />
 
-        {!loading && authors.length === 0 && (
+        {libraries.length > 0 && (
+          <Group>
+            <MultiSelect
+              placeholder="Filter by library"
+              data={libraries.map((l) => ({ value: l.id, label: l.name }))}
+              value={selectedLibraryIds}
+              onChange={setSelectedLibraryIds}
+              clearable
+              style={{ minWidth: 240 }}
+            />
+          </Group>
+        )}
+
+        {!loading && filteredAuthors.length === 0 && (
           <Center h={200}>
             <Text c="dimmed">No authors found in your library.</Text>
           </Center>
@@ -108,7 +134,7 @@ export function AuthorsPage() {
 
         <Box>
           <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6, xl: 7 }}>
-            {authors.map((author) => (
+            {filteredAuthors.map((author) => (
               <AuthorCard
                 key={author.id}
                 author={author}

@@ -145,6 +145,25 @@ Docker builds use a specific dist output structure: `dist/apps/api/src/main`. Do
 
 When fixing pre-commit hooks or lint configs, always verify that required packages are actually installed (check `node_modules`) before referencing binaries. Prefer `npx` over direct `node_modules/.bin` paths.
 
+## Library Icons
+
+Each `Library` has an optional `iconKey` field (e.g. `"IconBooks"`, `"IconHeadphones"`) that stores a Tabler icon name.
+
+### Curated icon set
+
+Icons are **not** resolved dynamically from the full Tabler package (which would blow up bundle size). Instead, a fixed set of ~23 icons is defined in `apps/web/src/components/LibraryIconPicker.tsx`. **When adding a new icon option, add it there first, then add the corresponding Ionicons mapping in `apps/mobile/src/utils/libraryIcons.ts`.**
+
+### Web (`apps/web`)
+
+- `LibraryIconPicker` — visual grid picker used in both create and edit flows.
+- `resolveLibraryIcon(iconKey)` — exported helper that returns the Tabler `Icon` component for an `iconKey`, falling back to `IconLibrary`.
+- The navbar (`NavbarContent.tsx`) calls `resolveLibraryIcon` to render each library's icon.
+
+### Mobile (`apps/mobile`)
+
+- `src/utils/libraryIcons.ts` — maps Tabler icon keys to Ionicons names (different icon set on mobile). `resolveLibraryIcon(iconKey)` returns an `IoniconsName`.
+- The libraries screen (`app/(drawer)/(tabs)/libraries.tsx`) renders the icon + name in each library selector tab.
+
 ## Metadata fields
 
 Metadata Fields

@@ -46,6 +46,7 @@ export class SeriesService {
               select: {
                 id: true,
                 updatedAt: true,
+                libraryId: true,
                 authors: {
                   select: { author: { select: { name: true } } },
                 },
@@ -92,6 +93,14 @@ export class SeriesService {
         }
       }
 
+      const libraryIds = [
+        ...new Set(
+          series.books
+            .map((sb) => sb.book.libraryId)
+            .filter((id): id is string => id != null),
+        ),
+      ];
+
       return {
         id: series.id,
         name: series.name,
@@ -99,6 +108,7 @@ export class SeriesService {
         totalBooks: series.totalBooks,
         coverBooks,
         authors: Array.from(authorSet),
+        libraryIds,
       };
     });
   }

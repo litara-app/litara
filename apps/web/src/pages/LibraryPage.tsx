@@ -12,8 +12,18 @@ import {
   Group,
   ActionIcon,
   Indicator,
+  Tooltip,
+  Checkbox,
+  Alert,
 } from '@mantine/core';
-import { IconFilter, IconCheckbox } from '@tabler/icons-react';
+import {
+  IconFilter,
+  IconCheckbox,
+  IconRefresh,
+  IconFolder,
+} from '@tabler/icons-react';
+import { LibraryIconPicker } from '../components/LibraryIconPicker';
+import { FolderBrowserModal } from '../components/FolderBrowserModal';
 import { useParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
@@ -25,6 +35,7 @@ import { useBookFilter } from '../hooks/useBookFilter';
 import type { BookCardData } from '../components/BookCard';
 import {
   librariesAtom,
+  activeScanTasksAtom,
   userSettingsAtom,
   selectedBookIdsAtom,
   isSelectModeAtom,
@@ -45,10 +56,17 @@ export function LibraryPage() {
   const cancelRef = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editIconKey, setEditIconKey] = useState<string | null>(null);
+  const [editPath, setEditPath] = useState('');
+  const [libraryRoot, setLibraryRoot] = useState('');
+  const [folderBrowserOpen, setFolderBrowserOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteBooksChecked, setDeleteBooksChecked] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const setLibraries = useSetAtom(librariesAtom);
+  const [activeScanTasks, setActiveScanTasks] = useAtom(activeScanTasksAtom);
+  const [scanning, setScanning] = useState(false);
   const userSettings = useAtomValue(userSettingsAtom);
   const minWidth = ITEM_MIN_WIDTHS[userSettings.bookItemSize] ?? 160;
   const [selectedBookIds, setSelectedBookIds] = useAtom(selectedBookIdsAtom);
@@ -155,6 +173,94 @@ export function LibraryPage() {
     };
   }, [id, loadBooks]);
 
+  // Poll active scan task and re-fetch books as processed count advances
+  useEffect(() => {
+    if (!id) return;
+    const taskId = activeScanTasks[id];
+    if (!taskId) return;
+
+    let lastProcessed = 0;
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    function stop() {
+      cancelled = true;
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+
+    function clearTask() {
+      stop();
+      setActiveScanTasks((prev) => {
+        const next = { ...prev };
+        delete next[id!];
+        return next;
+      });
+      setScanning(false);
+    }
+
+    async function checkTask() {
+      if (cancelled) return;
+      try {
+        const r = await api.get<{
+          status: string;
+          payload: { processed?: number; total?: number } | null;
+        }>(`/admin/tasks/${taskId}`);
+        if (cancelled) return;
+
+        const processed = r.data.payload?.processed ?? 0;
+        if (processed > lastProcessed) {
+          lastProcessed = processed;
+          void loadBooks();
+        }
+        if (r.data.status === 'COMPLETED') {
+          clearTask();
+          void loadBooks();
+          pushToast('Library scan complete', { color: 'green' });
+        } else if (r.data.status === 'FAILED') {
+          clearTask();
+          void loadBooks();
+          pushToast('Library scan failed', { color: 'red' });
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const status = (err as { response?: { status?: number } })?.response
+          ?.status;
+        if (status === 404) {
+          clearTask();
+        }
+      }
+    }
+
+    // Start the interval synchronously so cleanup can always clear it, then
+    // check immediately. A stale/terminal task is cleared on this first check
+    // (via clearTask → stop) before the interval ever fires.
+    intervalId = setInterval(() => void checkTask(), 2000);
+    void checkTask();
+
+    return () => stop();
+  }, [id, activeScanTasks, loadBooks, setActiveScanTasks]);
+
+  async function handleRescan() {
+    if (!library) return;
+    setScanning(true);
+    try {
+      const res = await api.post<{ taskId: string }>(
+        `/libraries/${library.id}/scan`,
+      );
+      setActiveScanTasks((prev) => ({
+        ...prev,
+        [library.id]: res.data.taskId,
+      }));
+      pushToast('Scan started', { color: 'blue' });
+    } catch {
+      setScanning(false);
+      pushToast('Failed to start scan', { color: 'red' });
+    }
+  }
+
   useEffect(() => {
     if (!loadingBooks) restoreScroll();
   }, [loadingBooks, restoreScroll]);
@@ -166,14 +272,25 @@ export function LibraryPage() {
 
   function openSettings() {
     setEditName(library?.name ?? '');
+    setEditIconKey(library?.iconKey ?? null);
+    setEditPath(library?.path ?? '');
     setConfirmDelete(false);
     setSettingsOpen(true);
+    if (!libraryRoot) {
+      void api
+        .get<{ libraryRoot: string }>('/setup/disk-status')
+        .then((r) => setLibraryRoot(r.data.libraryRoot))
+        .catch(() => {});
+    }
   }
 
   async function handleSave() {
     if (!library || !editName.trim()) return;
     const trimmed = editName.trim();
-    if (trimmed === library.name) {
+    const nameUnchanged = trimmed === library.name;
+    const iconUnchanged = (editIconKey ?? null) === (library.iconKey ?? null);
+    const pathUnchanged = editPath.trim() === library.path;
+    if (nameUnchanged && iconUnchanged && pathUnchanged) {
       setSettingsOpen(false);
       return;
     }
@@ -181,27 +298,36 @@ export function LibraryPage() {
     try {
       const res = await api.patch<Library>(`/libraries/${library.id}`, {
         name: trimmed,
+        iconKey: editIconKey ?? null,
+        ...(pathUnchanged ? {} : { path: editPath.trim() }),
       });
       setLibrary(res.data);
       setLibraries((prev) =>
         prev.map((l) => (l.id === res.data.id ? res.data : l)),
       );
-      pushToast('Library renamed', { color: 'green' });
+      pushToast('Library updated', { color: 'green' });
       setSettingsOpen(false);
     } finally {
       setSaving(false);
     }
   }
 
+  function openDeleteConfirm() {
+    setDeleteBooksChecked(false);
+    setConfirmDelete(true);
+  }
+
+  function cancelDelete() {
+    setConfirmDelete(false);
+    setDeleteBooksChecked(false);
+  }
+
   async function handleDelete() {
     if (!library) return;
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     setDeleting(true);
     try {
-      await api.delete(`/libraries/${library.id}`);
+      const params = deleteBooksChecked ? '?deleteBooks=true' : '';
+      await api.delete(`/libraries/${library.id}${params}`);
       setLibraries((prev) => prev.filter((l) => l.id !== library.id));
       pushToast('Library deleted', { color: 'green' });
       navigate('/');
@@ -227,6 +353,17 @@ export function LibraryPage() {
                     : 'Select All'}
                 </Button>
               )}
+              <Tooltip label="Rescan library">
+                <ActionIcon
+                  variant="subtle"
+                  size="md"
+                  onClick={() => void handleRescan()}
+                  loading={scanning}
+                  aria-label="Rescan library"
+                >
+                  <IconRefresh size={18} />
+                </ActionIcon>
+              </Tooltip>
               <ActionIcon
                 variant={selectModeActive ? 'filled' : 'subtle'}
                 size="md"
@@ -323,20 +460,70 @@ export function LibraryPage() {
               if (e.key === 'Enter') void handleSave();
             }}
           />
+          <LibraryIconPicker
+            label="Icon"
+            value={editIconKey}
+            onChange={setEditIconKey}
+          />
+          <TextInput
+            label="Folder Path"
+            value={editPath}
+            onChange={(e) => setEditPath(e.currentTarget.value)}
+            description="Must be inside EBOOK_LIBRARY_PATH on the server."
+            rightSectionWidth={100}
+            rightSection={
+              <Button
+                size="xs"
+                variant="light"
+                leftSection={<IconFolder size={14} />}
+                onClick={() => setFolderBrowserOpen(true)}
+                style={{ marginRight: 4 }}
+              >
+                Browse
+              </Button>
+            }
+          />
           <Button onClick={() => void handleSave()} loading={saving} fullWidth>
             Save
           </Button>
           <Divider />
+          <FolderBrowserModal
+            opened={folderBrowserOpen}
+            onClose={() => setFolderBrowserOpen(false)}
+            onSelect={(relPath) => {
+              const root = libraryRoot.replace(/\/+$/, '');
+              setEditPath(relPath ? `${root}/${relPath}` : libraryRoot);
+            }}
+            libraryRoot={libraryRoot}
+          />
           {confirmDelete ? (
             <Stack gap="xs">
-              <Text size="sm" c="dimmed">
-                Are you sure? This cannot be undone.
-              </Text>
+              <Checkbox
+                label="Also permanently delete all books in this library"
+                checked={deleteBooksChecked}
+                onChange={(e) => setDeleteBooksChecked(e.currentTarget.checked)}
+              />
+              {deleteBooksChecked && (
+                <Alert color="red" variant="light">
+                  <Text size="sm">
+                    This will permanently delete{' '}
+                    <strong>
+                      {library?.bookCount ?? 0} book
+                      {(library?.bookCount ?? 0) !== 1 ? 's' : ''}
+                    </strong>{' '}
+                    along with all reading progress and annotations. This cannot
+                    be undone.
+                  </Text>
+                </Alert>
+              )}
+              {!deleteBooksChecked && (
+                <Text size="sm" c="dimmed">
+                  Books will remain as orphaned books and can be reassigned to
+                  another library.
+                </Text>
+              )}
               <Group grow>
-                <Button
-                  variant="default"
-                  onClick={() => setConfirmDelete(false)}
-                >
+                <Button variant="default" onClick={cancelDelete}>
                   Cancel
                 </Button>
                 <Button
@@ -352,7 +539,7 @@ export function LibraryPage() {
             <Button
               color="red"
               variant="light"
-              onClick={() => void handleDelete()}
+              onClick={openDeleteConfirm}
               fullWidth
             >
               Delete Library

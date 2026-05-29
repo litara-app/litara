@@ -83,6 +83,9 @@ export class PendingBookDto {
   @ApiPropertyOptional()
   coverUrl: string | null;
 
+  @ApiPropertyOptional({ nullable: true })
+  targetLibraryId: string | null;
+
   @ApiPropertyOptional()
   targetPath: string | null;
 
@@ -165,4 +168,9 @@ export class UpdatePendingBookDto implements BookMetadataFields {
 
   @ApiPropertyOptional()
   coverUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Library to route the file into on approval',
+  })
+  targetLibraryId?: string | null;
 }

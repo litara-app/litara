@@ -1,3 +1,5 @@
+import * as path from 'path';
+
 /**
  * Registered NestJS configuration factory.
  * Values defined here are accessible via ConfigService.get('<key>').
@@ -9,7 +11,7 @@ export default () => ({
    * Defaults to /books (the standard Docker volume mount path).
    * Override with the EBOOK_LIBRARY_PATH environment variable.
    */
-  ebookLibraryPath: process.env.EBOOK_LIBRARY_PATH ?? '/books',
+  ebookLibraryPath: path.resolve(process.env.EBOOK_LIBRARY_PATH ?? '/books'),
 
   /**
    * Path to the book drop folder. Files placed here are automatically

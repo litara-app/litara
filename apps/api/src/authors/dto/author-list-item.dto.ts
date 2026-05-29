@@ -12,4 +12,7 @@ export class AuthorListItemDto {
 
   @ApiProperty()
   bookCount: number;
+
+  @ApiProperty({ type: [String] })
+  libraryIds: string[];
 }

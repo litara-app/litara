@@ -6,6 +6,7 @@ import {
   Logger,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
@@ -123,14 +124,15 @@ export class LibraryWriteService {
       );
     }
 
-    await this.guardWrites();
+    const library = await this.resolveTargetLibrary(pending.targetLibraryId);
 
-    const libraryRoot = this.config.get<string>('ebookLibraryPath')!;
+    await this.guardWrites(library.path);
+
     const ext = path.extname(pending.stagedFilePath).toLowerCase();
     const authors = JSON.parse(pending.authors) as string[];
 
     const targetPath = this.computeTargetPath({
-      libraryRoot,
+      libraryRoot: library.path,
       authors,
       seriesName: pending.seriesName,
       title: pending.title,
@@ -156,7 +158,13 @@ export class LibraryWriteService {
     }
 
     this.writeFile(pending.stagedFilePath, targetPath);
-    await this.createLibraryRecord(pending, targetPath, authors, ext);
+    await this.createLibraryRecord(
+      pending,
+      targetPath,
+      authors,
+      ext,
+      library.id,
+    );
 
     await this.prisma.pendingBook.update({
       where: { id },
@@ -180,16 +188,17 @@ export class LibraryWriteService {
       );
     }
 
-    await this.guardWrites();
+    const library = await this.resolveTargetLibrary(pending.targetLibraryId);
 
-    const libraryRoot = this.config.get<string>('ebookLibraryPath')!;
+    await this.guardWrites(library.path);
+
     const ext = path.extname(pending.stagedFilePath).toLowerCase();
     const authors = JSON.parse(pending.authors) as string[];
 
     const targetPath =
       pending.targetPath ??
       this.computeTargetPath({
-        libraryRoot,
+        libraryRoot: library.path,
         authors,
         seriesName: pending.seriesName,
         title: pending.title,
@@ -198,7 +207,13 @@ export class LibraryWriteService {
       });
 
     this.writeFile(pending.stagedFilePath, targetPath);
-    await this.createLibraryRecord(pending, targetPath, authors, ext);
+    await this.createLibraryRecord(
+      pending,
+      targetPath,
+      authors,
+      ext,
+      library.id,
+    );
 
     await this.prisma.pendingBook.update({
       where: { id },
@@ -217,10 +232,29 @@ export class LibraryWriteService {
   // Guards
   // ---------------------------------------------------------------------------
 
-  private async guardWrites(): Promise<void> {
-    const libraryRoot = this.config.get<string>('ebookLibraryPath')!;
+  private async resolveTargetLibrary(
+    targetLibraryId: string | null | undefined,
+  ) {
+    if (!targetLibraryId) {
+      throw new BadRequestException(
+        'A target library must be selected before approving a pending book.',
+      );
+    }
+    const library = await this.prisma.library.findUnique({
+      where: { id: targetLibraryId },
+    });
+    if (!library) {
+      throw new NotFoundException(
+        `Target library ${targetLibraryId} not found`,
+      );
+    }
+    return library;
+  }
 
-    const writable = this.diskWriteGuard.probeLibraryWritable(libraryRoot);
+  async guardWrites(libraryPath?: string): Promise<void> {
+    const root = libraryPath ?? this.config.get<string>('ebookLibraryPath')!;
+
+    const writable = this.diskWriteGuard.probeLibraryWritable(root);
     if (!writable) {
       throw new ForbiddenException(
         'Library volume is mounted read-only. Cannot write files.',
@@ -278,12 +312,15 @@ export class LibraryWriteService {
     targetPath: string,
     authors: string[],
     ext: string,
+    libraryId?: string,
   ): Promise<void> {
     const stat = fs.statSync(targetPath);
     const format = ext.replace('.', '').toUpperCase();
 
     const book = await this.prisma.book.create({
       data: {
+        libraryId: libraryId ?? null,
+        isOrphan: !libraryId,
         title:
           pending.title ??
           path.basename(

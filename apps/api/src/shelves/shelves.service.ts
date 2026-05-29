@@ -75,6 +75,7 @@ export class ShelvesService {
       createdAt: book.createdAt,
       formats: [...new Set(book.files.map((f) => f.format))].sort(),
       hasFileMissing: book.files.some((f) => f.missingAt !== null),
+      isOrphan: book.isOrphan,
       readingProgress: book.readingProgress[0]?.percentage ?? null,
     }));
   }

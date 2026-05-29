@@ -29,11 +29,18 @@ export class AnnotationsService {
     });
   }
 
-  async findAllByUser(userId: string, type?: AnnotationType) {
+  async findAllByUser(
+    userId: string,
+    type?: AnnotationType,
+    libraryIds?: string[],
+  ) {
     return this.prisma.annotation.findMany({
       where: {
         userId,
         ...(type ? { type } : {}),
+        ...(libraryIds && libraryIds.length > 0
+          ? { book: { libraryId: { in: libraryIds } } }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: {

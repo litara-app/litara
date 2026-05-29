@@ -21,6 +21,7 @@ import {
   IconStarFilled,
   IconSend,
   IconHeadphones,
+  IconFolderOff,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
@@ -35,6 +36,7 @@ export interface BookCardData {
   formats: string[];
   hasAudiobook?: boolean;
   hasFileMissing: boolean;
+  isOrphan: boolean;
   readingProgress?: number | null;
   audiobookProgressFraction?: number | null;
   seriesName?: string | null;
@@ -68,6 +70,7 @@ export function BookCard({
   formats,
   hasAudiobook,
   hasFileMissing,
+  isOrphan,
   readingProgress,
   audiobookProgressFraction,
   rating,
@@ -226,25 +229,54 @@ export function BookCard({
           )}
         </Box>
 
-        {/* Missing file badge — top right */}
-        {hasFileMissing && (
-          <Box style={{ position: 'absolute', top: 6, right: 0 }}>
-            <Tooltip label="File missing from disk">
-              <Badge
-                size="xs"
-                color="red"
-                radius="sm"
-                leftSection={<IconFileX size={10} />}
-                style={{
-                  borderTopRightRadius: 0,
-                  borderBottomRightRadius: 0,
-                  paddingRight: 4,
-                  paddingLeft: 6,
-                }}
-              >
-                Missing
-              </Badge>
-            </Tooltip>
+        {/* Status badges — top right, stacked */}
+        {(hasFileMissing || isOrphan) && (
+          <Box
+            style={{
+              position: 'absolute',
+              top: 6,
+              right: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
+            }}
+          >
+            {hasFileMissing && (
+              <Tooltip label="File missing from disk">
+                <Badge
+                  size="xs"
+                  color="red"
+                  radius="sm"
+                  leftSection={<IconFileX size={10} />}
+                  style={{
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                    paddingRight: 4,
+                    paddingLeft: 6,
+                  }}
+                >
+                  Missing
+                </Badge>
+              </Tooltip>
+            )}
+            {isOrphan && (
+              <Tooltip label="Not assigned to any library">
+                <Badge
+                  size="xs"
+                  color="orange"
+                  radius="sm"
+                  leftSection={<IconFolderOff size={10} />}
+                  style={{
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                    paddingRight: 4,
+                    paddingLeft: 6,
+                  }}
+                >
+                  Unassigned
+                </Badge>
+              </Tooltip>
+            )}
           </Box>
         )}
 

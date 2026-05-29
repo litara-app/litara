@@ -47,7 +47,7 @@ describe('Shelves (e2e)', () => {
   it('GET /shelves/:id/books returns the book after PUT /books/:id/shelves assigns it', async () => {
     // Seed a library and book so we have something to assign
     const library = await testApp.db.library.create({
-      data: { name: 'Default Library' },
+      data: { name: 'Default Library', path: '/test/default-library' },
     });
     const book = await testApp.db.book.create({
       data: {

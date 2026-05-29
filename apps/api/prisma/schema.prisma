@@ -20,8 +20,6 @@ model User {
   reviews           UserReview[]
   annotations       Annotation[]
   shelves           Shelf[]
-  libraries         Library[]
-  bookLibraries     UserBookLibrary[]
   recipientEmails   RecipientEmail[]
   smtpConfig        UserSmtpConfig?
   koReaderCredential KoReaderCredential?
@@ -56,14 +54,16 @@ model UserSettings {
 model Library {
   id          String   @id @default(uuid())
   name        String
-  description String?
-  userId      String?  // null = system library (scanner); non-null = user-owned
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  path        String   @unique // absolute path, must be under EBOOK_LIBRARY_PATH
+  iconKey     String?           // Tabler icon name, e.g. "IconBooks"
+  metadataFieldOverrides   Json?    // sparse {field: providerId} map; null = use global
+  metadataProvidersDisabled String[] @default([]) // provider IDs disabled for this library
+  lastScanAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  books     Book[]
-  userBooks UserBookLibrary[]
+  books        Book[]
+  pendingBooks PendingBook[]
 }
 
 model Book {
@@ -94,6 +94,7 @@ model Book {
   goodreadsId     String?
   goodreadsRating Float?
 
+  isOrphan      Boolean   @default(false) // true when file path is not under any library
   hasAudiobook  Boolean   @default(false)
   lockedFields  String    @default("[]") // JSON: string[] of field names
   sidecarFile   String?   // absolute path to matched .metadata.json
@@ -107,7 +108,6 @@ model Book {
   reviews         UserReview[]
   annotations     Annotation[]
   shelves         BookShelf[]
-  userLibraries   UserBookLibrary[]
   readingQueue    ReadingQueueItem[]
 }
 
@@ -211,13 +211,6 @@ model BookFile {
   createdAt DateTime @default(now())
 }
 
-model WatchedFolder {
-  id        String   @id @default(uuid())
-  path      String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-}
-
 enum ProgressSource {
   LITARA   // Built-in Litara reader (web now, mobile in future)
   KOREADER // KOReader device sync
@@ -263,19 +256,6 @@ model UserReview {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, bookId])
-}
-
-model UserBookLibrary {
-  id         String   @id @default(uuid())
-  userId     String
-  bookId     String
-  libraryId  String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  library    Library  @relation(fields: [libraryId], references: [id], onDelete: Cascade)
-  assignedAt DateTime @default(now())
-
-  @@unique([userId, bookId]) // one library assignment per book per user
 }
 
 model Annotation {
@@ -573,6 +553,8 @@ model PendingBook {
   coverUrl         String?
 
   // Write resolution
+  targetLibraryId  String?   // chosen library to route the file into on approval
+  targetLibrary    Library?  @relation(fields: [targetLibraryId], references: [id], onDelete: SetNull)
   targetPath       String?
   collidingPath    String?
   overwriteApproved Boolean  @default(false)

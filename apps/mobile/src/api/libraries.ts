@@ -4,7 +4,11 @@ import type { BookSummary } from './books';
 export interface Library {
   id: string;
   name: string;
-  description: string | null;
+  path: string;
+  iconKey: string | null;
+  lastScanAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function getLibraries(): Promise<Library[]> {

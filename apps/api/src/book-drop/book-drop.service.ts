@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   ConflictException,
+  BadRequestException,
   NotFoundException,
   OnModuleInit,
   OnModuleDestroy,
@@ -196,6 +197,9 @@ export class BookDropService implements OnModuleInit, OnModuleDestroy {
           goodreadsRating: dto.goodreadsRating,
         }),
         ...(dto.coverUrl !== undefined && { coverUrl: dto.coverUrl }),
+        ...(dto.targetLibraryId !== undefined && {
+          targetLibraryId: dto.targetLibraryId ?? null,
+        }),
       },
     });
   }
@@ -295,6 +299,13 @@ export class BookDropService implements OnModuleInit, OnModuleDestroy {
     const pending = await this.prisma.pendingBook.findMany({
       where: { status: PendingBookStatus.PENDING },
     });
+
+    const missing = pending.filter((b) => !b.targetLibraryId);
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `${missing.length} pending book(s) have no target library selected. Set a target library before approving.`,
+      );
+    }
 
     let approved = 0;
     let collisions = 0;

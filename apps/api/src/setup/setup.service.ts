@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
@@ -13,27 +14,28 @@ export class SetupService {
     private readonly diskWriteGuard: DiskWriteGuardService,
   ) {}
 
-  async getDiskStatus(): Promise<{
+  getDiskStatus(): {
     isReadOnlyMount: boolean;
     bookDropConfigured: boolean;
     bookDropReachable: boolean;
-  }> {
-    let libraryPath: string | null = null;
-    const watchedFolder = await this.prisma.watchedFolder.findFirst();
-    if (watchedFolder) {
-      libraryPath = watchedFolder.path;
-    } else {
-      libraryPath = process.env.EBOOK_LIBRARY_PATH ?? null;
-    }
-    const isReadOnlyMount = libraryPath
-      ? !this.diskWriteGuard.probeLibraryWritable(libraryPath)
-      : false;
+    libraryRoot: string;
+  } {
+    const libraryPath = path.resolve(
+      process.env.EBOOK_LIBRARY_PATH ?? '/books',
+    );
+    const isReadOnlyMount =
+      !this.diskWriteGuard.probeLibraryWritable(libraryPath);
 
     const dropPath = process.env.BOOK_DROP_PATH ?? '';
     const bookDropConfigured = Boolean(dropPath);
     const bookDropReachable = bookDropConfigured && fs.existsSync(dropPath);
 
-    return { isReadOnlyMount, bookDropConfigured, bookDropReachable };
+    return {
+      isReadOnlyMount,
+      bookDropConfigured,
+      bookDropReachable,
+      libraryRoot: libraryPath,
+    };
   }
 
   async isSetupRequired(): Promise<boolean> {
@@ -67,5 +69,25 @@ export class SetupService {
         role: user.role,
       },
     };
+  }
+
+  async createFirstLibrary(dto: {
+    name: string;
+    path: string;
+    iconKey?: string;
+  }) {
+    const existing = await this.prisma.library.findFirst({
+      where: { path: dto.path },
+    });
+    if (existing) return existing;
+
+    return this.prisma.library.create({
+      data: {
+        name: dto.name,
+        path: dto.path,
+        iconKey: dto.iconKey ?? null,
+        metadataProvidersDisabled: [],
+      },
+    });
   }
 }

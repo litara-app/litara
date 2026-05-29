@@ -164,6 +164,7 @@ export function ReadingQueueSection({
               rating={null}
               genres={[]}
               tags={[]}
+              isOrphan={false}
             />
           ) : null}
         </DragOverlay>

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { LibraryScannerService } from './library-scanner.service';
 import { LibraryWriteService } from './library-write.service';
 import { LibraryController } from './library.controller';
@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MetadataModule } from '../metadata/metadata.module';
 import { DiskWriteGuardModule } from '../common/disk-write-guard.module';
 import { AudiobookModule } from '../audiobook/audiobook.module';
+import { LibrariesModule } from '../libraries/libraries.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AudiobookModule } from '../audiobook/audiobook.module';
     MetadataModule,
     DiskWriteGuardModule,
     AudiobookModule,
+    forwardRef(() => LibrariesModule),
   ],
   controllers: [LibraryController],
   providers: [LibraryScannerService, LibraryWriteService],

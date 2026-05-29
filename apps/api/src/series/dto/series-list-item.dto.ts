@@ -18,4 +18,7 @@ export class SeriesListItemDto {
 
   @ApiProperty({ type: [String] })
   authors: string[];
+
+  @ApiProperty({ type: [String] })
+  libraryIds: string[];
 }

@@ -20,6 +20,7 @@ import { extractFileMetadata } from '../common/extract-file-metadata';
 import { findSidecar } from '../common/find-sidecar';
 import { AudiobookScannerService } from '../audiobook/audiobook-scanner.service';
 import type { FSWatcher } from 'chokidar';
+import type { Library } from '@prisma/client';
 
 const SUPPORTED_FORMATS = [
   'epub',
@@ -37,7 +38,8 @@ const GLOB_PATTERN = `**/*.{${SUPPORTED_FORMATS.join(',')}}`;
 @Injectable()
 export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LibraryScannerService.name);
-  private watcher: FSWatcher | null = null;
+  /** Map of libraryId → chokidar watcher */
+  private readonly watchers = new Map<string, FSWatcher>();
 
   constructor(
     private readonly prisma: DatabaseService,
@@ -47,183 +49,39 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    await this.ensureWatchedFolder();
-    void this.triggerFullScanTask();
-    void this.startWatching();
+    const libraries = await this.prisma.library.findMany();
+    for (const lib of libraries) {
+      this.registerWatcher(lib);
+    }
+    if (libraries.length > 0) {
+      void this.triggerFullScanTask();
+    }
+    void this.evaluateOrphans();
   }
 
   onModuleDestroy() {
-    if (this.watcher) {
-      void this.watcher.close();
+    for (const watcher of this.watchers.values()) {
+      void watcher.close();
     }
+    this.watchers.clear();
   }
 
   // ---------------------------------------------------------------------------
-  // Seeding: ensure a WatchedFolder exists
+  // Watcher registration (called from LibrariesService on create/delete)
   // ---------------------------------------------------------------------------
 
-  private async ensureWatchedFolder() {
-    const ebookLibraryPath = this.config.get<string>('ebookLibraryPath')!;
-
-    if (fs.existsSync(ebookLibraryPath)) {
-      const existing = await this.prisma.watchedFolder.findUnique({
-        where: { path: ebookLibraryPath },
-      });
-      if (!existing) {
-        await this.prisma.watchedFolder.create({
-          data: { path: ebookLibraryPath, isActive: true },
-        });
-        this.logger.log(`Registered watched folder: ${ebookLibraryPath}`);
-      }
-    } else {
-      this.logger.warn(
-        `Ebook library folder not found at "${ebookLibraryPath}". Set EBOOK_LIBRARY_PATH to override. Skipping default seed.`,
-      );
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Task-based full scan (non-blocking, reports progress)
-  // ---------------------------------------------------------------------------
-
-  async triggerFullScanTask(
-    rescanMetadata = false,
-  ): Promise<{ taskId: string }> {
-    const task = await this.prisma.task.create({
-      data: {
-        type: 'LIBRARY_SCAN',
-        status: 'PENDING',
-        payload: JSON.stringify({ processed: 0, total: 0, currentFile: '' }),
-      },
-    });
-    void this.runFullScanTask(task.id, rescanMetadata);
-    return { taskId: task.id };
-  }
-
-  private async runFullScanTask(
-    taskId: string,
-    rescanMetadata: boolean,
-  ): Promise<void> {
-    try {
-      await this.fullScan(rescanMetadata, taskId);
-      await this.prisma.task.updateMany({
-        where: { id: taskId },
-        data: { status: 'COMPLETED' },
-      });
-      void this.backfillKoReaderHashes();
-    } catch (err) {
-      await this.prisma.task.updateMany({
-        where: { id: taskId },
-        data: {
-          status: 'FAILED',
-          errorMessage: (err as Error).message,
-        },
-      });
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Full scan using fast-glob
-  // ---------------------------------------------------------------------------
-
-  async fullScan(rescanMetadata = false, taskId?: string) {
-    const watchedFolders = await this.prisma.watchedFolder.findMany({
-      where: { isActive: true },
-    });
-
-    if (watchedFolders.length === 0) {
-      this.logger.log('No active watched folders configured. Skipping scan.');
-      return;
-    }
-
-    this.logger.log(
-      `Starting full scan of ${watchedFolders.length} folder(s)...${rescanMetadata ? ' (rescan metadata)' : ''}`,
-    );
-
-    // Collect all ebook files first so we can report an accurate total
-    const allFiles: string[] = [];
-    for (const folder of watchedFolders) {
-      const pattern = path.join(folder.path, GLOB_PATTERN).replace(/\\/g, '/');
-      const files = await glob.glob(pattern, { absolute: true, dot: false });
-      this.logger.log(`Found ${files.length} file(s) in ${folder.path}`);
-      allFiles.push(...files);
-    }
-
-    if (taskId) {
-      await this.prisma.task.updateMany({
-        where: { id: taskId },
-        data: {
-          status: 'PROCESSING',
-          payload: JSON.stringify({
-            processed: 0,
-            total: allFiles.length,
-            currentFile: '',
-          }),
-        },
-      });
-    }
-
-    let processed = 0;
-    for (const filePath of allFiles) {
-      await this.handleFileAdded(filePath, rescanMetadata);
-      processed++;
-      if (taskId && (processed % 5 === 0 || processed === allFiles.length)) {
-        await this.prisma.task.updateMany({
-          where: { id: taskId },
-          data: {
-            payload: JSON.stringify({
-              processed,
-              total: allFiles.length,
-              currentFile: path.basename(filePath),
-            }),
-          },
-        });
-      }
-    }
-
-    if (taskId) {
-      await this.prisma.task.updateMany({
-        where: { id: taskId },
-        data: {
-          payload: JSON.stringify({
-            processed: allFiles.length,
-            total: allFiles.length,
-            currentFile: 'Scanning audiobooks…',
-          }),
-        },
-      });
-    }
-
-    for (const folder of watchedFolders) {
-      await this.scanAudiobookFolders(folder.path);
-    }
-
-    this.logger.log('Full scan complete.');
-  }
-
-  // ---------------------------------------------------------------------------
-  // Continuous watching using chokidar
-  // ---------------------------------------------------------------------------
-
-  private async startWatching() {
-    const watchedFolders = await this.prisma.watchedFolder.findMany({
-      where: { isActive: true },
-    });
-
-    if (watchedFolders.length === 0) return;
+  registerWatcher(library: Library) {
+    if (this.watchers.has(library.id)) return;
 
     const bookDropPath = this.config.get<string>('bookDropPath');
-    const paths = watchedFolders.map((f) => f.path);
-    this.logger.log(`Watching ${paths.length} folder(s) for changes...`);
-
-    this.watcher = chokidar.watch(paths, {
+    const watcher = chokidar.watch(library.path, {
       ignored: bookDropPath ? [bookDropPath] : [],
       persistent: true,
       ignoreInitial: true,
       awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 500 },
     });
 
-    this.watcher
+    watcher
       .on('add', (filePath: string) => {
         if (filePath.endsWith('.metadata.json')) {
           this.logger.log(`Sidecar detected: ${filePath}`);
@@ -232,7 +90,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
           );
         } else if (this.isSupportedFile(filePath)) {
           this.logger.log(`New file detected: ${filePath}`);
-          this.handleFileAdded(filePath).catch((err) =>
+          this.handleFileAdded(filePath, false, library.id).catch((err) =>
             this.logger.error(`Error adding file ${filePath}`, err),
           );
         } else if (this.audiobookScanner.isAudioFile(filePath)) {
@@ -266,18 +124,285 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
             );
         }
       });
+
+    this.watchers.set(library.id, watcher);
+    this.logger.log(`Watching library "${library.name}": ${library.path}`);
   }
 
-  private isSupportedFile(filePath: string): boolean {
-    const ext = path.extname(filePath).toLowerCase().replace('.', '');
-    return SUPPORTED_FORMATS.includes(ext);
+  closeWatcher(libraryId: string) {
+    const watcher = this.watchers.get(libraryId);
+    if (watcher) {
+      void watcher.close();
+      this.watchers.delete(libraryId);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Task-based full scan (iterates all libraries)
+  // ---------------------------------------------------------------------------
+
+  async triggerFullScanTask(
+    rescanMetadata = false,
+    libraryId?: string,
+  ): Promise<{ taskId: string }> {
+    const task = await this.prisma.task.create({
+      data: {
+        type: 'LIBRARY_SCAN',
+        status: 'PENDING',
+        payload: JSON.stringify({ processed: 0, total: 0, currentFile: '' }),
+      },
+    });
+    void this.runFullScanTask(task.id, rescanMetadata, libraryId);
+    return { taskId: task.id };
+  }
+
+  private async runFullScanTask(
+    taskId: string,
+    rescanMetadata: boolean,
+    libraryId?: string,
+  ): Promise<void> {
+    try {
+      await this.fullScan(rescanMetadata, taskId, libraryId);
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: { status: 'COMPLETED' },
+      });
+      void this.backfillKoReaderHashes();
+    } catch (err) {
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: {
+          status: 'FAILED',
+          errorMessage: (err as Error).message,
+        },
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-library scan (creates its own Task)
+  // ---------------------------------------------------------------------------
+
+  async triggerLibraryScan(
+    libraryId: string,
+    opts: { rescanMetadata?: boolean } = {},
+  ): Promise<{ taskId: string }> {
+    const task = await this.prisma.task.create({
+      data: {
+        type: 'LIBRARY_SCAN',
+        status: 'PENDING',
+        payload: JSON.stringify({
+          libraryId,
+          processed: 0,
+          total: 0,
+          currentFile: '',
+        }),
+      },
+    });
+    void this.runLibraryScanTask(
+      task.id,
+      libraryId,
+      opts.rescanMetadata ?? false,
+    );
+    return { taskId: task.id };
+  }
+
+  private async runLibraryScanTask(
+    taskId: string,
+    libraryId: string,
+    rescanMetadata: boolean,
+  ): Promise<void> {
+    try {
+      const library = await this.prisma.library.findUnique({
+        where: { id: libraryId },
+      });
+      if (!library) {
+        await this.prisma.task.updateMany({
+          where: { id: taskId },
+          data: { status: 'FAILED', errorMessage: 'Library not found' },
+        });
+        return;
+      }
+
+      await this.fullScan(rescanMetadata, taskId, library.id);
+
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: { status: 'COMPLETED' },
+      });
+
+      await this.prisma.library.update({
+        where: { id: libraryId },
+        data: { lastScanAt: new Date() },
+      });
+
+      void this.backfillKoReaderHashes();
+    } catch (err) {
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: {
+          status: 'FAILED',
+          errorMessage: (err as Error).message,
+        },
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Full scan using fast-glob (iterates libraries or one library)
+  // ---------------------------------------------------------------------------
+
+  async fullScan(rescanMetadata = false, taskId?: string, libraryId?: string) {
+    const where = libraryId ? { id: libraryId } : {};
+    const libraries = await this.prisma.library.findMany({ where });
+
+    if (libraries.length === 0) {
+      this.logger.log('No libraries configured. Skipping scan.');
+      return;
+    }
+
+    this.logger.log(
+      `Starting full scan of ${libraries.length} library(s)...${rescanMetadata ? ' (rescan metadata)' : ''}`,
+    );
+
+    // Collect all files first so we can report an accurate total
+    const allFiles: { filePath: string; library: Library }[] = [];
+    for (const library of libraries) {
+      const pattern = path.join(library.path, GLOB_PATTERN).replace(/\\/g, '/');
+      const files = await glob.glob(pattern, { absolute: true, dot: false });
+      this.logger.log(
+        `Found ${files.length} file(s) in library "${library.name}"`,
+      );
+      for (const f of files) allFiles.push({ filePath: f, library });
+    }
+
+    if (taskId) {
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: {
+          status: 'PROCESSING',
+          payload: JSON.stringify({
+            processed: 0,
+            total: allFiles.length,
+            currentFile: '',
+          }),
+        },
+      });
+    }
+
+    let processed = 0;
+    for (const { filePath, library } of allFiles) {
+      await this.handleFileAdded(filePath, rescanMetadata, library.id);
+      processed++;
+      if (taskId && (processed % 5 === 0 || processed === allFiles.length)) {
+        await this.prisma.task.updateMany({
+          where: { id: taskId },
+          data: {
+            payload: JSON.stringify({
+              processed,
+              total: allFiles.length,
+              currentFile: path.basename(filePath),
+            }),
+          },
+        });
+      }
+    }
+
+    if (taskId) {
+      await this.prisma.task.updateMany({
+        where: { id: taskId },
+        data: {
+          payload: JSON.stringify({
+            processed: allFiles.length,
+            total: allFiles.length,
+            currentFile: 'Scanning audiobooks…',
+          }),
+        },
+      });
+    }
+
+    for (const library of libraries) {
+      await this.scanAudiobookFolders(library.path);
+    }
+
+    await this.prisma.library.updateMany({
+      where: { id: { in: libraries.map((l) => l.id) } },
+      data: { lastScanAt: new Date() },
+    });
+
+    this.logger.log('Full scan complete.');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Orphan evaluation pass
+  // ---------------------------------------------------------------------------
+
+  async evaluateOrphans(): Promise<void> {
+    const libraries = await this.prisma.library.findMany({
+      select: { id: true, path: true },
+    });
+    const books = await this.prisma.book.findMany({
+      include: { files: { select: { filePath: true }, take: 1 } },
+    });
+
+    const groups = new Map<
+      string,
+      { ids: string[]; isOrphan: boolean; libraryId: string | null }
+    >();
+
+    for (const book of books) {
+      const filePath = book.files[0]?.filePath;
+      if (!filePath) continue;
+
+      const matchedLibrary = this.findLibraryForPath(filePath, libraries);
+      const isOrphan = !matchedLibrary;
+      const libraryId = matchedLibrary?.id ?? null;
+
+      if (book.isOrphan !== isOrphan || book.libraryId !== libraryId) {
+        const key = `${isOrphan}:${libraryId}`;
+        if (!groups.has(key)) groups.set(key, { ids: [], isOrphan, libraryId });
+        groups.get(key)!.ids.push(book.id);
+      }
+    }
+
+    for (const { ids, isOrphan, libraryId } of groups.values()) {
+      await this.prisma.book.updateMany({
+        where: { id: { in: ids } },
+        data: { isOrphan, libraryId },
+      });
+    }
+
+    this.logger.log('Orphan evaluation complete.');
+  }
+
+  /** Returns the library whose path is the longest prefix of filePath. */
+  findLibraryForPath(
+    filePath: string,
+    libraries: Array<{ id: string; path: string }>,
+  ): { id: string; path: string } | null {
+    const normalized = path.normalize(filePath);
+    let best: { id: string; path: string } | null = null;
+    let bestLen = 0;
+
+    for (const lib of libraries) {
+      const libPath = path.normalize(lib.path) + path.sep;
+      if (normalized.startsWith(libPath) && libPath.length > bestLen) {
+        best = lib;
+        bestLen = libPath.length;
+      }
+    }
+    return best;
   }
 
   // ---------------------------------------------------------------------------
   // Handle individual file addition
   // ---------------------------------------------------------------------------
 
-  async handleFileAdded(filePath: string, rescanMetadata = false) {
+  async handleFileAdded(
+    filePath: string,
+    rescanMetadata = false,
+    knownLibraryId?: string,
+  ) {
     try {
       const stat = fs.statSync(filePath);
       const sizeBytes = BigInt(stat.size);
@@ -285,6 +410,21 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       const fileHash = hashes.sha256;
       const koReaderHash = hashes.md5;
       const format = path.extname(filePath).replace('.', '').toUpperCase();
+
+      // Derive libraryId from path if not supplied
+      let libraryId: string | null = knownLibraryId ?? null;
+      let isOrphan = false;
+      if (!libraryId) {
+        const libraries = await this.prisma.library.findMany({
+          select: { id: true, path: true },
+        });
+        const matched = this.findLibraryForPath(filePath, libraries);
+        if (matched) {
+          libraryId = matched.id;
+        } else {
+          isOrphan = true;
+        }
+      }
 
       // If a record exists for this path, handle re-scan/enrich on existing book
       const existingByPath = await this.prisma.bookFile.findFirst({
@@ -294,6 +434,11 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
         await this.prisma.bookFile.update({
           where: { id: existingByPath.id },
           data: { missingAt: null, fileHash, koReaderHash, sizeBytes },
+        });
+        // Update libraryId/isOrphan on the owning book if changed
+        await this.prisma.book.updateMany({
+          where: { id: existingByPath.bookId },
+          data: { libraryId, isOrphan },
         });
         this.logger.log(`File re-appeared, cleared missing flag: ${filePath}`);
 
@@ -315,6 +460,10 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
             where: { id: existingFile.id },
             data: { filePath, missingAt: null, koReaderHash, sizeBytes },
           });
+          await this.prisma.book.updateMany({
+            where: { id: existingFile.bookId },
+            data: { libraryId, isOrphan },
+          });
           this.logger.log(
             `File moved, updated path and cleared missing flag: ${filePath}`,
           );
@@ -328,10 +477,11 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
         `Metadata for ${path.basename(filePath)}: title="${metadata.title}" authors=[${metadata.authors.join(', ')}]`,
       );
 
-      // Create Book (libraryId is null — user assigns books to libraries explicitly)
+      // Create Book
       const book = await this.prisma.book.create({
         data: {
-          libraryId: null,
+          libraryId,
+          isOrphan,
           title:
             metadata.title || path.basename(filePath, path.extname(filePath)),
           description: metadata.description || null,
@@ -396,25 +546,18 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleSidecarAdded(sidecarPath: string): Promise<void> {
-    // Normalise to forward slashes so comparisons work on Windows regardless
-    // of whether chokidar or the DB stored paths with backslashes.
     const normSidecar = sidecarPath.replace(/\\/g, '/');
     const dir = path.dirname(normSidecar);
     const sidecarBase = path
       .basename(normSidecar, '.metadata.json')
       .toLowerCase();
 
-    // Skip silently if a book already has this exact sidecar linked —
-    // writeSidecar() updates Book.sidecarFile before chokidar fires.
     const alreadyLinked = await this.prisma.book.findFirst({
       where: { sidecarFile: { in: [sidecarPath, normSidecar] } },
       select: { id: true },
     });
     if (alreadyLinked) return;
 
-    // Find a book whose file lives in the same directory with a matching base name.
-    // Fetch all BookFiles and filter in-process to avoid path-separator issues
-    // with Prisma's startsWith on Windows.
     const candidates = await this.prisma.bookFile.findMany({
       include: { book: true },
     });
@@ -460,6 +603,11 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       this.logger.error(`Failed to mark file as missing: ${filePath}`, err);
     }
+  }
+
+  private isSupportedFile(filePath: string): boolean {
+    const ext = path.extname(filePath).toLowerCase().replace('.', '');
+    return SUPPORTED_FORMATS.includes(ext);
   }
 
   // ---------------------------------------------------------------------------
@@ -529,7 +677,6 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     bookId: string,
   ): Promise<void> {
     const epub = (await EPub.createAsync(filePath)) as unknown as EPub;
-    // cover is typed as `any` in IMetadata — one cast to usable type
     const coverId = epub.metadata.cover as string | undefined;
     if (!coverId) return;
     const [data] = (await epub.getImageAsync(coverId)) as [Buffer, string];
@@ -549,9 +696,6 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`No cover image found in mobi file: ${filePath}`);
       return;
     }
-    this.logger.log(
-      `Cover extracted (${coverData.byteLength} bytes), saving for book ${bookId}`,
-    );
     await this.prisma.book.update({
       where: { id: bookId },
       data: { coverData: coverData as unknown as Uint8Array<ArrayBuffer> },
@@ -568,9 +712,6 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`No cover image found in CBZ file: ${filePath}`);
       return;
     }
-    this.logger.debug(
-      `Cover extracted (${coverData.byteLength} bytes), saving for book ${bookId}`,
-    );
     await this.prisma.book.update({
       where: { id: bookId },
       data: { coverData: coverData as unknown as Uint8Array<ArrayBuffer> },
@@ -632,7 +773,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
         await this.audiobookScanner.isAudiobookFolder(dirPath);
       if (isAudiobook) {
         await this.audiobookScanner.scanFolder(dirPath);
-        return; // don't recurse into audiobook folder
+        return;
       }
 
       const entries = fs.readdirSync(dirPath, { withFileTypes: true });
@@ -640,7 +781,6 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
         if (entry.isDirectory()) {
           await walk(path.join(dirPath, entry.name));
         } else {
-          // Single large audio file in root
           const ext = path.extname(entry.name).toLowerCase();
           if (['.mp3', '.m4a'].includes(ext)) {
             const filePath = path.join(dirPath, entry.name);

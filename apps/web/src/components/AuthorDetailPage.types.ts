@@ -3,6 +3,7 @@ export interface AuthorListItem {
   name: string;
   hasCover: boolean;
   bookCount: number;
+  libraryIds: string[];
 }
 
 export interface AuthorBook {

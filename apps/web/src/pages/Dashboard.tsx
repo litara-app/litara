@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAtom } from 'jotai';
-import { Stack, Paper, Title, Group } from '@mantine/core';
-import { IconClock, IconBooks, IconListNumbers } from '@tabler/icons-react';
+import { useAtom, useAtomValue } from 'jotai';
+import { Stack, Paper, Title, Group, Alert, Button } from '@mantine/core';
+import {
+  IconClock,
+  IconBooks,
+  IconListNumbers,
+  IconAlertCircle,
+} from '@tabler/icons-react';
 import { api } from '../utils/api';
 import { BookGrid } from '../components/BookGrid';
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
@@ -10,7 +15,11 @@ import { PageHeader } from '../components/PageHeader';
 import { DashboardSettingsModal } from '../components/DashboardSettingsModal';
 import { ReadingQueueSection } from '../components/ReadingQueueSection';
 import type { BookCardData } from '../components/BookCard';
-import { userSettingsAtom, DEFAULT_USER_SETTINGS } from '../store/atoms';
+import {
+  userSettingsAtom,
+  DEFAULT_USER_SETTINGS,
+  librariesAtom,
+} from '../store/atoms';
 import type { DashboardSection } from '../store/atoms';
 import { ITEM_MIN_WIDTHS } from '../utils/book-grid';
 import { useReadingQueue } from '../hooks/useReadingQueue';
@@ -22,6 +31,11 @@ interface InProgressEntry {
   book: BookCardData;
 }
 
+interface OrphanStats {
+  orphanedBookCount: number;
+  libraryCount: number;
+}
+
 export function Dashboard() {
   const navigate = useNavigate();
   const { saveScroll, restoreScroll, pathname } = useScrollRestoration();
@@ -30,6 +44,8 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
+  const libraries = useAtomValue(librariesAtom);
+  const [orphanStats, setOrphanStats] = useState<OrphanStats | null>(null);
   const {
     queue,
     loading: queueLoading,
@@ -40,9 +56,22 @@ export function Dashboard() {
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
+      const recentlyAddedSection = userSettings.dashboardLayout.find(
+        (s) => s.key === 'recently-added',
+      );
+      const recentLibraryIds = recentlyAddedSection?.libraryIds ?? [];
+      const libraryParam =
+        recentLibraryIds.length > 0
+          ? '&' +
+            recentLibraryIds
+              .map((id) => `libraryId[]=${encodeURIComponent(id)}`)
+              .join('&')
+          : '';
       const [booksRes, progressRes] = await Promise.all([
         api
-          .get<BookCardData[]>('/books?limit=10&sortBy=createdAt&order=desc')
+          .get<
+            BookCardData[]
+          >(`/books?limit=10&sortBy=createdAt&order=desc${libraryParam}`)
           .catch(() => null),
         api.get<InProgressEntry[]>('/reading-progress').catch(() => null),
       ]);
@@ -59,7 +88,7 @@ export function Dashboard() {
       setLoading(false);
       void fetchQueue();
     },
-    [fetchQueue],
+    [fetchQueue, userSettings.dashboardLayout],
   );
 
   useEffect(() => {
@@ -72,6 +101,22 @@ export function Dashboard() {
   useEffect(() => {
     if (!loading) restoreScroll();
   }, [loading, restoreScroll]);
+
+  useEffect(() => {
+    const isAdmin =
+      (() => {
+        try {
+          return JSON.parse(localStorage.getItem('user') ?? '{}')?.role;
+        } catch {
+          return null;
+        }
+      })() === 'ADMIN';
+    if (!isAdmin || libraries.length > 0) return;
+    void api
+      .get<OrphanStats>('/admin/books/orphan-stats')
+      .then((r) => setOrphanStats(r.data))
+      .catch(() => {});
+  }, [libraries.length]);
 
   function handleBookClick(bookId: string) {
     saveScroll();
@@ -109,6 +154,31 @@ export function Dashboard() {
         title="Dashboard"
         onSettingsClick={() => setSettingsOpen(true)}
       />
+
+      {orphanStats &&
+        orphanStats.orphanedBookCount > 0 &&
+        orphanStats.libraryCount === 0 && (
+          <Alert
+            icon={<IconAlertCircle size={16} />}
+            title="Books need a library"
+            color="yellow"
+            variant="light"
+          >
+            {orphanStats.orphanedBookCount} book
+            {orphanStats.orphanedBookCount !== 1 ? 's are' : ' is'} not assigned
+            to any library. Create a library pointing to your book folder to
+            reclaim them.
+            <Button
+              size="xs"
+              variant="light"
+              color="yellow"
+              mt="xs"
+              onClick={() => navigate('/libraries/new')}
+            >
+              Create Library
+            </Button>
+          </Alert>
+        )}
 
       {sorted.map((section) => {
         if (section.key === 'currently-reading') {

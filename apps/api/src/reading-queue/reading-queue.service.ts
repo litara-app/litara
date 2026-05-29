@@ -31,6 +31,7 @@ export class ReadingQueueService {
       coverUpdatedAt: item.book.updatedAt.toISOString(),
       formats: [...new Set(item.book.files.map((f) => f.format))],
       hasFileMissing: item.book.files.some((f) => f.missingAt !== null),
+      isOrphan: item.book.isOrphan,
     }));
   }
 
@@ -59,6 +60,7 @@ export class ReadingQueueService {
         coverUpdatedAt: existing.book.updatedAt.toISOString(),
         formats: Array.from(new Set(existing.book.files.map((f) => f.format))),
         hasFileMissing: existing.book.files.some((f) => f.missingAt !== null),
+        isOrphan: existing.book.isOrphan,
       };
     }
 
@@ -90,6 +92,7 @@ export class ReadingQueueService {
       coverUpdatedAt: created.book.updatedAt.toISOString(),
       formats: [...new Set(created.book.files.map((f) => f.format))],
       hasFileMissing: created.book.files.some((f) => f.missingAt !== null),
+      isOrphan: created.book.isOrphan,
     };
   }
 

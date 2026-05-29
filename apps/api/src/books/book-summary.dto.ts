@@ -25,6 +25,9 @@ export class BookSummaryDto {
   @ApiProperty()
   hasFileMissing: boolean;
 
+  @ApiProperty()
+  isOrphan: boolean;
+
   @ApiProperty({ nullable: true, required: false })
   seriesName: string | null;
 

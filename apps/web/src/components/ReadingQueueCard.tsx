@@ -43,6 +43,7 @@ export function ReadingQueueCard({
     coverUpdatedAt: item.coverUpdatedAt,
     formats: item.formats,
     hasFileMissing: item.hasFileMissing,
+    isOrphan: item.isOrphan,
     readStatus: null,
     rating: null,
     genres: [],

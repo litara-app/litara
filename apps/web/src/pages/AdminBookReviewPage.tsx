@@ -14,6 +14,7 @@ import {
   Divider,
   Switch,
   Collapse,
+  Select,
 } from '@mantine/core';
 import {
   IconAlertTriangle,
@@ -24,9 +25,9 @@ import {
   IconWriting,
   IconSearch,
 } from '@tabler/icons-react';
-import { useSetAtom } from 'jotai';
+import { useSetAtom, useAtomValue } from 'jotai';
 import { api } from '../utils/api';
-import { pendingBookCountAtom } from '../store/atoms';
+import { pendingBookCountAtom, librariesAtom } from '../store/atoms';
 import type { AxiosError } from 'axios';
 import { EditMetadataTab } from '../components/EditMetadataTab';
 import { SearchMetadataTab } from '../components/SearchMetadataTab';
@@ -56,6 +57,7 @@ interface PendingBook {
   genres: string; // JSON string[]
   tags: string; // JSON string[]
   moods: string; // JSON string[]
+  targetLibraryId: string | null;
   targetPath: string | null;
   collidingPath: string | null;
   createdAt: string;
@@ -177,10 +179,14 @@ function PendingBookCard({
   book,
   onRefresh,
   diskWritesEnabled,
+  defaultLibraryId,
+  libraries,
 }: {
   book: PendingBook;
   onRefresh: () => void;
   diskWritesEnabled: boolean;
+  defaultLibraryId: string | null;
+  libraries: Array<{ id: string; name: string }>;
 }) {
   const [editing, setEditing] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -194,6 +200,18 @@ function PendingBookCard({
   const [enriching, setEnriching] = useState(false);
   const [overwriteModalOpen, setOverwriteModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [targetLibraryId, setTargetLibraryId] = useState<string | null>(
+    book.targetLibraryId ?? defaultLibraryId,
+  );
+
+  async function handleLibraryChange(value: string | null) {
+    setTargetLibraryId(value);
+    try {
+      await api.patch(`/book-drop/${book.id}`, { targetLibraryId: value });
+    } catch {
+      // Best-effort
+    }
+  }
 
   const lockedFields = new Set<string>();
 
@@ -244,6 +262,12 @@ function PendingBookCard({
     setApproving(true);
     setError(null);
     try {
+      // Persist the selected target before approving. The local value may be a
+      // default fallback that was never explicitly chosen (e.g. legacy rows whose
+      // stored targetLibraryId is null), so the server would otherwise 400.
+      if (targetLibraryId && targetLibraryId !== book.targetLibraryId) {
+        await api.patch(`/book-drop/${book.id}`, { targetLibraryId });
+      }
       await api.post(`/book-drop/${book.id}/approve`);
       onRefresh();
     } catch (err) {
@@ -422,13 +446,23 @@ function PendingBookCard({
           <Divider mt="sm" />
         </Collapse>
 
-        <Group gap="sm">
+        <Group gap="sm" align="flex-end">
+          <Select
+            label="Target Library"
+            placeholder="Select library"
+            size="xs"
+            data={libraries.map((l) => ({ value: l.id, label: l.name }))}
+            value={targetLibraryId}
+            onChange={(v) => void handleLibraryChange(v)}
+            clearable
+            style={{ minWidth: 180 }}
+          />
           {book.status === 'PENDING' && (
             <Button
               leftSection={<IconWriting size={16} />}
               color="green"
               size="sm"
-              disabled={!diskWritesEnabled}
+              disabled={!diskWritesEnabled || !targetLibraryId}
               onClick={() => void handleApprove()}
               loading={approving}
             >
@@ -504,7 +538,9 @@ export function AdminBookReviewPage() {
     failed: number;
   } | null>(null);
   const [diskWritesEnabled, setDiskWritesEnabled] = useState(true);
+  const [defaultLibraryId, setDefaultLibraryId] = useState<string | null>(null);
   const setPendingCount = useSetAtom(pendingBookCountAtom);
+  const libraries = useAtomValue(librariesAtom);
 
   useEffect(() => {
     api
@@ -538,6 +574,20 @@ export function AdminBookReviewPage() {
     setBulkWriting(true);
     setBulkResult(null);
     try {
+      // Apply the chosen default library to every pending book that has no target
+      // yet (book-drop ingests with a null targetLibraryId), otherwise approve-all
+      // rejects the whole batch.
+      if (defaultLibraryId) {
+        await Promise.allSettled(
+          books
+            .filter((b) => b.status === 'PENDING' && !b.targetLibraryId)
+            .map((b) =>
+              api.patch(`/book-drop/${b.id}`, {
+                targetLibraryId: defaultLibraryId,
+              }),
+            ),
+        );
+      }
       if (enrichBeforeWrite) {
         await Promise.allSettled(
           books
@@ -567,31 +617,43 @@ export function AdminBookReviewPage() {
             to write them to the library.
           </Text>
         </div>
-        {pendingCount > 0 && (
-          <Group gap="sm" align="center">
-            <Switch
-              label="Enrich metadata"
-              checked={enrichBeforeWrite}
-              onChange={(e) => setEnrichBeforeWrite(e.currentTarget.checked)}
-              disabled={bulkWriting}
-            />
-            <Button
-              leftSection={
-                enrichBeforeWrite ? (
-                  <IconSparkles size={16} />
-                ) : (
-                  <IconWriting size={16} />
-                )
-              }
-              color="teal"
-              loading={bulkWriting}
-              disabled={!diskWritesEnabled}
-              onClick={() => void handleWriteAll()}
-            >
-              Write All to Disk ({pendingCount})
-            </Button>
-          </Group>
-        )}
+        <Group gap="sm" align="flex-end">
+          <Select
+            label="Default Library"
+            placeholder="Select default library for all cards"
+            size="sm"
+            data={libraries.map((l) => ({ value: l.id, label: l.name }))}
+            value={defaultLibraryId}
+            onChange={setDefaultLibraryId}
+            clearable
+            style={{ minWidth: 200 }}
+          />
+          {pendingCount > 0 && (
+            <Group gap="sm" align="flex-end">
+              <Switch
+                label="Enrich metadata"
+                checked={enrichBeforeWrite}
+                onChange={(e) => setEnrichBeforeWrite(e.currentTarget.checked)}
+                disabled={bulkWriting}
+              />
+              <Button
+                leftSection={
+                  enrichBeforeWrite ? (
+                    <IconSparkles size={16} />
+                  ) : (
+                    <IconWriting size={16} />
+                  )
+                }
+                color="teal"
+                loading={bulkWriting}
+                disabled={!diskWritesEnabled || !defaultLibraryId}
+                onClick={() => void handleWriteAll()}
+              >
+                Write All to Disk ({pendingCount})
+              </Button>
+            </Group>
+          )}
+        </Group>
       </Group>
 
       {!diskWritesEnabled && (
@@ -638,6 +700,8 @@ export function AdminBookReviewPage() {
               book={book}
               onRefresh={load}
               diskWritesEnabled={diskWritesEnabled}
+              defaultLibraryId={defaultLibraryId}
+              libraries={libraries}
             />
           ))}
         </Stack>

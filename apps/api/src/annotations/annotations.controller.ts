@@ -84,7 +84,17 @@ export class UserAnnotationsController {
   @ApiOperation({ summary: 'List all annotations for the current user' })
   @ApiOkResponse({ description: 'List of all annotations with book info' })
   @ApiQuery({ name: 'type', enum: AnnotationType, required: false })
-  findAll(@Req() req: RequestWithUser, @Query('type') type?: AnnotationType) {
-    return this.service.findAllByUser(req.user.id, type);
+  @ApiQuery({ name: 'libraryId', isArray: true, required: false })
+  findAll(
+    @Req() req: RequestWithUser,
+    @Query('type') type?: AnnotationType,
+    @Query('libraryId') libraryId?: string | string[],
+  ) {
+    const libraryIds = libraryId
+      ? Array.isArray(libraryId)
+        ? libraryId
+        : [libraryId]
+      : undefined;
+    return this.service.findAllByUser(req.user.id, type, libraryIds);
   }
 }

@@ -102,7 +102,9 @@ describe('MetadataService (e2e — mocked providers)', () => {
   });
 
   async function seedBook(opts?: { lockedFields?: string[] }) {
-    const library = await db.library.create({ data: { name: 'Test Library' } });
+    const library = await db.library.create({
+      data: { name: 'Test Library', path: '/test/library' },
+    });
     return db.book.create({
       data: {
         libraryId: library.id,

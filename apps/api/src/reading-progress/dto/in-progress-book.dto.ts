@@ -23,6 +23,9 @@ export class InProgressBookSummaryDto {
   hasFileMissing: boolean;
 
   @ApiProperty()
+  isOrphan: boolean;
+
+  @ApiProperty()
   hasAudiobook: boolean;
 
   @ApiProperty({ nullable: true, required: false })

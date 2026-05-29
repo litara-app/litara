@@ -10,8 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getBookDetail, updateBook, updateBookShelves } from '@/src/api/books';
-import { getLibraries } from '@/src/api/libraries';
+import { getBookDetail, updateBookShelves } from '@/src/api/books';
 import { getShelves } from '@/src/api/shelves';
 
 interface LibraryShelfPickerContentProps {
@@ -20,30 +19,19 @@ interface LibraryShelfPickerContentProps {
   onSaved?: () => void;
 }
 
-type ActiveTab = 'library' | 'shelves';
-
 export function LibraryShelfPickerContent({
   bookId,
   onBack,
   onSaved,
 }: LibraryShelfPickerContentProps) {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('library');
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const [selectedLibraryId, setSelectedLibraryId] = useState<string | null>(
-    null,
-  );
   const [selectedShelfIds, setSelectedShelfIds] = useState<string[]>([]);
   const queryClient = useQueryClient();
 
   const { data: book, isLoading: bookLoading } = useQuery({
     queryKey: ['book', bookId],
     queryFn: () => getBookDetail(bookId),
-  });
-
-  const { data: libraries = [], isLoading: libsLoading } = useQuery({
-    queryKey: ['libraries'],
-    queryFn: getLibraries,
   });
 
   const { data: shelves = [], isLoading: shelvesLoading } = useQuery({
@@ -53,20 +41,14 @@ export function LibraryShelfPickerContent({
 
   useEffect(() => {
     if (book && !initialized) {
-      setSelectedLibraryId(book.library?.id ?? null);
       setSelectedShelfIds(book.shelves.map((s) => s.id));
       setInitialized(true);
     }
   }, [book, initialized]);
 
-  const isLoading =
-    bookLoading || libsLoading || shelvesLoading || !initialized;
+  const isLoading = bookLoading || shelvesLoading || !initialized;
 
   const nonSmartShelves = shelves.filter((s) => !s.isSmart);
-
-  const handleLibrarySelect = (id: string) => {
-    setSelectedLibraryId((prev) => (prev === id ? null : id));
-  };
 
   const handleShelfToggle = (id: string) => {
     setSelectedShelfIds((prev) =>
@@ -77,10 +59,7 @@ export function LibraryShelfPickerContent({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await Promise.all([
-        updateBook(bookId, { libraryId: selectedLibraryId }),
-        updateBookShelves(bookId, selectedShelfIds),
-      ]);
+      await updateBookShelves(bookId, selectedShelfIds);
       await queryClient.invalidateQueries({ queryKey: ['book', bookId] });
       await queryClient.invalidateQueries({ queryKey: ['books'] });
       onSaved?.();
@@ -102,86 +81,32 @@ export function LibraryShelfPickerContent({
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabRow}>
-        <Pressable
-          style={[styles.tab, activeTab === 'library' && styles.tabActive]}
-          onPress={() => setActiveTab('library')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'library' && styles.tabTextActive,
-            ]}
-          >
-            Library
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, activeTab === 'shelves' && styles.tabActive]}
-          onPress={() => setActiveTab('shelves')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'shelves' && styles.tabTextActive,
-            ]}
-          >
-            Shelves
-          </Text>
-        </Pressable>
-      </View>
-
       <ScrollView
         style={styles.list}
         contentContainerStyle={styles.listContent}
       >
-        {activeTab === 'library' &&
-          (libraries.length === 0 ? (
-            <Text style={styles.emptyText}>No libraries available.</Text>
-          ) : (
-            libraries.map((lib) => {
-              const selected = selectedLibraryId === lib.id;
-              return (
-                <Pressable
-                  key={lib.id}
-                  style={({ pressed }) => [
-                    styles.row,
-                    pressed && styles.rowPressed,
-                  ]}
-                  onPress={() => handleLibrarySelect(lib.id)}
-                >
-                  <Text style={styles.rowText}>{lib.name}</Text>
-                  {selected && (
-                    <Ionicons name="checkmark" size={20} color="#4a9eff" />
-                  )}
-                </Pressable>
-              );
-            })
-          ))}
-
-        {activeTab === 'shelves' &&
-          (nonSmartShelves.length === 0 ? (
-            <Text style={styles.emptyText}>No shelves available.</Text>
-          ) : (
-            nonSmartShelves.map((shelf) => {
-              const checked = selectedShelfIds.includes(shelf.id);
-              return (
-                <Pressable
-                  key={shelf.id}
-                  style={({ pressed }) => [
-                    styles.row,
-                    pressed && styles.rowPressed,
-                  ]}
-                  onPress={() => handleShelfToggle(shelf.id)}
-                >
-                  <Text style={styles.rowText}>{shelf.name}</Text>
-                  {checked && (
-                    <Ionicons name="checkmark" size={20} color="#4a9eff" />
-                  )}
-                </Pressable>
-              );
-            })
-          ))}
+        {nonSmartShelves.length === 0 ? (
+          <Text style={styles.emptyText}>No shelves available.</Text>
+        ) : (
+          nonSmartShelves.map((shelf) => {
+            const checked = selectedShelfIds.includes(shelf.id);
+            return (
+              <Pressable
+                key={shelf.id}
+                style={({ pressed }) => [
+                  styles.row,
+                  pressed && styles.rowPressed,
+                ]}
+                onPress={() => handleShelfToggle(shelf.id)}
+              >
+                <Text style={styles.rowText}>{shelf.name}</Text>
+                {checked && (
+                  <Ionicons name="checkmark" size={20} color="#4a9eff" />
+                )}
+              </Pressable>
+            );
+          })
+        )}
       </ScrollView>
 
       <Pressable

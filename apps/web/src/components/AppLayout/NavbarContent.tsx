@@ -22,7 +22,6 @@ import {
   IconSettings,
   IconShieldCog,
   IconLogout,
-  IconLibrary,
   IconPlus,
   IconTimeline,
   IconUsers,
@@ -32,6 +31,7 @@ import {
   IconClipboardCheck,
   IconMicrophone,
 } from '@tabler/icons-react';
+import { resolveLibraryIcon } from '../libraryIcons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { api } from '../../utils/api';
@@ -158,15 +158,9 @@ export function NavbarContent({ onNavigate }: NavbarContentProps) {
     navigate('/login');
   };
 
-  async function handleCreateLibrary() {
-    const name = nextName(
-      libraries.map((l) => l.name),
-      'Library',
-    );
-    const res = await api.post<Library>('/libraries', { name });
-    setLibraries((prev) => [...prev, res.data]);
-    setLibrariesOpen(true);
-    navigate(`/library/${res.data.id}`);
+  function handleCreateLibrary() {
+    navigate('/libraries/new');
+    onNavigate?.();
   }
 
   async function handleCreateShelf() {
@@ -252,24 +246,26 @@ export function NavbarContent({ onNavigate }: NavbarContentProps) {
           opened={librariesOpen}
           onChange={setLibrariesOpen}
         >
-          {libraries.map((lib) => (
-            <NavLink
-              key={lib.id}
-              label={lib.name}
-              leftSection={<IconLibrary size={16} />}
-              active={location.pathname === `/library/${lib.id}`}
-              onClick={() => {
-                navigate(`/library/${lib.id}`);
-                onNavigate?.();
-              }}
-            />
-          ))}
-          <Box>
-            <AddButton
-              label="New Library"
-              onClick={() => void handleCreateLibrary()}
-            />
-          </Box>
+          {libraries.map((lib) => {
+            const LibIcon = resolveLibraryIcon(lib.iconKey);
+            return (
+              <NavLink
+                key={lib.id}
+                label={lib.name}
+                leftSection={<LibIcon size={16} />}
+                active={location.pathname === `/library/${lib.id}`}
+                onClick={() => {
+                  navigate(`/library/${lib.id}`);
+                  onNavigate?.();
+                }}
+              />
+            );
+          })}
+          {user?.role === 'ADMIN' && (
+            <Box>
+              <AddButton label="New Library" onClick={handleCreateLibrary} />
+            </Box>
+          )}
         </NavLink>
 
         <NavLink

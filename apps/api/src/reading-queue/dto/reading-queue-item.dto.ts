@@ -30,4 +30,7 @@ export class ReadingQueueItemDto {
 
   @ApiProperty()
   hasFileMissing: boolean;
+
+  @ApiProperty()
+  isOrphan: boolean;
 }
