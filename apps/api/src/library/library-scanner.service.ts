@@ -267,13 +267,21 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
 
     // Collect all files first so we can report an accurate total
     const allFiles: { filePath: string; library: Library }[] = [];
+    // Track which paths were actually seen on disk, per library, so we can
+    // reconcile (mark missing) DB rows that no longer resolve afterwards.
+    const seenByLibrary = new Map<string, Set<string>>();
     for (const library of libraries) {
       const pattern = path.join(library.path, GLOB_PATTERN).replace(/\\/g, '/');
       const files = await glob.glob(pattern, { absolute: true, dot: false });
       this.logger.log(
         `Found ${files.length} file(s) in library "${library.name}"`,
       );
-      for (const f of files) allFiles.push({ filePath: f, library });
+      const seen = new Set<string>();
+      for (const f of files) {
+        allFiles.push({ filePath: f, library });
+        seen.add(f);
+      }
+      seenByLibrary.set(library.id, seen);
     }
 
     if (taskId) {
@@ -325,12 +333,62 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       await this.scanAudiobookFolders(library.path);
     }
 
+    // Reconcile: mark any DB file rows in the scanned library(s) that were not
+    // found on disk as missing, so stale paths (e.g. after a mount remap) stop
+    // being treated as live and the hash backfill skips them.
+    for (const library of libraries) {
+      await this.reconcileMissingFiles(
+        library.id,
+        seenByLibrary.get(library.id) ?? new Set(),
+      );
+    }
+
     await this.prisma.library.updateMany({
       where: { id: { in: libraries.map((l) => l.id) } },
       data: { lastScanAt: new Date() },
     });
 
     this.logger.log('Full scan complete.');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reconciliation pass (mark files missing when not found on disk)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Marks BookFile rows belonging to a library as missing when they were not
+   * seen during the scan and no longer exist on disk. Scoped per-library so a
+   * single-library scan never touches files in other libraries; the full-scan
+   * task simply calls this once per library it scanned.
+   */
+  private async reconcileMissingFiles(
+    libraryId: string,
+    seenPaths: Set<string>,
+  ): Promise<void> {
+    const candidates = await this.prisma.bookFile.findMany({
+      where: { missingAt: null, book: { libraryId } },
+      select: { id: true, filePath: true },
+    });
+
+    const nowMissing: string[] = [];
+    for (const file of candidates) {
+      // Seen on disk during this scan — definitely present.
+      if (seenPaths.has(file.filePath)) continue;
+      // Not seen by the glob; confirm absence before flagging (guards against
+      // glob quirks, unsupported extensions, etc.).
+      if (fs.existsSync(file.filePath)) continue;
+      nowMissing.push(file.id);
+    }
+
+    if (nowMissing.length > 0) {
+      await this.prisma.bookFile.updateMany({
+        where: { id: { in: nowMissing } },
+        data: { missingAt: new Date() },
+      });
+      this.logger.log(
+        `Reconcile: marked ${nowMissing.length} file(s) missing in library ${libraryId}`,
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -454,8 +512,15 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
         where: { fileHash },
       });
       if (existingFile) {
-        if (existingFile.missingAt !== null) {
-          // File moved to a new location — update path and clear missing flag
+        // Relink when the content matches an existing row but the path differs
+        // and the old path no longer resolves. This covers both chokidar-detected
+        // moves (missingAt set) and mount remaps discovered on rescan (missingAt
+        // still null because no unlink event ever fired). Requiring the old path
+        // to be gone avoids hijacking a genuinely-present duplicate's row.
+        const pathChanged = existingFile.filePath !== filePath;
+        const oldPathGone =
+          pathChanged && !fs.existsSync(existingFile.filePath);
+        if (existingFile.missingAt !== null || oldPathGone) {
           await this.prisma.bookFile.update({
             where: { id: existingFile.id },
             data: { filePath, missingAt: null, koReaderHash, sizeBytes },
@@ -726,6 +791,7 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     total: number;
     done: number;
     failed: number;
+    skipped: number;
   }> {
     const files = await this.prisma.bookFile.findMany({
       where: { missingAt: null },
@@ -733,14 +799,26 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     });
     if (files.length === 0) {
       this.logger.log('KOReader hash backfill: all files already have hashes.');
-      return { total: 0, done: 0, failed: 0 };
+      return { total: 0, done: 0, failed: 0, skipped: 0 };
     }
     this.logger.log(
       `KOReader hash backfill: ${files.length} file(s) need MD5 hashes...`,
     );
     let done = 0;
     let failed = 0;
+    let skipped = 0;
     for (const file of files) {
+      // Self-heal stale rows: a path that no longer resolves (e.g. after a
+      // mount remap) shouldn't be hashed or warned about — mark it missing so
+      // the reconcile/move-detection logic can re-link it on the next scan.
+      if (!fs.existsSync(file.filePath)) {
+        await this.prisma.bookFile.update({
+          where: { id: file.id },
+          data: { missingAt: new Date() },
+        });
+        skipped++;
+        continue;
+      }
       try {
         const hashes = await this.computeHash(file.filePath);
         await this.prisma.bookFile.update({
@@ -756,9 +834,9 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
       }
     }
     this.logger.log(
-      `KOReader hash backfill complete: ${done} hashed, ${failed} failed, ${files.length} total`,
+      `KOReader hash backfill complete: ${done} hashed, ${failed} failed, ${skipped} marked missing, ${files.length} total`,
     );
-    return { total: files.length, done, failed };
+    return { total: files.length, done, failed, skipped };
   }
 
   // ---------------------------------------------------------------------------
