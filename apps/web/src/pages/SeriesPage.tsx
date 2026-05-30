@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Stack,
@@ -10,12 +10,14 @@ import {
   Badge,
   Modal,
   SegmentedControl,
+  MultiSelect,
+  Group,
 } from '@mantine/core';
 import { IconBook2 } from '@tabler/icons-react';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { api } from '../utils/api';
 import { PageHeader } from '../components/PageHeader';
-import { userSettingsAtom } from '../store/atoms';
+import { userSettingsAtom, librariesAtom } from '../store/atoms';
 import type { UserSettings } from '../store/atoms';
 
 interface SeriesListItem {
@@ -25,6 +27,7 @@ interface SeriesListItem {
   totalBooks: number | null;
   coverBooks: Array<{ id: string; coverUpdatedAt: string }>;
   authors: string[];
+  libraryIds: string[];
 }
 
 function CoverStack({
@@ -139,6 +142,8 @@ export function SeriesPage() {
   const [loading, setLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [userSettings, setUserSettings] = useAtom(userSettingsAtom);
+  const libraries = useAtomValue(librariesAtom);
+  const [selectedLibraryIds, setSelectedLibraryIds] = useState<string[]>([]);
 
   useEffect(() => {
     api
@@ -147,6 +152,13 @@ export function SeriesPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const filteredSeries = useMemo(() => {
+    if (selectedLibraryIds.length === 0) return seriesList;
+    return seriesList.filter((s) =>
+      selectedLibraryIds.some((id) => s.libraryIds.includes(id)),
+    );
+  }, [seriesList, selectedLibraryIds]);
 
   async function handleSizeChange(size: UserSettings['bookItemSize']) {
     setUserSettings((prev) => ({ ...prev, bookItemSize: size }));
@@ -160,7 +172,20 @@ export function SeriesPage() {
         onSettingsClick={() => setSettingsOpen(true)}
       />
 
-      {!loading && seriesList.length === 0 && (
+      {libraries.length > 0 && (
+        <Group>
+          <MultiSelect
+            placeholder="Filter by library"
+            data={libraries.map((l) => ({ value: l.id, label: l.name }))}
+            value={selectedLibraryIds}
+            onChange={setSelectedLibraryIds}
+            clearable
+            style={{ minWidth: 240 }}
+          />
+        </Group>
+      )}
+
+      {!loading && filteredSeries.length === 0 && (
         <Center py="xl">
           <Text c="dimmed">
             No series found. Add books with series metadata to see them here.
@@ -169,7 +194,7 @@ export function SeriesPage() {
       )}
 
       <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing="md">
-        {seriesList.map((series) => (
+        {filteredSeries.map((series) => (
           <SeriesCard
             key={series.id}
             series={series}

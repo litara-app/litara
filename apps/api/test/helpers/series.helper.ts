@@ -6,7 +6,7 @@ import { DatabaseService } from '../../src/database/database.service';
  */
 export async function seedOzSeries(db: DatabaseService) {
   const library = await db.library.create({
-    data: { name: 'Oz Test Library' },
+    data: { name: 'Oz Test Library', path: '/test/oz-library' },
   });
 
   const author = await db.author.create({

@@ -70,6 +70,91 @@ export class AdminService {
     });
   }
 
+  async getOrphanStats(): Promise<{
+    orphanedBookCount: number;
+    libraryCount: number;
+  }> {
+    const [orphanedBookCount, libraryCount] = await Promise.all([
+      this.prisma.book.count({ where: { isOrphan: true } }),
+      this.prisma.library.count(),
+    ]);
+    return { orphanedBookCount, libraryCount };
+  }
+
+  async getOrphanBooks(skip: number, take: number) {
+    const [books, total] = await Promise.all([
+      this.prisma.book.findMany({
+        where: { isOrphan: true },
+        include: {
+          files: { select: { filePath: true }, take: 1 },
+          authors: { include: { author: { select: { name: true } } } },
+        },
+        orderBy: { title: 'asc' },
+        skip,
+        take,
+      }),
+      this.prisma.book.count({ where: { isOrphan: true } }),
+    ]);
+    return { books, total, skip, take };
+  }
+
+  async reassignLibrary(bookId: string, libraryId: string): Promise<void> {
+    const book = await this.prisma.book.findUnique({
+      where: { id: bookId },
+      include: {
+        files: { where: { missingAt: null }, take: 1 },
+        authors: { include: { author: true } },
+      },
+    });
+    if (!book) throw new NotFoundException('Book not found');
+
+    const library = await this.prisma.library.findUnique({
+      where: { id: libraryId },
+    });
+    if (!library) throw new NotFoundException('Library not found');
+
+    const file = book.files[0];
+    if (!file) {
+      // No file on disk — just update the DB assignment
+      await this.prisma.book.update({
+        where: { id: bookId },
+        data: { libraryId, isOrphan: false },
+      });
+      return;
+    }
+
+    const authors = book.authors.map((ba) => ba.author.name);
+    const ext = path.extname(file.filePath).toLowerCase();
+    const seriesBook = await this.prisma.seriesBook.findFirst({
+      where: { bookId },
+      include: { series: true },
+    });
+
+    const newPath = this.libraryWriteService.computeTargetPath({
+      libraryRoot: library.path,
+      authors,
+      seriesName: seriesBook?.series.name ?? null,
+      title: book.title,
+      originalFilename: path.basename(file.filePath),
+      ext,
+    });
+
+    if (newPath !== file.filePath && fs.existsSync(file.filePath)) {
+      await this.libraryWriteService.guardWrites(library.path);
+      fs.mkdirSync(path.dirname(newPath), { recursive: true });
+      fs.renameSync(file.filePath, newPath);
+      await this.prisma.bookFile.updateMany({
+        where: { bookId, filePath: file.filePath },
+        data: { filePath: newPath },
+      });
+    }
+
+    await this.prisma.book.update({
+      where: { id: bookId },
+      data: { libraryId, isOrphan: false },
+    });
+  }
+
   async create(dto: {
     email: string;
     name?: string;
@@ -214,20 +299,35 @@ export class AdminService {
     }));
   }
 
+  async getTaskById(id: string) {
+    const task = await this.prisma.task.findUnique({ where: { id } });
+    if (!task) return null;
+    return {
+      id: task.id,
+      type: task.type,
+      status: task.status,
+      payload: task.payload
+        ? (JSON.parse(task.payload) as Record<string, unknown>)
+        : null,
+      errorMessage: task.errorMessage,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+    };
+  }
+
   async getDiskSettings(): Promise<{
     allowDiskWrites: boolean;
     isReadOnlyMount: boolean;
   }> {
     const allowDiskWrites = await this.diskWriteGuard.isDiskWritesAllowed();
 
-    // Probe the first watched folder; fall back to EBOOK_LIBRARY_PATH env
-    let libraryPath: string | null = null;
-    const watchedFolder = await this.prisma.watchedFolder.findFirst();
-    if (watchedFolder) {
-      libraryPath = watchedFolder.path;
-    } else {
-      libraryPath = process.env.EBOOK_LIBRARY_PATH ?? null;
-    }
+    // Use the configured library root or first registered library path
+    const firstLibrary = await this.prisma.library.findFirst({
+      select: { path: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const libraryPath =
+      firstLibrary?.path ?? process.env.EBOOK_LIBRARY_PATH ?? null;
 
     const isReadOnlyMount = libraryPath
       ? !this.diskWriteGuard.probeLibraryWritable(libraryPath)

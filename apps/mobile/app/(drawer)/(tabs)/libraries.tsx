@@ -18,6 +18,7 @@ import { useGridSize } from '@/src/context/GridSizeContext';
 import { getLibraries, getLibraryBooks } from '@/src/api/libraries';
 import type { Library } from '@/src/api/libraries';
 import type { BookSummary } from '@/src/api/books';
+import { resolveLibraryIcon } from '@/src/utils/libraryIcons';
 
 const GRID_ICONS: Record<number, keyof typeof Ionicons.glyphMap> = {
   2: 'grid-outline',
@@ -101,12 +102,19 @@ export default function LibrariesScreen() {
         >
           {libraries.map((lib) => {
             const active = lib.id === activeLibrary?.id;
+            const iconName = resolveLibraryIcon(lib.iconKey);
             return (
               <Pressable
                 key={lib.id}
                 style={[styles.tab, active && styles.tabActive]}
                 onPress={() => setSelectedLibrary(lib)}
               >
+                <Ionicons
+                  name={iconName}
+                  size={14}
+                  color={active ? '#4a9eff' : '#888'}
+                  style={styles.tabIcon}
+                />
                 <Text
                   style={[styles.tabLabel, active && styles.tabLabelActive]}
                 >
@@ -187,11 +195,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: '#1c1c1e',
+    gap: 6,
   },
+  tabIcon: {},
   tabActive: {
     backgroundColor: '#1c3a5e',
   },

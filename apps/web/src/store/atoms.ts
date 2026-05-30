@@ -5,6 +5,14 @@ import type { SmartShelfSummary } from '../types/smartShelf';
 export interface Library {
   id: string;
   name: string;
+  path: string;
+  iconKey: string | null;
+  metadataFieldOverrides: Record<string, string> | null;
+  metadataProvidersDisabled: string[];
+  lastScanAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  bookCount: number;
 }
 
 export interface Shelf {
@@ -17,6 +25,8 @@ export interface DashboardSection {
   label: string;
   visible: boolean;
   order: number;
+  /** For 'recently-added': library ids to filter by; empty = all libraries */
+  libraryIds?: string[];
 }
 
 export type ProgressDisplaySource =
@@ -64,9 +74,12 @@ export interface ReadingQueueItem {
   coverUpdatedAt: string;
   formats: string[];
   hasFileMissing: boolean;
+  isOrphan: boolean;
 }
 
 export const librariesAtom = atom<Library[]>([]);
+/** Map of libraryId → active scan taskId; set while a scan is in progress */
+export const activeScanTasksAtom = atom<Record<string, string>>({});
 export const shelvesAtom = atom<Shelf[]>([]);
 export const selectedBookIdsAtom = atom<Set<string>>(new Set<string>());
 export const isSelectModeAtom = atom<boolean>(

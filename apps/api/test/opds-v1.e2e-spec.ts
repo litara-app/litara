@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { TestApp, createTestApp } from './helpers/app.helper';
 import { createOpdsUser } from './helpers/auth.helper';
@@ -12,7 +13,9 @@ async function enableOpds(db: any) {
 }
 
 async function seedData(db: any) {
-  const library = await db.library.create({ data: { name: 'Test Library' } });
+  const library = await db.library.create({
+    data: { name: 'Test Library', path: `/test/library-${randomUUID()}` },
+  });
 
   const author = await db.author.create({ data: { name: 'Jane Doe' } });
   const genre = await db.genre.create({ data: { name: 'Fiction' } });
@@ -158,7 +161,7 @@ describe('OPDS v1 (e2e)', () => {
 
     it('includes pagination links when there are many books', async () => {
       const library = await testApp.db.library.create({
-        data: { name: 'Big Library' },
+        data: { name: 'Big Library', path: '/test/big-library' },
       });
       // Create 25 books to exceed page size of 20
       await Promise.all(
@@ -192,7 +195,7 @@ describe('OPDS v1 (e2e)', () => {
 
     it('includes previous link on page 2', async () => {
       const library = await testApp.db.library.create({
-        data: { name: 'Big Library 2' },
+        data: { name: 'Big Library 2', path: '/test/big-library-2' },
       });
       await Promise.all(
         Array.from({ length: 25 }, (_, i) =>

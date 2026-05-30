@@ -8,6 +8,8 @@ import { LibraryModule } from '../library/library.module';
 import { SeriesModule } from '../series/series.module';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
+import { FoldersController } from './folders/folders.controller';
+import { FoldersService } from './folders/folders.service';
 
 @Module({
   imports: [
@@ -19,7 +21,7 @@ import { AdminController } from './admin.controller';
     LibraryModule,
     SeriesModule,
   ],
-  controllers: [AdminController],
-  providers: [AdminService],
+  controllers: [AdminController, FoldersController],
+  providers: [AdminService, FoldersService],
 })
 export class AdminModule {}

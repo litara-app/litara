@@ -150,11 +150,16 @@ describe('LibraryWriteService.computeTargetPath', () => {
 // Shared factory for tests that need prisma / diskWriteGuard mocks
 // ---------------------------------------------------------------------------
 
+const TEST_LIBRARY = { id: 'lib-1', path: '/library', name: 'Test Library' };
+
 function makePrismaMock() {
   return {
     pendingBook: {
       findUnique: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
+    },
+    library: {
+      findUnique: jest.fn().mockResolvedValue(TEST_LIBRARY),
     },
     book: { create: jest.fn(), update: jest.fn().mockResolvedValue({}) },
     author: { upsert: jest.fn().mockResolvedValue({ id: 'a1' }) },
@@ -274,6 +279,7 @@ describe('LibraryWriteService.approvePendingBook — error paths', () => {
       title: 'Test',
       seriesName: null,
       originalFilename: 'book.epub',
+      targetLibraryId: 'lib-1',
     });
     guard.probeLibraryWritable.mockReturnValue(false);
     await expect(service.approvePendingBook('1')).rejects.toThrow(
@@ -290,6 +296,7 @@ describe('LibraryWriteService.approvePendingBook — error paths', () => {
       title: 'My Book',
       seriesName: null,
       originalFilename: 'book.epub',
+      targetLibraryId: 'lib-1',
     });
     (fs.existsSync as jest.Mock).mockReturnValue(true);
 

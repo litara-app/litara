@@ -6,8 +6,8 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
-  Req,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -18,9 +18,9 @@ import {
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import { LibrariesService } from './libraries.service';
-import type { RequestWithUser } from '../auth/interfaces/authenticated-user.interface';
-import { LibraryDto } from './library.dto';
+import { LibraryDto, CreateLibraryDto, UpdateLibraryDto } from './library.dto';
 
 @ApiBearerAuth()
 @Controller('libraries')
@@ -30,36 +30,42 @@ export class LibrariesController {
 
   @Get()
   @ApiOkResponse({ type: LibraryDto, isArray: true })
-  findAll(@Req() req: RequestWithUser) {
-    return this.librariesService.findAll(req.user.id);
+  findAll() {
+    return this.librariesService.findAll();
   }
 
   @Get(':id')
   @ApiOkResponse({ type: LibraryDto })
-  findOne(@Param('id') id: string, @Req() req: RequestWithUser) {
-    return this.librariesService.findOne(id, req.user.id);
+  findOne(@Param('id') id: string) {
+    return this.librariesService.findOne(id);
   }
 
   @Post()
+  @UseGuards(AdminGuard)
   @ApiCreatedResponse({ type: LibraryDto })
-  create(@Req() req: RequestWithUser, @Body() body: { name: string }) {
-    return this.librariesService.create(req.user.id, body.name);
+  create(@Body() dto: CreateLibraryDto) {
+    return this.librariesService.create(dto);
   }
 
   @Delete(':id')
+  @UseGuards(AdminGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
-  remove(@Param('id') id: string, @Req() req: RequestWithUser) {
-    return this.librariesService.remove(id, req.user.id);
+  remove(@Param('id') id: string, @Query('deleteBooks') deleteBooks?: string) {
+    return this.librariesService.remove(id, deleteBooks === 'true');
   }
 
   @Patch(':id')
+  @UseGuards(AdminGuard)
   @ApiOkResponse({ type: LibraryDto })
-  update(
-    @Param('id') id: string,
-    @Req() req: RequestWithUser,
-    @Body() body: { name: string },
-  ) {
-    return this.librariesService.update(id, req.user.id, body.name);
+  update(@Param('id') id: string, @Body() dto: UpdateLibraryDto) {
+    return this.librariesService.update(id, dto);
+  }
+
+  @Post(':id/scan')
+  @UseGuards(AdminGuard)
+  @ApiOkResponse({ description: 'Returns taskId of the scan task' })
+  triggerScan(@Param('id') id: string) {
+    return this.librariesService.triggerScan(id);
   }
 }

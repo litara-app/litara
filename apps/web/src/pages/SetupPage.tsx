@@ -28,9 +28,11 @@ import {
   IconInfoCircle,
   IconCircleCheck,
   IconHeadphones,
+  IconFolder,
 } from '@tabler/icons-react';
 import { api } from '../utils/api';
 import { type MetadataProviderStatus } from '../components/MetadataSourcesSection';
+import { FolderBrowserModal } from '../components/FolderBrowserModal';
 
 const PROVIDER_COLORS: Record<string, string> = {
   hardcover: 'orange',
@@ -57,6 +59,7 @@ export function SetupPage() {
   const [bookDropConfigured, setBookDropConfigured] = useState(false);
   const [bookDropReachable, setBookDropReachable] = useState(false);
   const [wantDiskWrites, setWantDiskWrites] = useState(false);
+  const [libraryRoot, setLibraryRoot] = useState('/books');
 
   // Step 2 — account fields
   const [name, setName] = useState('');
@@ -66,7 +69,14 @@ export function SetupPage() {
   const [setupError, setSetupError] = useState('');
   const [setupLoading, setSetupLoading] = useState(false);
 
-  // Step 3 — metadata providers
+  // Step 3 — first library
+  const [libraryName, setLibraryName] = useState('My Library');
+  const [libraryPath, setLibraryPath] = useState('');
+  const [libraryCreating, setLibraryCreating] = useState(false);
+  const [libraryError, setLibraryError] = useState('');
+  const [folderBrowserOpen, setFolderBrowserOpen] = useState(false);
+
+  // Step 4 — metadata providers
   const [providers, setProviders] = useState<MetadataProviderStatus[]>([]);
   const [providersLoading, setProvidersLoading] = useState(false);
   const [providersError, setProvidersError] = useState('');
@@ -88,11 +98,13 @@ export function SetupPage() {
         isReadOnlyMount: boolean;
         bookDropConfigured: boolean;
         bookDropReachable: boolean;
+        libraryRoot: string;
       }>('/setup/disk-status')
       .then((res) => {
         setIsReadOnlyMount(res.data.isReadOnlyMount);
         setBookDropConfigured(res.data.bookDropConfigured);
         setBookDropReachable(res.data.bookDropReachable);
+        setLibraryRoot(res.data.libraryRoot);
       })
       .catch(() => {
         setDiskError(
@@ -128,22 +140,41 @@ export function SetupPage() {
   }, [navigate]);
 
   useEffect(() => {
-    if (active === 2) {
+    if (active === 3) {
       fetchProviders();
     }
-    if (active === 3) {
+    if (active === 4) {
       api
         .get<{ enabled: boolean }>('/admin/settings/koreader')
         .then((r) => setKoReaderEnabled(r.data.enabled))
         .catch(() => {});
     }
-    if (active === 4) {
+    if (active === 5) {
       api
         .get<{ enabled: boolean }>('/podcasts/settings')
         .then((r) => setPodcastsEnabled(r.data.enabled))
         .catch(() => {});
     }
   }, [active]);
+
+  async function handleCreateFirstLibrary() {
+    setLibraryCreating(true);
+    setLibraryError('');
+    try {
+      await api.post('/setup/first-library', {
+        name: libraryName,
+        path: libraryPath,
+      });
+      setActive((prev) => prev + 1);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? 'Failed to create library';
+      setLibraryError(msg);
+    } finally {
+      setLibraryCreating(false);
+    }
+  }
 
   const handlePodcastsToggle = async (checked: boolean) => {
     setPodcastsSaving(true);
@@ -459,7 +490,74 @@ export function SetupPage() {
             </form>
           </Stepper.Step>
 
-          {/* ── Step 3: Metadata Overview ── */}
+          {/* ── Step 3: First Library ── */}
+          <Stepper.Step label="First Library" description="Define your library">
+            <Stack mt="md" gap="md">
+              <Text size="sm" c="dimmed">
+                Define your first library — a folder inside your{' '}
+                <code>EBOOK_LIBRARY_PATH</code> that Litara will scan for books.
+                You can skip this and set it up later in Admin Settings.
+              </Text>
+              <TextInput
+                label="Library Name"
+                value={libraryName}
+                onChange={(e) => setLibraryName(e.currentTarget.value)}
+              />
+              <TextInput
+                label="Folder Path (absolute)"
+                description={`Must be inside EBOOK_LIBRARY_PATH (${libraryRoot}) on the server`}
+                placeholder={libraryRoot}
+                value={libraryPath}
+                onChange={(e) => setLibraryPath(e.currentTarget.value)}
+                rightSectionWidth={110}
+                rightSection={
+                  <Button
+                    size="xs"
+                    variant="light"
+                    leftSection={<IconFolder size={14} />}
+                    onClick={() => setFolderBrowserOpen(true)}
+                    style={{ marginRight: 4 }}
+                  >
+                    Browse
+                  </Button>
+                }
+              />
+              {libraryError && (
+                <Alert color="red" variant="light">
+                  {libraryError}
+                </Alert>
+              )}
+              <FolderBrowserModal
+                opened={folderBrowserOpen}
+                onClose={() => setFolderBrowserOpen(false)}
+                onSelect={(relPath) => {
+                  setLibraryPath(
+                    relPath
+                      ? `${libraryRoot.replace(/\/+$/, '')}/${relPath}`
+                      : libraryRoot,
+                  );
+                }}
+                libraryRoot={libraryRoot}
+              />
+              <Group>
+                <Button
+                  onClick={() => void handleCreateFirstLibrary()}
+                  loading={libraryCreating}
+                  disabled={!libraryName || !libraryPath}
+                >
+                  Create Library &amp; Continue
+                </Button>
+                <Button
+                  variant="subtle"
+                  onClick={() => setActive((prev) => prev + 1)}
+                >
+                  Skip
+                </Button>
+              </Group>
+            </Stack>
+          </Stepper.Step>
+
+          {/* ── Step 4: Metadata Overview ── */}
           <Stepper.Step label="Metadata" description="Provider overview">
             <Stack mt="md" gap="md">
               <Text size="sm" c="dimmed">
@@ -562,14 +660,14 @@ export function SetupPage() {
               <Button
                 fullWidth
                 leftSection={<IconCheck size={16} />}
-                onClick={() => setActive(3)}
+                onClick={() => setActive(4)}
               >
                 Continue
               </Button>
             </Stack>
           </Stepper.Step>
 
-          {/* ── Step 4: KOReader Sync ── */}
+          {/* ── Step 5: KOReader Sync ── */}
           <Stepper.Step label="KOReader" description="Device sync">
             <Stack mt="md" gap="md">
               <Text size="sm" c="dimmed">
@@ -607,14 +705,14 @@ export function SetupPage() {
               <Button
                 fullWidth
                 leftSection={<IconCheck size={16} />}
-                onClick={() => setActive(4)}
+                onClick={() => setActive(5)}
               >
                 Continue
               </Button>
             </Stack>
           </Stepper.Step>
 
-          {/* ── Step 5: Podcasts ── */}
+          {/* ── Step 6: Podcasts ── */}
           <Stepper.Step label="Podcasts" description="Enable subscriptions">
             <Stack mt="md" gap="md">
               <Text size="sm" c="dimmed">

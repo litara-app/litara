@@ -13,10 +13,14 @@ export function useAllAnnotations() {
     undefined,
   );
   const [search, setSearch] = useState('');
+  const [libraryIds, setLibraryIds] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    listAllAnnotations(typeFilter)
+    listAllAnnotations(
+      typeFilter,
+      libraryIds.length > 0 ? libraryIds : undefined,
+    )
       .then((data) => {
         if (!cancelled) {
           setAnnotations(data);
@@ -30,7 +34,7 @@ export function useAllAnnotations() {
       cancelled = true;
       setIsLoading(true);
     };
-  }, [typeFilter]);
+  }, [typeFilter, libraryIds]);
 
   const filtered = annotations.filter((a) => {
     if (!search) return true;
@@ -56,6 +60,8 @@ export function useAllAnnotations() {
     setTypeFilter,
     search,
     setSearch,
+    libraryIds,
+    setLibraryIds,
     deleteAnnotation: remove,
   };
 }

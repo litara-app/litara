@@ -13,7 +13,7 @@ async function enableOpds(db: any) {
 
 async function seedData(db: any) {
   const library = await db.library.create({
-    data: { name: 'V2 Test Library' },
+    data: { name: 'V2 Test Library', path: '/test/v2-library' },
   });
 
   const author = await db.author.create({ data: { name: 'V2 Author' } });

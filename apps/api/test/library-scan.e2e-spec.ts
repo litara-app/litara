@@ -17,7 +17,7 @@ describe('Library Scan Routes (e2e)', () => {
 
   beforeEach(async () => {
     await cleanDatabase(testApp.db);
-    await createTestUser(testApp.db);
+    await createTestUser(testApp.db, { role: 'ADMIN' });
     token = await loginAs(testApp.app, 'test@test.com', 'password123');
   });
 

@@ -17,14 +17,13 @@ describe('LibraryScanner (e2e)', () => {
     // Reset to a known-clean state now that the schema exists.
     await cleanDatabase(testApp.db);
 
-    // Re-create the prerequisites that the scanner needs
-    // (ensureWatchedFolder normally does this in onModuleInit).
+    // Re-create the prerequisite library so the scanner has something to scan.
     const ebookPath = process.env.EBOOK_LIBRARY_PATH!;
-    await testApp.db.watchedFolder.create({
-      data: { path: ebookPath, isActive: true },
+    await testApp.db.library.create({
+      data: { name: 'Test Library', path: ebookPath },
     });
 
-    // Run the full scan — imports all 6 fixture ebook files.
+    // Run the full scan — imports all fixture ebook files.
     await libraryScannerService.fullScan();
   });
 

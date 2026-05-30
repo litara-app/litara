@@ -8,6 +8,7 @@ import {
   Group,
   Image,
   Loader,
+  MultiSelect,
   ScrollArea,
   Stack,
   Text,
@@ -21,6 +22,8 @@ import {
   IconSearch,
   IconTrash,
 } from '@tabler/icons-react';
+import { useAtomValue } from 'jotai';
+import { librariesAtom } from '../store/atoms';
 import { useAllAnnotations } from '../hooks/useAllAnnotations';
 import type { AnnotationType } from '../api/annotations';
 
@@ -65,6 +68,7 @@ const ALL_TYPES: AnnotationType[] = [
 
 export function AnnotationsPage() {
   const navigate = useNavigate();
+  const libraries = useAtomValue(librariesAtom);
   const {
     annotations,
     isLoading,
@@ -72,6 +76,8 @@ export function AnnotationsPage() {
     setTypeFilter,
     search,
     setSearch,
+    libraryIds,
+    setLibraryIds,
     deleteAnnotation,
   } = useAllAnnotations();
 
@@ -95,6 +101,17 @@ export function AnnotationsPage() {
             onChange={(e) => setSearch(e.currentTarget.value)}
             style={{ flex: 1, minWidth: 200 }}
           />
+          {libraries.length > 0 && (
+            <MultiSelect
+              placeholder="Filter by library"
+              data={libraries.map((l) => ({ value: l.id, label: l.name }))}
+              value={libraryIds}
+              onChange={setLibraryIds}
+              clearable
+              size="sm"
+              style={{ minWidth: 200 }}
+            />
+          )}
           <Chip.Group
             value={typeFilter ?? 'all'}
             onChange={(v) =>

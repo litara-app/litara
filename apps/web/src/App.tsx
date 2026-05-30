@@ -16,6 +16,7 @@ import { Login } from './pages/Login';
 import { SetupPage } from './pages/SetupPage';
 import { Dashboard } from './pages/Dashboard';
 import { LibraryPage } from './pages/LibraryPage';
+import { LibraryCreatePage } from './pages/LibraryCreatePage';
 import { ShelfPage } from './pages/ShelfPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
@@ -65,6 +66,7 @@ export default function App() {
               <Route path="/authors" element={<AuthorsPage />} />
               <Route path="/authors/:authorId" element={<AuthorDetailPage />} />
               <Route path="/annotations" element={<AnnotationsPage />} />
+              <Route path="/libraries/new" element={<LibraryCreatePage />} />
               <Route path="/library/:id" element={<LibraryPage />} />
               <Route path="/shelf/:id" element={<ShelfPage />} />
               <Route path="/smart-shelves/:id" element={<SmartShelfPage />} />

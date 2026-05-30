@@ -112,6 +112,7 @@ export class ReadingProgressService {
             new Set(r.book.files.map((f) => f.format)),
           ).sort(),
           hasFileMissing: r.book.files.some((f) => f.missingAt !== null),
+          isOrphan: r.book.isOrphan,
         },
       };
     });
@@ -144,6 +145,7 @@ export class ReadingProgressService {
             hasFileMissing: representative.book.files.some(
               (f) => f.missingAt !== null,
             ),
+            isOrphan: representative.book.isOrphan,
           },
         };
       },
@@ -196,6 +198,7 @@ export class ReadingProgressService {
             new Set(r.book.files.map((f) => f.format)),
           ).sort(),
           hasFileMissing: r.book.files.some((f) => f.missingAt !== null),
+          isOrphan: r.book.isOrphan,
           hasAudiobook: true,
           audiobookProgressFraction: fraction,
         },

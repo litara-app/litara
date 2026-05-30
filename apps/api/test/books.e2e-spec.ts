@@ -5,7 +5,7 @@ import { cleanDatabase } from './helpers/db.helper';
 
 async function seedLibraryAndBooks(db: any) {
   const library = await db.library.create({
-    data: { name: 'Default Library' },
+    data: { name: 'Default Library', path: '/test/default-library' },
   });
 
   const author1 = await db.author.create({ data: { name: 'Author Alpha' } });

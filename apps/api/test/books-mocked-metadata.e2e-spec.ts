@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import path from 'path';
 import request from 'supertest';
 import { Test } from '@nestjs/testing';
@@ -75,7 +76,9 @@ describe('Books — Mocked Metadata Provider (e2e)', () => {
     await createTestUser(db);
     token = await loginAs(app, 'test@test.com', 'password123');
 
-    const library = await db.library.create({ data: { name: 'Test Library' } });
+    const library = await db.library.create({
+      data: { name: 'Test Library', path: `/test/library-${randomUUID()}` },
+    });
     const author = await db.author.create({ data: { name: 'Jane Austen' } });
     const book = await db.book.create({
       data: {

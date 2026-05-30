@@ -387,10 +387,11 @@ function randomIsbn10(): string {
 async function main() {
   console.log(`\n📚 Seeding ${BOOK_COUNT} fake books...\n`);
 
+  const ebookPath = process.env.EBOOK_LIBRARY_PATH ?? '/books';
   const library =
-    (await prisma.library.findFirst({ where: { userId: null } })) ??
+    (await prisma.library.findFirst()) ??
     (await prisma.library.create({
-      data: { name: 'Default Library', userId: null },
+      data: { name: 'Default Library', path: ebookPath },
     }));
 
   const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });

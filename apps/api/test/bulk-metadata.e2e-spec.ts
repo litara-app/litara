@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
@@ -174,7 +175,9 @@ describe('BulkMetadataService (e2e — mocked providers)', () => {
     description?: string | null;
     lockedFields?: string[];
   }) {
-    const library = await db.library.create({ data: { name: 'Test Library' } });
+    const library = await db.library.create({
+      data: { name: 'Test Library', path: `/test/library-${randomUUID()}` },
+    });
     return db.book.create({
       data: {
         libraryId: library.id,

@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { useAtomValue } from 'jotai';
+import { librariesAtom } from '../../store/atoms';
 import {
   Title,
   Stack,
@@ -632,12 +634,19 @@ function LibraryScanSection({ onTaskStarted }: { onTaskStarted?: () => void }) {
   const [rescanMetadata, setRescanMetadata] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<'success' | 'error' | null>(null);
+  const [selectedLibraryId, setSelectedLibraryId] = useState<string | null>(
+    null,
+  );
+  const libraries = useAtomValue(librariesAtom);
 
   async function handleForceScan() {
     setScanning(true);
     setResult(null);
     try {
-      const qs = rescanMetadata ? '?rescanMetadata=true' : '';
+      const params = new URLSearchParams();
+      if (rescanMetadata) params.set('rescanMetadata', 'true');
+      if (selectedLibraryId) params.set('libraryId', selectedLibraryId);
+      const qs = params.toString() ? `?${params.toString()}` : '';
       await api.post(`/library/scan${qs}`);
       setResult('success');
       onTaskStarted?.();
@@ -653,10 +662,20 @@ function LibraryScanSection({ onTaskStarted }: { onTaskStarted?: () => void }) {
       <Stack gap="sm">
         <Title order={4}>Library Scan</Title>
         <Text size="sm" c="dimmed">
-          Trigger a full re-scan of all watched folders. New files will be
-          imported, and any previously missing files that have returned will be
-          restored.
+          Trigger a re-scan of libraries. New files will be imported, and any
+          previously missing files that have returned will be restored.
         </Text>
+
+        <Select
+          label="Library"
+          description="Leave empty to scan all libraries"
+          placeholder="All libraries"
+          data={libraries.map((l) => ({ value: l.id, label: l.name }))}
+          value={selectedLibraryId}
+          onChange={setSelectedLibraryId}
+          clearable
+          w={260}
+        />
 
         <Checkbox
           label="Re-scan metadata from file (re-reads title, authors, and cover from each file)"
@@ -685,7 +704,7 @@ function LibraryScanSection({ onTaskStarted }: { onTaskStarted?: () => void }) {
           loading={scanning}
           w="fit-content"
         >
-          Force Full Scan
+          Force Scan
         </Button>
       </Stack>
     </Paper>

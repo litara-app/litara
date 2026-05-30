@@ -330,8 +330,9 @@ export class MetadataService {
     title: string;
     authors: string[];
     isbn13?: string | null;
+    libraryId?: string;
   }): Promise<MetadataResult | null> {
-    const fieldConfig = await this.getFieldConfig();
+    const fieldConfig = await this.resolveFieldConfig(input.libraryId);
 
     // Which providers are needed, and which fields each one owns
     const providerFields = new Map<MetadataProvider, string[]>();
@@ -384,6 +385,36 @@ export class MetadataService {
     });
     if (!row) return DEFAULT_FIELD_CONFIG;
     return JSON.parse(row.value) as FieldConfigItem[];
+  }
+
+  /**
+   * Returns the effective field config for a given library:
+   * - starts from the global config
+   * - applies Library.metadataFieldOverrides (sparse {field: providerId} map)
+   * - removes items whose provider is in Library.metadataProvidersDisabled
+   */
+  async resolveFieldConfig(libraryId?: string): Promise<FieldConfigItem[]> {
+    const global = await this.getFieldConfig();
+    if (!libraryId) return global;
+
+    const library = await this.prisma.library.findUnique({
+      where: { id: libraryId },
+      select: { metadataFieldOverrides: true, metadataProvidersDisabled: true },
+    });
+    if (!library) return global;
+
+    const overrides = (library.metadataFieldOverrides ?? {}) as Record<
+      string,
+      string
+    >;
+    const disabled = new Set(library.metadataProvidersDisabled);
+
+    return global
+      .map((item) => ({
+        ...item,
+        provider: overrides[item.field] ?? item.provider,
+      }))
+      .filter((item) => !disabled.has(item.provider));
   }
 
   private async fetchFromProviderWithFallback(

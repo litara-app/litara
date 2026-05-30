@@ -34,6 +34,9 @@ export class AuthorsService {
         name: true,
         photoData: true,
         _count: { select: { books: true } },
+        books: {
+          select: { book: { select: { libraryId: true } } },
+        },
       },
     });
 
@@ -42,6 +45,13 @@ export class AuthorsService {
       name: a.name,
       hasCover: a.photoData !== null,
       bookCount: a._count.books,
+      libraryIds: [
+        ...new Set(
+          a.books
+            .map((b) => b.book.libraryId)
+            .filter((id): id is string => id != null),
+        ),
+      ],
     }));
   }
 

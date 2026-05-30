@@ -4,7 +4,6 @@ export class UpdateBookDto {
   // User review (not part of BookMetadataFields)
   rating?: number;
   readStatus?: string;
-  libraryId?: string;
 
   // Metadata fields (book table) — mirrors BookMetadataFields
   title?: string;

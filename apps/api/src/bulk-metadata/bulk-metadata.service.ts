@@ -137,12 +137,7 @@ export class BulkMetadataService {
       if (!scopeId)
         throw new NotFoundException('scopeId required for library scope');
       const books = await this.prisma.book.findMany({
-        where: {
-          OR: [
-            { libraryId: scopeId },
-            { userLibraries: { some: { libraryId: scopeId } } },
-          ],
-        },
+        where: { libraryId: scopeId },
         select: { id: true },
         orderBy: { title: 'asc' },
       });
@@ -201,8 +196,10 @@ export class BulkMetadataService {
       },
     });
 
+    const libraryId = opts.scope === 'library' ? opts.scopeId : undefined;
+
     // Fire and forget — runs in background
-    void this.runBulkEnrichment(task.id, bookIds, opts);
+    void this.runBulkEnrichment(task.id, bookIds, { ...opts, libraryId });
 
     return { taskId: task.id, total: bookIds.length };
   }
@@ -254,6 +251,7 @@ export class BulkMetadataService {
       overwrite?: boolean;
       guidedSelections?: GuidedSelectionDto[];
       throttleMs?: number;
+      libraryId?: string;
     },
   ) {
     try {
@@ -262,7 +260,9 @@ export class BulkMetadataService {
         data: { status: 'PROCESSING' },
       });
 
-      const fieldConfig = await this.getFieldConfig();
+      const fieldConfig = opts.libraryId
+        ? await this.metadataService.resolveFieldConfig(opts.libraryId)
+        : await this.getFieldConfig();
       const throttleMs = opts.throttleMs ?? (await this.getThrottle());
       const overwrite = opts.overwrite ?? false;
       const autoWrite = await this.getAutoWriteOnEnrich();

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, VersioningType } from '@nestjs/common';
 import helmet from 'helmet';
@@ -102,7 +103,9 @@ describe('MetadataService (e2e — mocked providers)', () => {
   });
 
   async function seedBook(opts?: { lockedFields?: string[] }) {
-    const library = await db.library.create({ data: { name: 'Test Library' } });
+    const library = await db.library.create({
+      data: { name: 'Test Library', path: `/test/library-${randomUUID()}` },
+    });
     return db.book.create({
       data: {
         libraryId: library.id,

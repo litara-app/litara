@@ -13,6 +13,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import {
@@ -174,6 +175,14 @@ export class AdminController {
     return this.adminService.getAllTasks();
   }
 
+  @Get('tasks/:id')
+  @ApiOkResponse()
+  async getTaskById(@Param('id') id: string) {
+    const task = await this.adminService.getTaskById(id);
+    if (!task) throw new NotFoundException(`Task ${id} not found`);
+    return task;
+  }
+
   @Get('settings/disk')
   @ApiOkResponse()
   getDiskSettings() {
@@ -213,6 +222,30 @@ export class AdminController {
   async bulkWriteSidecars() {
     await this.adminService.assertDiskWritesAllowed();
     return this.adminService.bulkWriteSidecars();
+  }
+
+  @Get('books/orphan-stats')
+  @ApiOkResponse({ description: 'Orphaned book count and library count' })
+  getOrphanStats() {
+    return this.adminService.getOrphanStats();
+  }
+
+  @Get('books/orphans')
+  @ApiOkResponse({ description: 'Paginated list of orphan books' })
+  getOrphanBooks(@Query('skip') skip?: string, @Query('take') take?: string) {
+    return this.adminService.getOrphanBooks(
+      Number(skip ?? 0),
+      Number(take ?? 50),
+    );
+  }
+
+  @Patch('books/:id/reassign-library')
+  @ApiOkResponse()
+  reassignLibrary(
+    @Param('id') id: string,
+    @Body() body: { libraryId: string },
+  ) {
+    return this.adminService.reassignLibrary(id, body.libraryId);
   }
 
   @Get('library/reorganize/preview')
