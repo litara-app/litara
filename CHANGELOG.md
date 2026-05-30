@@ -1,3 +1,11 @@
+## [1.41.1](https://github.com/litara-app/litara/compare/v1.41.0...v1.41.1) (2026-05-30)
+
+
+### Bug Fixes
+
+* book review on mobile library selector ([b64e086](https://github.com/litara-app/litara/commit/b64e086e95da228f9d1a17263e7e518da30b3b7f))
+* format fix ([1f79e49](https://github.com/litara-app/litara/commit/1f79e497430712a1cf92b793ee20115a4ec95fe4))
+
 # [1.41.0](https://github.com/litara-app/litara/compare/v1.40.0...v1.41.0) (2026-05-30)
 
 
