@@ -72,12 +72,12 @@ describe('Admin Folders & Orphans Routes (e2e)', () => {
         relPath: string;
         hasChildren: boolean;
       }>;
-      // The fixture root contains an "Alastair Reynolds" subdirectory which
-      // itself contains "Revelation Space".
-      const reynolds = entries.find((e) => e.name === 'Alastair Reynolds');
-      expect(reynolds).toBeDefined();
-      expect(reynolds).toMatchObject({
-        relPath: 'Alastair Reynolds',
+      // The fixture root contains a "Test Series" subdirectory which itself
+      // contains "Book One".
+      const series = entries.find((e) => e.name === 'Test Series');
+      expect(series).toBeDefined();
+      expect(series).toMatchObject({
+        relPath: 'Test Series',
         hasChildren: true,
       });
     });
@@ -85,12 +85,12 @@ describe('Admin Folders & Orphans Routes (e2e)', () => {
     it('lists nested directories via the path query parameter', async () => {
       const res = await request(testApp.app.getHttpServer())
         .get('/api/v1/admin/folders')
-        .query({ path: 'Alastair Reynolds' })
+        .query({ path: 'Test Series' })
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       const entries = res.body as Array<{ name: string }>;
-      expect(entries.some((e) => e.name === 'Revelation Space')).toBe(true);
+      expect(entries.some((e) => e.name === 'Book One')).toBe(true);
     });
 
     it('returns 400 for a path that escapes the library root', async () => {
