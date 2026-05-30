@@ -13,6 +13,7 @@ export const ALLOWED_FIELDS = [
   'publishedYear',
   'isbn13',
   'userRating',
+  'filePath',
 ] as const;
 
 export const ALLOWED_OPERATORS = [

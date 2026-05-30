@@ -332,6 +332,7 @@ model Task {
   status      String   // e.g., "PENDING", "PROCESSING", "COMPLETED", "FAILED"
   payload     String?  // JSON blob with task-specific data
   errorMessage String?
+  libraryId   String?  // optional scope for per-library tasks; NULL for global tasks
 
   nextRunTime DateTime?
   createdAt   DateTime @default(now())

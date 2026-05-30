@@ -43,6 +43,7 @@ Each rule has three parts:
 | Page Count     | Number of pages                                          |
 | Published Year | Year of publication (e.g. `1990`)                        |
 | ISBN-13        | ISBN-13 identifier                                       |
+| File Path      | Full path to the book file on disk                       |
 
 ### Available Operators
 
