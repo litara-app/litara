@@ -439,6 +439,36 @@ describe('BulkMetadataService (e2e — mocked providers)', () => {
       const { taskId, total } = await startRun({});
       expect(typeof taskId).toBe('string');
       expect(total).toBe(2);
+      // Wait for the background task to finish so it doesn't mutate the DB
+      // while the next test runs.
+      await waitForTask(app, adminToken, taskId);
+    });
+
+    it('returns the in-flight task instead of starting a duplicate', async () => {
+      await seedBook();
+      mockOpenLibrary.searchByTitleAuthor.mockResolvedValue(null);
+
+      // Simulate a run already active (e.g. started by another k8s replica).
+      const existing = await db.task.create({
+        data: {
+          type: 'BULK_METADATA_MATCH',
+          status: 'PROCESSING',
+          libraryId: null,
+          payload: JSON.stringify({ processed: 0, total: 0 }),
+        },
+      });
+
+      const { taskId } = await startRun({});
+      expect(taskId).toBe(existing.id);
+
+      // The unique active-task index prevented a second task from being created.
+      const active = await db.task.count({
+        where: {
+          type: 'BULK_METADATA_MATCH',
+          status: { in: ['PENDING', 'PROCESSING'] },
+        },
+      });
+      expect(active).toBe(1);
     });
 
     it('completed task appears in task list', async () => {

@@ -32,6 +32,7 @@ export const SMART_SHELF_FIELDS: Array<{ value: string; label: string }> = [
   { value: 'publishedYear', label: 'Published Year' },
   { value: 'isbn13', label: 'ISBN-13' },
   { value: 'userRating', label: 'My Rating' },
+  { value: 'filePath', label: 'File Path' },
 ];
 
 const NUMERIC_FIELDS = new Set(['pageCount', 'publishedYear', 'userRating']);

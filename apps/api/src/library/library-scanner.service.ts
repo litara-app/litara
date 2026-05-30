@@ -21,6 +21,7 @@ import { findSidecar } from '../common/find-sidecar';
 import { AudiobookScannerService } from '../audiobook/audiobook-scanner.service';
 import type { FSWatcher } from 'chokidar';
 import type { Library } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 const SUPPORTED_FORMATS = [
   'epub',
@@ -145,15 +146,22 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     rescanMetadata = false,
     libraryId?: string,
   ): Promise<{ taskId: string }> {
-    const task = await this.prisma.task.create({
-      data: {
-        type: 'LIBRARY_SCAN',
-        status: 'PENDING',
-        payload: JSON.stringify({ processed: 0, total: 0, currentFile: '' }),
-      },
-    });
-    void this.runFullScanTask(task.id, rescanMetadata, libraryId);
-    return { taskId: task.id };
+    try {
+      const task = await this.prisma.task.create({
+        data: {
+          type: 'LIBRARY_SCAN',
+          status: 'PENDING',
+          libraryId: libraryId ?? null,
+          payload: JSON.stringify({ processed: 0, total: 0, currentFile: '' }),
+        },
+      });
+      void this.runFullScanTask(task.id, rescanMetadata, libraryId);
+      return { taskId: task.id };
+    } catch (err) {
+      const existing = await this.findActiveScanTask(err, libraryId ?? null);
+      if (existing) return { taskId: existing.id };
+      throw err;
+    }
   }
 
   private async runFullScanTask(
@@ -187,24 +195,63 @@ export class LibraryScannerService implements OnModuleInit, OnModuleDestroy {
     libraryId: string,
     opts: { rescanMetadata?: boolean } = {},
   ): Promise<{ taskId: string }> {
-    const task = await this.prisma.task.create({
-      data: {
-        type: 'LIBRARY_SCAN',
-        status: 'PENDING',
-        payload: JSON.stringify({
+    try {
+      const task = await this.prisma.task.create({
+        data: {
+          type: 'LIBRARY_SCAN',
+          status: 'PENDING',
           libraryId,
-          processed: 0,
-          total: 0,
-          currentFile: '',
-        }),
+          payload: JSON.stringify({
+            libraryId,
+            processed: 0,
+            total: 0,
+            currentFile: '',
+          }),
+        },
+      });
+      void this.runLibraryScanTask(
+        task.id,
+        libraryId,
+        opts.rescanMetadata ?? false,
+      );
+      return { taskId: task.id };
+    } catch (err) {
+      const existing = await this.findActiveScanTask(err, libraryId);
+      if (existing) return { taskId: existing.id };
+      throw err;
+    }
+  }
+
+  /**
+   * On a unique-constraint violation (P2002) from the active-task index, returns
+   * the LIBRARY_SCAN task already running for the given scope so the caller can
+   * report it instead of erroring. Returns null for any other error (caller
+   * should rethrow). Deduplicates concurrent scans across instances (k8s replicas).
+   */
+  private async findActiveScanTask(
+    err: unknown,
+    libraryId: string | null,
+  ): Promise<{ id: string } | null> {
+    if (
+      !(err instanceof Prisma.PrismaClientKnownRequestError) ||
+      err.code !== 'P2002'
+    ) {
+      return null;
+    }
+    const existing = await this.prisma.task.findFirst({
+      where: {
+        type: 'LIBRARY_SCAN',
+        libraryId,
+        status: { in: ['PENDING', 'PROCESSING'] },
       },
+      orderBy: { createdAt: 'desc' },
     });
-    void this.runLibraryScanTask(
-      task.id,
-      libraryId,
-      opts.rescanMetadata ?? false,
-    );
-    return { taskId: task.id };
+    if (existing) {
+      this.logger.log(
+        `Library scan already active (task ${existing.id}); skipping duplicate`,
+      );
+    }
+    return existing;
   }
 
   private async runLibraryScanTask(

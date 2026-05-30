@@ -123,6 +123,12 @@ function buildRuleFilter(rule: Rule, userId?: string): BookWhereInput | null {
         ? { files: { some: { format: f as Prisma.StringFilter } } }
         : null;
     }
+    case 'filePath': {
+      const f = buildStringFilter(operator, value);
+      return f
+        ? { files: { some: { filePath: f as Prisma.StringFilter } } }
+        : null;
+    }
     case 'pageCount': {
       const f = buildNumericFilter(operator, value);
       return f ? { pageCount: f } : null;

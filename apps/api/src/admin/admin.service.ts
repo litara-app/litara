@@ -22,6 +22,7 @@ import { DiskWriteGuardService } from '../common/disk-write-guard.service';
 import { BooksService } from '../books/books.service';
 import { LibraryWriteService } from '../library/library-write.service';
 import { SeriesService } from '../series/series.service';
+import { Prisma } from '@prisma/client';
 
 const BULK_SIDECAR_CONCURRENCY = 10;
 
@@ -368,23 +369,53 @@ export class AdminService {
     return { shelfmarkUrl: value };
   }
 
-  async bulkEnrichSeries(): Promise<{ taskId: string }> {
-    const task = await this.prisma.task.create({
-      data: {
-        type: 'SERIES_BULK_ENRICH',
-        status: 'PENDING',
-        payload: JSON.stringify({
-          total: 0,
-          completed: 0,
-          failed: 0,
-          currentSeries: null,
-        }),
+  /**
+   * On a unique-constraint violation (P2002) from the active-task index, returns
+   * the global task already running for `type` so a duplicate request can report
+   * the in-flight task instead of erroring. Returns null for any other error
+   * (caller should rethrow). Deduplicates across instances (e.g. k8s replicas).
+   */
+  private async findActiveTask(
+    err: unknown,
+    type: string,
+  ): Promise<{ id: string } | null> {
+    if (
+      !(err instanceof Prisma.PrismaClientKnownRequestError) ||
+      err.code !== 'P2002'
+    ) {
+      return null;
+    }
+    return this.prisma.task.findFirst({
+      where: {
+        type,
+        libraryId: null,
+        status: { in: ['PENDING', 'PROCESSING'] },
       },
+      orderBy: { createdAt: 'desc' },
     });
+  }
 
-    void this.runBulkEnrichSeries(task.id);
-
-    return { taskId: task.id };
+  async bulkEnrichSeries(): Promise<{ taskId: string }> {
+    try {
+      const task = await this.prisma.task.create({
+        data: {
+          type: 'SERIES_BULK_ENRICH',
+          status: 'PENDING',
+          payload: JSON.stringify({
+            total: 0,
+            completed: 0,
+            failed: 0,
+            currentSeries: null,
+          }),
+        },
+      });
+      void this.runBulkEnrichSeries(task.id);
+      return { taskId: task.id };
+    } catch (err) {
+      const existing = await this.findActiveTask(err, 'SERIES_BULK_ENRICH');
+      if (existing) return { taskId: existing.id };
+      throw err;
+    }
   }
 
   private async runBulkEnrichSeries(taskId: string): Promise<void> {
@@ -466,17 +497,21 @@ export class AdminService {
       orderBy: { title: 'asc' },
     });
 
-    const task = await this.prisma.task.create({
-      data: {
-        type: 'BULK_SIDECAR_WRITE',
-        status: 'PENDING',
-        payload: JSON.stringify({ processed: 0, total: books.length }),
-      },
-    });
-
-    void this.runBulkSidecarWrite(task.id, books);
-
-    return { taskId: task.id };
+    try {
+      const task = await this.prisma.task.create({
+        data: {
+          type: 'BULK_SIDECAR_WRITE',
+          status: 'PENDING',
+          payload: JSON.stringify({ processed: 0, total: books.length }),
+        },
+      });
+      void this.runBulkSidecarWrite(task.id, books);
+      return { taskId: task.id };
+    } catch (err) {
+      const existing = await this.findActiveTask(err, 'BULK_SIDECAR_WRITE');
+      if (existing) return { taskId: existing.id };
+      throw err;
+    }
   }
 
   async previewReorganize(): Promise<{
@@ -704,20 +739,29 @@ export class AdminService {
       }),
     ]);
 
-    const task = await this.prisma.task.create({
-      data: {
-        type: 'LIBRARY_REORGANIZE',
-        status: 'PENDING',
-        payload: JSON.stringify({
-          processed: 0,
-          total: files.length + audiobookBooks.length,
-        }),
-      },
-    });
-
-    void this.runLibraryReorganize(task.id, files, audiobookBooks, libraryRoot);
-
-    return { taskId: task.id };
+    try {
+      const task = await this.prisma.task.create({
+        data: {
+          type: 'LIBRARY_REORGANIZE',
+          status: 'PENDING',
+          payload: JSON.stringify({
+            processed: 0,
+            total: files.length + audiobookBooks.length,
+          }),
+        },
+      });
+      void this.runLibraryReorganize(
+        task.id,
+        files,
+        audiobookBooks,
+        libraryRoot,
+      );
+      return { taskId: task.id };
+    } catch (err) {
+      const existing = await this.findActiveTask(err, 'LIBRARY_REORGANIZE');
+      if (existing) return { taskId: existing.id };
+      throw err;
+    }
   }
 
   private async runLibraryReorganize(
