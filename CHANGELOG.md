@@ -1,3 +1,16 @@
+# [1.41.0](https://github.com/litara-app/litara/compare/v1.40.0...v1.41.0) (2026-05-30)
+
+
+### Bug Fixes
+
+* fixing up tests ([e9058b9](https://github.com/litara-app/litara/commit/e9058b97afa0f53407173543a00bddffaa94dd50))
+* tests fix ([e4da597](https://github.com/litara-app/litara/commit/e4da597c5a71d3768c5d0247a7a709856b963e34))
+
+
+### Features
+
+* match by hash to allow updated file paths ([4a6af0c](https://github.com/litara-app/litara/commit/4a6af0c9d58f1dfbf783d7b02449387a206b0101))
+
 # [1.40.0](https://github.com/litara-app/litara/compare/v1.39.2...v1.40.0) (2026-05-15)
 
 
