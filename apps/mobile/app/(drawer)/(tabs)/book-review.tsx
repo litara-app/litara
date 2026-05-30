@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -7,12 +8,15 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@/src/api/client';
 import { useAuthContext } from '@/src/context/AuthContext';
+import { getLibraries } from '@/src/api/libraries';
+import { resolveLibraryIcon } from '@/src/utils/libraryIcons';
 
 interface PendingBook {
   id: string;
@@ -24,6 +28,7 @@ interface PendingBook {
   seriesPosition: number | null;
   collidingPath: string | null;
   targetPath: string | null;
+  targetLibraryId: string | null;
 }
 
 function parseAuthors(raw: string): string {
@@ -37,15 +42,38 @@ function parseAuthors(raw: string): string {
 function BookCard({
   book,
   onRefresh,
+  targetLibraryId,
+  targetLibraryName,
+  onEditTarget,
 }: {
   book: PendingBook;
   onRefresh: () => void;
+  targetLibraryId: string | null;
+  targetLibraryName: string | null;
+  onEditTarget: () => void;
 }) {
   const [loading, setLoading] = useState(false);
+
+  // Persist the chosen target library on the pending book before approving, so
+  // the server can resolve where to write it (it 400s otherwise).
+  async function applyTargetLibrary(): Promise<boolean> {
+    if (!targetLibraryId) {
+      Alert.alert(
+        'Select a library',
+        'Choose a target library at the top of the screen before approving.',
+      );
+      return false;
+    }
+    if (targetLibraryId !== book.targetLibraryId) {
+      await api.patch(`/book-drop/${book.id}`, { targetLibraryId });
+    }
+    return true;
+  }
 
   async function handleApprove() {
     setLoading(true);
     try {
+      if (!(await applyTargetLibrary())) return;
       await api.post(`/book-drop/${book.id}/approve`);
       onRefresh();
     } catch (err: unknown) {
@@ -71,6 +99,7 @@ function BookCard({
           onPress: async () => {
             setLoading(true);
             try {
+              if (!(await applyTargetLibrary())) return;
               await api.post(`/book-drop/${book.id}/approve-overwrite`);
               onRefresh();
             } catch (err: unknown) {
@@ -123,6 +152,20 @@ function BookCard({
       </Text>
       <Text style={styles.cardFilename}>{book.originalFilename}</Text>
 
+      <Pressable
+        style={({ pressed }) => [
+          styles.targetRow,
+          pressed && styles.rowPressed,
+        ]}
+        onPress={onEditTarget}
+      >
+        <Ionicons name="folder-outline" size={13} color="#4a9eff" />
+        <Text style={styles.targetText} numberOfLines={1}>
+          {targetLibraryName ?? 'No library selected'}
+        </Text>
+        <Ionicons name="chevron-down" size={13} color="#4a9eff" />
+      </Pressable>
+
       {book.status === 'COLLISION' && (
         <View style={styles.collisionWarning}>
           <Ionicons name="warning-outline" size={14} color="#f0a500" />
@@ -172,6 +215,30 @@ export default function BookReviewScreen() {
   const [books, setBooks] = useState<PendingBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedLibraryId, setSelectedLibraryId] = useState<string | null>(
+    null,
+  );
+  // Per-book target overrides (bookId -> libraryId). The top pills set the
+  // default for every card; tapping a card's target row overrides just that one.
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [pickerBookId, setPickerBookId] = useState<string | null>(null);
+
+  const isAdmin = user?.role === 'ADMIN';
+
+  const { data: libraries = [] } = useQuery({
+    queryKey: ['libraries'],
+    queryFn: getLibraries,
+    enabled: isAdmin,
+  });
+
+  // Default the target to the first library once libraries load. Approving
+  // requires a target library, so pre-selecting removes a step.
+  const defaultLibraryId = selectedLibraryId ?? libraries[0]?.id ?? null;
+
+  const targetFor = (book: PendingBook): string | null =>
+    overrides[book.id] ?? book.targetLibraryId ?? defaultLibraryId;
+  const libraryName = (id: string | null): string | null =>
+    libraries.find((l) => l.id === id)?.name ?? null;
 
   const load = useCallback(async () => {
     try {
@@ -192,7 +259,7 @@ export default function BookReviewScreen() {
     }, [load]),
   );
 
-  if (user?.role !== 'ADMIN') {
+  if (!isAdmin) {
     return (
       <View style={styles.center}>
         <Text style={styles.emptyText}>Admin access required.</Text>
@@ -209,35 +276,134 @@ export default function BookReviewScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => {
-            setRefreshing(true);
-            void load();
-          }}
-          tintColor="#4a9eff"
-        />
-      }
-    >
-      <Text style={styles.heading}>Book Review</Text>
-      <Text style={styles.subheading}>
-        Approve or reject books submitted via the book drop.
-      </Text>
-
-      {books.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No books pending review.</Text>
-        </View>
-      ) : (
-        books.map((book) => (
-          <BookCard key={book.id} book={book} onRefresh={() => void load()} />
-        ))
+    <View style={styles.container}>
+      {libraries.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.selectorRow}
+          contentContainerStyle={styles.selectorContent}
+        >
+          {libraries.map((lib) => {
+            const active = lib.id === defaultLibraryId;
+            const iconName = resolveLibraryIcon(lib.iconKey);
+            return (
+              <Pressable
+                key={lib.id}
+                style={[styles.tab, active && styles.tabActive]}
+                onPress={() => setSelectedLibraryId(lib.id)}
+              >
+                <Ionicons
+                  name={iconName}
+                  size={14}
+                  color={active ? '#4a9eff' : '#888'}
+                />
+                <Text
+                  style={[styles.tabLabel, active && styles.tabLabelActive]}
+                >
+                  {lib.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       )}
-    </ScrollView>
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void load();
+            }}
+            tintColor="#4a9eff"
+          />
+        }
+      >
+        <Text style={styles.heading}>Book Review</Text>
+        <Text style={styles.subheading}>
+          Approve or reject books submitted via the book drop. Approved books
+          are written to the selected library.
+        </Text>
+
+        {books.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No books pending review.</Text>
+          </View>
+        ) : (
+          books.map((book) => (
+            <BookCard
+              key={book.id}
+              book={book}
+              onRefresh={() => void load()}
+              targetLibraryId={targetFor(book)}
+              targetLibraryName={libraryName(targetFor(book))}
+              onEditTarget={() => setPickerBookId(book.id)}
+            />
+          ))
+        )}
+      </ScrollView>
+
+      <Modal
+        visible={pickerBookId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerBookId(null)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setPickerBookId(null)}
+        >
+          <Pressable style={styles.modalSheet} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Target Library</Text>
+            <ScrollView style={styles.modalList}>
+              {libraries.map((lib) => {
+                const selected =
+                  pickerBookId !== null &&
+                  lib.id === (overrides[pickerBookId] ?? defaultLibraryId);
+                return (
+                  <Pressable
+                    key={lib.id}
+                    style={({ pressed }) => [
+                      styles.modalRow,
+                      pressed && styles.rowPressed,
+                    ]}
+                    onPress={() => {
+                      if (pickerBookId) {
+                        setOverrides((prev) => ({
+                          ...prev,
+                          [pickerBookId]: lib.id,
+                        }));
+                      }
+                      setPickerBookId(null);
+                    }}
+                  >
+                    <Ionicons
+                      name={resolveLibraryIcon(lib.iconKey)}
+                      size={18}
+                      color={selected ? '#4a9eff' : '#888'}
+                    />
+                    <Text
+                      style={[
+                        styles.modalRowText,
+                        selected && styles.modalRowTextSelected,
+                      ]}
+                    >
+                      {lib.name}
+                    </Text>
+                    {selected && (
+                      <Ionicons name="checkmark" size={18} color="#4a9eff" />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
   );
 }
 
@@ -250,6 +416,69 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#0a0a0a',
   },
+  // Library selector pills
+  selectorRow: {
+    flexGrow: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1e',
+  },
+  selectorContent: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#1c1c1e',
+  },
+  tabActive: { backgroundColor: '#1c3a5e' },
+  tabLabel: { color: '#888', fontSize: 13, fontWeight: '500' },
+  tabLabelActive: { color: '#4a9eff', fontWeight: '700' },
+  targetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: '#11233a',
+  },
+  targetText: { color: '#4a9eff', fontSize: 12, maxWidth: 200 },
+  rowPressed: { opacity: 0.6 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: '#000000aa',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  modalList: { flexGrow: 0 },
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2c2c2e',
+  },
+  modalRowText: { color: '#fff', fontSize: 15, flex: 1 },
+  modalRowTextSelected: { color: '#4a9eff', fontWeight: '600' },
   heading: { color: '#fff', fontSize: 22, fontWeight: '700' },
   subheading: { color: '#888', fontSize: 14 },
   card: {
