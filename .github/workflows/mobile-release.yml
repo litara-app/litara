@@ -90,7 +90,18 @@ jobs:
         env:
           # Sourced from the repo secret named ENDROID_KEYSTORE_BASE_64 (existing name).
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ENDROID_KEYSTORE_BASE_64 }}
-        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/litara-release.jks"
+        run: |
+          # Strip whitespace/CR so wrapped or CRLF-encoded base64 still decodes.
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' \
+            | base64 -d > "$RUNNER_TEMP/litara-release.jks"
+          if [ ! -s "$RUNNER_TEMP/litara-release.jks" ]; then
+            echo "::error::Decoded keystore is empty — check the ENDROID_KEYSTORE_BASE_64 secret value" && exit 1
+          fi
+          # Fail early with a clear message if it's not a real keystore (e.g. certutil headers)
+          if ! keytool -list -keystore "$RUNNER_TEMP/litara-release.jks" \
+                 -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >/dev/null 2>&1; then
+            echo "::error::Keystore failed to load. Re-create the secret with clean base64: 'base64 -w0 litara-release.jks' (no line wrapping, no CRLF)." && exit 1
+          fi
 
       - name: Build release APK
         if: steps.go.outputs.run == 'true'
