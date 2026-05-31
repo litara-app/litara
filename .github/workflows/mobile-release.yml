@@ -129,7 +129,10 @@ jobs:
       - name: Verify signature
         if: steps.go.outputs.run == 'true'
         run: |
-          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs \
+          # Multiple build-tools versions may be installed; pick the highest one
+          # so the glob doesn't expand to several apksigner paths.
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
+          "$APKSIGNER" verify --print-certs \
             "dist/com.litara.mobile-${{ steps.version.outputs.code }}.apk"
 
       - name: Publish GitHub Release
