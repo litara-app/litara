@@ -88,7 +88,8 @@ jobs:
       - name: Decode release keystore
         if: steps.go.outputs.run == 'true'
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          # Sourced from the repo secret named ENDROID_KEYSTORE_BASE_64 (existing name).
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ENDROID_KEYSTORE_BASE_64 }}
         run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/litara-release.jks"
 
       - name: Build release APK
