@@ -39,5 +39,7 @@ yarn-error.*
 app-example
 
 # generated native folders
+# android/ is committed (bare workflow) so the release build is reproducible in CI
+# and the release signingConfig in android/app/build.gradle is source-controlled.
+# Re-run `expo prebuild -p android` manually when upgrading Expo/native deps.
 /ios
-/android

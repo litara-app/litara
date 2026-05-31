@@ -1,0 +1,133 @@
+name: Mobile Release (F-Droid)
+
+# Auto-releases a signed Android APK when the mobile app version changes on main.
+# The version is read from apps/mobile/app.json (expo.version). If a GitHub Release
+# for that version already exists, the run is a no-op — so ordinary commits to
+# apps/mobile/** do NOT re-release. To cut a new release, bump the version in
+# apps/mobile/app.json and merge to main.
+#
+# versionCode is derived as X*10000 + Y*100 + Z (minor/patch must be < 100).
+# The APK is signed with the release keystore from secrets; the central
+# deranjer/fdroid repo pulls the published APK from the Release.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/**'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Rebuild/republish even if the release already exists'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # create the tag + GitHub Release
+
+concurrency:
+  group: mobile-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./apps/mobile/app.json').expo.version")
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::app.json version '$VERSION' must be X.Y.Z" && exit 1
+          fi
+          MAJOR=${VERSION%%.*}; REST=${VERSION#*.}; MINOR=${REST%%.*}; PATCH=${REST#*.}
+          if [ "$MINOR" -ge 100 ] || [ "$PATCH" -ge 100 ]; then
+            echo "::error::minor/patch must be < 100 for the versionCode scheme" && exit 1
+          fi
+          CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Resolved version $VERSION -> versionCode $CODE"
+
+      - name: Decide whether to release
+        id: go
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "mobile-v${{ steps.version.outputs.name }}" >/dev/null 2>&1 \
+             && [ "${{ github.event.inputs.force }}" != "true" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Release mobile-v${{ steps.version.outputs.name }} already exists — skipping."
+            echo "Bump apps/mobile/app.json version to cut a new release."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.go.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.go.outputs.run == 'true'
+        run: npm ci
+
+      - name: Setup Java
+        if: steps.go.outputs.run == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Decode release keystore
+        if: steps.go.outputs.run == 'true'
+        env:
+          # Sourced from the repo secret named ENDROID_KEYSTORE_BASE_64 (existing name).
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ENDROID_KEYSTORE_BASE_64 }}
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/litara-release.jks"
+
+      - name: Build release APK
+        if: steps.go.outputs.run == 'true'
+        working-directory: apps/mobile/android
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease \
+            -PLITARA_STORE_FILE="$RUNNER_TEMP/litara-release.jks" \
+            -PLITARA_STORE_PASSWORD="$STORE_PASSWORD" \
+            -PLITARA_KEY_ALIAS="$KEY_ALIAS" \
+            -PLITARA_KEY_PASSWORD="$KEY_PASSWORD" \
+            -PLITARA_VERSION_NAME="${{ steps.version.outputs.name }}" \
+            -PLITARA_VERSION_CODE="${{ steps.version.outputs.code }}"
+
+      - name: Stage APK
+        if: steps.go.outputs.run == 'true'
+        run: |
+          mkdir -p dist
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk \
+            "dist/com.litara.mobile-${{ steps.version.outputs.code }}.apk"
+
+      - name: Verify signature
+        if: steps.go.outputs.run == 'true'
+        run: |
+          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs \
+            "dist/com.litara.mobile-${{ steps.version.outputs.code }}.apk"
+
+      - name: Publish GitHub Release
+        if: steps.go.outputs.run == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mobile-v${{ steps.version.outputs.name }}
+          name: Mobile v${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          files: dist/com.litara.mobile-${{ steps.version.outputs.code }}.apk
+          fail_on_unmatched_files: true
