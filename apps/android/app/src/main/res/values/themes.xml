@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base Activity theme. UI is rendered by Compose; this only controls the window chrome.
+         Parent must be an AppCompat theme (a direct dependency; see app/build.gradle.kts): on the
+         "full" flavor, the Cast device-picker (MediaRouteChooserDialogFragment, opened by
+         CastButton.kt) builds its dialog from the *activity's* theme - the ContextThemeWrapper
+         CastButton applies to the button itself never reaches the fragment.
+         MediaRouterThemeHelper.getRouterThemeId() resolves AppCompat's ?attr/colorPrimary off that
+         theme and crashes ("background can not be translucent: #0") if it's unset/transparent, as
+         it is on a plain android:Theme.Material parent - hence the explicit opaque colorPrimary
+         here too. -->
+    <style name="Theme.Litara" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/accent</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Theme.Litara.MediaRouter(.Light), for CastButton.kt's legacy MediaRouteButton, live in
+         the "full" flavor's res/values/themes.xml instead. They extend androidx.mediarouter's own
+         Theme.MediaRouter(.Light), which isn't on the classpath in the fdroid flavor. -->
+</resources>

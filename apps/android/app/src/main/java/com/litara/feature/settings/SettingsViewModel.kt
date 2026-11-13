@@ -1,0 +1,215 @@
+package com.litara.feature.settings
+
+import com.litara.R
+import com.litara.ui.UiText
+import android.content.Context
+import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import coil.ImageLoader
+import com.litara.core.appinfo.AppInfoRepository
+import com.litara.core.auth.SessionManager
+import com.litara.core.network.UserCaSettings
+import com.litara.feature.main.NavConfig
+import com.litara.feature.main.NavItem
+import com.litara.feature.main.canUseBookDrop
+import com.litara.core.model.AppInfo
+import com.litara.core.settings.AppSettingsStore
+import com.litara.core.settings.DownloadLocationStore
+import com.litara.core.settings.ThemeMode
+import com.litara.core.settings.ReaderInterface
+import com.litara.feature.downloads.DownloadsRepository
+import com.litara.feature.player.AudioSettingsStore
+import com.litara.feature.player.DEFAULT_SPEED
+import com.litara.feature.player.DEFAULT_SKIP_BACK
+import com.litara.feature.player.DEFAULT_SKIP_FORWARD
+import com.litara.feature.player.PreviousTrackAction
+import com.litara.feature.player.ProgressBarMode
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class DownloadsSummary(val count: Int = 0, val totalBytes: Long = 0)
+
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    private val appSettings: AppSettingsStore,
+    private val downloadsRepo: DownloadsRepository,
+    private val audioSettingsStore: AudioSettingsStore,
+    private val imageLoader: ImageLoader,
+    private val locationStore: DownloadLocationStore,
+    private val appInfoRepository: AppInfoRepository,
+    private val session: SessionManager,
+    private val userCaSettings: UserCaSettings,
+    @ApplicationContext private val context: Context,
+) : ViewModel() {
+    val appInfo: StateFlow<AppInfo?> = appInfoRepository.appInfo
+
+    val readerInterface = appSettings.readerInterface
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReaderInterface.APP)
+    val readingFullscreen = appSettings.readingFullscreen
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    fun setReaderInterface(value: ReaderInterface) {
+        viewModelScope.launch { appSettings.setReaderInterface(value) }
+    }
+
+    fun setReadingFullscreen(enabled: Boolean) {
+        viewModelScope.launch { appSettings.setReadingFullscreen(enabled) }
+    }
+
+    /** The bottom-bar buttons the user has chosen, in order. */
+    val navItems: StateFlow<List<NavItem>> = appSettings.navItems
+        .map { NavConfig.parse(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NavConfig.DEFAULT)
+
+    val canUseBookDrop: Boolean get() = session.currentUser?.canUseBookDrop() == true
+
+    private fun saveNav(items: List<NavItem>) {
+        viewModelScope.launch { appSettings.setNavItems(NavConfig.serialize(items)) }
+    }
+
+    fun moveNavItem(index: Int, delta: Int) = saveNav(NavConfig.moved(navItems.value, index, delta))
+
+    fun removeNavItem(item: NavItem) = saveNav(NavConfig.removed(navItems.value, item))
+
+    fun addNavItem(item: NavItem) = saveNav(NavConfig.added(navItems.value, item))
+
+    fun resetNavItems() = saveNav(NavConfig.DEFAULT)
+
+    val themeMode: StateFlow<ThemeMode> = appSettings.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
+
+    val dynamicColor: StateFlow<Boolean> = appSettings.dynamicColor
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val wifiOnlyDownloads: StateFlow<Boolean> = appSettings.wifiOnlyDownloads
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val certificateHost: String get() = UserCaSettings.httpsHost(session.serverUrl).orEmpty()
+
+    val trustUserCas: StateFlow<Boolean> = userCaSettings.hosts.map { userCaSettings.isEnabledForUrl(session.serverUrl) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setTrustUserCas(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) { userCaSettings.setEnabledForUrl(session.serverUrl, enabled) }
+    }
+
+    val downloadsSummary: StateFlow<DownloadsSummary> = downloadsRepo.downloads
+        .map { downloads -> DownloadsSummary(count = downloads.size, totalBytes = downloads.sumOf { it.sizeBytes }) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadsSummary())
+
+    private val _defaultSpeed = MutableStateFlow(DEFAULT_SPEED)
+    val defaultSpeed: StateFlow<Float> = _defaultSpeed.asStateFlow()
+
+    val progressBarMode: StateFlow<ProgressBarMode> = audioSettingsStore.settings
+        .map { it.progressBarMode }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressBarMode.BOOK)
+
+    val skipBackSeconds: StateFlow<Int> = audioSettingsStore.settings
+        .map { it.skipBackSeconds }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DEFAULT_SKIP_BACK)
+
+    val skipForwardSeconds: StateFlow<Int> = audioSettingsStore.settings
+        .map { it.skipForwardSeconds }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DEFAULT_SKIP_FORWARD)
+
+    val previousTrackAction: StateFlow<PreviousTrackAction> = audioSettingsStore.settings
+        .map { it.previousTrackAction }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PreviousTrackAction.CHAPTER)
+
+    val downloadTreeUri: StateFlow<Uri?> = locationStore.treeUri
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val downloadLocationLabel: StateFlow<UiText> = downloadTreeUri
+        .map { it?.let(::labelFor) ?: UiText.of(R.string.settings_location_default) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiText.of(R.string.settings_location_default))
+
+    val downloadLocationAccessible: StateFlow<Boolean> = downloadTreeUri
+        .map { it == null || locationStore.isAccessible(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    private val _message = MutableStateFlow<UiText?>(null)
+    val message: StateFlow<UiText?> = _message.asStateFlow()
+
+    init {
+        viewModelScope.launch { _defaultSpeed.value = audioSettingsStore.load().speed }
+    }
+
+    fun setDynamicColor(enabled: Boolean) {
+        viewModelScope.launch { appSettings.setDynamicColor(enabled) }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { appSettings.setThemeMode(mode) }
+    }
+
+    fun setWifiOnlyDownloads(enabled: Boolean) {
+        viewModelScope.launch { appSettings.setWifiOnlyDownloads(enabled) }
+    }
+
+    fun setDefaultSpeed(value: Float) {
+        _defaultSpeed.value = value
+        viewModelScope.launch { audioSettingsStore.saveSpeed(value) }
+    }
+
+    fun setProgressBarMode(mode: ProgressBarMode) {
+        viewModelScope.launch { audioSettingsStore.saveProgressBarMode(mode) }
+    }
+
+    fun setSkipBack(seconds: Int) {
+        viewModelScope.launch { audioSettingsStore.saveSkipBack(seconds) }
+    }
+
+    fun setSkipForward(seconds: Int) {
+        viewModelScope.launch { audioSettingsStore.saveSkipForward(seconds) }
+    }
+
+    fun setPreviousTrackAction(action: PreviousTrackAction) {
+        viewModelScope.launch { audioSettingsStore.savePreviousTrackAction(action) }
+    }
+
+    fun clearImageCache() {
+        imageLoader.diskCache?.clear()
+        imageLoader.memoryCache?.clear()
+        _message.value = UiText.of(R.string.settings_msg_image_cache_cleared)
+    }
+
+    fun clearAllDownloads() {
+        viewModelScope.launch {
+            downloadsRepo.deleteAll()
+            _message.value = UiText.of(R.string.settings_msg_downloads_removed)
+        }
+    }
+
+    fun setDownloadLocation(uri: Uri) {
+        viewModelScope.launch {
+            locationStore.setTreeUri(uri)
+            _message.value = UiText.of(R.string.settings_msg_location_set, labelFor(uri).resolve(context))
+        }
+    }
+
+    fun resetDownloadLocation() {
+        viewModelScope.launch {
+            locationStore.clear()
+            _message.value = UiText.of(R.string.settings_msg_location_reset)
+        }
+    }
+
+    private fun labelFor(uri: Uri): UiText =
+        runCatching { DocumentFile.fromTreeUri(context, uri)?.name }.getOrNull()?.let { UiText.raw(it) }
+            ?: UiText.of(R.string.settings_location_selected_folder)
+
+    fun consumeMessage() {
+        _message.value = null
+    }
+}
