@@ -1,8 +1,12 @@
 # Adaptation boundary: BookOrbit baseline → Litara
 
 This documents where the future Litara API adapter replaces baseline code and which accepted ADRs
-require changes. **Nothing here is implemented.** The baseline's BookOrbit networking is temporary and
-**pending replacement**; no BookOrbit compatibility layer is to be built. Sources: ADR-0005,
+require changes. **T003 status (see `../../handoffs/T003.md`):** audit L6 (section 3) is fixed and covered by a regression test, and a
+Litara client, resumable ranged downloader and account-scoped offline store exist under
+`app/src/main/java/com/litara/core/litara/` with unit and real-server tests. They are **not yet wired** into the
+Hilt graph, the player, downloads UI or the Auto sources, so the BookOrbit networking below is still what the app
+runs and is **pending replacement**; no BookOrbit compatibility layer is to be built. Everything else in this file
+remains unimplemented unless a row says otherwise. Sources: ADR-0005,
 ADR-0009, ADR-0013, ADR-0015, ADR-0017 to ADR-0023 and `../../research/android/`.
 
 ## 1. Where the Litara adapter replaces baseline code
@@ -41,9 +45,17 @@ Keep unchanged unless a defect forces it: `BookAggregatingPlayer`, `ChapterClock
 Identity, signing, URI scheme, discovery/pagination/offline-snapshot/chapter-representation details
 remain **open decisions** and are not selected here.
 
-## 3. Known defect carried over: downloads and progress are per server, not per account (audit L6)
+## 3. Audit L6: downloads and progress were per server, not per account (fixed in T003)
 
-**This is a defect, not preserved behavior.** In the baseline, `core/di/DatabaseModule.kt` opens one Room
+**Fixed:** `DataScope.of(owner, serverUrl, userId)` and `SessionManager.dataScope` now key the Room database and
+download folders by server AND account; `SyncWorker` refuses to flush when the open database is not the signed-in
+account's. The first account to sign in after an upgrade claims the pre-existing unscoped data (the baseline never
+recorded which account wrote it; this is a documented limitation). The regression test is
+`core/auth/AccountScopeTest` (it failed 4 of 5 against the unmodified baseline; see
+`../../research/t003/l6-baseline-failure.md`), and `core/litara/OfflineStoreTest` covers a task finishing after
+logout or an account switch. The text below describes the original defect.
+
+**This was a defect, not preserved behavior.** In the baseline, `core/di/DatabaseModule.kt` opens one Room
 database per server URL (`litara-<sha12>.db`, derived by `core/auth/DataScope.kt`). The
 `audio_progress`, `reader_progress` and `downloads` tables have **no user column**
 (`core/db/AudioProgressEntity.kt`, `ReaderProgressEntity.kt`, `DownloadEntity.kt`). Only the pending

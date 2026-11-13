@@ -37,7 +37,13 @@ services:
     build:
       context: ../apps/server
       dockerfile: ../../deploy/Dockerfile
-    environment: *appenv
+    environment:
+      <<: *appenv
+      # Required by the server (generate one with: ctl gen-key). Never commit it.
+      LITARA_SECRET_KEY: ${LITARA_SECRET_KEY:-}
+      # Development-only plain-HTTP cookie mode; leave empty for any real deployment.
+      LITARA_DEV_INSECURE_HTTP: ${LITARA_DEV_INSECURE_HTTP:-}
+      LITARA_PUBLIC_PATH_PREFIX: ${LITARA_PUBLIC_PATH_PREFIX:-}
     ports:
       - "127.0.0.1:${LITARA_HTTP_PORT:-8080}:8080"
     volumes:

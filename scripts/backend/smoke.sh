@@ -13,6 +13,7 @@ cd "$root"
 export LITARA_IMAGE="${LITARA_IMAGE:-litara-backend:dev}"
 export LITARA_HTTP_PORT="${LITARA_HTTP_PORT:-18080}"
 export LITARA_DB_PASSWORD="smoke-$(date +%s)"
+export LITARA_DEV_INSECURE_HTTP=1
 fx="$(mktemp -d)"
 # Docker expects host mount paths, while container arguments must stay POSIX.
 if command -v cygpath >/dev/null 2>&1; then
@@ -25,6 +26,9 @@ cleanup() { "${compose[@]}" down -v --remove-orphans >/dev/null 2>&1 || true; rm
 trap cleanup EXIT
 
 "${compose[@]}" build
+LITARA_SECRET_KEY="$("${compose[@]}" run --rm --no-deps -T --entrypoint ctl migrate gen-key | tr -d '\r\n')"
+export LITARA_SECRET_KEY
+live_pw="Smoke-$(date +%s)-synthetic"
 # Fail early if the build did not produce the image the rest of the script uses.
 docker image inspect "$LITARA_IMAGE" >/dev/null
 echo "== license notice present in image"
@@ -82,5 +86,23 @@ broken="$(show /media/broken.mp3)"; echo "$broken" | sed -n 1,2p
 [[ "$broken" == *"outcome=malformed_media"* ]] || { echo "expected malformed_media" >&2; exit 1; }
 missing="$(show /media/missing.mp3)"; echo "$missing" | sed -n 1,2p
 [[ "$missing" == *"outcome=missing_input"* ]] || { echo "expected missing_input" >&2; exit 1; }
+
+echo "== T003: seed the fixture (writable one-shot mount) and run the authenticated third-party flow"
+"${compose[@]}" run --rm --no-deps -T --user 0 -v "$fx:/media" -e LITARA_FFMPEG_PATH=/opt/litara/bin/ffmpeg \
+  --entrypoint ctl migrate seed --dir /media --password-stdin <<<"$live_pw"
+docker run --rm --user 0 --entrypoint sh -v "$fx:/out" "$LITARA_IMAGE" -c "chmod -R a+rX /out"
+"${compose[@]}" up -d server
+wait_ready
+py=""
+for c in python3 python; do
+  if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys' >/dev/null 2>&1; then py="$c"; break; fi
+done
+[ -n "$py" ] || { echo "python is required for the live contract check" >&2; exit 1; }
+LITARA_LIVE_PASSWORD="$live_pw" "$py" scripts/contracts/live_check.py "http://127.0.0.1:${LITARA_HTTP_PORT}"
+
+echo "== T003: accounts and progress survive a server restart"
+"${compose[@]}" restart server
+wait_ready
+LITARA_LIVE_PASSWORD="$live_pw" "$py" scripts/contracts/live_check.py --after-restart "http://127.0.0.1:${LITARA_HTTP_PORT}"
 
 echo "SMOKE OK"

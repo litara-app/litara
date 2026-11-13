@@ -34,6 +34,16 @@ func (q *Queries) ClearSessionExchangeResponses(ctx context.Context, sessionID u
 	return err
 }
 
+const clearUserExchangeResponses = `-- name: ClearUserExchangeResponses :exec
+UPDATE refresh_exchanges SET response_ciphertext = NULL
+WHERE session_id IN (SELECT id FROM sessions WHERE user_id = $1)
+`
+
+func (q *Queries) ClearUserExchangeResponses(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearUserExchangeResponses, userID)
+	return err
+}
+
 const countLibrariesForUser = `-- name: CountLibrariesForUser :one
 SELECT count(*) FROM user_library_grants WHERE user_id = $1
 `

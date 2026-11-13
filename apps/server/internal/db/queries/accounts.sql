@@ -126,3 +126,7 @@ WHERE response_ciphertext IS NOT NULL AND created_at <= $1;
 
 -- name: ClearSessionExchangeResponses :exec
 UPDATE refresh_exchanges SET response_ciphertext = NULL WHERE session_id = $1;
+
+-- name: ClearUserExchangeResponses :exec
+UPDATE refresh_exchanges SET response_ciphertext = NULL
+WHERE session_id IN (SELECT id FROM sessions WHERE user_id = $1);

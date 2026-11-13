@@ -241,6 +241,9 @@ func (s *Service) UpdateUser(ctx context.Context, id uuid.UUID, in wire.UpdateUs
 			return err
 		}
 		if cur.Active && !newActive {
+			if err := q.ClearUserExchangeResponses(ctx, id); err != nil {
+				return err
+			}
 			if _, err := q.RevokeUserSessions(ctx, sqlcgen.RevokeUserSessionsParams{UserID: id, RevokedAt: ptr(s.now()), RevokedReason: ptr("account_deactivated")}); err != nil {
 				return err
 			}
@@ -272,6 +275,9 @@ func (s *Service) SetPassword(ctx context.Context, username, password string) er
 			return err
 		}
 		if err := q.SetPasswordHash(ctx, sqlcgen.SetPasswordHashParams{ID: u.ID, PasswordHash: hash}); err != nil {
+			return err
+		}
+		if err := q.ClearUserExchangeResponses(ctx, u.ID); err != nil {
 			return err
 		}
 		_, err = q.RevokeUserSessions(ctx, sqlcgen.RevokeUserSessionsParams{UserID: u.ID, RevokedAt: ptr(s.now()), RevokedReason: ptr("password_reset")})
@@ -594,6 +600,9 @@ func (s *Service) Sessions(ctx context.Context, userID uuid.UUID) (wire.Sessions
 
 // Logout revokes the principal's current session only.
 func (s *Service) Logout(ctx context.Context, p *Principal) error {
+	if err := s.q.ClearSessionExchangeResponses(ctx, p.SessionID); err != nil {
+		return unavailable(err)
+	}
 	_, err := s.q.RevokeSession(ctx, sqlcgen.RevokeSessionParams{ID: p.SessionID, RevokedAt: ptr(s.now()), RevokedReason: ptr("logout")})
 	return unavailable(err)
 }
@@ -605,6 +614,9 @@ func (s *Service) RevokeOwn(ctx context.Context, userID, sessionID uuid.UUID) er
 		return apperr.ErrNotFound
 	}
 	if err != nil {
+		return unavailable(err)
+	}
+	if err := s.q.ClearSessionExchangeResponses(ctx, sessionID); err != nil {
 		return unavailable(err)
 	}
 	_, err = s.q.RevokeSession(ctx, sqlcgen.RevokeSessionParams{ID: sessionID, RevokedAt: ptr(s.now()), RevokedReason: ptr("device_revoked")})
