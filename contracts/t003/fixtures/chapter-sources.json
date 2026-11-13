@@ -1,0 +1,172 @@
+{
+  "recording": "00000000-0000-4000-8000-000000000100",
+  "cases": [
+    {
+      "name": "protected-valid",
+      "sources": [
+        {
+          "source": "user",
+          "starts": [
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": 0
+            },
+            {
+              "fileId": "00000000-0000-4000-8000-000000000301",
+              "contentVersion": "00000000-0000-4000-8000-000000000401",
+              "offsetMs": 10000
+            }
+          ]
+        },
+        {
+          "source": "cue",
+          "starts": [
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": 0
+            }
+          ]
+        }
+      ],
+      "expected": "user"
+    },
+    {
+      "name": "invalid-protected-fallback",
+      "sources": [
+        {
+          "source": "user",
+          "starts": [
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": -1
+            }
+          ]
+        },
+        {
+          "source": "cue",
+          "starts": [
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": 0
+            },
+            {
+              "fileId": "00000000-0000-4000-8000-000000000301",
+              "contentVersion": "00000000-0000-4000-8000-000000000401",
+              "offsetMs": 0
+            }
+          ]
+        }
+      ],
+      "expected": "cue",
+      "preserveRejected": true
+    },
+    {
+      "name": "duplicate-cue",
+      "sources": [
+        {
+          "source": "cue",
+          "starts": [
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": 0
+            },
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": 0
+            }
+          ]
+        },
+        {
+          "source": "embedded",
+          "starts": [
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": 10000
+            }
+          ]
+        }
+      ],
+      "expected": "embedded"
+    },
+    {
+      "name": "descending-embedded",
+      "sources": [
+        {
+          "source": "embedded",
+          "starts": [
+            {
+              "fileId": "00000000-0000-4000-8000-000000000301",
+              "contentVersion": "00000000-0000-4000-8000-000000000401",
+              "offsetMs": 20000
+            },
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": 10000
+            }
+          ]
+        }
+      ],
+      "expected": "generated",
+      "expectedRecordingStarts": [
+        0,
+        60000,
+        150000
+      ]
+    },
+    {
+      "name": "offset-at-file-end",
+      "sources": [
+        {
+          "source": "embedded",
+          "starts": [
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": 60000
+            }
+          ]
+        }
+      ],
+      "expected": "generated"
+    },
+    {
+      "name": "later-file-zero-is-valid",
+      "sources": [
+        {
+          "source": "embedded",
+          "starts": [
+            {
+              "fileId": "00000000-0000-4000-8000-000000000300",
+              "contentVersion": "00000000-0000-4000-8000-000000000400",
+              "offsetMs": 10000
+            },
+            {
+              "fileId": "00000000-0000-4000-8000-000000000301",
+              "contentVersion": "00000000-0000-4000-8000-000000000401",
+              "offsetMs": 0
+            }
+          ]
+        }
+      ],
+      "expected": "embedded"
+    },
+    {
+      "name": "chapterless",
+      "sources": [],
+      "expected": "generated",
+      "expectedRecordingStarts": [
+        0,
+        60000,
+        150000
+      ]
+    }
+  ]
+}

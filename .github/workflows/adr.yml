@@ -1,0 +1,17 @@
+name: ADR validation
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate ADR records and index
+        shell: pwsh
+        run: ./scripts/Validate-Adrs.ps1

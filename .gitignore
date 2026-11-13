@@ -1,86 +1,38 @@
-# compiled output
-**/dist
-**/node_modules
-/build
-
-# Logs
-logs
+# Dependencies and generated output
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+.turbo/
+.tmp/
+.temp/
+/research/media-inspection/.cache/
 *.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
 
-# OS
-.DS_Store
-
-# Tests
-/coverage
-/.nyc_output
-
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
-# dotenv environment variable files
+# Local configuration and private credentials
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-
-# temp directory
-.temp
-.tmp
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Diagnostic reports (https://nodejs.org/api/report.html)
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
-# turborepo cache
-.turbo
-
-# Claude specific settings
-.claude/settings.local.json
-
-# Signing keystores — never commit private release signing keys.
-# (android/app/debug.keystore is the shared Android debug key and is fine to commit.)
+.env.*
+!.env.example
 *.jks
 *.p12
+**/keystore.properties
+**/play-service-account.json
+**/local.properties
 
-# local docker test ebook directory (created by docker-compose.local.yml volume mount)
-/books
-/apps/api/coverage/**
-/book-drop
+# Legacy local data and caches (the archived ignore file also remains in force)
+/archive/litara-v1/books/
+/archive/litara-v1/book-drop/
+/archive/litara-v1/.playwright/
+/archive/litara-v1/.turbo/
+/archive/litara-v1/node_modules/
+/archive/litara-v1/.claude/settings.local.json
 
-# Large test files
-*.mp3
+# Active local data
+/data/
+/books/
+/book-drop/
+.DS_Store
 
-# Playwright
-/apps/web/test-results/
-/apps/web/playwright-report/
-/apps/web/e2e/.auth.json
-/playwright-screenshots/
-test/fixtures/ebook-library/Pride and Prejudice - Jane Austen.metadata.json
-test/fixtures/ebook-library/Test Man 1 - Jane Doe.metadata.json
-test/fixtures/ebook-library/The Picture of Dorian Gray - Oscar Wilde.metadata.json
-test/fixtures/ebook-library/Tin Woodman of Oz _ A Faithful Story of thhe Rainbow's Daughter, The - L. Frank Baum.metadata.json
-test/fixtures/ebook-library/Wonderful Wizard of Oz, The - L. Frank Baum.metadata.json
+# Signing material stays local, including archived debug keys
+*.keystore
+*.pfx

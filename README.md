@@ -1,68 +1,26 @@
-<div align="center">
-  <img src="./apps/docs/static/img/logo.svg" alt="Litara" width="80" />
+# Litara
 
-  <h1>Litara</h1>
+Litara is being rebuilt with a Go backend. The Go backend foundation and native Android baseline are merged. The Android client is not yet connected to the replacement server; T003 is the next scoped integration assignment.
 
-[![Docs](https://img.shields.io/badge/docs-litara--app.github.io-0284c7)](https://litara-app.github.io/litara/)
-[![Latest release](https://img.shields.io/github/v/release/litara-app/litara?logo=github)](https://github.com/litara-app/litara/releases)
-[![Docker image](https://img.shields.io/github/v/release/litara-app/litara?label=ghcr.io&logo=docker&logoColor=white&color=0ea5e9)](https://github.com/litara-app/litara/pkgs/container/litara)
-[![CI](https://github.com/litara-app/litara/actions/workflows/release.yml/badge.svg)](https://github.com/litara-app/litara/actions/workflows/release.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+- [Work register](TASKS.md) and [T003 assignment](handoffs/T003-assignment.md): ownership, committed checkout instructions and acceptance checks.
+- [T003 API contract](contracts/t003/README.md): versioned wire schemas, seeded persistence model and shared fixtures.
+- [Backend setup and checks](research/backend/README.md).
+- [Android build instructions](apps/android/BUILDING.md).
+- [Architecture decisions](ADR/README.md): accepted decisions and proposals awaiting user input.
+- [Research and comparison](ADR/RESEARCH.md): existing Litara, BookOrbit, and the Android starting point.
+- [Archived Litara](archive/litara-v1/README.md): the previous stack, preserved for reference.
+- [Contributor and agent rules](AGENTS.md): ADR acceptance and enforcement.
 
-</div>
+The rebuild starts with a fresh database and API. It will support existing book folders and optional managed imports, PostgreSQL, NAS book storage with local application state, and editions/recordings beneath a title. Android development starts from `deranjer/bookorbit-android`, preserving Chromecast and Android Auto.
 
-A self-hosted ebook and audiobook library manager. Automatically scans a folder for ebook and audiobook files, extracts metadata, and serves a clean web UI for browsing, reading progress, shelves, and annotations.
+First-party backend/web work remains MIT. The Android application retains AGPL so its existing media work and contributor code can be preserved under their current license. Third-party licenses and notices remain applicable. See [ADR-0017](ADR/0017-separate-android-agpl-license.md), which replaces the earlier all-MIT direction.
 
-![Litara dashboard](./apps/docs/static/screenshots/dashboard.png)
+The seven [Android audit reports](research/android/README.md) are preserved from the separate audit workspace. Read the [reconciliation](research/android/adr-reconciliation.md) for decisions that supersede their recommendations.
 
-> **Mobile (Android):** A companion mobile app is in beta. See [mobile docs](https://litara-app.github.io/litara/mobile) for details.
+The backend foundation is net/http + Huma, sqlc/pgx, Goose, and River. The web reader will use pristine Foliate and direct PDF.js. Media inspection will use bundled native ffprobe, with FFmpeg bundled for explicitly designed media operations under [ADR-0028](ADR/0028-bundle-native-ffmpeg-tools.md). The passing [Go/WASM prototype](research/media-inspection/README.md) remains available for deferred follow-up testing.
 
-<div align="center">
-<img src="./apps/docs/static/screenshots/mobile/sign_in.png" width="200">
-&nbsp;&nbsp;
-<img src="./apps/docs/static/screenshots/mobile/all_books.png" width="200">
-&nbsp;&nbsp;
-<img src="./apps/docs/static/screenshots/mobile/book_details.png" width="200">
-</div>
+Validate decision records with:
 
-## Features
-
-- Scans and indexes `.epub`, `.mobi`, `.azw`, `.azw3`, `.fb2` (beta), and `.cbz` files (beta)
-- Extracts cover art and metadata (title, authors, series, published date)
-- Metadata enrichment via Google Books, Open Library, Goodreads, and Hardcover
-- Write enriched metadata back to `.epub` files; sidecar `.metadata.json` support for all formats
-- Book drop folder and web upload — queue new books for admin review before writing to the library
-- JWT-authenticated multi-user support
-- Shelves, smart shelves, reading progress, and annotations
-- OPDS catalog (v1.2 Atom + v2.0 JSON) for ebook reader apps
-- koreader progress syncing
-- Email delivery to e-readers via SMTP
-- Docker-first deployment
-- **Audiobook support** — scans `.m4b`, `.m4a`, and `.mp3` audiobooks; built-in player on web and mobile with chapter navigation, bookmarks, and per-user progress
-- **Podcast support (Beta)** - basic podcast subscriptions and auto downloading on a schedule. Supports playback but primary use if for archiving podcast episodes.
-
-## Quick Start
-
-```bash
-cp docker-compose.example.yml docker-compose.yml
-docker compose up -d
+```powershell
+pwsh -NoProfile -File scripts/Validate-Adrs.ps1
 ```
-
-Then open `http://localhost:3000`. On first run, create an account via the login page.
-
-For configuration options, OPDS setup, and local development, see the **[documentation](https://litara-app.github.io/litara/)**.
-
-## Commits
-
-This project uses [Conventional Commits](https://www.conventionalcommits.org/). Releases are automated — pushing to `main` triggers semantic versioning and a GitHub release based on commit types.
-
-| Prefix                                            | Effect                      |
-| ------------------------------------------------- | --------------------------- |
-| `feat:`                                           | Minor version bump, release |
-| `fix:`                                            | Patch version bump, release |
-| `BREAKING CHANGE`                                 | Major version bump, release |
-| `chore:`, `docs:`, `style:`, `refactor:`, `test:` | No release                  |
-
-## License
-
-MIT

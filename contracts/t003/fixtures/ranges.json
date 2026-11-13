@@ -1,0 +1,86 @@
+[
+  {
+    "range": null,
+    "size": 100,
+    "status": 200,
+    "length": 100
+  },
+  {
+    "range": "bytes=0-",
+    "size": 100,
+    "status": 206,
+    "start": 0,
+    "end": 99,
+    "length": 100
+  },
+  {
+    "range": "bytes=10-19",
+    "size": 100,
+    "status": 206,
+    "start": 10,
+    "end": 19,
+    "length": 10
+  },
+  {
+    "range": "bytes=-8",
+    "size": 100,
+    "status": 206,
+    "start": 92,
+    "end": 99,
+    "length": 8
+  },
+  {
+    "range": "bytes=90-200",
+    "size": 100,
+    "status": 206,
+    "start": 90,
+    "end": 99,
+    "length": 10
+  },
+  {
+    "range": "bytes=100-",
+    "size": 100,
+    "status": 416,
+    "contentRange": "bytes */100"
+  },
+  {
+    "range": "bytes=-0",
+    "size": 100,
+    "status": 416,
+    "contentRange": "bytes */100"
+  },
+  {
+    "range": "bytes=4294967296-",
+    "size": 8589934592,
+    "status": 206,
+    "start": 4294967296,
+    "end": 8589934591,
+    "length": 4294967296
+  },
+  {
+    "range": "bytes=0-0",
+    "size": 0,
+    "status": 416,
+    "contentRange": "bytes */0"
+  },
+  {
+    "range": "bytes=0-1,4-5",
+    "size": 100,
+    "status": 200,
+    "length": 100,
+    "reason": "multipart not supported; ignore whole Range"
+  },
+  {
+    "range": "garbage",
+    "size": 100,
+    "status": 400
+  },
+  {
+    "range": "bytes=0-7",
+    "size": 100,
+    "ifRange": "old-etag",
+    "currentEtag": "new-etag",
+    "status": 200,
+    "length": 100
+  }
+]
