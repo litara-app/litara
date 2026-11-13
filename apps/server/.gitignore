@@ -1,0 +1,8 @@
+# Generated/ephemeral output
+/bin/
+*.test
+*.out
+coverage.*
+.env
+.env.*
+!.env.example

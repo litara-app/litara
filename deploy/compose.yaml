@@ -1,0 +1,50 @@
+# Backend-only stack for T001 development and smoke testing.
+# Usage (from repo root):
+#   LITARA_MEDIA_DIR=/path/to/media docker compose -f deploy/compose.yaml up --build
+# Media is mounted read-only; database state lives in a named volume.
+name: litara-backend
+
+services:
+  db:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: litara
+      POSTGRES_PASSWORD: ${LITARA_DB_PASSWORD:-litara-dev-only}
+      POSTGRES_DB: litara
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litara -d litara"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    image: ${LITARA_IMAGE:-litara-backend:dev}
+    build:
+      context: ../apps/server
+      dockerfile: ../../deploy/Dockerfile
+    entrypoint: ["ctl", "migrate", "up"]
+    environment: &appenv
+      LITARA_DATABASE_URL: postgres://litara:${LITARA_DB_PASSWORD:-litara-dev-only}@db:5432/litara?sslmode=disable
+      LITARA_MEDIA_ROOT: /media
+    depends_on:
+      db: {condition: service_healthy}
+    restart: "no"
+
+  server:
+    image: ${LITARA_IMAGE:-litara-backend:dev}
+    build:
+      context: ../apps/server
+      dockerfile: ../../deploy/Dockerfile
+    environment: *appenv
+    ports:
+      - "127.0.0.1:${LITARA_HTTP_PORT:-8080}:8080"
+    volumes:
+      - ${LITARA_MEDIA_DIR:-./media-fixtures}:/media:ro
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    read_only: true
+
+volumes:
+  dbdata:

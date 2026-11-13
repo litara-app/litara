@@ -1,0 +1,56 @@
+name: backend
+
+on:
+  push:
+    paths: ["apps/server/**", "deploy/**", "scripts/backend/**", ".github/workflows/backend.yml"]
+  pull_request:
+    paths: ["apps/server/**", "deploy/**", "scripts/backend/**", ".github/workflows/backend.yml"]
+
+permissions:
+  contents: read
+
+env:
+  # Same pinned LGPL static build as deploy/Dockerfile (linux/amd64).
+  FFMPEG_URL: https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-11-12-15-40/ffmpeg-n8.1.3-35-gf1acb0a266-linux64-lgpl-8.1.tar.xz
+  FFMPEG_SHA256: 125c492893bf41fa7093c8294f59750a375d00336270847f073760ff6c54ba30
+  SQLC_VERSION: v1.31.1
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: litara
+          POSTGRES_PASSWORD: litara
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U litara" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      LITARA_TEST_DATABASE_URL: postgres://litara:litara@localhost:5432/postgres?sslmode=disable
+      LITARA_REQUIRE_INTEGRATION: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Install pinned ffmpeg/ffprobe
+        run: |
+          curl -fsSL -o ff.tar.xz "$FFMPEG_URL"
+          echo "$FFMPEG_SHA256  ff.tar.xz" | sha256sum -c -
+          mkdir -p "$HOME/ffbin" && tar -xJf ff.tar.xz --strip-components=2 -C "$HOME/ffbin" --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'
+          echo "$HOME/ffbin" >> "$GITHUB_PATH"
+      - name: Install sqlc
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
+      - name: Check (format, vet, build, sqlc, tests)
+        run: scripts/backend/check.sh
+
+  container-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose smoke (image, pinned tools, durable flow, read-only media)
+        run: scripts/backend/smoke.sh
