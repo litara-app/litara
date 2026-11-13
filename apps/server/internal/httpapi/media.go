@@ -29,7 +29,7 @@ const maxThumbnailBytes = 5 << 20 // Android Auto thumbnails must not exceed 5 M
 
 func mediaOp(id, method, path, summary string, contentType string) huma.Operation {
 	o := op(id, method, path, summary, "media")
-	o.Errors = append([]int{}, 400, 401, 403, 404, 409, 412, 416, 503)
+	o.Errors = append([]int{}, 400, 401, 403, 404, 409, 412, 416, 422, 429, 503)
 	hdrs := map[string]*huma.Param{
 		"Content-Type":   {Schema: &huma.Schema{Type: "string"}},
 		"Content-Length": {Schema: &huma.Schema{Type: "integer"}},

@@ -13,10 +13,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
+	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
@@ -137,7 +139,7 @@ func (e *Env) Do(method, path, token string, body any, hdr ...string) Response {
 		}
 		rd = bytes.NewReader(raw)
 	}
-	req, err := http.NewRequest(method, e.Server.URL+e.Base+path, rd)
+	req, err := http.NewRequest(method, e.Server.URL+"/api/v1"+path, rd)
 	if err != nil {
 		e.T.Fatal(err)
 	}
@@ -169,4 +171,26 @@ func (e *Env) Login(username, device string) wire.TokenPair {
 	var tp wire.TokenPair
 	r.JSON(e.T, &tp)
 	return tp
+}
+
+// AddSparseRecording registers a one-file recording backed by a sparse file.
+// Test-only: the bytes are not valid audio, so it proves offset arithmetic only.
+func (e *Env) AddSparseRecording(ctx context.Context, library uuid.UUID, path string, size int64) {
+	e.T.Helper()
+	q := sqlcgen.New(e.Pool)
+	titleID, recID, fileID, ver := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	dur := int64(3600000)
+	must := func(err error) {
+		if err != nil {
+			e.T.Fatal(err)
+		}
+	}
+	_, err := q.SeedUpsertTitle(ctx, sqlcgen.SeedUpsertTitleParams{ID: titleID, Title: "Sparse Offset Fixture", Authors: []string{"Sparse"}})
+	must(err)
+	_, err = q.SeedUpsertRecording(ctx, sqlcgen.SeedUpsertRecordingParams{ID: recID, TitleID: titleID, LibraryID: library, Narrators: []string{}, LayoutRevision: uuid.New()})
+	must(err)
+	must(q.SeedUpsertMediaFile(ctx, fileID))
+	must(q.SeedUpsertFileVersion(ctx, sqlcgen.SeedUpsertFileVersionParams{ContentVersion: ver, FileID: fileID, Locator: path, Filename: "sparse.mp3",
+		MimeType: "audio/mpeg", SizeBytes: &size, DurationMs: &dur, Available: true, Current: true}))
+	must(q.InsertRecordingFile(ctx, sqlcgen.InsertRecordingFileParams{RecordingID: recID, Sequence: 0, FileID: fileID}))
 }

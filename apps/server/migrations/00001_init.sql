@@ -202,6 +202,7 @@ CREATE TABLE completion_state (
 );
 
 CREATE TABLE completion_history (
+    seq          bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
     id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id      uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     title_id     uuid NOT NULL REFERENCES titles (id),
@@ -212,7 +213,7 @@ CREATE TABLE completion_history (
     received_at  timestamptz NOT NULL DEFAULT now(),
     UNIQUE (user_id, recording_id, operation_id)
 );
-CREATE INDEX completion_history_title_idx ON completion_history (user_id, title_id, received_at, id);
+CREATE INDEX completion_history_title_idx ON completion_history (user_id, title_id, seq);
 
 -- Receipts are never pruned automatically. Idempotency scope: user + recording + operation.
 CREATE TABLE operation_receipts (

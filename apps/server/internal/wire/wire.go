@@ -88,7 +88,7 @@ type Login struct {
 type TokenPair struct {
 	AccessToken  string  `json:"accessToken" minLength:"32"`
 	TokenType    string  `json:"tokenType" enum:"Bearer"`
-	ExpiresIn    int     `json:"expiresIn" minimum:"900" maximum:"900"`
+	ExpiresIn    int     `json:"expiresIn" enum:"900"`
 	RefreshToken string  `json:"refreshToken" minLength:"32"`
 	Session      Session `json:"session"`
 	User         User    `json:"user"`

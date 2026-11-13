@@ -329,7 +329,7 @@ const listHistory = `-- name: ListHistory :many
 SELECT h.id, h.recording_id, h.title_id, h.event, h.captured_at, h.received_at
 FROM completion_history h
 WHERE h.user_id = $1 AND h.title_id = $2
-ORDER BY h.received_at, h.id LIMIT $3 OFFSET $4
+ORDER BY h.seq LIMIT $3 OFFSET $4
 `
 
 type ListHistoryParams struct {

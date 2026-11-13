@@ -19,6 +19,7 @@ type ChapterSource struct {
 }
 
 type CompletionHistory struct {
+	Seq         *int64    `json:"seq"`
 	ID          uuid.UUID `json:"id"`
 	UserID      uuid.UUID `json:"user_id"`
 	TitleID     uuid.UUID `json:"title_id"`

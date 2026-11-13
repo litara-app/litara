@@ -6,6 +6,11 @@
 //	ctl tools
 //	ctl inspect [--wait] [--with-worker] [--reinspect] [--timeout 2m] <absolute-path>
 //	ctl show <absolute-path>
+//	ctl gen-key                        print a new LITARA_SECRET_KEY value
+//	ctl openapi                        print the generated OpenAPI document (no database)
+//	ctl bootstrap-admin --username U   create the first administrator (password from a prompt or stdin)
+//	ctl reset-password --username U    set a new password and revoke that user's sessions
+//	ctl seed --dir ABS                 explicit fixture seeding with generated media (never automatic)
 package main
 
 import (
@@ -28,6 +33,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/app"
 	"github.com/deranjer/ebooker/apps/server/internal/config"
 	"github.com/deranjer/ebooker/apps/server/internal/db"
@@ -51,6 +57,17 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if args[0] == "tools" {
 		return tools(ctx, out)
 	}
+	if args[0] == "gen-key" {
+		k, err := accounts.GenerateKey()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(out, k)
+		return nil
+	}
+	if args[0] == "openapi" {
+		return openapiCmd(out)
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("invalid configuration:\n%w", err)
@@ -62,6 +79,12 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return inspectCmd(ctx, cfg, args[1:], out)
 	case "show":
 		return showCmd(ctx, cfg, args[1:], out)
+	case "bootstrap-admin":
+		return bootstrapCmd(ctx, cfg, args[1:], out)
+	case "reset-password":
+		return resetPasswordCmd(ctx, cfg, args[1:], out)
+	case "seed":
+		return seedCmd(ctx, cfg, args[1:], out)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }
