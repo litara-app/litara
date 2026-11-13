@@ -7,13 +7,13 @@ Coordination owner: the user and the ADR/integration chat
 
 **T001 and T002 are reviewed, merged, and Done for their scoped foundation/import work.** T001 merged in [PR #79](https://github.com/litara-app/litara/pull/79) at `bef07cf09e5faf2ca11553d3d82f98927ca483a7`; T002 merged in [PR #80](https://github.com/litara-app/litara/pull/80) at `b78b7a3b9f2f676ed6a9252b6ab5860a90ca6c52` on 2026-11-13. The backend and Android validation workflows passed. This does not claim production readiness, working client/server integration, or physical Cast/Auto/NAS acceptance.
 
-**T003’s policy/protocol decision pass is complete: ADR-0031–0043 are Accepted from explicit user choices. The concrete shared contract and assignment brief are now prepared; the committed checkpoint is being validated before marking Ready. No worker is assigned by this update.** See the readiness review below. No worker is assigned by this update.
+**T003 is Ready to assign.** ADR-0031–0043 are Accepted from explicit user choices. The concrete contract, seeded persistence boundary, shared fixtures and exclusive execution brief are complete and committed on the checkpoint branch below. T003 remains Unassigned.
 
 Prefer substantial end-to-end packages over small tickets. Each package may contain several reviewable commits and internal milestones, but should finish with a usable result and an evidence-backed handoff.
 
 The authoritative working repository is `G:\Programming\ebooker`. `E:\Programming\ebooker` was a separate audit folder, not this Git repository. External reference clones/logs under `E:\Programming\_reference\` are optional local resources, not portable project dependencies.
 
-**Checkout prerequisite:** before an agent starts in another clone or worktree, the coordinator must supply a committed rebuild checkpoint containing this file, `AGENTS.md`, accepted ADRs, and referenced research. Current merged source checkpoint `bef07cf09e5faf2ca11553d3d82f98927ca483a7` contains T001 and T002, but `TASKS.md`, `AGENTS.md`, `ADR/`, and much of the supporting research/archive transition are still absent from its tree and remain local. The old source HEAD `6720562a199cc6f72337d553c6ef9a674e422ed4` is not a rebuild checkpoint either. A Git pull cannot retrieve those uncommitted files. Do not start from a fresh old-stack checkout, silently restore deleted files, or commit someone else's working changes to manufacture a checkpoint.
+**Assignment checkout:** use the tip of `codex/t003-assignment-checkpoint`, not the older source-only main commit. Verified immutable source snapshot: `943e2cd51fb7a59a32b9da1ef9c96a136a019d8f`; the following Ready-register commit adds only checkpoint/readiness metadata. The branch includes merged T001/T002, this register, root agent instructions, all 43 accepted/superseded ADR records and required research, the intended archive/root transition, the T003 contract/fixtures and full execution brief. Record the actual branch-tip commit as the worker base in `handoffs/T003.md`. A fresh checkout no longer depends on uncommitted coordinator files. Do not start from `6720562`/the old stack, restore historical deletions, or commit another worker’s changes. The coordinator supplies the exact Ready branch-tip hash when assigning; do not follow later branch movement silently.
 
 ## Assignment and ownership rules
 
@@ -32,21 +32,25 @@ The authoritative working repository is `G:\Programming\ebooker`. `E:\Programmin
 | --- | --- | --- | --- | --- |
 | T001 | Go backend foundation and durable native audio inspection | Done: reviewed and merged, PR #79 | Closed | Init consolidation included; release/platform/NAS follow-ups remain documented |
 | T002 | Native Android baseline, media preservation, and adaptation seams | Done: reviewed and merged, PR #80 | Closed; do not repeat import | Future adapter/account-isolation work belongs to T003; physical hardware gates remain |
-| T003 | Shared client contract, accounts, and end-to-end recording playback API | Prepared; checkpoint verification pending | Unassigned; one owner only | Contract: contracts/t003/; brief: handoffs/T003-assignment.md; source T001/T002 integrated; Android adaptation scope explicitly transferred in brief |
+| T003 | Shared client contract, accounts, and end-to-end recording playback API | Ready: committed checkpoint, contract and complete brief | Unassigned; user selects one owner | Start codex/t003-assignment-checkpoint tip; contracts/t003/ and handoffs/T003-assignment.md; exclusive server/Android scope; T004 waits |
 | T004 | Catalog, library ingestion, metadata, and NAS recovery | Not ready: ingestion decisions and execution brief needed | Unassigned | T001 source dependency satisfied; needs checkpoint, shared T003 model boundary and accepted ingestion rules; serialize server edits |
 | T005 | Redesigned web library and complete reading/listening flows | Not ready: upstream contracts and execution brief needed | Unassigned | T003/T004 plus reader/location/annotation decisions; brand assets read-only reference |
 | T006 | OPDS, email delivery, and basic KOReader integration | Not ready: upstream contracts and protocol decisions needed | Unassigned | T003/T004 plus delivery/auth/revision policies |
 | T007 | Cross-client integration, hardware acceptance, and release readiness | Not ready: earlier packages and test resources needed | Unassigned | Integrated T003–T006, hardware/operators and release decisions |
 
-These are large work packages, not promises that every open architectural question is already resolved. T003–T007 will receive execution-ready briefs/checkpoints before assignment. Their roadmap scope below does not authorize a worker to pick one up opportunistically.
+These are large work packages, not promises that every open architectural question is already resolved. T003 has a complete execution brief/checkpoint linked below. T004–T007 still need execution-ready briefs/checkpoints before assignment. A roadmap description does not authorize a worker to pick one up opportunistically.
 
 ## Readiness review — 2026-11-13
 
 Evidence: fetched `origin/main` at `bef07cf09e5faf2ca11553d3d82f98927ca483a7`; both PRs report Merged. PR #79's backend check and container-smoke jobs passed, and PR #80's full/fdroid lint/test/assembly job passed. Earlier handoff statements that hosted CI was never run are historical, superseded by these results. Local backend integration/smoke and Android validation evidence remains in the handoffs and review conversation.
 
-### Shared prerequisite before a new worker checkout
+### Committed checkpoint and readiness evidence
 
-Commit the coordinator-owned rebuild checkpoint containing this register, root agent instructions, accepted ADRs (including ADR-0030), required research, and the intended archive/root transition. Merged source alone is insufficient: those instructions are absent from current main. This update does not automatically commit other people's changes, restore old files, or manufacture an archive checkpoint. Supply the final checkpoint hash in each execution brief.
+- Verified source snapshot: `943e2cd51fb7a59a32b9da1ef9c96a136a019d8f` on `codex/t003-assignment-checkpoint`, built on merged main `bef07cf09e5faf2ca11553d3d82f98927ca483a7`. The following register-only readiness commit identifies it and is the assignment checkout tip.
+- Exported the prepared Git tree into a clean temporary source directory; OpenAPI/fixture checks and all 43 ADR/index checks passed there without relying on local source files. Backend/Android active files and executable wrapper modes match merged main exactly.
+- Source tree contains 1,102 files, including 624 archived historical files. Local books, signing keys, secrets/configuration, dependency caches and build outputs are excluded; existing local data was neither reset nor deleted. A high-confidence private-key/token pattern scan found no matches in 998 candidate text blobs; this is a scoped check, not a compliance certification.
+- Active workflows are ADR, backend, Android and contract validation only. Historical build/release/deployment workflows are retained only as archived reference. New contract CI has not yet run remotely at the point of local readiness verification.
+- Preparation is complete; **T003 is Ready but Unassigned**. This does not mark any T003 application behavior implemented or tests/hardware acceptance passed. Its implementation worker owns the acceptance work in the brief.
 
 ### T003 accepted decisions — completed decision pass
 
@@ -66,14 +70,14 @@ Accepted on 2026-11-13 from explicit user answers:
 - ADR-0042: reject an invalid chapter source as a whole and fall back with visible issues; preserve raw evidence/edits; generate labeled file markers when needed.
 - ADR-0043: no automatic pruning of sync receipts/conflicts or locked account data in T003; seeded multi-file integration slice, with full ingestion and separate reread-history controls deferred.
 
-These policy choices are accepted, not merely recommendations. Shared wire schemas/examples and the execution brief still need to make them implementable and testable. These local records still require the committed rebuild checkpoint before a separate worker checkout.
+These policy choices are accepted, not merely recommendations. Shared wire schemas/examples and the execution brief still need to make them implementable and testable. These records are now included in the committed rebuild checkpoint for a separate worker checkout.
 
 ### T003 assignment preparation and verification
 
 - Contract and examples: [contracts/t003/README.md](contracts/t003/README.md), [OpenAPI](contracts/t003/openapi.json), [persistence boundary](contracts/t003/model.md) and shared JSON fixtures specify discovery, users/grants, native/browser auth, recording snapshots, versioned Range/HEAD/artwork, revisions/conflicts/resolution and completion.
 - Full execution brief: [handoffs/T003-assignment.md](handoffs/T003-assignment.md) defines one owner's exact server/contract/Android scope, explicit T002 transfer, T004 serialization, generated seeded media, verification, non-goals and handoff. No worker has been assigned.
 - Static verification: OpenAPI 3.1, schema/positive/negative examples, recording order/content arithmetic, byte-range expectations and scenario inventory pass scripts/contracts/check.py. This is not application runtime verification; the brief requires the real backend/Android/emulator checks from the implementation worker.
-- Checkpoint verification and immutable source reference are recorded below when the prepared tree is committed. A new worker must use that checkpoint, not the older source-only main commit or uncommitted root state.
+- Checkpoint verification and immutable source reference are recorded above. A new worker must use the Ready branch tip, not the older source-only main commit or uncommitted root state.
 
 No further T003 product-policy decision is intentionally left open for this seeded slice. If contract implementation exposes a new architectural choice, propose it rather than silently selecting it. Password-recovery UI, destructive retention/deletion, complete reread-history controls and production release policies remain outside scope.
 

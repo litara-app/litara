@@ -1,10 +1,14 @@
 # T003 assignment — client contract, accounts and recording playback
 
-State: Prepared; committed checkpoint verification pending. Unassigned. One worker owns this package; do not infer an assignment from this brief.
+State: **Ready to assign. Unassigned.** One worker owns this package; do not infer an assignment from this brief.
 
 ## Start point
 
-Source integration base: main at bef07cf09e5faf2ca11553d3d82f98927ca483a7 (T001 PR #79 and T002 PR #80 merged). The runnable assignment checkout must be the **new committed rebuild checkpoint**, not this older source-only commit. The coordinator records the exact checkpoint below after validating its tree. Suggested implementation branch: codex/t003-recording-playback.
+Source integration base: main at bef07cf09e5faf2ca11553d3d82f98927ca483a7 (T001 PR #79 and T002 PR #80 merged). The runnable assignment checkout must be the **new committed rebuild checkpoint**, not this older source-only commit. The coordinator has validated and committed the source snapshot below; the branch tip adds the Ready register/brief metadata. Suggested implementation branch: codex/t003-recording-playback.
+
+Verified source snapshot: `943e2cd51fb7a59a32b9da1ef9c96a136a019d8f`. **Assignment checkout: the tip of `codex/t003-assignment-checkpoint`, including the following Ready metadata commit.** The coordinator supplies that exact tip hash when assigning; record it as the implementation base in `handoffs/T003.md`. Verify that the source snapshot is its ancestor and that TASKS.md marks T003 Ready before starting. Do not use the main branch unless this checkpoint has first been integrated there.
+
+Preparation checks passed from an exported Git source tree: OpenAPI 3.1/fixture validation and all 43 ADR/index checks. Active Go/Android sources and executable wrapper metadata match merged main. New contract CI is provided; its hosted result is not a prerequisite claimed passed by local checks. No T003 server/Android implementation or hardware behavior was executed in this preparation.
 
 Read root AGENTS.md, TASKS.md, ADR/README.md and accepted ADRs 0002–0009, 0011, 0013–0025, 0028–0043 as applicable (skip superseded 0012/0026 as authority). Read contracts/t003/README.md, openapi.json, model.md and all shared fixtures; handoffs/T001.md and handoffs/T002.md; research/android/adr-reconciliation.md, backend-contract.md, media-preservation-matrix.md, and apps/android/ADAPTATION.md. Audit timestamp-winner/MIT-relicensing recommendations are superseded. Archive is reference-only, never part of active dependency discovery.
 
