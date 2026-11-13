@@ -1,7 +1,10 @@
 package com.litara.core.litara
 
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -42,7 +45,23 @@ class LitaraServerE2ETest {
         val a = client(credsA)
         val disc = a.discover()
         assertEquals("Litara", disc.product)
-        val tpA = a.login("fixture-user-a", password!!, "Android E2E A")
+        // A private account per run (admin API, explicit grant) so concurrent flavor runs never share progress state.
+        val adminCreds = InMemoryCredentialStore()
+        val admin = client(adminCreds)
+        admin.login("fixture-admin", password!!, "Android E2E admin")
+        val seedUserA = client(InMemoryCredentialStore())
+        val libraryId = seedUserA.run { login("fixture-user-a", password, "probe"); snapshot(listRecordings().items.single { it.durationMs == 180_000L }.id).libraryId }
+        val username = "e2e-" + UUID.randomUUID().toString().take(8)
+        val http = OkHttpClient()
+        fun adminCall(method: String, path: String, json: String?) {
+            val req = okhttp3.Request.Builder().url(url + path).header("Authorization", "Bearer ${adminCreds.load()!!.accessToken}")
+                .method(method, json?.toRequestBody("application/json".toMediaType()) ?: if (method == "PUT") "".toRequestBody() else null).build()
+            http.newCall(req).execute().use { r -> check(r.isSuccessful) { "admin $method $path -> ${r.code}" } }
+        }
+        adminCall("POST", "/admin/users", """{"username":"$username","displayName":"E2E","password":"$password-e2e","isAdmin":false}""")
+        val newUserId = client(InMemoryCredentialStore()).let { c -> c.login(username, "$password-e2e", "probe").user.id }
+        adminCall("PUT", "/admin/users/$newUserId/libraries/$libraryId", null)
+        val tpA = a.login(username, "$password-e2e", "Android E2E A")
         val scopeA = AccountScope(disc.serverId, tpA.user.id)
 
         val list = a.listRecordings(size = 50)
@@ -95,6 +114,14 @@ class LitaraServerE2ETest {
             LResolveConflict(UUID.randomUUID().toString(), (startRev + 1).toString(), snap.layoutRevision, "keep_server", null))
         assertEquals((startRev + 2).toString(), resolved.revision)
         assertEquals(30_000L, resolved.position!!.offsetMs)
+
+        // Overlapping reports from one device are serialized: no self-conflicts.
+        val sync = ProgressSync(a, three.id, snap.layoutRevision, snap.files, File(tmp.root, "pending.json"))
+        sync.load()
+        val before = sync.conflicts.size
+        val results = (1..8).map { i -> async { sync.report(0, 1000L * i) } }.map { it.await() }
+        assertTrue("8 concurrent reports: $results", results.all { it == ReportOutcome.Accepted })
+        assertEquals(before, a.position(three.id).unresolvedConflicts.size)
 
         // Natural end completes only this recording.
         val last = snap.files.last()

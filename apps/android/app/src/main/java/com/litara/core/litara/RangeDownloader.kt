@@ -56,7 +56,7 @@ class RangeDownloader(private val client: LitaraClient) {
                         if (have == expected) { /* partial is already complete */ } else { reset(partial, etagFile); return@use }
                     }
                     412, 404 -> { reset(partial, etagFile); throw ContentChangedException(file.id) }
-                    else -> throw LitaraHttpException(r.code, client.problemOf(r.body?.string().orEmpty(), r.code))
+                    else -> throw LitaraHttpException(r.code, client.problemOf(withContext(Dispatchers.IO) { r.body?.string().orEmpty() }, r.code))
                 }
             }
             if (partial.exists() && partial.length() == expected) break

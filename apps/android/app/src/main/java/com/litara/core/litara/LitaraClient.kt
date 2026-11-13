@@ -137,10 +137,13 @@ class LitaraClient(
 
     private suspend fun call(b: Request.Builder, authenticated: Boolean): String {
         val resp = if (authenticated) execute(b) else raw(b.build())
-        resp.use { r ->
-            val text = r.body?.string().orEmpty()
-            if (!r.isSuccessful) throw LitaraHttpException(r.code, problemOf(text, r.code))
-            return text
+        // Reading the body is network I/O; it must never run on the caller's (possibly main) thread.
+        return withContext(Dispatchers.IO) {
+            resp.use { r ->
+                val text = r.body?.string().orEmpty()
+                if (!r.isSuccessful) throw LitaraHttpException(r.code, problemOf(text, r.code))
+                text
+            }
         }
     }
 
@@ -168,7 +171,7 @@ class LitaraClient(
             val used = creds.load()?.accessToken ?: throw SessionEndedException("signed_out")
             val resp = raw(builder.header("Authorization", "Bearer $used").build())
             if (resp.code != 401 || attempt > 0) return resp
-            val problem = problemOf(resp.peekBody(64 * 1024).string(), 401)
+            val problem = problemOf(withContext(Dispatchers.IO) { resp.peekBody(64 * 1024).string() }, 401)
             if (problem.code != "token_expired") {
                 if (problem.code == "session_revoked" || problem.code == "session_expired") {
                     resp.close()
@@ -181,6 +184,18 @@ class LitaraClient(
             refreshIfStale(used)
             attempt++
         }
+    }
+
+    /** The current access token, for media data sources that attach it themselves. */
+    fun accessToken(): String? = creds.load()?.accessToken
+
+    /**
+     * Refreshes the access token if [staleAccess] is still current (single-flight). Used by media
+     * data sources (OkHttp Authenticator) so a ranged stream survives token expiry.
+     */
+    suspend fun refreshAfter(staleAccess: String?): String? {
+        refreshIfStale(staleAccess ?: return creds.load()?.accessToken)
+        return creds.load()?.accessToken
     }
 
     /** Single-flight: concurrent callers that saw the same expired token share one exchange. */
@@ -196,7 +211,7 @@ class LitaraClient(
         } catch (e: TransientException) {
             throw e // keep credentials and the pending request ID; retry the SAME exchange later
         }
-        resp.use { r ->
+        withContext(Dispatchers.IO) { resp.use { r ->
             val text = r.body?.string().orEmpty()
             when {
                 r.isSuccessful -> {
@@ -211,6 +226,6 @@ class LitaraClient(
                 }
                 else -> throw TransientException(null, "refresh failed with HTTP ${r.code}") // 429/5xx: keep scope and request ID
             }
-        }
+        } }
     }
 }

@@ -3,9 +3,10 @@
 This documents where the future Litara API adapter replaces baseline code and which accepted ADRs
 require changes. **T003 status (see `../../handoffs/T003.md`):** audit L6 (section 3) is fixed and covered by a regression test, and a
 Litara client, resumable ranged downloader and account-scoped offline store exist under
-`app/src/main/java/com/litara/core/litara/` with unit and real-server tests. They are **not yet wired** into the
-Hilt graph, the player, downloads UI or the Auto sources, so the BookOrbit networking below is still what the app
-runs and is **pending replacement**; no BookOrbit compatibility layer is to be built. Everything else in this file
+`app/src/main/java/com/litara/core/litara/` with unit and real-server tests. They are wired into a separate Litara flow
+(`feature/litara`: Hilt repository and ViewModel, ExoPlayer playback, downloads, progress, completion), opened from the
+server-setup and login screens. The main shell, player manager, downloads, Auto sources and Cast upstream still use the
+BookOrbit networking below, which is **pending replacement**; no BookOrbit compatibility layer is to be built. Everything else in this file
 remains unimplemented unless a row says otherwise. Sources: ADR-0005,
 ADR-0009, ADR-0013, ADR-0015, ADR-0017 to ADR-0023 and `../../research/android/`.
 

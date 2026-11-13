@@ -141,5 +141,10 @@ fun ServerSetupScreen(
                 Text(stringResource(R.string.connect))
             }
         }
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.material3.TextButton(
+            onClick = { ctx.startActivity(android.content.Intent(ctx, com.litara.feature.litara.LitaraActivity::class.java)) },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.litara_server_entry)) }
     }
 }
