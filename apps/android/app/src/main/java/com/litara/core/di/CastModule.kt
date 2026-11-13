@@ -25,10 +25,12 @@ object CastModule {
         authenticator: TokenAuthenticator,
         logging: HttpLoggingInterceptor,
         userCaTrust: UserCaTrust,
+        litara: com.litara.feature.litara.LitaraRepository,
     ): OkHttpClient = userCaTrust.applyTo(OkHttpClient.Builder())
         .addInterceptor(authInterceptor)
+        .addInterceptor(litara.bearerInterceptor()) // Litara host only; overrides the header there
         .addInterceptor(logging)
-        .authenticator(authenticator)
+        .authenticator { route, response -> litara.refreshAuthenticator().authenticate(route, response) ?: authenticator.authenticate(route, response) }
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()

@@ -34,6 +34,7 @@ class AudioProgressRepository @Inject constructor(
     private val assets: AudiobookAssetResolver,
     private val json: Json,
     private val syncScheduler: SyncScheduler,
+    private val litara: LitaraSource = LitaraSource.None,
 ) {
     /** Last playback-state revision seen per book - the PUT's optimistic-concurrency base. */
     private val revisions = ConcurrentHashMap<Int, Int>()
@@ -50,6 +51,11 @@ class AudioProgressRepository @Inject constructor(
             if (push(e)) dao.markSynced(e.bookId)
         }
         return dao.dirtyEntries().isNotEmpty()
+    }
+
+    /** Playback reached the end of the final file (not a seek there): completes this Litara recording only. */
+    suspend fun playbackEnded(bookId: Int) {
+        if (litara.owns(bookId)) runCatching { litara.ended(bookId) }
     }
 
     /** Saved positions, most recently played first (Android Auto "Continue listening" shelf). */
@@ -75,6 +81,17 @@ class AudioProgressRepository @Inject constructor(
      */
     suspend fun resumePoint(bookId: Int, flush: Boolean = true): ResumePoint? {
         if (flush) runCatching { flushPending() }
+        if (litara.owns(bookId)) {
+            // Litara: the server's canonical revision wins, never a device clock. A local write that conflicted was
+            // preserved server-side for the phone UI to ask about; a car/background resume just follows canonical.
+            val canonical = runCatching { litara.serverPosition(bookId) }.getOrNull()
+            val mine = dao.get(bookId)
+            return when {
+                canonical != null -> ResumePoint(canonical, epochMillis(canonical.updatedAt.orEmpty()) ?: 0L)
+                mine != null -> ResumePoint(mine.toAudioProgress(), mine.updatedAt)
+                else -> null
+            }
+        }
         val local = dao.get(bookId)
         val server = runCatching { serverProgress(bookId) }.getOrNull()
         val serverMillis = server?.updatedAt?.let(::epochMillis)
@@ -92,6 +109,7 @@ class AudioProgressRepository @Inject constructor(
      * row dirty forever. False on transient failures, to retry later.
      */
     private suspend fun push(e: AudioProgressEntity): Boolean = runCatching {
+        if (litara.owns(e.bookId)) return@runCatching litara.push(e.bookId, e.currentFileId, e.positionSeconds)
         when (val sources = assets.forBook(e.bookId)) {
             Sources.Legacy -> {
                 api.saveAudioProgress(e.bookId, SaveAudioProgress(e.currentFileId, e.positionSeconds, e.percentage))

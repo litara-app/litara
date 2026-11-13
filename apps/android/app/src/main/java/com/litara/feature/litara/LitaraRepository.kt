@@ -59,6 +59,7 @@ class LitaraRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val store: LitaraSessionStore,
     private val userCaTrust: UserCaTrust,
+    private val session: com.litara.core.auth.SessionManager,
 ) {
     val offline = OfflineStore(File(context.filesDir, "litara-offline"))
 
@@ -102,7 +103,13 @@ class LitaraRepository @Inject constructor(
         identity = id
         client = probe
         offline.activate(scopeOf(id))
+        restartOnScopeChange()
         return id
+    }
+
+    /** The Room database and downloads are per server+account; a different account needs the process to reopen them. */
+    private fun restartOnScopeChange() {
+        if (session.dataScopeChanged()) com.litara.core.data.ProcessRestarter.restart(context, LitaraActivity::class.java)
     }
 
     /** Logout locks the account's scope immediately; data is kept, not deleted. */
@@ -112,6 +119,7 @@ class LitaraRepository @Inject constructor(
         client = null
         runCatching { c?.logout() }
         store.signOutKeepIdentity()
+        restartOnScopeChange()
     }
 
     private fun requireClient(): LitaraClient = client ?: throw SessionEndedException("signed_out")
@@ -202,24 +210,62 @@ class LitaraRepository @Inject constructor(
 
     // ---- playback plumbing -------------------------------------------------------------------------
 
-    /** HTTP data source for streaming: bearer for this server only, single refresh-then-retry on 401. */
-    fun mediaDataSourceFactory(): OkHttpDataSource.Factory {
-        val c = requireClient()
-        val host = identity!!.serverUrl.toHttpUrl().host
-        val http = baseHttp().newBuilder()
-            .addInterceptor { chain ->
-                val req = chain.request()
-                val tok = c.accessToken()
-                chain.proceed(if (tok != null && req.url.host == host) req.newBuilder().header("Authorization", "Bearer $tok").build() else req)
+    private fun isLitaraServer(url: okhttp3.HttpUrl): Boolean {
+        val id = identity ?: return false
+        val server = id.serverUrl.toHttpUrl()
+        return url.host == server.host && url.port == server.port && url.scheme == server.scheme
+    }
+
+    /**
+     * Adds the Litara bearer to requests for the Litara server ONLY (never another host). Installed on the
+     * shared stream and Cast-upstream clients, which are built before any Litara sign-in; it looks the
+     * current session up per request, so it tracks refresh and sign-out.
+     */
+    fun bearerInterceptor(): okhttp3.Interceptor = okhttp3.Interceptor { chain ->
+        val req = chain.request()
+        val token = client?.accessToken()
+        chain.proceed(if (token != null && isLitaraServer(req.url)) req.newBuilder().header("Authorization", "Bearer $token").build() else req)
+    }
+
+    /** Single refresh-then-retry on 401 for the Litara server's ranged media requests. */
+    fun refreshAuthenticator(): Authenticator = Authenticator { _, response ->
+        val c = client ?: return@Authenticator null
+        if (!isLitaraServer(response.request.url) || response.request.header("X-Litara-Retried") != null) return@Authenticator null
+        val stale = response.request.header("Authorization")?.removePrefix("Bearer ")
+        val fresh = runBlocking { runCatching { c.refreshAfter(stale) }.getOrNull() } ?: return@Authenticator null
+        response.request.newBuilder().header("Authorization", "Bearer $fresh").header("X-Litara-Retried", "1").build()
+    }
+
+    /** HTTP data source for streaming inside the Litara screen. */
+    fun mediaDataSourceFactory(): OkHttpDataSource.Factory =
+        OkHttpDataSource.Factory(baseHttp().newBuilder().addInterceptor(bearerInterceptor()).authenticator(refreshAuthenticator()).build())
+
+    /** The current client, for the Android Auto/Cast adapter. Null when signed out. */
+    fun clientOrNull(): LitaraClient? = client
+
+    /** Downloads a server-relative path (artwork) into [destination], at most [maxBytes]. */
+    suspend fun fetchToFile(path: String, destination: File, maxBytes: Long): Boolean {
+        val c = client ?: return false
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            c.execute(okhttp3.Request.Builder().url(c.serverUrl(path)).get()).use { r ->
+                val body = r.body
+                if (!r.isSuccessful || body == null || body.contentType()?.type != "image") return@use false
+                var total = 0L
+                destination.outputStream().use { out ->
+                    val buf = ByteArray(8192)
+                    body.byteStream().use { input ->
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            total += n
+                            if (total > maxBytes) return@use false
+                            out.write(buf, 0, n)
+                        }
+                    }
+                }
+                total > 0
             }
-            .authenticator(Authenticator { _, response ->
-                val stale = response.request.header("Authorization")?.removePrefix("Bearer ")
-                if (response.request.header("X-Litara-Retried") != null) return@Authenticator null
-                val fresh = runBlocking { runCatching { c.refreshAfter(stale) }.getOrNull() } ?: return@Authenticator null
-                response.request.newBuilder().header("Authorization", "Bearer $fresh").header("X-Litara-Retried", "1").build()
-            })
-            .build()
-        return OkHttpDataSource.Factory(http)
+        }
     }
 
     fun streamUrl(f: LFile): String = requireClient().serverUrl(f.contentPath)

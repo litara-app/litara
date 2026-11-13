@@ -76,7 +76,15 @@ class SessionManager @Inject constructor(
      * empty scope, which keeps existing installs and their downloads exactly where they were.
      */
     val dataScope: String
-        get() = DataScope.of(storage.getString(SecureStorage.KEY_DATA_OWNER), serverUrl, currentUser?.id)
+        get() {
+            // A Litara-only account (no BookOrbit user) gets a scope of its own, never the shared owner data.
+            val litara = storage.getString(KEY_LITARA_SCOPE)
+            if (currentUser == null && litara != null) {
+                val key = "litara|$litara"
+                return if (storage.getString(SecureStorage.KEY_DATA_OWNER) == key) "" else DataScope.scopeFor(key)
+            }
+            return DataScope.of(storage.getString(SecureStorage.KEY_DATA_OWNER), serverUrl, currentUser?.id)
+        }
 
     /**
      * The first account to sign in owns the original data. An owner recorded before accounts were
@@ -88,6 +96,11 @@ class SessionManager @Inject constructor(
     }
 
     private fun key(url: String) = DataScope.key(url)
+
+    private companion object {
+        /** Written by the Litara session store: `<serverId>|<userId>` while a Litara account is signed in. */
+        const val KEY_LITARA_SCOPE = "litara_scope"
+    }
 
     /** True when the configured server's data is not what the open database holds (needs an app restart). */
     fun dataScopeChanged(): Boolean = activeDataScope?.let { it != dataScope } == true

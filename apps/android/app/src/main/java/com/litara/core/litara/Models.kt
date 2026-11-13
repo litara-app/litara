@@ -109,7 +109,16 @@ data class LRecording(
 )
 
 @Serializable
-data class LRecordingSummary(val id: String, val titleId: String, val title: String, val readiness: String, val durationMs: Long?)
+data class LRecordingSummary(
+    val id: String,
+    val titleId: String,
+    val title: String,
+    val readiness: String,
+    val durationMs: Long?,
+    val authors: List<String> = emptyList(),
+    val narrators: List<String> = emptyList(),
+    val artwork: LArtwork? = null,
+)
 
 @Serializable
 data class LRecordings(val items: List<LRecordingSummary>, val total: Long, val page: Long, val size: Long)

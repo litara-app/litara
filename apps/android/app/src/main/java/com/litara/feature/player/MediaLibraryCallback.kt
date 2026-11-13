@@ -56,6 +56,7 @@ class MediaLibraryCallback @Inject constructor(
     private val autoLibrary: AutoLibraryRepository,
     private val search: AutoSearch,
     private val sessionManager: SessionManager,
+    private val litara: LitaraSource = LitaraSource.None,
 ) : MediaLibrarySession.Callback {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -344,7 +345,7 @@ class MediaLibraryCallback @Inject constructor(
             .setSuggested(params?.isSuggested ?: false).build()
     }
 
-    private fun dataScope() = "${sessionManager.serverUrl}|${sessionManager.currentUser?.id}"
+    private fun dataScope() = "${sessionManager.serverUrl}|${sessionManager.currentUser?.id}|${litara.scopeKey()}"
 
     private fun error(error: Throwable): SessionError {
         val reason = if (sessionManager.accessToken == null && error is java.io.IOException) AutoFailure.SIGN_IN else AutoFailure.from(error)

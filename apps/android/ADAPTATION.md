@@ -5,8 +5,9 @@ require changes. **T003 status (see `../../handoffs/T003.md`):** audit L6 (secti
 Litara client, resumable ranged downloader and account-scoped offline store exist under
 `app/src/main/java/com/litara/core/litara/` with unit and real-server tests. They are wired into a separate Litara flow
 (`feature/litara`: Hilt repository and ViewModel, ExoPlayer playback, downloads, progress, completion), opened from the
-server-setup and login screens. The main shell, player manager, downloads, Auto sources and Cast upstream still use the
-BookOrbit networking below, which is **pending replacement**; no BookOrbit compatibility layer is to be built. Everything else in this file
+server-setup and login screens. Playback, Android Auto browse/search/play, progress and the Cast upstream also serve
+Litara recordings through the `LitaraSource` seam (Int handles for the imported code, UUIDs on the wire). The main
+shell, downloads screen and reader still use the BookOrbit networking below, which is **pending replacement**; no BookOrbit compatibility layer is to be built. Everything else in this file
 remains unimplemented unless a row says otherwise. Sources: ADR-0005,
 ADR-0009, ADR-0013, ADR-0015, ADR-0017 to ADR-0023 and `../../research/android/`.
 

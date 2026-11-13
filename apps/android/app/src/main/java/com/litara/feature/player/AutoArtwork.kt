@@ -34,12 +34,13 @@ class AutoArtwork @Inject constructor(
     private val imageUrls: ImageUrls,
     @ImageClient client: OkHttpClient,
     authenticator: TokenAuthenticator,
+    private val litara: LitaraSource = LitaraSource.None,
 ) {
     private val client = client.newBuilder().authenticator(authenticator)
         .callTimeout(5, TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
     private val locks = ConcurrentHashMap<String, Any>()
     private fun scope(): String = MessageDigest.getInstance("SHA-256")
-        .digest("${session.serverUrl}|${session.currentUser?.id}".toByteArray())
+        .digest("${session.serverUrl}|${session.currentUser?.id}|${litara.scopeKey()}".toByteArray())
         .joinToString("") { "%02x".format(it) }.take(24)
 
     private fun root(): Uri = Uri.Builder().scheme("content").authority("${context.packageName}.artwork")
@@ -78,11 +79,13 @@ class AutoArtwork @Inject constructor(
                     val folder = File(context.cacheDir, "auto-artwork").apply { mkdirs() }
                     val cached = File(folder, "$key.jpg")
                     if (!cached.exists()) {
-                        if (session.accessToken == null) throw FileNotFoundException("Sign in to load artwork")
+                        if (session.accessToken == null && !litara.owns(id)) throw FileNotFoundException("Sign in to load artwork")
                         // The image client retains configured CA trust and refreshes expired tokens.
                         val temporary = File.createTempFile("cover-", ".tmp", folder)
                         try {
-                            apiCover(id, temporary)
+                            if (litara.owns(id)) {
+                                if (!kotlinx.coroutines.runBlocking { litara.artwork(id, temporary) }) throw FileNotFoundException("Artwork unavailable")
+                            } else apiCover(id, temporary)
                             if (!temporary.renameTo(cached)) throw FileNotFoundException("Unable to cache artwork")
                         } finally { temporary.delete() }
                         folder.listFiles()?.filter { it.extension == "jpg" && it != cached }

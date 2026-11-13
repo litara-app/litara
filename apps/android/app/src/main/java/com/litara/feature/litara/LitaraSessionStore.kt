@@ -34,6 +34,7 @@ class LitaraSessionStore @Inject constructor(private val storage: SecureStorage)
     }
 
     override fun clear() {
+        storage.remove(KEY_SCOPE)
         storage.remove(KEY_ACCESS)
         storage.remove(KEY_REFRESH)
         storage.remove(KEY_PENDING)
@@ -46,7 +47,15 @@ class LitaraSessionStore @Inject constructor(private val storage: SecureStorage)
     fun identity(): LitaraIdentity? =
         storage.getString(KEY_IDENTITY)?.let { runCatching { LitaraJson.decodeFromString<LitaraIdentity>(it) }.getOrNull() }
 
-    fun saveIdentity(identity: LitaraIdentity) = storage.putString(KEY_IDENTITY, LitaraJson.encodeToString(identity))
+    fun saveIdentity(identity: LitaraIdentity) {
+        storage.putString(KEY_IDENTITY, LitaraJson.encodeToString(identity))
+        // Read by SessionManager so the Room database and downloads are scoped to this server + account.
+        storage.putString(KEY_SCOPE, "${identity.serverId}|${identity.user.id}")
+        // Like any first account, the first one to use an empty install owns the original (unscoped) data set.
+        if (storage.getString(SecureStorage.KEY_DATA_OWNER) == null) {
+            storage.putString(SecureStorage.KEY_DATA_OWNER, "litara|${identity.serverId}|${identity.user.id}")
+        }
+    }
 
     /** Test/support hook: forget the whole Litara identity as well (offline data on disk is untouched). */
     fun forgetIdentity() { clear(); storage.remove(KEY_IDENTITY) }
@@ -59,5 +68,6 @@ class LitaraSessionStore @Inject constructor(private val storage: SecureStorage)
         const val KEY_REFRESH = "litara_refresh"
         const val KEY_PENDING = "litara_pending_refresh"
         const val KEY_IDENTITY = "litara_identity"
+        const val KEY_SCOPE = "litara_scope"
     }
 }

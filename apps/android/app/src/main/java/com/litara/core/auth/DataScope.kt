@@ -35,6 +35,9 @@ object DataScope {
         return if (owner == account) "" else hash(account)
     }
 
+    /** The stable 12-hex scope for an arbitrary ownership key. */
+    fun scopeFor(key: String): String = hash(key)
+
     private fun hash(value: String): String =
         MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }.take(12)
 }
