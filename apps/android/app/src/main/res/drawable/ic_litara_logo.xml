@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Litara brand mark: blue bookmark with an open-book cutout. Converted without modification from the
+  repository's design/brand/logo.svg (256x256 view box, fill #228be6, even-odd). First-party Litara artwork.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="72dp"
+    android:height="72dp"
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <path
+        android:fillColor="#228BE6"
+        android:fillType="evenOdd"
+        android:pathData="M52 16H204A20 20 0 0 1 224 36V234Q224 243 216 238L132 186Q128 183 124 186L40 238Q32 243 32 234V36A20 20 0 0 1 52 16ZM64 66V130Q64 134 68 134C89 134 108 140 124 150V78C111 66 92 60 70 60Q64 60 64 66ZM132 78V150C148 140 167 134 188 134Q192 134 192 130V66Q192 60 186 60C164 60 145 66 132 78Z" />
+</vector>

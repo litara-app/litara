@@ -1,0 +1,108 @@
+name: Android
+
+# Validates the imported Android baseline in apps/android/ for both distribution flavors:
+#   full   - includes the proprietary Google Cast SDK
+#   fdroid - Cast-free; this job also asserts no Google Play services/Cast components are resolved
+#
+# Scope is deliberately limited to lint, JVM unit tests and debug assembly. It uses no release
+# signing keys, publishing credentials or repository secrets, and publishes nothing. Instrumentation
+# tests (emulator) are run manually; see apps/android/BUILDING.md. The old BookOrbit release and
+# publishing workflows are intentionally not carried over.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "apps/android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/android
+
+jobs:
+  build:
+    name: Lint, test, assemble (full + fdroid)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          # The legacy standalone "tools" package (this action's default) no longer exists; AGP
+          # fetches the platform/build-tools it needs once licenses are accepted.
+          packages: "platform-tools"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4
+        with:
+          # Gradle's dependency-graph/build-scan features are not needed; cache only.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Pre-create the debug keystore
+        # AGP lazily generates ~/.android/debug.keystore. With org.gradle.parallel=true, both
+        # flavors' debug packaging can race to create it on a fresh runner and corrupt it. This is
+        # a throwaway debug key, not a release credential.
+        working-directory: .
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair -v -keystore ~/.android/debug.keystore \
+            -storepass android -alias AndroidDebugKey -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 10950 \
+            -keyalg RSA -keysize 2048
+
+      - name: Lint (both flavors)
+        run: ./gradlew :app:lintFullDebug :app:lintFdroidDebug --no-daemon
+
+      - name: Unit tests (both flavors)
+        run: ./gradlew :app:testFullDebugUnitTest :app:testFdroidDebugUnitTest --no-daemon
+
+      - name: Assemble debug APKs (both flavors)
+        run: ./gradlew :app:assembleFullDebug :app:assembleFdroidDebug --no-daemon
+
+      - name: Assert fdroid has no Google Play services / Cast components
+        run: |
+          set -euo pipefail
+          for cfg in fdroidDebugRuntimeClasspath fdroidReleaseRuntimeClasspath; do
+            ./gradlew -q :app:dependencies --configuration "$cfg" --no-daemon > "$RUNNER_TEMP/$cfg.txt"
+            if grep -Ei 'com\.google\.android\.gms|play-services|androidx\.media3:media3-cast|androidx\.mediarouter' "$RUNNER_TEMP/$cfg.txt"; then
+              echo "::error::$cfg resolves proprietary or Cast components"
+              exit 1
+            fi
+            echo "$cfg: clean"
+          done
+          # Sanity check that the check can fail: the full flavor must still include Cast.
+          ./gradlew -q :app:dependencies --configuration fullReleaseRuntimeClasspath --no-daemon > "$RUNNER_TEMP/full.txt"
+          grep -q 'play-services-cast-framework' "$RUNNER_TEMP/full.txt"
+
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-reports
+          path: |
+            apps/android/app/build/reports/
+            apps/android/app/build/test-results/
+          if-no-files-found: ignore

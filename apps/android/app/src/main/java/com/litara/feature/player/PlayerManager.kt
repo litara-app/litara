@@ -1,0 +1,506 @@
+package com.litara.feature.player
+
+import com.litara.R
+import com.litara.ui.UiText
+import android.content.ComponentName
+import android.content.Context
+import android.util.Log
+import androidx.annotation.OptIn
+import androidx.core.content.ContextCompat
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import androidx.media3.session.SessionResult
+import com.litara.core.model.AudioProgress
+import com.litara.core.model.BookDetail
+import com.litara.core.model.BookFileRef
+import com.litara.feature.cast.CastSessionController
+import com.litara.feature.sessions.ReadingSessionTracker
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicInteger
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.coroutines.resume
+
+/**
+ * Bridges the UI to the Media3 [MediaController] connected to [PlaybackService]. Owns the now-playing
+ * state, the transport controls, and the offline-first progress reporting. A single instance is
+ * shared by the player screen, mini-player, and book detail.
+ */
+@OptIn(UnstableApi::class)
+@Singleton
+class PlayerManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val repo: PlayerRepository,
+    private val audioProgress: AudioProgressRepository,
+    private val settingsStore: AudioSettingsStore,
+    private val castSessionController: CastSessionController,
+    private val activeBookPlayer: ActiveBookPlayer,
+    private val livePrefs: LivePlaybackPrefs,
+    private val restoreCandidates: RestoreCandidateFinder,
+    private val sessions: ReadingSessionTracker,
+) {
+    data class UiState(
+        val currentBook: BookDetail? = null,
+        val files: List<BookFileRef> = emptyList(),
+        val chapters: List<ResolvedChapter> = emptyList(),
+        val totalDurationSec: Double = 0.0,
+        val positionSec: Double = 0.0,
+        val isPlaying: Boolean = false,
+        val buffering: Boolean = false,
+        val speed: Float = DEFAULT_SPEED,
+        /** True when the current book has its own saved speed rather than following the default. */
+        val speedIsPerBook: Boolean = false,
+        val skipBackSeconds: Int = DEFAULT_SKIP_BACK,
+        val skipForwardSeconds: Int = DEFAULT_SKIP_FORWARD,
+        val sleepTimerRemainingSec: Long? = null,
+        val sleepTimerEndOfChapter: Boolean = false,
+        val isCasting: Boolean = false,
+        val castDeviceName: String? = null,
+        /** Set on a load or playback failure so the UI can explain why nothing is playing, instead
+         * of silently doing nothing (see issue #38). Cleared on the next successful load/resume. */
+        val playerError: UiText? = null,
+        val progressBarMode: ProgressBarMode = ProgressBarMode.BOOK,
+    )
+
+    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private val _state = MutableStateFlow(UiState())
+    val state = _state.asStateFlow()
+
+    private var controller: MediaController? = null
+    /** Serializes [controller] so a launch restore and a user tap can't each build one. */
+    private val controllerLock = Mutex()
+    private var pollJob: Job? = null
+    private var settings = AudioSettings()
+    private var lastReport = 0L
+    private val settingsLoaded = CompletableDeferred<Unit>()
+
+    /** Bumped whenever the user, the car, or [stop] changes the queue; an in-flight launch restore
+     * that sees it move gives way instead of replacing what was just started. Atomic because Android
+     * Auto calls [adoptExternalQueue] off the main thread. */
+    private val loadGeneration = AtomicInteger()
+    private var restoreAttempted = false
+
+    /** Wall-clock deadline for a duration-based sleep timer; null when off or in end-of-chapter mode. */
+    private var sleepTimerEndAtMs: Long? = null
+    private var sleepTimerEndOfChapter = false
+
+    private val listener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            // A successful resume clears any earlier error - it's no longer the reason nothing is playing.
+            _state.update { it.copy(isPlaying = isPlaying, playerError = if (isPlaying) null else it.playerError) }
+            sessions.setListeningActive(isPlaying)
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            _state.update { it.copy(buffering = playbackState == Player.STATE_BUFFERING) }
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            Log.e(TAG, "playback error bookId=${_state.value.currentBook?.id} code=${error.errorCodeName}", error)
+            _state.update { it.copy(buffering = false, isPlaying = false, playerError = describePlayerError(error)) }
+        }
+    }
+
+    init {
+        scope.launch {
+            try {
+                settings = settingsStore.load()
+                _state.update {
+                    it.copy(
+                        speed = settings.speed,
+                        skipBackSeconds = settings.skipBackSeconds,
+                        skipForwardSeconds = settings.skipForwardSeconds,
+                    )
+                }
+            } finally {
+                // Defaults stand in if loading failed; either way a waiting restore may proceed.
+                settingsLoaded.complete(Unit)
+            }
+        }
+        scope.launch {
+            castSessionController.state.collect { cast ->
+                _state.update { it.copy(isCasting = cast.isConnected, castDeviceName = cast.deviceName) }
+            }
+        }
+        scope.launch {
+            livePrefs.settings.collect { s ->
+                // Skip lengths can change from Settings while a book is loaded.
+                settings = settings.copy(skipBackSeconds = s.skipBackSeconds, skipForwardSeconds = s.skipForwardSeconds)
+                _state.update {
+                    it.copy(
+                        progressBarMode = s.progressBarMode,
+                        skipBackSeconds = s.skipBackSeconds,
+                        skipForwardSeconds = s.skipForwardSeconds,
+                    )
+                }
+            }
+        }
+    }
+
+    /** Whole-book position; the controller's own position may be chapter-relative (see BookAggregatingPlayer). */
+    private fun bookPositionMs(): Long? {
+        val active = activeBookPlayer.current ?: return null
+        val files = _state.value.files
+        // A Cast queue load is asynchronous. Do not write the old book's position into the new book.
+        val index = active.currentMediaItemIndex
+        if (!active.hasCurrentSourceQueue() || active.mediaItemCount != files.size ||
+            active.currentMediaItem?.mediaId != files.getOrNull(index)?.id?.toString()) return null
+        return active.bookPositionMs()
+    }
+
+    private suspend fun controller(): MediaController {
+        controller?.let { return it }
+        return controllerLock.withLock {
+            controller ?: run {
+                val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
+                val created = suspendCancellableCoroutine { cont ->
+                    val future = MediaController.Builder(context, token).buildAsync()
+                    future.addListener({ cont.resume(future.get()) }, ContextCompat.getMainExecutor(context))
+                }
+                created.addListener(listener)
+                controller = created
+                created
+            }
+        }
+    }
+
+    fun loadAndPlay(bookId: Int) {
+        val generation = loadGeneration.incrementAndGet()
+        cancelSleepTimer()
+        _state.update { it.copy(playerError = null) }
+        scope.launch {
+            val data = repo.resolve(bookId)
+            if (generation != loadGeneration.get()) return@launch
+            if (data == null) {
+                Log.e(TAG, "unable to resolve playback data for bookId=$bookId")
+                _state.update {
+                    it.copy(playerError = UiText.of(R.string.player_err_load))
+                }
+                return@launch
+            }
+            val c = controller()
+            val resume = audioProgress.resolveResume(bookId)
+            val bookSpeed = settingsStore.bookSpeed(bookId)
+            if (generation != loadGeneration.get()) return@launch
+            applyQueue(c, data, resume, autoPlay = true, bookSpeed = bookSpeed)
+        }
+    }
+
+    /**
+     * Brings the mini-player back after the app was closed: when the app starts with nothing loaded,
+     * loads the most recently played unfinished audiobook (this device's history and the server's
+     * Continue Listening, whichever was played last) paused at its saved position. Runs at most once
+     * per process, stays silent if nothing can be loaded (e.g. offline and not downloaded), and gives
+     * way if the user or Android Auto loads something while it's still looking.
+     */
+    fun restoreLastBook() {
+        if (restoreAttempted) return
+        restoreAttempted = true
+        if (_state.value.currentBook != null) return
+        val generation = loadGeneration.get()
+        scope.launch {
+            try {
+                for ((bookId, resume) in restoreCandidates.find()) {
+                    // Downloads resolve locally; a streamed book needs the server, so don't wait long on it.
+                    val data = withTimeoutOrNull(RESTORE_RESOLVE_TIMEOUT_MS) { repo.resolve(bookId) } ?: continue
+                    settingsLoaded.await()
+                    val bookSpeed = settingsStore.bookSpeed(bookId)
+                    if (generation != loadGeneration.get() || _state.value.currentBook != null) return@launch
+                    val c = controller()
+                    // Re-checked after the last suspension point: from here to applyQueue runs without yielding.
+                    if (generation != loadGeneration.get() || _state.value.currentBook != null || c.mediaItemCount > 0) return@launch
+                    applyQueue(c, data, resume, autoPlay = false, bookSpeed = bookSpeed)
+                    return@launch
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Best effort: a failed restore just leaves the app as it was before this feature.
+                Log.w(TAG, "couldn't restore the last audiobook", e)
+            }
+        }
+    }
+
+    /** Loads [data] into the session player at [resume]; plays only when [autoPlay]. */
+    private fun applyQueue(
+        c: MediaController,
+        data: PlayerRepository.PlayerData,
+        resume: AudioProgress?,
+        autoPlay: Boolean,
+        bookSpeed: Float?,
+    ) {
+        val speed = resolveSpeed(settings.speed, bookSpeed)
+        val totalDurationSec = PlaybackQueue.totalDurationSec(data.files)
+        val index = resume?.let { r -> data.files.indexOfFirst { it.id == r.currentFileId }.coerceAtLeast(0) } ?: 0
+        val positionMs = ((resume?.positionSeconds ?: 0.0) * 1000).toLong()
+        val loaded = c.sendCustomCommand(
+            BookQueueCommand.command,
+            BookQueueCommand.encode(BookQueueCommand.Load(data.mediaItems, index, positionMs, speed, autoPlay)),
+        )
+        loaded.addListener({
+            val success = runCatching { loaded.get().resultCode == SessionResult.RESULT_SUCCESS }.getOrDefault(false)
+            if (!success && _state.value.currentBook?.id == data.book.id) {
+                _state.update { it.copy(playerError = UiText.of(R.string.player_err_load), buffering = false) }
+            }
+        }, ContextCompat.getMainExecutor(context))
+
+        _state.update {
+            it.copy(
+                currentBook = data.book,
+                files = data.files,
+                chapters = PlaybackQueue.resolveChapters(data.book, totalDurationSec),
+                totalDurationSec = totalDurationSec,
+                speed = speed,
+                speedIsPerBook = bookSpeed != null,
+            )
+        }
+        startPoller()
+    }
+
+    /**
+     * Adopt a queue that was started outside the UI (e.g. Android Auto set the media items on the
+     * shared player directly). Seeds the now-playing state and starts the progress poller so a single
+     * sync path covers both phone- and car-initiated playback. The car already set + prepared the
+     * items, so this only observes — it does not touch the controller's queue.
+     */
+    fun adoptExternalQueue(book: BookDetail, files: List<BookFileRef>, speed: Float, speedIsPerBook: Boolean) {
+        val generation = loadGeneration.incrementAndGet()
+        scope.launch {
+            controller() // ensure the listener is attached so play/pause state tracks
+            if (generation != loadGeneration.get()) return@launch
+            cancelSleepTimer()
+            _state.update {
+                it.copy(
+                    currentBook = book,
+                    files = files,
+                    chapters = PlaybackQueue.resolveChapters(book, PlaybackQueue.totalDurationSec(files)),
+                    totalDurationSec = PlaybackQueue.totalDurationSec(files),
+                    speed = speed,
+                    speedIsPerBook = speedIsPerBook,
+                    playerError = null,
+                )
+            }
+            startPoller()
+        }
+    }
+
+    fun togglePlay() = scope.launch {
+        val c = controller()
+        if (c.isPlaying) c.pause() else c.play()
+    }
+
+    fun skipBack() = scope.launch {
+        val now = bookPositionMs() ?: return@launch
+        seekToAbsoluteNow(((now - settings.skipBackSeconds * 1000L).coerceAtLeast(0)) / 1000.0)
+    }
+
+    fun skipForward() = scope.launch {
+        val now = bookPositionMs() ?: return@launch
+        val total = (_state.value.totalDurationSec * 1000).toLong()
+        val target = now + settings.skipForwardSeconds * 1000L
+        seekToAbsoluteNow((if (total > 0) minOf(total, target) else target) / 1000.0)
+    }
+
+    fun seekToAbsolute(absoluteSec: Double) = scope.launch { seekToAbsoluteNow(absoluteSec) }
+
+    private suspend fun seekToAbsoluteNow(absoluteSec: Double) {
+        val c = controller()
+        val files = _state.value.files
+        if (files.isEmpty()) return
+        val loc = PlaybackQueue.locateAbsolute(files, absoluteSec)
+        c.seekTo(loc.index, (loc.offsetSec * 1000).toLong())
+    }
+
+    /**
+     * Change the playback speed. With [forThisBook] the speed is remembered for the current book only
+     * (and the default is left alone); otherwise it becomes the default and, if this book had its own
+     * speed, that override is dropped so the book follows the new default.
+     */
+    fun setSpeed(value: Float, forThisBook: Boolean = false) = scope.launch {
+        val speed = snapSpeed(value)
+        val bookId = _state.value.currentBook?.id
+        controller().setPlaybackSpeed(speed)
+        if (forThisBook && bookId != null) {
+            settingsStore.saveBookSpeed(bookId, speed)
+        } else {
+            settings = settings.copy(speed = speed)
+            settingsStore.saveSpeed(speed)
+            if (bookId != null) settingsStore.saveBookSpeed(bookId, null)
+        }
+        _state.update { it.copy(speed = speed, speedIsPerBook = forThisBook && bookId != null) }
+    }
+
+    fun setSkipBack(value: Int) = scope.launch {
+        settings = settings.copy(skipBackSeconds = value)
+        settingsStore.saveSkipBack(value)
+        _state.update { it.copy(skipBackSeconds = value) }
+    }
+
+    fun setSkipForward(value: Int) = scope.launch {
+        settings = settings.copy(skipForwardSeconds = value)
+        settingsStore.saveSkipForward(value)
+        _state.update { it.copy(skipForwardSeconds = value) }
+    }
+
+    /** Arms a countdown that pauses playback after [minutes] of wall-clock time. */
+    fun setSleepTimer(minutes: Int) {
+        sleepTimerEndOfChapter = false
+        sleepTimerEndAtMs = System.currentTimeMillis() + minutes * 60_000L
+        _state.update { it.copy(sleepTimerRemainingSec = minutes * 60L, sleepTimerEndOfChapter = false) }
+    }
+
+    /** Arms a countdown that pauses playback when the current chapter ends. */
+    fun setSleepTimerEndOfChapter() {
+        sleepTimerEndOfChapter = true
+        sleepTimerEndAtMs = null
+        _state.update { it.copy(sleepTimerEndOfChapter = true) }
+        tickSleepTimer()
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerEndAtMs = null
+        sleepTimerEndOfChapter = false
+        _state.update { it.copy(sleepTimerRemainingSec = null, sleepTimerEndOfChapter = false) }
+    }
+
+    /** Recomputes the remaining time and pauses playback once it lapses. Driven by the poller tick. */
+    private fun tickSleepTimer() {
+        val endAt = sleepTimerEndAtMs
+        if (endAt == null && !sleepTimerEndOfChapter) return
+
+        val remainingSec = if (sleepTimerEndOfChapter) {
+            val s = _state.value
+            val idx = PlaybackQueue.currentChapterIndex(s.chapters, s.positionSec)
+            val chapterEnd = s.chapters.getOrNull(idx + 1)?.startSec ?: s.totalDurationSec
+            (chapterEnd - s.positionSec).toLong().coerceAtLeast(0)
+        } else {
+            ((endAt!! - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+        }
+
+        _state.update { it.copy(sleepTimerRemainingSec = remainingSec) }
+        if (remainingSec <= 0) {
+            controller?.pause()
+            sleepTimerEndAtMs = null
+            sleepTimerEndOfChapter = false
+            _state.update { it.copy(sleepTimerRemainingSec = null, sleepTimerEndOfChapter = false) }
+        }
+    }
+
+    /**
+     * Re-checks the server for a newer position (e.g. progress made on another device) and seeks
+     * there if it differs meaningfully from where this device's session currently sits. Only acts
+     * while paused — an actively playing session is always the source of truth for itself. Called
+     * whenever the player screen (or mini-player) becomes visible again, since a long-lived app
+     * process otherwise never re-fetches after the initial [loadAndPlay].
+     */
+    fun refreshIfStale() = scope.launch {
+        val generation = loadGeneration.get()
+        val c = controller ?: return@launch
+        if (c.isPlaying) return@launch
+        val book = _state.value.currentBook ?: return@launch
+        val files = _state.value.files
+        if (files.isEmpty()) return@launch
+        val resume = audioProgress.resolveResume(book.id) ?: return@launch
+        if (generation != loadGeneration.get() || c.isPlaying) return@launch
+        val resumeIdx = files.indexOfFirst { it.id == resume.currentFileId }.coerceAtLeast(0)
+        val resumeAbs = PlaybackQueue.toAbsoluteSec(files, resumeIdx, resume.positionSeconds)
+        val currentAbs = (bookPositionMs() ?: return@launch) / 1000.0
+        if (kotlin.math.abs(resumeAbs - currentAbs) > STALE_THRESHOLD_SEC) {
+            c.seekTo(resumeIdx, (resume.positionSeconds * 1000).toLong())
+            updatePosition()
+        }
+    }
+
+    fun stop() = scope.launch {
+        loadGeneration.incrementAndGet()
+        report(force = true)
+        sessions.end()
+        controller?.run {
+            stop()
+            clearMediaItems()
+        }
+        pollJob?.cancel()
+        cancelSleepTimer()
+        _state.update { it.copy(currentBook = null, isPlaying = false) }
+    }
+
+    private fun startPoller() {
+        pollJob?.cancel()
+        pollJob = scope.launch {
+            while (isActive) {
+                updatePosition()
+                tickSleepTimer()
+                if (System.currentTimeMillis() - lastReport >= 5_000) report(force = false)
+                delay(500)
+            }
+        }
+    }
+
+    private fun updatePosition() {
+        if (_state.value.files.isEmpty()) return
+        val pos = bookPositionMs() ?: return
+        _state.update { it.copy(positionSec = pos / 1000.0) }
+    }
+
+    private suspend fun report(force: Boolean) {
+        val c = controller ?: return
+        val book = _state.value.currentBook ?: return
+        val files = _state.value.files
+        if (files.isEmpty()) return
+        if (!force && !c.isPlaying) return
+        val posMs = bookPositionMs() ?: return
+        // Book time comes from ActiveBookPlayer (the controller's position may be chapter-relative);
+        // recompute the real file + in-file offset together rather than pairing a stale
+        // currentMediaItemIndex with it.
+        val loc = PlaybackQueue.locateAbsolute(files, posMs / 1000.0)
+        val pct = PlaybackQueue.percentageFor(files, loc.index, loc.offsetSec)
+        lastReport = System.currentTimeMillis()
+        audioProgress.report(book.id, files[loc.index].id, loc.offsetSec, pct)
+        if (c.isPlaying) sessions.onListening(book.id, files.first().id, pct)
+    }
+
+    /** Friendly text for a Media3 playback failure - falls back to the exception's own message
+     * (still logged in full above) when the error code isn't one of the common, expected cases. */
+    private fun describePlayerError(error: PlaybackException): UiText = when (error.errorCode) {
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+        -> UiText.of(R.string.player_err_network)
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND,
+        -> UiText.of(R.string.player_err_server)
+        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+        PlaybackException.ERROR_CODE_DECODING_FAILED,
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+        -> UiText.of(R.string.player_err_format)
+        else -> error.message?.let { UiText.raw(it) } ?: UiText.of(R.string.player_err_unknown)
+    }
+
+    private companion object {
+        const val TAG = "LitaraPlayer"
+        /** Minimum drift (seconds) before [refreshIfStale] bothers seeking to a server-side position. */
+        const val STALE_THRESHOLD_SEC = 5.0
+        /** How long a launch restore waits to load a book that has to come from the server. */
+        const val RESTORE_RESOLVE_TIMEOUT_MS = 8_000L
+    }
+}

@@ -1,0 +1,211 @@
+package com.litara.feature.player
+
+import android.os.Bundle
+import androidx.annotation.OptIn
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.session.MediaConstants
+import com.litara.core.db.AudioProgressEntity
+import com.litara.core.db.DownloadEntity
+import com.litara.feature.downloads.isCompleteDownloadStatus
+
+/**
+ * Pure browse IDs, offline shelves and bounded grouping for Android Auto. Online shelves are
+ * supplied by AutoCatalog; the first three root shelves keep stable positions as playback changes.
+ *
+ * The filtering/ordering is kept pure (operating on entities) so it is unit-testable; only
+ * [toMediaItem] touches the Android framework ([Uri]).
+ */
+object AutoBrowseTree {
+    const val ROOT_ID = "root"
+    const val CONTINUE_ID = "continue"
+    const val DOWNLOADS_ID = "downloads"
+    const val LIBRARY_ID = "audiobooks"
+
+    data class Group(val parent: String, val start: Int, val end: Int)
+    fun parseGroup(id: String): Group? {
+        val parts = id.split('/')
+        if (parts.size != 4 || parts[0] != "group" || parts[1] !in setOf(DOWNLOADS_ID, CONTINUE_ID, NOW_PLAYING_CHAPTERS_ID)) return null
+        val start = parts[2].toIntOrNull() ?: return null
+        val end = parts[3].toIntOrNull() ?: return null
+        return Group(parts[1], start, end).takeIf { start >= 0 && end > start }
+    }
+
+    /** Keep long local shelves manageable without relying on host-side pagination. */
+    fun grouped(parent: String, entries: List<BrowseEntry>, labels: Labels, start: Int = 0, end: Int = entries.size): List<BrowseEntry> {
+        val from = start.coerceIn(0, entries.size)
+        val until = end.coerceIn(from, entries.size)
+        val count = until - from
+        if (count <= 40) return entries.subList(from, until)
+        val step = maxOf(40, ((count.toLong() + 39) / 40).toInt())
+        return (from until until step step).map { offset ->
+            val next = (offset.toLong() + step).coerceAtMost(until.toLong()).toInt()
+            BrowseEntry("group/$parent/$offset/$next", labels.titleRange(entries[offset].title, entries[next - 1].title), null, null, false)
+        }
+    }
+
+    const val NOW_PLAYING_CHAPTERS_ID = "now_playing_chapters"
+
+    private const val BOOK_PREFIX = "book/"
+    private const val CHAPTER_PREFIX = "chapter/"
+
+    fun bookMediaId(bookId: Int): String = "$BOOK_PREFIX$bookId"
+
+    /** Parses a `book/<id>` media id back to its book id, or null if it isn't a book media id. */
+    fun parseBookId(mediaId: String): Int? =
+        mediaId.removePrefix(BOOK_PREFIX).takeIf { it != mediaId }?.toIntOrNull()?.takeIf { it > 0 }
+
+    /** A browse node or playable book, decoupled from the Android [MediaItem] for testability. */
+    data class BrowseEntry(
+        val mediaId: String,
+        val title: String,
+        val subtitle: String?,
+        val coverPath: String?,
+        val isPlayable: Boolean,
+        val completion: CompletionStatus? = null,
+    )
+
+    enum class CompletionStatus { NOT_PLAYED, PARTIALLY_PLAYED, FULLY_PLAYED }
+
+    /**
+     * The words shown in the car. They come from string resources (built per request by the media
+     * callback, so they follow the device language) but are passed in, keeping this object free of
+     * Android resources and easy to unit test.
+     */
+    data class Labels(
+        val appName: String,
+        val continueListening: String,
+        val downloaded: String,
+        /** Fallback for a book with no title. */
+        val audiobook: String,
+        /** "Chapters · <book title>" */
+        val chaptersOf: (bookTitle: String) -> String,
+        val audiobooks: String = "",
+        val byTitle: String = "By title",
+        val byAuthor: String = "By author",
+        val bySeries: String = "By series",
+        val unknownAuthor: String = "Unknown author",
+        val bookCount: (Int) -> String = { "$it books" },
+        val titleRange: (String, String) -> String = { first, last -> "$first – $last" },
+    )
+
+    data class CurrentBookInfo(val bookId: Int, val title: String, val ranges: List<ChapterRange>, val positionSec: Double)
+
+    fun currentBookInfo(state: PlayerManager.UiState, labels: Labels): CurrentBookInfo? {
+        val book = state.currentBook ?: return null
+        val ranges = PlaybackQueue.chapterRanges(state.chapters, state.totalDurationSec)
+        return CurrentBookInfo(book.id, book.title ?: labels.audiobook, ranges, state.positionSec)
+    }
+
+    /** Top-level shelves shown under the root. */
+    fun rootChildren(current: CurrentBookInfo?, labels: Labels): List<BrowseEntry> = buildList {
+        add(BrowseEntry(CONTINUE_ID, labels.continueListening, null, null, isPlayable = false))
+        add(BrowseEntry(DOWNLOADS_ID, labels.downloaded, null, null, isPlayable = false))
+        add(BrowseEntry(LIBRARY_ID, labels.audiobooks, null, null, isPlayable = false))
+        if (current != null && current.ranges.size >= 2) {
+            add(BrowseEntry(NOW_PLAYING_CHAPTERS_ID, labels.chaptersOf(current.title), null, null, isPlayable = false))
+        }
+    }
+
+    fun chapterMediaId(bookId: Int, index: Int) = "$CHAPTER_PREFIX$bookId/$index"
+
+    fun parseChapterId(mediaId: String): Pair<Int, Int>? {
+        if (!mediaId.startsWith(CHAPTER_PREFIX)) return null
+        val parts = mediaId.removePrefix(CHAPTER_PREFIX).split("/")
+        if (parts.size != 2) return null
+        val book = parts[0].toIntOrNull() ?: return null
+        val idx = parts[1].toIntOrNull() ?: return null
+        return (book to idx).takeIf { book > 0 && idx >= 0 }
+    }
+
+    fun chapterEntries(current: CurrentBookInfo): List<BrowseEntry> = current.ranges.map { r ->
+        val completion = when {
+            r.endSec <= current.positionSec -> CompletionStatus.FULLY_PLAYED
+            r.startSec <= current.positionSec -> CompletionStatus.PARTIALLY_PLAYED
+            else -> CompletionStatus.NOT_PLAYED
+        }
+        BrowseEntry(chapterMediaId(current.bookId, r.index), r.title, PlaybackQueue.formatDurationShort(r.lengthSec), null, isPlayable = true, completion = completion)
+    }
+
+    /** Completed audiobook downloads as playable items (most recently downloaded first). */
+    fun downloadedAudiobooks(downloads: List<DownloadEntity>, labels: Labels): List<BrowseEntry> =
+        downloads.filter { it.isComplete }
+            .sortedByDescending { it.downloadedAt }
+            .map { it.toBrowseEntry(labels) }
+
+    /**
+     * Downloaded audiobooks that have a saved listening position, ordered by most recently played.
+     * The intersection keeps the shelf offline-safe and metadata-complete (title/art come from the
+     * download record, not the network).
+     */
+    fun continueListening(
+        downloads: List<DownloadEntity>,
+        progress: List<AudioProgressEntity>,
+        labels: Labels,
+    ): List<BrowseEntry> {
+        val byId = downloads.filter { it.isComplete }.associateBy { it.bookId }
+        return progress.filter { it.percentage < ResumeCandidates.FINISHED_PERCENT }.sortedByDescending { it.updatedAt }
+            .mapNotNull { byId[it.bookId]?.toBrowseEntry(labels) }
+    }
+
+    /** Builds the browsable root node. */
+    fun rootMediaItem(labels: Labels): MediaItem = browsableItem(ROOT_ID, labels.appName, null)
+
+    @OptIn(UnstableApi::class)
+    fun toMediaItem(entry: BrowseEntry, artworkUri: android.net.Uri? = null): MediaItem =
+        if (entry.isPlayable) {
+            val metadata = MediaMetadata.Builder()
+                .setTitle(entry.title)
+                .setArtist(entry.subtitle)
+                .setIsBrowsable(false)
+                .setIsPlayable(true)
+                .setMediaType(
+                    if (entry.mediaId.startsWith(CHAPTER_PREFIX)) MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER
+                    else MediaMetadata.MEDIA_TYPE_AUDIO_BOOK,
+                )
+                .apply {
+                    entry.completion?.let { c ->
+                        setExtras(
+                            Bundle().apply {
+                                putInt(
+                                    MediaConstants.EXTRAS_KEY_COMPLETION_STATUS,
+                                    when (c) {
+                                        CompletionStatus.NOT_PLAYED -> MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_NOT_PLAYED
+                                        CompletionStatus.PARTIALLY_PLAYED -> MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED
+                                        CompletionStatus.FULLY_PLAYED -> MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_FULLY_PLAYED
+                                    },
+                                )
+                            },
+                        )
+                    }
+                }
+                .setArtworkUri(artworkUri)
+                .build()
+            MediaItem.Builder().setMediaId(entry.mediaId).setMediaMetadata(metadata).build()
+        } else {
+            browsableItem(entry.mediaId, entry.title, entry.subtitle)
+        }
+
+    private fun browsableItem(id: String, title: String, subtitle: String?): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setTitle(title)
+            .setSubtitle(subtitle)
+            .setIsBrowsable(true)
+            .setIsPlayable(false)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS)
+            .build()
+        return MediaItem.Builder().setMediaId(id).setMediaMetadata(metadata).build()
+    }
+
+    private val DownloadEntity.isComplete: Boolean
+        get() = isAudiobook && status.isCompleteDownloadStatus()
+
+    private fun DownloadEntity.toBrowseEntry(labels: Labels): BrowseEntry = BrowseEntry(
+        mediaId = bookMediaId(bookId),
+        title = title ?: labels.audiobook,
+        subtitle = narrators.ifBlank { authors }.ifBlank { null },
+        coverPath = coverLocalPath,
+        isPlayable = true,
+    )
+}

@@ -1,0 +1,46 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+.idea/
+.DS_Store
+# Un-anchored so it also covers the module build dir (app/build), not just /build.
+build/
+captures/
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+*.keystore
+*.jks
+keystore.properties
+play-service-account.json
+
+# --- Litara import additions (apps/android/) ---
+# Local/machine-specific configuration (never commit)
+local.properties
+**/local.properties
+.env
+.env.*
+# Signing and publishing credentials (never commit)
+*.p12
+*.pfx
+*.pepk
+*.pem
+**/keystore.properties
+**/play-service-account.json
+google-services.json
+# Build outputs, caches and reports
+**/build/
+.gradle/
+.kotlin/
+*.hprof
+*.log
+lint-results*.xml
+lint-results*.html
+lint-baseline.xml.tmp
+# IDE/OS
+.idea/
+*.iml
+.vscode/
+Thumbs.db

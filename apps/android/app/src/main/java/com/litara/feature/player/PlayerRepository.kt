@@ -1,0 +1,100 @@
+package com.litara.feature.player
+
+import android.content.Context
+import android.os.Bundle
+import androidx.annotation.OptIn
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.util.UnstableApi
+import com.litara.core.auth.SessionManager
+import com.litara.core.model.BookDetail
+import com.litara.core.model.BookFileRef
+import com.litara.core.network.AudiobookAssetResolver
+import com.litara.core.network.AudiobookAssetResolver.Sources
+import com.litara.core.storage.LocalRef
+import com.litara.core.storage.exists
+import com.litara.core.storage.toUri
+import com.litara.feature.bookdetail.BookDetailRepository
+import com.litara.feature.downloads.DownloadsRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.serialization.json.Json
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/** Resolves an audiobook to a Media3 queue, preferring offline downloads for bytes + lock-screen art. */
+@Singleton
+class PlayerRepository @Inject constructor(
+    private val bookRepo: BookDetailRepository,
+    private val downloads: DownloadsRepository,
+    private val session: SessionManager,
+    private val audiobookAssets: AudiobookAssetResolver,
+    private val json: Json,
+    @ApplicationContext private val context: Context,
+    private val artwork: AutoArtwork,
+) {
+    data class PlayerData(
+        val book: BookDetail,
+        val files: List<BookFileRef>,
+        val mediaItems: List<MediaItem>,
+    )
+
+    @OptIn(UnstableApi::class)
+    suspend fun resolve(bookId: Int): PlayerData? {
+        // Use the offline copy's persisted BookDetail when present (works fully offline).
+        val download = downloads.get(bookId)?.takeIf { it.isAudiobook }
+        val book = if (download != null) {
+            runCatching { json.decodeFromString(BookDetail.serializer(), download.bookJson) }.getOrNull()
+        } else {
+            runCatching { bookRepo.detail(bookId) }.getOrNull()
+        } ?: return null
+
+        val files = PlaybackQueue.audioFiles(book)
+        if (files.isEmpty()) return null
+        val base = session.serverUrl
+
+        val localFiles = downloads.localFiles(bookId)
+        val localRefs = files.associate { file ->
+            file.id to localFiles[file.id]?.let(LocalRef::parse)?.takeIf { it.exists(context) }
+        }
+        // Only hit the manifest when something actually streams. On failure fall back to the
+        // legacy URLs - playback then fails loudly on 3.0+ rather than the queue not loading at all.
+        val sources = if (base != null && localRefs.values.any { it == null }) {
+            runCatching { audiobookAssets.resolve(bookId, files) }.getOrDefault(Sources.Legacy)
+        } else Sources.Legacy
+        val performer = PlaybackQueue.performerLabel(book)
+        val chapters = PlaybackQueue.resolveChapters(book, PlaybackQueue.totalDurationSec(files))
+        val chapterStarts = chapters.map { it.startSec }.toDoubleArray()
+        val chapterTitles = chapters.map { it.title }.toTypedArray()
+
+        val items = files.map { file ->
+            val localRef = localRefs[file.id]
+            val uri = when {
+                localRef != null -> localRef.toUri().toString()
+                base != null -> "$base/api/v1/${audiobookAssets.path(bookId, file.id, sources)}"
+                else -> return null
+            }
+            // Extras carry data BookAggregatingPlayer needs to present a whole-book timeline to the
+            // MediaSession (Bluetooth/Android Auto) instead of ExoPlayer's real per-file position/duration.
+            val extras = Bundle().apply {
+                putDouble(BookAggregatingPlayer.EXTRA_DURATION_SEC, file.durationSeconds ?: 0.0)
+                if (chapterStarts.size >= 2) {
+                    putDoubleArray(BookAggregatingPlayer.EXTRA_CHAPTER_STARTS_SEC, chapterStarts)
+                    putStringArray(BookAggregatingPlayer.EXTRA_CHAPTER_TITLES, chapterTitles)
+                }
+            }
+            val metadata = MediaMetadata.Builder()
+                .setTitle(book.title ?: "Audiobook")
+                .setArtist(performer)
+                .setExtras(extras)
+                .setArtworkUri(artwork.uri(bookId))
+                .build()
+            MediaItem.Builder()
+                .setMediaId(file.id.toString())
+                .setUri(uri)
+                .setMimeType(audioMimeType(file.format, file.filename))
+                .setMediaMetadata(metadata)
+                .build()
+        }
+        return PlayerData(book, files, items)
+    }
+}

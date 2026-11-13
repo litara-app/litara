@@ -1,0 +1,430 @@
+package com.litara.core.network
+
+import com.litara.core.model.AppInfo
+import com.litara.core.model.AudiobookManifest
+import com.litara.core.model.AudiobookPlaybackState
+import com.litara.core.model.AudioProgress
+import com.litara.core.model.AuthUser
+import com.litara.core.model.AuthorsPage
+import com.litara.core.model.BookDetail
+import com.litara.core.model.BookDockBulkCounts
+import com.litara.core.model.BookDockFile
+import com.litara.core.model.BookDockFilesPage
+import com.litara.core.model.BookDockFinalizeResult
+import com.litara.core.model.BookDockSelection
+import com.litara.core.model.BookDockSummary
+import com.litara.core.model.BookQuery
+import com.litara.core.model.BookRecommendation
+import com.litara.core.model.BooksPage
+import com.litara.core.model.Collection
+import com.litara.core.model.CollectionBookIds
+import com.litara.core.model.CollectionWithMembership
+import com.litara.core.model.FileProgress
+import com.litara.core.model.Library
+import com.litara.core.model.LoginRequest
+import com.litara.core.model.LoginResponse
+import com.litara.core.model.NamedResult
+import com.litara.core.model.OidcCallbackRequest
+import com.litara.core.model.OidcCallbackResponse
+import com.litara.core.model.OidcProviderPublic
+import com.litara.core.model.OidcStateResponse
+import com.litara.core.model.PutAudiobookPlaybackState
+import com.litara.core.model.SaveAudioProgress
+import com.litara.core.model.SaveFileProgress
+import com.litara.core.model.SearchResult
+import com.litara.core.model.SeriesBooksPage
+import com.litara.core.model.SeriesPage
+import com.litara.core.model.SetRatingRequest
+import com.litara.core.model.SetReadStatusRequest
+import com.litara.core.model.SetTargetRequest
+import com.litara.core.model.FinalizeRequest
+import com.litara.core.model.SmartScope
+import com.litara.core.model.UpdateBookDockFileRequest
+import com.litara.core.model.UserBookStatus
+import kotlinx.serialization.json.JsonElement
+import okhttp3.MultipartBody
+import okhttp3.ResponseBody
+import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.HTTP
+import retrofit2.http.Header
+import retrofit2.http.Multipart
+import retrofit2.http.PATCH
+import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Part
+import retrofit2.http.Path
+import retrofit2.http.Query
+import retrofit2.http.Streaming
+
+/**
+ * Retrofit surface for the Litara server. Paths are relative and DO NOT carry the `/api/v1`
+ * prefix or a host — [BaseUrlInterceptor] prepends the live server URL + `api/v1` at request time.
+ * Endpoints mirror the server's `/api/v1` REST surface one-to-one.
+ */
+interface ApiService {
+
+    // --- Auth ---
+    @POST("auth/login")
+    suspend fun login(@Body body: LoginRequest): LoginResponse
+
+    @POST("auth/logout")
+    suspend fun logout()
+
+    @GET("auth/me")
+    suspend fun getMe(): AuthUser
+
+    @GET("auth/setup-status")
+    suspend fun getSetupStatus(): com.litara.core.model.SetupStatus
+
+    @GET("app-settings/oidc/providers/public")
+    suspend fun getPublicOidcProviders(): List<OidcProviderPublic>
+
+    @POST("auth/oidc/{slug}/state")
+    suspend fun generateOidcState(@Path("slug") slug: String): OidcStateResponse
+
+    @POST("auth/oidc/callback")
+    suspend fun oidcCallback(@Body body: OidcCallbackRequest): OidcCallbackResponse
+
+    // --- Books ---
+    @GET("books/search")
+    suspend fun searchBooks(
+        @Query("q") q: String,
+        @Query("limit") limit: Int = 20,
+    ): List<SearchResult>
+
+    @POST("books/query")
+    suspend fun queryBooks(@Body query: BookQuery): BooksPage
+
+    @GET("books/{id}")
+    suspend fun getBookDetail(@Path("id") id: Int): BookDetail
+
+    @PATCH("books/{id}/status")
+    suspend fun setReadStatus(
+        @Path("id") id: Int,
+        @Body body: SetReadStatusRequest,
+    ): UserBookStatus
+
+    @POST("books/bulk-set-rating")
+    suspend fun setRating(@Body body: SetRatingRequest)
+
+    @GET("books/{id}/recommendations")
+    suspend fun getRecommendations(@Path("id") id: Int): List<BookRecommendation>
+
+    @GET("books/{id}/author-books")
+    suspend fun getAuthorBooksForBook(@Path("id") id: Int): List<BookRecommendation>
+
+    @GET("books/{id}/series-books")
+    suspend fun getSeriesBooksForBook(@Path("id") id: Int): List<BookRecommendation>
+
+    // --- Files / progress ---
+    @GET("books/files/{fileId}/progress")
+    suspend fun getFileProgress(@Path("fileId") fileId: Int): FileProgress?
+
+    // --- Ebook bookmarks ---
+    @GET("books/{bookId}/bookmarks")
+    suspend fun getBookmarks(@Path("bookId") bookId: Int): List<com.litara.core.model.BookBookmark>
+
+    @POST("books/{bookId}/bookmarks")
+    suspend fun createBookmark(
+        @Path("bookId") bookId: Int,
+        @Body body: com.litara.core.model.CreateBookBookmark,
+    ): com.litara.core.model.BookBookmark
+
+    @DELETE("books/{bookId}/bookmarks/{id}")
+    suspend fun deleteBookmark(@Path("bookId") bookId: Int, @Path("id") id: Int)
+
+    // --- Audiobook bookmarks ---
+    @GET("audiobooks/{bookId}/bookmarks")
+    suspend fun getAudiobookBookmarks(@Path("bookId") bookId: Int): List<com.litara.core.model.AudiobookBookmark>
+
+    @POST("audiobooks/{bookId}/bookmarks")
+    suspend fun createAudiobookBookmark(
+        @Path("bookId") bookId: Int,
+        @Body body: com.litara.core.model.CreateAudiobookBookmark,
+    ): com.litara.core.model.AudiobookBookmark
+
+    @DELETE("audiobooks/{bookId}/bookmarks/{bookmarkId}")
+    suspend fun deleteAudiobookBookmark(@Path("bookId") bookId: Int, @Path("bookmarkId") bookmarkId: String)
+
+    @GET("cbz/files/{fileId}/pages")
+    suspend fun getComicPageCount(@Path("fileId") fileId: Int): com.litara.core.model.ComicPages
+
+    // --- Annotations (highlights + notes) ---
+    @GET("annotations")
+    suspend fun getAnnotationHub(
+        @Query("page") page: Int,
+        @Query("pageSize") pageSize: Int,
+        @Query("search") search: String? = null,
+        @Query("hasNote") hasNote: Boolean? = null,
+        @Query("status") status: String = "active",
+        @Query("sortBy") sortBy: String = "createdAt",
+        @Query("sortDir") sortDir: String = "desc",
+    ): com.litara.core.model.HubAnnotationPage
+
+    @GET("books/{bookId}/annotations")
+    suspend fun getAnnotations(@Path("bookId") bookId: Int): List<com.litara.core.model.BookAnnotation>
+
+    @POST("books/{bookId}/annotations")
+    suspend fun createAnnotation(
+        @Path("bookId") bookId: Int,
+        @Body body: com.litara.core.model.CreateAnnotation,
+    ): com.litara.core.model.BookAnnotation
+
+    /** Patch body is a raw object so a note can be cleared with an explicit `null`. */
+    @PATCH("books/{bookId}/annotations/{id}")
+    suspend fun updateAnnotation(
+        @Path("bookId") bookId: Int,
+        @Path("id") id: Int,
+        @Body body: kotlinx.serialization.json.JsonObject,
+    ): com.litara.core.model.BookAnnotation
+
+    @DELETE("books/{bookId}/annotations/{id}")
+    suspend fun deleteAnnotation(@Path("bookId") bookId: Int, @Path("id") id: Int)
+
+    @POST("books/files/{fileId}/sessions")
+    suspend fun saveReadingSession(
+        @Path("fileId") fileId: Int,
+        @Body body: com.litara.core.model.SaveReadingSession,
+    )
+
+    @POST("books/files/{fileId}/progress")
+    suspend fun saveFileProgress(
+        @Path("fileId") fileId: Int,
+        @Body body: SaveFileProgress,
+    )
+
+    /**
+     * Raw file bytes. Streamed so large files don't buffer in memory. Server 3.0+ 404s this for
+     * audio formats - use [serveAudiobookAsset] there (see [AudiobookAssetResolver]).
+     */
+    @Streaming
+    @GET("books/files/{fileId}/serve")
+    suspend fun serveFile(@Path("fileId") fileId: Int): ResponseBody
+
+    /** [serveFile] with an optional `Range` (resumable downloads); the full response exposes 206/Content-Range. */
+    @Streaming
+    @GET("books/files/{fileId}/serve")
+    suspend fun serveFileRange(
+        @Path("fileId") fileId: Int,
+        @Header("Range") range: String?,
+    ): Response<ResponseBody>
+
+    // --- Audiobooks (server 3.0+) ---
+    @GET("audiobooks/{bookId}/manifest")
+    suspend fun getAudiobookManifest(@Path("bookId") bookId: Int): AudiobookManifest
+
+    @Streaming
+    @GET("audiobooks/{bookId}/assets/{assetId}/content")
+    suspend fun serveAudiobookAsset(
+        @Path("bookId") bookId: Int,
+        @Path("assetId") assetId: String,
+    ): ResponseBody
+
+    /** [serveAudiobookAsset] with an optional `Range` (resumable downloads). */
+    @Streaming
+    @GET("audiobooks/{bookId}/assets/{assetId}/content")
+    suspend fun serveAudiobookAssetRange(
+        @Path("bookId") bookId: Int,
+        @Path("assetId") assetId: String,
+        @Header("Range") range: String?,
+    ): Response<ResponseBody>
+
+    /**
+     * An [AudiobookPlaybackState], or an empty/`null` body when the user has no saved position -
+     * returned raw because the JSON converter can't decode an empty 200 body.
+     */
+    @GET("audiobooks/{bookId}/playback-state")
+    suspend fun getPlaybackState(@Path("bookId") bookId: Int): ResponseBody
+
+    @PUT("audiobooks/{bookId}/playback-state")
+    suspend fun putPlaybackState(
+        @Path("bookId") bookId: Int,
+        @Body body: PutAudiobookPlaybackState,
+    ): AudiobookPlaybackState
+
+    /** Cover image bytes, for caching a downloaded book's cover offline. */
+    @Streaming
+    @GET("books/{id}/cover")
+    suspend fun serveCover(@Path("id") id: Int): ResponseBody
+
+    @GET("books/{id}/audio-progress")
+    suspend fun getAudioProgress(@Path("id") id: Int): AudioProgress?
+
+    @PATCH("books/{id}/audio-progress")
+    suspend fun saveAudioProgress(
+        @Path("id") id: Int,
+        @Body body: SaveAudioProgress,
+    )
+
+    // --- Libraries ---
+    @GET("libraries")
+    suspend fun getLibraries(): List<Library>
+
+    @POST("libraries/{id}/books")
+    suspend fun getLibraryBooks(
+        @Path("id") id: Int,
+        @Body query: BookQuery,
+    ): BooksPage
+
+    // --- Collections ---
+    @GET("collections")
+    suspend fun getCollections(): List<Collection>
+
+    @GET("collections")
+    suspend fun getCollectionsForBook(@Query("bookIds") bookIds: String): List<CollectionWithMembership>
+
+    @GET("collections/{id}/books")
+    suspend fun getCollectionBooks(
+        @Path("id") id: Int,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
+        @Query("q") q: String? = null,
+    ): BooksPage
+
+    @POST("collections/{id}/books")
+    suspend fun addBooksToCollection(
+        @Path("id") id: Int,
+        @Body body: CollectionBookIds,
+    )
+
+    @HTTP(method = "DELETE", path = "collections/{id}/books", hasBody = true)
+    suspend fun removeBooksFromCollection(
+        @Path("id") id: Int,
+        @Body body: CollectionBookIds,
+    )
+
+    // --- Smart scopes ---
+    @GET("smart-scopes")
+    suspend fun getSmartScopes(): List<SmartScope>
+
+    @GET("smart-scopes/{id}/books")
+    suspend fun getSmartScopeBooks(
+        @Path("id") id: Int,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 50,
+        @Query("q") q: String? = null,
+    ): BooksPage
+
+    @POST("smart-scopes/{id}/books/query")
+    suspend fun querySmartScopeBooks(@Path("id") id: Int, @Body query: BookQuery): BooksPage
+
+    // --- Authors ---
+    @GET("authors")
+    suspend fun getAuthors(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 100,
+        @Query("sort") sort: String = "name",
+        @Query("order") order: String = "asc",
+        @Query("q") q: String? = null,
+    ): AuthorsPage
+
+    @GET("authors/{id}/books")
+    suspend fun getAuthorBooks(
+        @Path("id") id: Int,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 100,
+    ): BooksPage
+
+    // --- Series ---
+    @GET("series")
+    suspend fun getSeries(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 100,
+        @Query("sort") sort: String = "name",
+        @Query("order") order: String = "asc",
+        @Query("q") q: String? = null,
+    ): SeriesPage
+
+    @GET("series/{id}/books")
+    suspend fun getSeriesBooks(
+        @Path("id") id: Int,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 100,
+    ): SeriesBooksPage
+
+    // --- Catalog (filter typeaheads) ---
+    @GET("metadata/{kind}")
+    suspend fun searchCatalog(
+        @Path("kind") kind: String,
+        @Query("q") q: String,
+    ): List<NamedResult>
+
+    // --- Dashboard ---
+    @POST("dashboard/widgets/batch")
+    suspend fun getDashboardWidgets(
+        @Body body: com.litara.core.model.DashboardWidgetRequest,
+    ): com.litara.core.model.DashboardWidgetResponse
+
+    /** Raw because the shape changed in 3.0 - decode with [com.litara.core.model.ScrollerBooks]. */
+    @GET("dashboard/scrollers/{type}")
+    suspend fun getScroller(
+        @Path("type") type: String,
+        @Query("limit") limit: Int = 20,
+        @Query("smartScopeId") smartScopeId: Int? = null,
+    ): JsonElement
+
+    // --- Reading statistics ---
+    @GET("user-statistics/summary")
+    suspend fun getUserStatsSummary(): com.litara.core.model.UserStatsSummary
+
+    @GET("user-statistics/daily-reading")
+    suspend fun getDailyReading(@Query("days") days: Int): List<com.litara.core.model.UserDailyReading>
+
+    @GET("user-statistics/reading-source-distribution")
+    suspend fun getReadingSources(@Query("days") days: Int): com.litara.core.model.SourceDistribution
+
+    @GET("dashboard/widgets/reading-streak")
+    suspend fun getReadingStreak(): com.litara.core.model.ReadingStreakWidget
+
+    @GET("dashboard/widgets/reading-goal")
+    suspend fun getReadingGoal(): com.litara.core.model.ReadingGoalWidget
+
+    // --- Book Dock (staging / ingest review) ---
+    @GET("book-dock/files")
+    suspend fun getBookDockFiles(
+        @Query("status") status: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20,
+        @Query("sort") sort: String = "createdAt",
+        @Query("order") order: String = "desc",
+        @Query("search") search: String? = null,
+    ): BookDockFilesPage
+
+    @GET("book-dock/summary")
+    suspend fun getBookDockSummary(): BookDockSummary
+
+    @GET("book-dock/files/{id}")
+    suspend fun getBookDockFile(@Path("id") id: Int): BookDockFile
+
+    @Multipart
+    @POST("book-dock/upload")
+    suspend fun uploadBookDockFile(@Part file: MultipartBody.Part): BookDockFile
+
+    @PATCH("book-dock/files/{id}")
+    suspend fun updateBookDockFile(
+        @Path("id") id: Int,
+        @Body body: UpdateBookDockFileRequest,
+    ): BookDockFile
+
+    @DELETE("book-dock/files/{id}")
+    suspend fun discardBookDockFile(@Path("id") id: Int)
+
+    @POST("book-dock/files/discard")
+    suspend fun bulkDiscardBookDock(@Body body: BookDockSelection)
+
+    @POST("book-dock/files/apply-fetched")
+    suspend fun applyFetchedBookDock(@Body body: BookDockSelection): BookDockBulkCounts
+
+    @POST("book-dock/files/set-target")
+    suspend fun setBookDockTarget(@Body body: SetTargetRequest): BookDockBulkCounts
+
+    @POST("book-dock/finalize")
+    suspend fun finalizeBookDock(@Body body: FinalizeRequest): BookDockFinalizeResult
+
+    // --- App info ---
+    @GET("app-info")
+    suspend fun getAppInfo(): AppInfo
+}
