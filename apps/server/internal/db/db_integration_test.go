@@ -20,36 +20,32 @@ func TestFreshInitialization(t *testing.T) {
 		t.Fatalf("empty database must not be ready: %+v", st)
 	}
 
-	applied, err := db.MigrateUp(ctx, pool, 0)
+	applied, err := db.MigrateUp(ctx, pool)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(applied) != 2 {
+	if len(applied) != 1 || applied[0] != 1 {
 		t.Fatalf("applied %v", applied)
 	}
-	if st, err = db.CheckSchema(ctx, pool); err != nil || !st.Ready() {
+	if st, err = db.CheckSchema(ctx, pool); err != nil || !st.Ready() || st.AppVersion != 1 || st.AppTarget != 1 {
 		t.Fatalf("%+v %v", st, err)
 	}
+	var stateIndex bool
+	if err := pool.QueryRow(ctx, `SELECT to_regclass('inspection_requests_state_idx') IS NOT NULL`).Scan(&stateIndex); err != nil || !stateIndex {
+		t.Fatalf("init state index missing: %v %v", stateIndex, err)
+	}
 	// Idempotent re-run.
-	if applied, err = db.MigrateUp(ctx, pool, 0); err != nil || len(applied) != 0 {
+	if applied, err = db.MigrateUp(ctx, pool); err != nil || len(applied) != 0 {
 		t.Fatalf("second run applied %v err %v", applied, err)
 	}
 }
 
-func TestNonDestructiveUpgrade(t *testing.T) {
+func TestMigrationRerunPreservesData(t *testing.T) {
 	ctx := context.Background()
 	pool := testutil.NewDatabase(t)
 
-	// Old release: application schema v1 only.
-	if _, err := db.MigrateUp(ctx, pool, 1); err != nil {
+	if _, err := db.MigrateUp(ctx, pool); err != nil {
 		t.Fatal(err)
-	}
-	if err := db.MigrateRiver(ctx, pool); err != nil {
-		t.Fatal(err)
-	}
-	st, _ := db.CheckSchema(ctx, pool)
-	if st.AppVersion != 1 || st.Ready() {
-		t.Fatalf("v1 should be behind: %+v", st)
 	}
 	var id string
 	err := pool.QueryRow(ctx, `INSERT INTO inspection_requests (request_key, source_path, state, outcome, attempts)
@@ -57,17 +53,17 @@ func TestNonDestructiveUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO inspection_results (request_id, completeness, duration_ms, format_name, result)
-		VALUES ($1, 'complete', 1000, 'mp3', '{"keep":true}')`, id); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO inspection_results (request_id, completeness, duration_ms, format_name, result, tool_version)
+		VALUES ($1, 'complete', 1000, 'mp3', '{"keep":true}', 'ffprobe-test')`, id); err != nil {
 		t.Fatal(err)
 	}
 
-	// Upgrade to current.
-	if _, err := db.MigrateUp(ctx, pool, 0); err != nil {
-		t.Fatal(err)
+	// Init is already applied: rerunning must leave application data unchanged.
+	if applied, err := db.MigrateUp(ctx, pool); err != nil || len(applied) != 0 {
+		t.Fatalf("rerun applied %v err %v", applied, err)
 	}
-	if st, _ = db.CheckSchema(ctx, pool); !st.Ready() {
-		t.Fatalf("%+v", st)
+	if st, err := db.CheckSchema(ctx, pool); err != nil || !st.Ready() {
+		t.Fatalf("%+v %v", st, err)
 	}
 	var path, outcome string
 	var attempts int
@@ -78,10 +74,10 @@ func TestNonDestructiveUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	if path != "/media/a.m4b" || outcome != "timeout" || attempts != 3 || !kept {
-		t.Fatalf("data changed by upgrade: %s %s %d %v", path, outcome, attempts, kept)
+		t.Fatalf("data changed by migration rerun: %s %s %d %v", path, outcome, attempts, kept)
 	}
 	var toolVersion *string
-	if err := pool.QueryRow(ctx, `SELECT tool_version FROM inspection_results WHERE request_id=$1`, id).Scan(&toolVersion); err != nil || toolVersion != nil {
-		t.Fatalf("new column should exist and be NULL: %v %v", toolVersion, err)
+	if err := pool.QueryRow(ctx, `SELECT tool_version FROM inspection_results WHERE request_id=$1`, id).Scan(&toolVersion); err != nil || toolVersion == nil || *toolVersion != "ffprobe-test" {
+		t.Fatalf("init provenance column should preserve its value: %v %v", toolVersion, err)
 	}
 }

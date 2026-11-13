@@ -102,7 +102,7 @@ func NewDatabase(t testing.TB) *pgxpool.Pool {
 func MigratedDatabase(t testing.TB) *pgxpool.Pool {
 	t.Helper()
 	pool := NewDatabase(t)
-	if _, err := db.MigrateUp(context.Background(), pool, 0); err != nil {
+	if _, err := db.MigrateUp(context.Background(), pool); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	return pool

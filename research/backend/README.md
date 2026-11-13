@@ -1,6 +1,6 @@
 # Backend foundation (T001): design, setup and verification
 
-Governing ADRs: 0002, 0003, 0007–0009, 0013–0016, 0018–0019, 0024–0025, 0028–0029. This note records what was built, how to run it, what was actually verified, and what is still open. Nothing here changes an accepted ADR.
+Governing ADRs: 0002, 0003, 0007–0009, 0013–0016, 0018–0019, 0024–0025, 0028–0030. This note records what was built, how to run it, what was actually verified, and what is still open. Nothing here changes an accepted ADR.
 
 ## What exists
 
@@ -49,6 +49,12 @@ LITARA_MEDIA_DIR=/path/to/media docker compose -f deploy/compose.yaml up --build
 
 The stack is `db` → one-shot `migrate` → `server`; media is mounted read-only at `/media`, database state is a named volume, and the server container has a read-only root filesystem. `scripts/backend/smoke.sh` automates a full pass (see below).
 
+### Pre-production schema policy
+
+The user selected a single application init migration until production readiness (ADR-0030, 2026-11-13). Keep first-party schema changes in `migrations/00001_init.sql`; freeze it before production and use incremental migrations afterward. River continues to own its independent migration history.
+
+After changing init, initialize a **new development database** and point `LITARA_DATABASE_URL` at it. Already-applied version 1 is not replayed by Goose; databases from the previous two-migration baseline are not upgrade targets. Existing development data is not deleted automatically: retain the old database if needed. Production migration execution policy is still open.
+
 ## Design notes
 
 - **Logical identity.** One `inspection_requests` row per cleaned absolute path (`request_key` = SHA-256 of the path). A repeated submission returns the existing request and enqueues nothing. `--reinspect` resets a terminal request and enqueues one new job. Eight concurrent submissions of one path yield one row, one job (tested).
@@ -73,7 +79,7 @@ Environment: Windows 11 host, Go 1.26.0, host ffprobe/ffmpeg 8.0.1 (Gyan "essent
 
 Covered by tests (real PostgreSQL and real ffprobe unless noted):
 
-- Fresh migration, idempotent re-run, and a non-destructive v1 → v2 upgrade that keeps existing rows (`internal/db`).
+- Fresh init (application version 1, provenance column and state index), current River migrations, and an idempotent re-run that preserves existing request/result data (`internal/db`). The earlier v1 → v2 demonstration was replaced under the pre-production init policy (ADR-0030).
 - Durable submit → worker → persisted result; idempotent/concurrent submission; reinspect keeps one result (`internal/jobs`).
 - Exactly-2 concurrent executions with 8 queued; maximum observed is 2.
 - Graceful interruption re-queues and a second process completes it (attempts ≥ 2, one result). Simulated crash (job forced `running` with a stale attempt) is rescued and completed.

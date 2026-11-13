@@ -40,7 +40,7 @@ func TestReadinessReflectsRealPrerequisites(t *testing.T) {
 		t.Fatalf("unmigrated: %d %+v", code, body)
 	}
 
-	if _, err := db.MigrateUp(ctx, pool, 0); err != nil {
+	if _, err := db.MigrateUp(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
 	if code, body = get(t, h, "/readyz"); code != 200 || !body.Ready {

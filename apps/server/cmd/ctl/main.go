@@ -90,7 +90,7 @@ func migrate(ctx context.Context, cfg *config.Config, args []string, out io.Writ
 	defer pool.Close()
 	switch args[0] {
 	case "up":
-		applied, err := db.MigrateUp(ctx, pool, 0)
+		applied, err := db.MigrateUp(ctx, pool)
 		if err != nil {
 			return err
 		}

@@ -1,4 +1,5 @@
 -- +goose Up
+-- Pre-production baseline: consolidate schema changes here until production (ADR-0030).
 -- Minimal internal schema for T001 media inspection. Final catalog, edition,
 -- library and account tables are intentionally out of scope.
 CREATE TABLE inspection_requests (
@@ -27,8 +28,11 @@ CREATE TABLE inspection_results (
     duration_ms    bigint,
     format_name    text,
     result         jsonb NOT NULL,
-    inspected_at   timestamptz NOT NULL DEFAULT now()
+    inspected_at   timestamptz NOT NULL DEFAULT now(),
+    tool_version   text
 );
+
+CREATE INDEX inspection_requests_state_idx ON inspection_requests (state, updated_at);
 
 -- +goose Down
 DROP TABLE inspection_results;

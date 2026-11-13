@@ -44,21 +44,15 @@ func riverMigrator(pool *pgxpool.Pool) (*rivermigrate.Migrator[pgx.Tx], error) {
 }
 
 // MigrateUp applies pending application migrations, then River's own
-// migrations. upTo > 0 limits the application migrations (used by upgrade
-// tests); it never runs down migrations.
-func MigrateUp(ctx context.Context, pool *pgxpool.Pool, upTo int64) (applied []int64, err error) {
+// migrations. It never runs down migrations or resets an existing database.
+func MigrateUp(ctx context.Context, pool *pgxpool.Pool) (applied []int64, err error) {
 	p, sqlDB, err := gooseProvider(pool)
 	if err != nil {
 		return nil, err
 	}
 	defer sqlDB.Close()
 
-	var results []*goose.MigrationResult
-	if upTo > 0 {
-		results, err = p.UpTo(ctx, upTo)
-	} else {
-		results, err = p.Up(ctx)
-	}
+	results, err := p.Up(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("apply application migrations: %w", err)
 	}
@@ -66,9 +60,6 @@ func MigrateUp(ctx context.Context, pool *pgxpool.Pool, upTo int64) (applied []i
 		applied = append(applied, r.Source.Version)
 	}
 
-	if upTo > 0 {
-		return applied, nil // partial application path skips River on purpose
-	}
 	m, err := riverMigrator(pool)
 	if err != nil {
 		return applied, fmt.Errorf("create river migrator: %w", err)
@@ -77,16 +68,6 @@ func MigrateUp(ctx context.Context, pool *pgxpool.Pool, upTo int64) (applied []i
 		return applied, fmt.Errorf("apply river migrations: %w", err)
 	}
 	return applied, nil
-}
-
-// MigrateRiver applies only River's migrations.
-func MigrateRiver(ctx context.Context, pool *pgxpool.Pool) error {
-	m, err := riverMigrator(pool)
-	if err != nil {
-		return err
-	}
-	_, err = m.Migrate(ctx, rivermigrate.DirectionUp, &rivermigrate.MigrateOpts{})
-	return err
 }
 
 // SchemaStatus reports whether the schema matches what this binary needs.
