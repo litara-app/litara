@@ -24,8 +24,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/deranjer/ebooker/apps/server/internal/app"
@@ -173,7 +173,7 @@ func inspectCmd(ctx context.Context, cfg *config.Config, args []string, out io.W
 	return waitAndShow(ctx, pool, res.Request.ID, *timeout, out)
 }
 
-func waitAndShow(ctx context.Context, pool *pgxpool.Pool, id pgtype.UUID, timeout time.Duration, out io.Writer) error {
+func waitAndShow(ctx context.Context, pool *pgxpool.Pool, id uuid.UUID, timeout time.Duration, out io.Writer) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	q := sqlcgen.New(pool)

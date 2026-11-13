@@ -23,6 +23,8 @@ type Prober interface {
 type WorkersRunning func() bool
 
 type Deps struct {
+	// API, when set, mounts the T003 public contract under /api/v1.
+	API     *APIDeps
 	Pool    *pgxpool.Pool
 	Prober  Prober
 	Workers WorkersRunning
@@ -92,7 +94,9 @@ func Check(ctx context.Context, d Deps) ReadyBody {
 // New builds the HTTP handler.
 func New(d Deps) http.Handler {
 	mux := http.NewServeMux()
-	api := humago.New(mux, huma.DefaultConfig("Litara Server (operational)", "0.0.0-t001"))
+	opCfg := huma.DefaultConfig("Litara Server (operational)", "0.0.0-t001")
+	opCfg.DocsPath, opCfg.OpenAPIPath, opCfg.SchemasPath = "", "", "" // operational routes are outside the public data contract
+	api := humago.New(mux, opCfg)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "healthz", Method: http.MethodGet, Path: "/healthz",
@@ -114,5 +118,8 @@ func New(d Deps) http.Handler {
 		}
 		return &readyOutput{Status: status, Body: body}, nil
 	})
+	if d.API != nil {
+		RegisterAPI(mux, *d.API)
+	}
 	return mux
 }

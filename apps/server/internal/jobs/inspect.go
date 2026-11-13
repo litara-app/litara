@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
@@ -70,9 +70,9 @@ func (w *InspectWorker) NextRetry(job *river.Job[InspectFileArgs]) time.Time {
 
 func ptr[T any](v T) *T { return &v }
 
-func parseID(s string) (pgtype.UUID, error) {
-	var id pgtype.UUID
-	if err := id.Scan(s); err != nil {
+func parseID(s string) (uuid.UUID, error) {
+	id, err := uuid.Parse(s)
+	if err != nil {
 		return id, fmt.Errorf("invalid request id %q: %w", s, err)
 	}
 	return id, nil
@@ -135,7 +135,7 @@ func (w *InspectWorker) Work(ctx context.Context, job *river.Job[InspectFileArgs
 	return ierr
 }
 
-func (w *InspectWorker) complete(ctx context.Context, id pgtype.UUID, res *inspect.Result) error {
+func (w *InspectWorker) complete(ctx context.Context, id uuid.UUID, res *inspect.Result) error {
 	payload, err := json.Marshal(res)
 	if err != nil {
 		return river.JobCancel(fmt.Errorf("marshal result: %w", err))
