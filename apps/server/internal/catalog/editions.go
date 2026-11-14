@@ -71,17 +71,22 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 	if !available {
 		download = incomplete("file_unavailable", "The file is currently missing or unavailable.")
 	}
-	pending := func() wire.T005Capability {
-		return incomplete("not_implemented", "The server API for this capability is not implemented yet.")
-	}
 	text := format != "cbz" && format != "cbr" && format != "cb7"
 	resume := supported()
 	if !available {
 		resume = incomplete("file_unavailable", "The file is currently missing or unavailable.")
 	}
-	c := wire.T005Capabilities{Read: read, Download: download, Resume: resume, PageNote: pending(), Bookmark: pending()}
+	// The annotation API stores bookmarks and notes for any format. The server also
+	// accepts text highlights, but the web reader's selection bridge is not built, so
+	// selection stays incomplete rather than claiming support.
+	annotate := supported()
+	if !available {
+		annotate = incomplete("file_unavailable", "The file is currently missing or unavailable.")
+	}
+	c := wire.T005Capabilities{Read: read, Download: download, Resume: resume, PageNote: annotate, Bookmark: annotate}
 	if text {
-		c.TextSelection, c.TextHighlight = pending(), pending()
+		pending := incomplete("selection_untested", "The server stores highlights, but the web reader selection bridge is not implemented or browser-tested yet.")
+		c.TextSelection, c.TextHighlight = pending, pending
 	} else {
 		no := unsupported("image_pages", "Comic pages are images; there is no text to select.")
 		c.TextSelection, c.TextHighlight = no, no

@@ -10,6 +10,23 @@ import (
 	"github.com/google/uuid"
 )
 
+type Annotation struct {
+	UserID         uuid.UUID `json:"user_id"`
+	ID             uuid.UUID `json:"id"`
+	EditionID      uuid.UUID `json:"edition_id"`
+	Revision       int64     `json:"revision"`
+	Kind           string    `json:"kind"`
+	Deleted        bool      `json:"deleted"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Locator        []byte    `json:"locator"`
+	Selection      []byte    `json:"selection"`
+	Text           string    `json:"text"`
+	Quote          string    `json:"quote"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
 type Association struct {
 	ID          uuid.UUID     `json:"id"`
 	LibraryID   uuid.UUID     `json:"library_id"`
@@ -404,6 +421,25 @@ type Session struct {
 	AccessExpiresAt   *time.Time `json:"access_expires_at"`
 	RefreshHash       []byte     `json:"refresh_hash"`
 	RefreshGeneration int32      `json:"refresh_generation"`
+}
+
+type Shelf struct {
+	ID         uuid.UUID `json:"id"`
+	OwnerID    uuid.UUID `json:"owner_id"`
+	Revision   int64     `json:"revision"`
+	Kind       string    `json:"kind"`
+	Visibility string    `json:"visibility"`
+	Name       string    `json:"name"`
+	Filter     []byte    `json:"filter"`
+	Deleted    bool      `json:"deleted"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+type ShelfTitle struct {
+	ShelfID  uuid.UUID `json:"shelf_id"`
+	TitleID  uuid.UUID `json:"title_id"`
+	Position int64     `json:"position"`
 }
 
 type T005Conflict struct {

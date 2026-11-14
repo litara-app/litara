@@ -101,3 +101,28 @@ func (s *Service) TitleRecordings(ctx context.Context, userID, titleID uuid.UUID
 	}
 	return out, nil
 }
+
+// TitlesByIDs returns the titles the caller can see among ids, preserving the
+// order of ids. Titles the caller cannot see are silently omitted.
+func (s *Service) TitlesByIDs(ctx context.Context, userID uuid.UUID, ids []uuid.UUID) ([]wire.T005Title, error) {
+	if len(ids) == 0 {
+		return []wire.T005Title{}, nil
+	}
+	rows, err := s.q.ListTitlesByIDs(ctx, sqlcgen.ListTitlesByIDsParams{UserID: userID, Ids: ids})
+	if err != nil {
+		return nil, unavailable(err)
+	}
+	byID := make(map[uuid.UUID]wire.T005Title, len(rows))
+	for _, r := range rows {
+		if r.EditionCount+r.RecordingCount > 0 {
+			byID[r.ID] = titleWire(r.ID, r.Title, r.Authors, r.SeriesName, r.Languages, r.EditionCount, r.RecordingCount)
+		}
+	}
+	out := make([]wire.T005Title, 0, len(ids))
+	for _, id := range ids {
+		if t, ok := byID[id]; ok {
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}

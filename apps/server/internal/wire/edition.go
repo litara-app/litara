@@ -101,10 +101,10 @@ type T005RecordingLinks struct {
 // T005PositionState: the typed position arrives with the reading-state slice;
 // until then Position is always JSON null.
 type T005PositionState struct {
-	Revision                string  `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
+	Revision                string                 `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
 	Position                Nullable[T005Position] `json:"position"`
-	UnresolvedConflictCount int64   `json:"unresolvedConflictCount" minimum:"0" maximum:"9007199254740991"`
-	ConflictsPath           string  `json:"conflictsPath" maxLength:"1024"`
+	UnresolvedConflictCount int64                  `json:"unresolvedConflictCount" minimum:"0" maximum:"9007199254740991"`
+	ConflictsPath           string                 `json:"conflictsPath" maxLength:"1024"`
 }
 
 type T005Reader struct {

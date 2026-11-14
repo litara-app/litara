@@ -569,7 +569,57 @@ CREATE TABLE t005_conflicts (
 );
 CREATE INDEX t005_conflicts_user_idx ON t005_conflicts (user_id, resource_id, created_at);
 
+-- T005 private annotations (ADR-0066). Client-generated UUID; kind immutable; deleting keeps
+-- a tombstone. Content columns stay as private evidence after deletion; the wire hides them.
+CREATE TABLE annotations (
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    id              uuid NOT NULL,
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    revision        bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
+    kind            text NOT NULL CHECK (kind IN ('highlight', 'note', 'bookmark')),
+    deleted         boolean NOT NULL DEFAULT false,
+    file_id         uuid NOT NULL,
+    content_version uuid NOT NULL,
+    locator         jsonb NOT NULL,
+    selection       jsonb,
+    text            text NOT NULL DEFAULT '',
+    quote           text NOT NULL DEFAULT '',
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, id)
+);
+CREATE INDEX annotations_edition_idx ON annotations (user_id, edition_id, id);
+
+-- T005 manual and smart shelves (ADR-0066). Kind is immutable; non-owners never edit.
+CREATE TABLE shelves (
+    id         uuid PRIMARY KEY,
+    owner_id   uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    revision   bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
+    kind       text NOT NULL CHECK (kind IN ('manual', 'smart')),
+    visibility text NOT NULL CHECK (visibility IN ('private', 'shared')),
+    name       text NOT NULL,
+    filter     jsonb,
+    deleted    boolean NOT NULL DEFAULT false,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK ((kind = 'manual') = (filter IS NULL))
+);
+CREATE INDEX shelves_owner_idx ON shelves (owner_id, id);
+
+-- Manual membership: unique per shelf/title with a stable total order. Smart shelves
+-- never materialize membership.
+CREATE TABLE shelf_titles (
+    shelf_id uuid NOT NULL REFERENCES shelves (id),
+    title_id uuid NOT NULL REFERENCES titles (id),
+    position bigint NOT NULL,
+    PRIMARY KEY (shelf_id, title_id)
+);
+CREATE INDEX shelf_titles_order_idx ON shelf_titles (shelf_id, position, title_id);
+
 -- +goose Down
+DROP TABLE shelf_titles;
+DROP TABLE shelves;
+DROP TABLE annotations;
 DROP TABLE t005_conflicts;
 DROP TABLE t005_receipts;
 DROP TABLE edition_history;

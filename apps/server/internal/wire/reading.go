@@ -1,13 +1,5 @@
 package wire
 
-import (
-	"encoding/json"
-	"errors"
-	"reflect"
-
-	"github.com/danielgtaylor/huma/v2"
-)
-
 type T005PositionWrite struct {
 	OperationID  string     `json:"operationId" format:"uuid"`
 	BaseRevision string     `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
@@ -40,45 +32,6 @@ type T005History struct {
 	Total int64              `json:"total" minimum:"0" maximum:"9007199254740991"`
 	Page  int64              `json:"page" minimum:"0" maximum:"9007199254740991"`
 	Size  int64              `json:"size" minimum:"1" maximum:"200"`
-}
-
-// T005Candidate is the retained attempted write. Only position and completion
-// candidates exist until annotations and shelves are implemented; the schema
-// lists the members implemented so far.
-type T005Candidate struct {
-	Position   *T005PositionWrite
-	Completion *T005CompletionWrite
-}
-
-func (c T005Candidate) MarshalJSON() ([]byte, error) {
-	switch {
-	case c.Position != nil:
-		return json.Marshal(c.Position)
-	case c.Completion != nil:
-		return json.Marshal(c.Completion)
-	}
-	return nil, errors.New("empty candidate")
-}
-
-func (c *T005Candidate) UnmarshalJSON(b []byte) error {
-	var probe map[string]json.RawMessage
-	if err := json.Unmarshal(b, &probe); err != nil {
-		return err
-	}
-	*c = T005Candidate{}
-	if _, ok := probe["anchor"]; ok {
-		c.Position = new(T005PositionWrite)
-		return json.Unmarshal(b, c.Position)
-	}
-	c.Completion = new(T005CompletionWrite)
-	return json.Unmarshal(b, c.Completion)
-}
-
-func (T005Candidate) Schema(r huma.Registry) *huma.Schema {
-	return &huma.Schema{OneOf: []*huma.Schema{
-		r.Schema(reflect.TypeOf(T005PositionWrite{}), true, "T005PositionWrite"),
-		r.Schema(reflect.TypeOf(T005CompletionWrite{}), true, "T005CompletionWrite"),
-	}}
 }
 
 type T005Conflict struct {

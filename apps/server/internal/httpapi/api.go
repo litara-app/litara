@@ -106,6 +106,8 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerProgress(api)
 	a.registerEditions(api)
 	a.registerReading(api)
+	a.registerAnnotations(api)
+	a.registerShelves(api)
 	a.registerMedia(api)
 	return api
 }

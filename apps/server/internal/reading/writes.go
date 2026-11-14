@@ -59,24 +59,34 @@ type conflictSpec struct {
 var (
 	specStale   = conflictSpec{http.StatusConflict, "stale_revision", "stale_revision", "The base revision is not current; a candidate was kept for resolution."}
 	specContent = conflictSpec{http.StatusPreconditionFailed, "content_changed", "content_changed", "The file content version changed; refetch the edition. The attempt was kept as a candidate."}
+	specDeleted = conflictSpec{http.StatusConflict, "deleted", "deleted", "The resource was deleted; a stale write cannot recreate it. The attempt was kept as a candidate."}
+	specAccess  = conflictSpec{http.StatusConflict, "access_changed", "access_changed", "The set of visible titles changed; refetch and retry. The attempt was kept as a candidate."}
 	specLocator = conflictSpec{http.StatusPreconditionFailed, "locator_incompatible", "locator_incompatible", "The locator kind is not valid for this edition format. The attempt was kept as a candidate."}
 )
 
-// record stores a durable conflict and returns the problem carrying its ID.
+// record stores a durable edition conflict and returns the problem carrying its ID.
 func (s *Service) record(ctx context.Context, q *sqlcgen.Queries, a Actor, kind string, resource uuid.UUID, ed edition, op uuid.UUID,
 	candidate any, base, current int64, sp conflictSpec) (*apperr.Error, error) {
+	cv := ed.ContentVersion
+	return s.recordFor(ctx, q, a, kind, resource, uuid.NullUUID{UUID: ed.ID, Valid: true}, &cv, op, candidate, base, current, sp)
+}
+
+// recordFor stores a durable conflict. editionID is invalid for shelf resources;
+// contentVersion is reported on 412 responses when known.
+func (s *Service) recordFor(ctx context.Context, q *sqlcgen.Queries, a Actor, kind string, resource uuid.UUID, editionID uuid.NullUUID,
+	contentVersion *uuid.UUID, op uuid.UUID, candidate any, base, current int64, sp conflictSpec) (*apperr.Error, error) {
 	raw, err := json.Marshal(candidate)
 	if err != nil {
 		return nil, err
 	}
 	c, err := q.InsertT005Conflict(ctx, sqlcgen.InsertT005ConflictParams{UserID: a.UserID, ResourceKind: kind, ResourceID: resource,
-		EditionID: uuid.NullUUID{UUID: ed.ID, Valid: true}, Reason: sp.reason, OperationID: op, Candidate: raw, BaseRevision: base, CurrentRevision: current})
+		EditionID: editionID, Reason: sp.reason, OperationID: op, Candidate: raw, BaseRevision: base, CurrentRevision: current})
 	if err != nil {
 		return nil, err
 	}
 	p := apperr.New(sp.status, sp.code, sp.detail).With("conflictId", c.ID.String()).With("currentRevision", strconv.FormatInt(current, 10))
-	if sp.status == http.StatusPreconditionFailed {
-		p = p.With("currentContentVersion", ed.ContentVersion.String())
+	if sp.status == http.StatusPreconditionFailed && contentVersion != nil {
+		p = p.With("currentContentVersion", contentVersion.String())
 	}
 	return p, nil
 }
@@ -308,132 +318,3 @@ func (s *Service) Conflicts(ctx context.Context, userID uuid.UUID, resource *uui
 	}
 	return out, nil
 }
-
-// Resolve settles one of the caller own conflicts. keep_server leaves the
-// resource untouched; use_candidate re-validates and reapplies the retained
-// candidate as a normal revisioned write.
-func (s *Service) Resolve(ctx context.Context, a Actor, conflictID uuid.UUID, r wire.T005Resolve) (wire.T005Resolved, error) {
-	op, err := parseUUID("operationId", r.OperationID)
-	if err != nil {
-		return wire.T005Resolved{}, err
-	}
-	base, err := parseRev(r.BaseRevision)
-	if err != nil {
-		return wire.T005Resolved{}, err
-	}
-	var cv *uuid.UUID
-	if r.ContentVersion != nil {
-		v, err := parseUUID("contentVersion", *r.ContentVersion)
-		if err != nil {
-			return wire.T005Resolved{}, err
-		}
-		cv = &v
-	}
-	if r.Choice != "keep_server" && r.Choice != "use_candidate" {
-		return wire.T005Resolved{}, apperr.Validation("choice must be keep_server or use_candidate.")
-	}
-	// Another user conflict is indistinguishable from an unknown one.
-	c0, err := s.q.GetT005Conflict(ctx, conflictID)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && c0.UserID != a.UserID) {
-		return wire.T005Resolved{}, apperr.ErrNotFound
-	}
-	if err != nil {
-		return wire.T005Resolved{}, dbErr(err)
-	}
-	if c0.ResourceKind != "position" && c0.ResourceKind != "completion" {
-		return wire.T005Resolved{}, apperr.Validation("This conflict kind cannot be resolved yet.")
-	}
-	ed, err := s.cat.AuthorizeEdition(ctx, a.UserID, c0.EditionID.UUID) // grant removal blocks resolution
-	if err != nil {
-		return wire.T005Resolved{}, err
-	}
-	fp := fingerprint(http.MethodPost, "/personal-conflicts/"+conflictID.String()+"/resolve", r)
-
-	lock := func(q *sqlcgen.Queries) error {
-		if c0.ResourceKind == "position" {
-			if err := q.EnsureEditionPosition(ctx, sqlcgen.EnsureEditionPositionParams{UserID: a.UserID, EditionID: ed.ID}); err != nil {
-				return err
-			}
-			if _, err := q.LockEditionPosition(ctx, sqlcgen.LockEditionPositionParams{UserID: a.UserID, EditionID: ed.ID}); err != nil {
-				return err
-			}
-		} else {
-			if err := q.EnsureEditionCompletion(ctx, sqlcgen.EnsureEditionCompletionParams{UserID: a.UserID, EditionID: ed.ID}); err != nil {
-				return err
-			}
-			if _, err := q.LockEditionCompletion(ctx, sqlcgen.LockEditionCompletionParams{UserID: a.UserID, EditionID: ed.ID}); err != nil {
-				return err
-			}
-		}
-		_, err := q.LockT005Conflict(ctx, conflictID)
-		return err
-	}
-	body, err := s.run(ctx, a, op, fp, lock, func(q *sqlcgen.Queries) ([]byte, *apperr.Error, error) {
-		c, err := q.GetT005Conflict(ctx, conflictID)
-		if err != nil {
-			return nil, nil, err
-		}
-		if c.ResolvedAt != nil {
-			return nil, apperr.New(http.StatusConflict, "conflict_resolved", "That conflict was already resolved."), nil
-		}
-		var current int64
-		if c.ResourceKind == "position" {
-			p, err := q.GetEditionPosition(ctx, sqlcgen.GetEditionPositionParams{UserID: a.UserID, EditionID: ed.ID})
-			if err != nil {
-				return nil, nil, err
-			}
-			current = p.Revision
-		} else {
-			cs, err := q.GetEditionCompletion(ctx, sqlcgen.GetEditionCompletionParams{UserID: a.UserID, EditionID: ed.ID})
-			if err != nil {
-				return nil, nil, err
-			}
-			current = cs.Revision
-		}
-		now := s.now()
-		resultRev := current
-		if r.Choice == "use_candidate" {
-			var cand wire.T005Candidate
-			if err := json.Unmarshal(c.Candidate, &cand); err != nil {
-				return nil, nil, err
-			}
-			// A race with another write yields a new durable conflict; the original stays open.
-			if base != current {
-				d, err := s.record(ctx, q, a, c.ResourceKind, ed.ID, ed, op, cand, base, current, specStale)
-				return nil, d, err
-			}
-			if cv != nil && *cv != ed.ContentVersion {
-				d, err := s.record(ctx, q, a, c.ResourceKind, ed.ID, ed, op, cand, base, current, specContent)
-				return nil, d, err
-			}
-			var d *apperr.Error
-			switch {
-			case cand.Position != nil:
-				t, _ := time.Parse(time.RFC3339Nano, cand.Position.CapturedAt)
-				d, err = s.applyPosition(ctx, q, a, ed, *cand.Position, op, base, t.UTC(), current, false)
-			case cand.Completion != nil:
-				t, _ := time.Parse(time.RFC3339Nano, cand.Completion.CapturedAt)
-				d, err = s.applyCompletion(ctx, q, a, ed, *cand.Completion, op, base, t.UTC(), current, false)
-			default:
-				err = errors.New("empty candidate")
-			}
-			if err != nil || d != nil {
-				return nil, d, err
-			}
-			resultRev = current + 1
-		}
-		if err := q.ResolveT005Conflict(ctx, sqlcgen.ResolveT005ConflictParams{ID: conflictID, ResolvedAt: &now, ResolvedOperationID: uuid.NullUUID{UUID: op, Valid: true},
-			ResolvedRevision: &resultRev}); err != nil {
-			return nil, nil, err
-		}
-		return wire.Raw(wire.T005Resolved{ConflictID: conflictID.String(), ResourceKind: c.ResourceKind, ResourceID: c.ResourceID.String(),
-			Revision: strconv.FormatInt(resultRev, 10), ResolvedAt: rfc(now)}), nil, nil
-	})
-	if err != nil {
-		return wire.T005Resolved{}, err
-	}
-	var out wire.T005Resolved
-	return out, json.Unmarshal(body, &out)
-}
-
-

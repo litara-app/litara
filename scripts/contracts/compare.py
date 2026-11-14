@@ -30,7 +30,10 @@ if _t4.exists():
 # drop a route from the contract to make this pass: add it to IMPLEMENTED_T005.
 IMPLEMENTED_T005 = {'listTitles', 'getTitle', 'listTitleRecordings', 'listEditions', 'getEdition', 'getReaderSnapshot',
                     'getReadingPosition', 'writeReadingPosition', 'getReadingCompletion', 'writeReadingCompletion',
-                    'getReadingHistory', 'listPersonalConflicts', 'resolvePersonalConflict'}
+                    'getReadingHistory', 'listPersonalConflicts', 'resolvePersonalConflict',
+                    'listAnnotations', 'getAnnotation', 'putAnnotation', 'deleteAnnotation',
+                    'listShelves', 'getShelf', 'putShelf', 'deleteShelf', 'getShelfTitles', 'addShelfTitle', 'removeShelfTitle',
+                    'orderShelfTitles'}
 PENDING_T005 = []
 _t5 = ROOT / 'contracts' / 't005' / 'openapi.json'
 if _t5.exists():
@@ -45,7 +48,7 @@ if _t5.exists():
     # T005Conflict.candidate lists every personal-state write kind. Members whose
     # resource kinds are not implemented yet are dropped from the compared copy;
     # remove a name here in the same change that implements its conflicts.
-    PENDING_CANDIDATES = {'T005AnnotationWrite', 'T005Delete', 'T005ShelfWrite', 'T005ShelfOrder', 'T005MembershipCandidate'}
+    PENDING_CANDIDATES = set()
     _cand = _x['components']['schemas']['T005Conflict']['properties']['candidate']
     _cand['oneOf'] = [m for m in _cand['oneOf'] if m['$ref'].rsplit('/', 1)[-1] not in PENDING_CANDIDATES]
     _seen, _stack = set(), []

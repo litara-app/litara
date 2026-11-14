@@ -121,4 +121,6 @@ type T005Position struct {
 // UUIDStr is a string array element constrained to the uuid format.
 type UUIDStr string
 
-func (UUIDStr) Schema(huma.Registry) *huma.Schema { return &huma.Schema{Type: "string", Format: "uuid"} }
+func (UUIDStr) Schema(huma.Registry) *huma.Schema {
+	return &huma.Schema{Type: "string", Format: "uuid"}
+}
