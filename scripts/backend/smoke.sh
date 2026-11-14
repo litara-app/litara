@@ -105,4 +105,7 @@ echo "== T003: accounts and progress survive a server restart"
 wait_ready
 LITARA_LIVE_PASSWORD="$live_pw" "$py" scripts/contracts/live_check.py --after-restart "http://127.0.0.1:${LITARA_HTTP_PORT}"
 
+echo "== T004: index library on the read-only mount, managed library on the writable mount"
+LITARA_LIVE_PASSWORD="$live_pw" "$py" scripts/contracts/live_check_t004.py "http://127.0.0.1:${LITARA_HTTP_PORT}"
+
 echo "SMOKE OK"

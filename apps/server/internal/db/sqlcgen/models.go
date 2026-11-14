@@ -10,6 +10,16 @@ import (
 	"github.com/google/uuid"
 )
 
+type Association struct {
+	ID          uuid.UUID     `json:"id"`
+	LibraryID   uuid.UUID     `json:"library_id"`
+	Kind        string        `json:"kind"`
+	RelPath     string        `json:"rel_path"`
+	RecordingID uuid.NullUUID `json:"recording_id"`
+	State       string        `json:"state"`
+	Detail      *string       `json:"detail"`
+}
+
 type ChapterSource struct {
 	ID          uuid.UUID `json:"id"`
 	RecordingID uuid.UUID `json:"recording_id"`
@@ -53,6 +63,36 @@ type Conflict struct {
 	ResolvedOperationID uuid.NullUUID `json:"resolved_operation_id"`
 }
 
+type FileCandidate struct {
+	LibraryID   uuid.UUID `json:"library_id"`
+	RelPath     string    `json:"rel_path"`
+	SizeBytes   int64     `json:"size_bytes"`
+	Mtime       time.Time `json:"mtime"`
+	FirstSeenAt time.Time `json:"first_seen_at"`
+	LastSeenAt  time.Time `json:"last_seen_at"`
+}
+
+type FileMetadatum struct {
+	ContentVersion uuid.UUID `json:"content_version"`
+	Completeness   string    `json:"completeness"`
+	Result         []byte    `json:"result"`
+	Failure        *string   `json:"failure"`
+	InspectedAt    time.Time `json:"inspected_at"`
+}
+
+type FileObservation struct {
+	FileID          uuid.UUID `json:"file_id"`
+	LibraryID       uuid.UUID `json:"library_id"`
+	RelPath         string    `json:"rel_path"`
+	SizeBytes       int64     `json:"size_bytes"`
+	Mtime           time.Time `json:"mtime"`
+	FirstObservedAt time.Time `json:"first_observed_at"`
+	LastObservedAt  time.Time `json:"last_observed_at"`
+	Stable          bool      `json:"stable"`
+	MissingScans    int32     `json:"missing_scans"`
+	Missing         bool      `json:"missing"`
+}
+
 type FileVersion struct {
 	ContentVersion uuid.UUID `json:"content_version"`
 	FileID         uuid.UUID `json:"file_id"`
@@ -64,6 +104,41 @@ type FileVersion struct {
 	Available      bool      `json:"available"`
 	Current        bool      `json:"current"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+type Fingerprint struct {
+	ContentVersion uuid.UUID `json:"content_version"`
+	Sha256         string    `json:"sha256"`
+	SizeBytes      int64     `json:"size_bytes"`
+	Mtime          time.Time `json:"mtime"`
+	ComputedAt     time.Time `json:"computed_at"`
+	VerifiedAt     time.Time `json:"verified_at"`
+}
+
+type ImportItem struct {
+	ID           uuid.UUID     `json:"id"`
+	PlanID       uuid.UUID     `json:"plan_id"`
+	SourceRel    string        `json:"source_rel"`
+	SourceSha256 string        `json:"source_sha256"`
+	SizeBytes    int64         `json:"size_bytes"`
+	TargetRel    string        `json:"target_rel"`
+	Suffixed     bool          `json:"suffixed"`
+	DuplicateOf  uuid.NullUUID `json:"duplicate_of"`
+	Decision     string        `json:"decision"`
+	State        string        `json:"state"`
+	Detail       *string       `json:"detail"`
+}
+
+type ImportPlan struct {
+	ID          uuid.UUID     `json:"id"`
+	LibraryID   uuid.UUID     `json:"library_id"`
+	SourcePath  string        `json:"source_path"`
+	State       string        `json:"state"`
+	CreatedBy   uuid.NullUUID `json:"created_by"`
+	ApprovedBy  uuid.NullUUID `json:"approved_by"`
+	CreatedAt   time.Time     `json:"created_at"`
+	ApprovedAt  *time.Time    `json:"approved_at"`
+	CompletedAt *time.Time    `json:"completed_at"`
 }
 
 type InspectionRequest struct {
@@ -96,9 +171,48 @@ type Library struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type LibraryConfig struct {
+	LibraryID          uuid.UUID `json:"library_id"`
+	Mode               string    `json:"mode"`
+	RootPath           string    `json:"root_path"`
+	FollowSymlinks     bool      `json:"follow_symlinks"`
+	SentinelPath       *string   `json:"sentinel_path"`
+	SentinelSha256     *string   `json:"sentinel_sha256"`
+	ScanIntervalSecs   int32     `json:"scan_interval_secs"`
+	VerifyIntervalSecs int32     `json:"verify_interval_secs"`
+	StabilitySecs      int32     `json:"stability_secs"`
+	ImportTemplate     *string   `json:"import_template"`
+	WritebackBackups   bool      `json:"writeback_backups"`
+	BackupRoot         *string   `json:"backup_root"`
+	ProviderOrder      []string  `json:"provider_order"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
 type MediaFile struct {
 	ID        uuid.UUID `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type MetadataValue struct {
+	ID             uuid.UUID `json:"id"`
+	SubjectKind    string    `json:"subject_kind"`
+	SubjectID      uuid.UUID `json:"subject_id"`
+	Field          string    `json:"field"`
+	Source         string    `json:"source"`
+	Value          []byte    `json:"value"`
+	ProtectedClear bool      `json:"protected_clear"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type MoveCandidate struct {
+	ID          uuid.UUID     `json:"id"`
+	LibraryID   uuid.UUID     `json:"library_id"`
+	MissingFile uuid.UUID     `json:"missing_file"`
+	NewRelPath  string        `json:"new_rel_path"`
+	Sha256      string        `json:"sha256"`
+	MatchKind   string        `json:"match_kind"`
+	ReviewItem  uuid.NullUUID `json:"review_item"`
+	CreatedAt   time.Time     `json:"created_at"`
 }
 
 type OperationReceipt struct {
@@ -138,6 +252,14 @@ type PositionState struct {
 	DeviceName     *string       `json:"device_name"`
 }
 
+type ProviderLookup struct {
+	RecordingID uuid.UUID `json:"recording_id"`
+	Provider    string    `json:"provider"`
+	Outcome     string    `json:"outcome"`
+	Detail      *string   `json:"detail"`
+	LookedUpAt  time.Time `json:"looked_up_at"`
+}
+
 type Recording struct {
 	ID               uuid.UUID `json:"id"`
 	TitleID          uuid.UUID `json:"title_id"`
@@ -150,6 +272,8 @@ type Recording struct {
 	CoverMime        *string   `json:"cover_mime"`
 	SeedKey          *string   `json:"seed_key"`
 	CreatedAt        time.Time `json:"created_at"`
+	GroupKey         *string   `json:"group_key"`
+	LinkState        string    `json:"link_state"`
 }
 
 type RecordingFile struct {
@@ -165,6 +289,39 @@ type RefreshExchange struct {
 	Generation         int32     `json:"generation"`
 	CreatedAt          time.Time `json:"created_at"`
 	ResponseCiphertext []byte    `json:"response_ciphertext"`
+}
+
+type ReviewItem struct {
+	ID         uuid.UUID     `json:"id"`
+	LibraryID  uuid.UUID     `json:"library_id"`
+	Kind       string        `json:"kind"`
+	SubjectKey string        `json:"subject_key"`
+	State      string        `json:"state"`
+	Candidates []byte        `json:"candidates"`
+	Resolution []byte        `json:"resolution"`
+	ResolvedBy uuid.NullUUID `json:"resolved_by"`
+	CreatedAt  time.Time     `json:"created_at"`
+	ResolvedAt *time.Time    `json:"resolved_at"`
+}
+
+type RootHealth struct {
+	LibraryID uuid.UUID `json:"library_id"`
+	State     string    `json:"state"`
+	Detail    *string   `json:"detail"`
+	CheckedAt time.Time `json:"checked_at"`
+}
+
+type ScanRun struct {
+	ID          uuid.UUID  `json:"id"`
+	LibraryID   uuid.UUID  `json:"library_id"`
+	Trigger     string     `json:"trigger"`
+	State       string     `json:"state"`
+	Health      *string    `json:"health"`
+	FilesSeen   int32      `json:"files_seen"`
+	CreatedAt   time.Time  `json:"created_at"`
+	StartedAt   *time.Time `json:"started_at"`
+	CompletedAt *time.Time `json:"completed_at"`
+	Failure     *string    `json:"failure"`
 }
 
 type ServerIdentity struct {
@@ -198,6 +355,8 @@ type Title struct {
 	SeriesIndex *float64  `json:"series_index"`
 	SeedKey     *string   `json:"seed_key"`
 	CreatedAt   time.Time `json:"created_at"`
+	GroupKey    *string   `json:"group_key"`
+	Identifier  *string   `json:"identifier"`
 }
 
 type User struct {
@@ -216,4 +375,31 @@ type UserLibraryGrant struct {
 	UserID    uuid.UUID `json:"user_id"`
 	LibraryID uuid.UUID `json:"library_id"`
 	GrantedAt time.Time `json:"granted_at"`
+}
+
+type WritebackPlan struct {
+	ID           uuid.UUID     `json:"id"`
+	LibraryID    uuid.UUID     `json:"library_id"`
+	FileID       uuid.UUID     `json:"file_id"`
+	BaseVersion  uuid.UUID     `json:"base_version"`
+	Kind         string        `json:"kind"`
+	Format       *string       `json:"format"`
+	Diff         []byte        `json:"diff"`
+	ApprovedBy   uuid.NullUUID `json:"approved_by"`
+	Stage        string        `json:"stage"`
+	RecordingID  uuid.NullUUID `json:"recording_id"`
+	TargetRel    string        `json:"target_rel"`
+	BaseSha256   *string       `json:"base_sha256"`
+	StagedPath   *string       `json:"staged_path"`
+	StagedSha256 *string       `json:"staged_sha256"`
+	BackupRef    *string       `json:"backup_ref"`
+	Detail       *string       `json:"detail"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
+}
+
+type WriterCapability struct {
+	Format      string  `json:"format"`
+	Enabled     bool    `json:"enabled"`
+	EvidenceRef *string `json:"evidence_ref"`
 }

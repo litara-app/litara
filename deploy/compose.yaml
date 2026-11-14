@@ -48,9 +48,12 @@ services:
       - "127.0.0.1:${LITARA_HTTP_PORT:-8080}:8080"
     volumes:
       - ${LITARA_MEDIA_DIR:-./media-fixtures}:/media:ro
+      # Writable root for managed libraries (T004). Index libraries keep using the read-only mount above.
+      - library:/library
     depends_on:
       migrate: {condition: service_completed_successfully}
     read_only: true
 
 volumes:
   dbdata:
+  library:

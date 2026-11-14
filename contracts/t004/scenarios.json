@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "note": "Scenarios are generated at test time. 'expect' states the required observable outcome under the cited ADR.",
+  "scenarios": [
+    {"id": "move-unique", "adr": "0044", "setup": "rename a file with unique bytes", "expect": "same file ID, path updated, no new version"},
+    {"id": "move-ambiguous", "adr": "0044", "setup": "two missing files and two new files with identical bytes", "expect": "move review item; no identity transferred"},
+    {"id": "replace-same-path", "adr": "0044", "setup": "overwrite bytes at known path", "expect": "same file ID, new content version, layout revision bumped, saved positions unresolved"},
+    {"id": "partial-copy", "adr": "0050", "setup": "file size changes between observations", "expect": "not hashed or inspected until stable for 30 s"},
+    {"id": "absence-two-scans", "adr": "0050", "setup": "delete file under healthy root", "expect": "missing only after second healthy scan; no catalog deletion"},
+    {"id": "root-unavailable", "adr": "0050", "setup": "unmount root", "expect": "library unavailable, catalog and history retained, no files marked missing"},
+    {"id": "root-identity-mismatch", "adr": "0059", "setup": "different directory mounted at root", "expect": "absence reconciliation blocked; no sentinel auto-created"},
+    {"id": "symlink-outside-root", "adr": "0059", "setup": "symlink to path outside root", "expect": "ignored by default; never read"},
+    {"id": "preserved-stat-change", "adr": "0058", "setup": "change bytes keeping size and mtime", "expect": "not detected by scan; detected by daily/manual verification"},
+    {"id": "multi-disc-order", "adr": "0061", "setup": "consistent disc/track tags with shuffled names", "expect": "tag order used"},
+    {"id": "order-conflict", "adr": "0061", "setup": "tags disagree with natural filename order", "expect": "ordering review item; no automatic order"},
+    {"id": "cue-single", "adr": "0055", "setup": "one valid CUE referencing files in the recording tree", "expect": "auto associated"},
+    {"id": "cue-multiple", "adr": "0055", "setup": "two valid CUE candidates", "expect": "review item; neither chosen"},
+    {"id": "grouping-translation", "adr": "0045", "setup": "same title, different narrator or language", "expect": "separate recordings/editions"},
+    {"id": "grouping-uncertain", "adr": "0061", "setup": "weak identifier agreement", "expect": "provisional link in review"},
+    {"id": "metadata-precedence", "adr": "0047", "setup": "protected edit, sidecar and embedded disagree", "expect": "protected edit wins; clear stays cleared across rescan"},
+    {"id": "provider-uncertain", "adr": "0060", "setup": "fake provider returns low-confidence match", "expect": "review item; not applied"},
+    {"id": "import-collision", "adr": "0046", "setup": "target name exists", "expect": "visible suffix; no overwrite; source retained"},
+    {"id": "import-duplicate", "adr": "0046", "setup": "same bytes already cataloged", "expect": "skip or keep per review"},
+    {"id": "writeback-crash-stages", "adr": "0057", "setup": "kill job at each journal stage, backups off", "expect": "recovery completes verified replacement or leaves original; never a torn file"},
+    {"id": "writeback-version-recheck", "adr": "0048", "setup": "file changes after review", "expect": "write refused; new review needed"},
+    {"id": "backup-failure-blocks", "adr": "0051", "setup": "backups on, backup location unwritable", "expect": "write blocked, original untouched"},
+    {"id": "no-grant-admin", "adr": "0056", "setup": "admin without library grant calls management routes", "expect": "rejected"}
+  ]
+}

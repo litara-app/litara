@@ -14,17 +14,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
+	"github.com/deranjer/ebooker/apps/server/internal/importer"
+	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/library"
+	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
 	"github.com/deranjer/ebooker/apps/server/internal/seed"
 	"github.com/deranjer/ebooker/apps/server/internal/testutil"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
+	"github.com/deranjer/ebooker/apps/server/internal/writeback"
 )
 
 // Clock is a controllable clock shared by every service.
@@ -55,9 +61,14 @@ type Env struct {
 	Catalog  *catalog.Service
 	Progress *progress.Service
 	Clock    *Clock
-	Password string
-	Base     string
-	Cfg      httpapi.APIConfig
+	// T004
+	Scanner   *ingest.Scanner
+	Importer  *importer.Service
+	Writeback *writeback.Service
+	Queue     *Queue
+	Password  string
+	Base      string
+	Cfg       httpapi.APIConfig
 }
 
 // Options tune the environment.
@@ -95,7 +106,14 @@ func New(t *testing.T, opts ...Options) *Env {
 		}
 		e.Fix = fix
 	}
-	h := httpapi.New(httpapi.Deps{Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Config: o.Cfg}})
+	t4insp := inspect.New(inspect.Config{ProbePath: testutil.Tool(t, "ffprobe")})
+	e.Scanner = &ingest.Scanner{Pool: pool, Inspector: t4insp, Now: clock.Now}
+	e.Importer = &importer.Service{Pool: pool, Inspector: t4insp, Now: clock.Now}
+	meta := metadata.New(pool)
+	e.Writeback = &writeback.Service{Pool: pool, Inspector: t4insp, Scanner: e.Scanner, Metadata: meta, Writers: map[string]writeback.Writer{}, Now: clock.Now}
+	e.Queue = &Queue{}
+	h := httpapi.New(httpapi.Deps{Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Library: library.New(pool), Config: o.Cfg,
+		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback}})
 	e.Server = httptest.NewServer(h)
 	t.Cleanup(e.Server.Close)
 	return e
@@ -193,4 +211,45 @@ func (e *Env) AddSparseRecording(ctx context.Context, library uuid.UUID, path st
 	must(q.SeedUpsertFileVersion(ctx, sqlcgen.SeedUpsertFileVersionParams{ContentVersion: ver, FileID: fileID, Locator: path, Filename: "sparse.mp3",
 		MimeType: "audio/mpeg", SizeBytes: &size, DurationMs: &dur, Available: true, Current: true}))
 	must(q.InsertRecordingFile(ctx, sqlcgen.InsertRecordingFileParams{RecordingID: recID, Sequence: 0, FileID: fileID}))
+}
+
+// Queue records job wake-ups instead of running River, so tests choose when
+// queued work executes (and can run it after the request transaction commits).
+type Queue struct {
+	mu      sync.Mutex
+	Scans   []uuid.UUID
+	Imports []uuid.UUID
+}
+
+func (q *Queue) EnqueueScan(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.Scans = append(q.Scans, id)
+	return nil
+}
+
+func (q *Queue) EnqueueImport(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.Imports = append(q.Imports, id)
+	return nil
+}
+
+// RunQueued executes everything queued so far, as the River workers would.
+func (e *Env) RunQueued() {
+	e.T.Helper()
+	e.Queue.mu.Lock()
+	scans, imports := e.Queue.Scans, e.Queue.Imports
+	e.Queue.Scans, e.Queue.Imports = nil, nil
+	e.Queue.mu.Unlock()
+	for _, id := range scans {
+		if _, err := e.Scanner.Run(context.Background(), id); err != nil {
+			e.T.Fatalf("scan %s: %v", id, err)
+		}
+	}
+	for _, id := range imports {
+		if err := e.Importer.Execute(context.Background(), id); err != nil {
+			e.T.Fatalf("import %s: %v", id, err)
+		}
+	}
 }
