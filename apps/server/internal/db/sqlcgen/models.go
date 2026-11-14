@@ -63,6 +63,19 @@ type Conflict struct {
 	ResolvedOperationID uuid.NullUUID `json:"resolved_operation_id"`
 }
 
+type Edition struct {
+	ID        uuid.UUID `json:"id"`
+	TitleID   uuid.UUID `json:"title_id"`
+	LibraryID uuid.UUID `json:"library_id"`
+	FileID    uuid.UUID `json:"file_id"`
+	Revision  int64     `json:"revision"`
+	Label     string    `json:"label"`
+	Language  *string   `json:"language"`
+	Format    string    `json:"format"`
+	LinkState string    `json:"link_state"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type FileCandidate struct {
 	LibraryID   uuid.UUID `json:"library_id"`
 	RelPath     string    `json:"rel_path"`

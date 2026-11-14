@@ -24,6 +24,50 @@ if _t4.exists():
         assert _n not in CONTRACT['components']['schemas'], f'T004 schema {_n} collides with T003'
         CONTRACT['components']['schemas'][_n] = _sch
 
+# T005 additions (editions, reading state, shelves, repair). Routes are merged as
+# they are implemented; every other T005 operation is listed as PENDING and its
+# schemas are compared only when an implemented operation reaches them. Never
+# drop a route from the contract to make this pass: add it to IMPLEMENTED_T005.
+IMPLEMENTED_T005 = {'listTitles', 'getTitle', 'listTitleRecordings', 'listEditions', 'getEdition', 'getReaderSnapshot'}
+PENDING_T005 = []
+_t5 = ROOT / 'contracts' / 't005' / 'openapi.json'
+if _t5.exists():
+    _x = json.loads(_t5.read_text(encoding='utf-8'))
+    _x_paths = {}
+    for _p, _item in _x['paths'].items():
+        for _m, _o in _item.items():
+            if _o['operationId'] in IMPLEMENTED_T005:
+                _x_paths.setdefault(_p, {})[_m] = _o
+            else:
+                PENDING_T005.append(_o['operationId'])
+    _seen, _stack = set(), []
+
+    def _walk(node):
+        if isinstance(node, dict):
+            for _k, _v in node.items():
+                if _k == '$ref':
+                    _n = _v.rsplit('/', 1)[-1]
+                    if _n not in _seen:
+                        _seen.add(_n)
+                        _stack.append(_n)
+                else:
+                    _walk(_v)
+        elif isinstance(node, list):
+            for _v in node:
+                _walk(_v)
+
+    _walk(_x_paths)
+    while _stack:
+        _walk(_x['components']['schemas'][_stack.pop()])
+    for _p, _item in _x_paths.items():
+        assert _p not in CONTRACT['paths'] or not set(_item) & set(CONTRACT['paths'][_p]), f'T005 contract overlaps at {_p}'
+        CONTRACT['paths'].setdefault(_p, {}).update(_item)
+    for _n in sorted(_seen):
+        if _n in CONTRACT['components']['schemas']:
+            raise SystemExit(f'T005 schema {_n} collides with an earlier contract')
+        CONTRACT['components']['schemas'][_n] = _x['components']['schemas'][_n]
+    PENDING_T005_SCHEMAS = sorted(set(_x['components']['schemas']) - _seen)
+
 if len(sys.argv) > 1:
     GENERATED = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 else:
@@ -84,7 +128,7 @@ def norm(spec, schema, depth=0):
     if 'enum' in s:
         out['enum'] = sorted(x for x in s['enum'] if x is not None)
     for k in ('format', 'pattern', 'minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'minProperties'):
-        if k in s:
+        if k in s and not (k in ('minLength', 'minItems') and s[k] == 0):  # a zero lower bound is vacuous
             out[k] = s[k]
     if out.get('format') in ('int64', 'int32', 'double', 'float'):
         del out['format']
@@ -230,6 +274,8 @@ for name, scheme in CONTRACT['components']['securitySchemes'].items():
     if GENERATED['components'].get('securitySchemes', {}).get(name, {}).get('type') != scheme['type']:
         errors.append(f'security scheme {name} differs')
 
+print(f'T005 pending (not yet implemented, not compared): {len(PENDING_T005)} operations {PENDING_T005}')
+print(f'T005 schemas reachable only from pending operations: {len(PENDING_T005_SCHEMAS)}')
 print(f'compared {len(want_ops)} operations and {len(CONTRACT["components"]["schemas"])} schemas')
 for k, v in DEVIATIONS.items():
     print(f'  intentional deviation {k}: {v}')

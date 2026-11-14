@@ -356,7 +356,11 @@ func (s *Service) ResolveFile(ctx context.Context, userID, fileID, version uuid.
 	if err != nil {
 		return FileTarget{}, unavailable(err)
 	}
-	if len(recs) == 0 {
+	eds, err := s.q.ListFileEditions(ctx, sqlcgen.ListFileEditionsParams{FileID: fileID, UserID: userID})
+	if err != nil {
+		return FileTarget{}, unavailable(err)
+	}
+	if len(recs) == 0 && len(eds) == 0 {
 		return FileTarget{}, apperr.ErrNotFound
 	}
 	var granted []uuid.UUID
@@ -365,7 +369,14 @@ func (s *Service) ResolveFile(ctx context.Context, userID, fileID, version uuid.
 			granted = append(granted, r.RecordingID)
 		}
 	}
-	if len(granted) == 0 {
+	// An ebook/comic file is served through a granted edition membership; no
+	// recording is involved (ADR-0065). Recording readiness applies only when
+	// the grant comes from recordings.
+	editionGranted := false
+	for _, e := range eds {
+		editionGranted = editionGranted || e.Granted
+	}
+	if len(granted) == 0 && !editionGranted {
 		return FileTarget{}, apperr.ErrAccessDenied
 	}
 	fv, err := s.q.GetFileVersion(ctx, sqlcgen.GetFileVersionParams{ContentVersion: version, FileID: fileID})
@@ -387,7 +398,7 @@ func (s *Service) ResolveFile(ctx context.Context, userID, fileID, version uuid.
 		byRec[f.RecordingID] = append(byRec[f.RecordingID], f)
 	}
 	for _, rid := range granted {
-		if !Evaluate(byRec[rid]).Ready {
+		if !editionGranted && !Evaluate(byRec[rid]).Ready {
 			return FileTarget{}, apperr.ErrIncomplete
 		}
 	}

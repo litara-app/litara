@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -90,6 +91,8 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	cfg.CreateHooks = nil // no $schema link headers: bodies match the shared contract exactly
 	cfg.Transformers = append(cfg.Transformers, a.stampRequestID)
 	api := humago.NewWithPrefix(mux, "/api/v1", cfg)
+	reg := api.OpenAPI().Components.Schemas
+	reg.Map()["T005Problem"] = reg.Schema(reflect.TypeFor[T005Problem](), false, "T005Problem")
 	api.UseMiddleware(a.middleware(api))
 
 	a.registerDiscovery(api)
@@ -99,6 +102,7 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerIngest(api)
 	a.registerRecordings(api)
 	a.registerProgress(api)
+	a.registerEditions(api)
 	a.registerMedia(api)
 	return api
 }

@@ -466,7 +466,27 @@ CREATE TABLE import_items (
     UNIQUE (plan_id, target_rel)
 );
 
+-- T005 editions (ADR-0065): each distinct ebook/comic file owns one edition. The file
+-- ID is the stable identity across moves and same-path replacements. Library
+-- access is derived from the edition's library; no recording is ever faked.
+CREATE TABLE editions (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    title_id    uuid NOT NULL REFERENCES titles (id),
+    library_id  uuid NOT NULL REFERENCES libraries (id),
+    file_id     uuid NOT NULL UNIQUE REFERENCES media_files (id),
+    revision    bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    label       text NOT NULL DEFAULT '',
+    language    text,
+    format      text NOT NULL CHECK (format IN ('epub', 'kepub', 'mobi', 'azw', 'azw3', 'fb2', 'pdf', 'cbz', 'cbr', 'cb7')),
+    -- provisional links are conservative guesses that await review (ADR-0061).
+    link_state  text NOT NULL DEFAULT 'provisional' CHECK (link_state IN ('confirmed', 'provisional')),
+    created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX editions_title_idx ON editions (title_id);
+CREATE INDEX editions_library_idx ON editions (library_id);
+
 -- +goose Down
+DROP TABLE editions;
 DROP TABLE import_items;
 DROP TABLE import_plans;
 DROP TABLE provider_lookups;
