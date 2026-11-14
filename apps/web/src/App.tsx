@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth/session";
 import { EditionPage } from "./pages/EditionPage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -7,6 +7,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { ShelfPage } from "./pages/ShelfPage";
 import { ShelvesPage } from "./pages/ShelvesPage";
 import { TitlePage } from "./pages/TitlePage";
+import { ReaderPage } from "./reader/ReaderPage";
 import { Busy } from "./ui/common";
 import { Shell } from "./ui/Shell";
 
@@ -15,12 +16,12 @@ const ProofPage = import.meta.env.VITE_READER_PROOF
   ? lazy(() => import("./reader/ProofPage").then((m) => ({ default: m.ProofPage })))
   : null;
 
-function RequireAuth() {
+function RequireAuth({ shell = true }: { shell?: boolean }) {
   const { user, loading } = useAuth();
   const loc = useLocation();
   if (loading) return <Busy />;
   if (!user) return <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />;
-  return <Shell />;
+  return shell ? <Shell /> : <Outlet />;
 }
 
 // The in-browser reader, annotations UI, audio player, administration and
@@ -31,6 +32,9 @@ export function App() {
       <Routes>
         {ProofPage && <Route path="/read/proof" element={<ProofPage />} />}
         <Route path="/login" element={<LoginPage />} />
+        <Route element={<RequireAuth shell={false} />}>
+          <Route path="read/:editionId" element={<ReaderPage />} />
+        </Route>
         <Route element={<RequireAuth />}>
           <Route index element={<LibraryPage />} />
           <Route path="titles/:titleId" element={<TitlePage />} />

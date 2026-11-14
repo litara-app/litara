@@ -100,5 +100,5 @@ test("marking an edition finished sends the revision, file and version with a CS
   const body = JSON.parse(put.init.body as string);
   expect(body).toMatchObject({ baseRevision: "4", fileId: "f1", contentVersion: "v1", event: "manual_finish" });
   expect(body.operationId).toMatch(/^[0-9a-f-]{36}$/);
-  expect(screen.getByRole("button", { name: "Read" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("link", { name: "Read" }).getAttribute("href")).toBe("/read/e1");
 });

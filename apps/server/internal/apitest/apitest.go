@@ -57,6 +57,8 @@ type Env struct {
 	T        *testing.T
 	Pool     *pgxpool.Pool
 	Server   *httptest.Server
+	// Handler is the full application handler (for serving it on another listener).
+	Handler http.Handler
 	Fix      *seed.Fixture
 	Accounts *accounts.Service
 	Catalog  *catalog.Service
@@ -77,6 +79,8 @@ type Options struct {
 	Cfg httpapi.APIConfig
 	// NoSeed skips fixture creation (bootstrap tests).
 	NoSeed bool
+	// Web is mounted at "/" for browser end-to-end runs.
+	Web http.Handler
 }
 
 // New starts the environment; everything is closed at test cleanup.
@@ -113,8 +117,9 @@ func New(t *testing.T, opts ...Options) *Env {
 	meta := metadata.New(pool)
 	e.Writeback = &writeback.Service{Pool: pool, Inspector: t4insp, Scanner: e.Scanner, Metadata: meta, Writers: map[string]writeback.Writer{}, Now: clock.Now}
 	e.Queue = &Queue{}
-	h := httpapi.New(httpapi.Deps{Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: reading.New(pool, cat, clock.Now), Library: library.New(pool), Config: o.Cfg,
+	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: reading.New(pool, cat, clock.Now), Library: library.New(pool), Config: o.Cfg,
 		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback}})
+	e.Handler = h
 	e.Server = httptest.NewServer(h)
 	t.Cleanup(e.Server.Close)
 	return e

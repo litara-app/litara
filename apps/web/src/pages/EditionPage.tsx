@@ -23,6 +23,7 @@ export function EditionPage() {
   if (q.error) return <ErrorBox error={q.error} />;
   const e = q.data;
   const caps = e.capabilities;
+  const readable = ["epub", "kepub", "fb2", "pdf", "cbz"].includes(e.file.format) && caps.read.state !== "unsupported" && e.file.availability === "available" && !!e.file.contentPath;
   return (
     <Stack>
       <Anchor component={Link} to={`/titles/${e.titleId}`}>Back to title</Anchor>
@@ -45,7 +46,8 @@ export function EditionPage() {
       </Card>
 
       <Group>
-        <Button disabled title="The in-browser reader is wired in a later milestone">Read</Button>
+        {readable ? <Button component={Link} to={`/read/${e.id}`}>Read</Button>
+          : <Button disabled title="The web reader does not support this format yet">Read</Button>}
         {e.file.contentPath && caps.download.state === "supported" && (
           <Button component="a" href={e.file.contentPath} download variant="default">Download original</Button>
         )}

@@ -23,9 +23,15 @@ export interface OpenOptions {
   name?: string;
   /** Lower-only resource ceilings (see ADR-0067). */
   limits?: Record<string, number>;
+  /** Saved location to restore; an unresolved one is reported as restore-failed. */
+  restore?: { cfi?: string; pageIndex?: number };
 }
 
-const INBOUND = new Set(["ready", "range", "loaded", "relocate", "blocked-link", "error"]);
+export type ReaderTheme = "light" | "sepia" | "dark";
+export interface ReaderStyle { fontPct: number; theme: ReaderTheme; flow: "paginated" | "scrolled" }
+export interface PaintedAnnotation { id: string; cfi: string; kind: "highlight" | "note" }
+
+const INBOUND = new Set(["ready", "range", "loaded", "relocate", "blocked-link", "error", "toc", "selection", "annotation-click", "restore-failed", "key"]);
 
 let generationCounter = 0;
 
@@ -74,8 +80,14 @@ export class ReaderHost {
 
   async open(opts: OpenOptions): Promise<void> {
     await this.ready;
-    this.post({ t: "open", kind: opts.kind, name: opts.name, size: this.source.size, limits: opts.limits });
+    this.post({ t: "open", kind: opts.kind, name: opts.name, size: this.source.size, limits: opts.limits, restore: opts.restore });
   }
+
+  goto(target: { cfi?: string; href?: string; fraction?: number; pageIndex?: number }) { this.post({ t: "goto", ...target }); }
+  nav(dir: "next" | "prev") { this.post({ t: "nav", dir }); }
+  setStyle(style: ReaderStyle) { this.post({ t: "style", ...style }); }
+  setAnnotations(items: PaintedAnnotation[]) { this.post({ t: "annotations", items }); }
+  clearSelection() { this.post({ t: "clear-selection" }); }
 
   private post(msg: Record<string, unknown>, transfer: Transferable[] = []) {
     if (!this.disposed) this.port?.postMessage({ ...msg, generation: this.generation }, transfer);

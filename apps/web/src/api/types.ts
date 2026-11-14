@@ -35,3 +35,24 @@ export interface Shelf {
 }
 
 export interface ProblemBody { code?: string; detail?: string; title?: string; status?: number; [k: string]: unknown }
+
+export type Locator =
+  | { kind: "foliate-cfi"; version: 1; cfi: string }
+  | { kind: "pdf-page"; version: 1; pageIndex: number; x: number; y: number }
+  | { kind: "comic-page"; version: 1; pageIndex: number; entryId: string; manifestVersion: string };
+export interface Anchor { fileId: string; contentVersion: string; locator: Locator }
+export interface PositionState {
+  revision: string;
+  position: { anchor: Anchor; capturedAt: string; receivedAt: string; deviceName: string } | null;
+  unresolvedConflictCount: number;
+  conflictsPath: string;
+}
+export interface ReaderSnapshot {
+  schemaVersion: 1; edition: Edition; position: PositionState;
+  engine: "foliate" | "pdfjs" | "image-pages" | "none"; engineProfile: string; pageManifestPath: string | null;
+}
+export type Selection =
+  | { kind: "foliate-range"; version: 1; cfi: string }
+  | { kind: "pdf-rectangles"; version: 1; pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] };
+export interface AnnotationData { kind: "highlight" | "note" | "bookmark"; anchor: Anchor; selection: Selection | null; text: string; quote: string }
+export interface Annotation { id: string; editionId: string; revision: string; deleted: boolean; data: AnnotationData | null; updatedAt: string }
