@@ -23,6 +23,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
+	"github.com/deranjer/ebooker/apps/server/internal/reading"
 	"github.com/deranjer/ebooker/apps/server/internal/writeback"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -49,6 +50,7 @@ type APIDeps struct {
 	Accounts *accounts.Service
 	Catalog  *catalog.Service
 	Progress *progress.Service
+	Reading  *reading.Service
 	Library  *library.Service
 	// T004 services (nil in contract-only builds such as `ctl openapi`).
 	Pool      *pgxpool.Pool
@@ -103,6 +105,7 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerRecordings(api)
 	a.registerProgress(api)
 	a.registerEditions(api)
+	a.registerReading(api)
 	a.registerMedia(api)
 	return api
 }

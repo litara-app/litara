@@ -27,6 +27,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
+	"github.com/deranjer/ebooker/apps/server/internal/reading"
 	"github.com/deranjer/ebooker/apps/server/internal/seed"
 	"github.com/deranjer/ebooker/apps/server/internal/testutil"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
@@ -112,7 +113,7 @@ func New(t *testing.T, opts ...Options) *Env {
 	meta := metadata.New(pool)
 	e.Writeback = &writeback.Service{Pool: pool, Inspector: t4insp, Scanner: e.Scanner, Metadata: meta, Writers: map[string]writeback.Writer{}, Now: clock.Now}
 	e.Queue = &Queue{}
-	h := httpapi.New(httpapi.Deps{Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Library: library.New(pool), Config: o.Cfg,
+	h := httpapi.New(httpapi.Deps{Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: reading.New(pool, cat, clock.Now), Library: library.New(pool), Config: o.Cfg,
 		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback}})
 	e.Server = httptest.NewServer(h)
 	t.Cleanup(e.Server.Close)

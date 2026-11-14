@@ -76,6 +76,52 @@ type Edition struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type EditionCompletionState struct {
+	UserID    uuid.UUID  `json:"user_id"`
+	EditionID uuid.UUID  `json:"edition_id"`
+	Revision  int64      `json:"revision"`
+	Finished  bool       `json:"finished"`
+	ChangedAt *time.Time `json:"changed_at"`
+}
+
+type EditionHistory struct {
+	Seq            *int64    `json:"seq"`
+	ID             uuid.UUID `json:"id"`
+	UserID         uuid.UUID `json:"user_id"`
+	TitleID        uuid.UUID `json:"title_id"`
+	EditionID      uuid.UUID `json:"edition_id"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Event          string    `json:"event"`
+	OperationID    uuid.UUID `json:"operation_id"`
+	CapturedAt     time.Time `json:"captured_at"`
+	ReceivedAt     time.Time `json:"received_at"`
+}
+
+type EditionPositionEvidence struct {
+	UserID         uuid.UUID `json:"user_id"`
+	EditionID      uuid.UUID `json:"edition_id"`
+	SessionID      uuid.UUID `json:"session_id"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Locator        []byte    `json:"locator"`
+	CapturedAt     time.Time `json:"captured_at"`
+	ReceivedAt     time.Time `json:"received_at"`
+	DeviceName     string    `json:"device_name"`
+}
+
+type EditionPositionState struct {
+	UserID         uuid.UUID     `json:"user_id"`
+	EditionID      uuid.UUID     `json:"edition_id"`
+	Revision       int64         `json:"revision"`
+	FileID         uuid.NullUUID `json:"file_id"`
+	ContentVersion uuid.NullUUID `json:"content_version"`
+	Locator        []byte        `json:"locator"`
+	CapturedAt     *time.Time    `json:"captured_at"`
+	ReceivedAt     *time.Time    `json:"received_at"`
+	DeviceName     *string       `json:"device_name"`
+}
+
 type FileCandidate struct {
 	LibraryID   uuid.UUID `json:"library_id"`
 	RelPath     string    `json:"rel_path"`
@@ -358,6 +404,32 @@ type Session struct {
 	AccessExpiresAt   *time.Time `json:"access_expires_at"`
 	RefreshHash       []byte     `json:"refresh_hash"`
 	RefreshGeneration int32      `json:"refresh_generation"`
+}
+
+type T005Conflict struct {
+	ID                  uuid.UUID     `json:"id"`
+	UserID              uuid.UUID     `json:"user_id"`
+	ResourceKind        string        `json:"resource_kind"`
+	ResourceID          uuid.UUID     `json:"resource_id"`
+	EditionID           uuid.NullUUID `json:"edition_id"`
+	Reason              string        `json:"reason"`
+	OperationID         uuid.UUID     `json:"operation_id"`
+	Candidate           []byte        `json:"candidate"`
+	BaseRevision        int64         `json:"base_revision"`
+	CurrentRevision     int64         `json:"current_revision"`
+	CreatedAt           time.Time     `json:"created_at"`
+	ResolvedAt          *time.Time    `json:"resolved_at"`
+	ResolvedOperationID uuid.NullUUID `json:"resolved_operation_id"`
+	ResolvedRevision    *int64        `json:"resolved_revision"`
+}
+
+type T005Receipt struct {
+	UserID      uuid.UUID `json:"user_id"`
+	OperationID uuid.UUID `json:"operation_id"`
+	Fingerprint []byte    `json:"fingerprint"`
+	Status      int32     `json:"status"`
+	Body        []byte    `json:"body"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type Title struct {

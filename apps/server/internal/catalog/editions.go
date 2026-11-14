@@ -75,7 +75,11 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 		return incomplete("not_implemented", "The server API for this capability is not implemented yet.")
 	}
 	text := format != "cbz" && format != "cbr" && format != "cb7"
-	c := wire.T005Capabilities{Read: read, Download: download, Resume: pending(), PageNote: pending(), Bookmark: pending()}
+	resume := supported()
+	if !available {
+		resume = incomplete("file_unavailable", "The file is currently missing or unavailable.")
+	}
+	c := wire.T005Capabilities{Read: read, Download: download, Resume: resume, PageNote: pending(), Bookmark: pending()}
 	if text {
 		c.TextSelection, c.TextHighlight = pending(), pending()
 	} else {
@@ -133,7 +137,11 @@ func (s *Service) Edition(ctx context.Context, userID, id uuid.UUID) (wire.T005E
 	if err != nil {
 		return wire.T005Edition{}, err
 	}
-	return s.editionWire(r), nil
+	out := s.editionWire(r)
+	if out.Completion, err = s.CompletionState(ctx, userID, id); err != nil {
+		return wire.T005Edition{}, err
+	}
+	return out, nil
 }
 
 func (s *Service) Reader(ctx context.Context, userID, id uuid.UUID) (wire.T005Reader, error) {
@@ -142,9 +150,15 @@ func (s *Service) Reader(ctx context.Context, userID, id uuid.UUID) (wire.T005Re
 		return wire.T005Reader{}, err
 	}
 	engine, profile := engineFor(r.Format)
-	return wire.T005Reader{SchemaVersion: 1, Edition: s.editionWire(r),
-		Position: wire.T005PositionState{Revision: "0", ConflictsPath: fmt.Sprintf("%s/personal-conflicts", s.apiBase)},
-		Engine:   engine, EngineProfile: profile}, nil
+	ed := s.editionWire(r)
+	if ed.Completion, err = s.CompletionState(ctx, userID, id); err != nil {
+		return wire.T005Reader{}, err
+	}
+	pos, err := s.PositionState(ctx, userID, id)
+	if err != nil {
+		return wire.T005Reader{}, err
+	}
+	return wire.T005Reader{SchemaVersion: 1, Edition: ed, Position: pos, Engine: engine, EngineProfile: profile}, nil
 }
 
 type EditionListParams struct {
@@ -164,7 +178,11 @@ func (s *Service) Editions(ctx context.Context, userID uuid.UUID, p EditionListP
 	}
 	out := wire.T005Editions{Items: []wire.T005Edition{}, Total: total, Page: int64(p.Page), Size: int64(p.Size)}
 	for _, r := range rows {
-		out.Items = append(out.Items, s.editionWire(editionRow(r)))
+		ed := s.editionWire(editionRow(r))
+		if ed.Completion, err = s.CompletionState(ctx, userID, r.ID); err != nil {
+			return wire.T005Editions{}, err
+		}
+		out.Items = append(out.Items, ed)
 	}
 	return out, nil
 }
@@ -174,4 +192,16 @@ func nullUUID(id *uuid.UUID) uuid.NullUUID {
 		return uuid.NullUUID{}
 	}
 	return uuid.NullUUID{UUID: *id, Valid: true}
+}
+
+// AuthorizeEdition is the shared edition access check: unknown 404, ungranted
+// 403. Personal-state services call it before they open a transaction.
+func (s *Service) AuthorizeEdition(ctx context.Context, userID, id uuid.UUID) (sqlcgen.GetEditionRowRow, error) {
+	return s.authorizeEdition(ctx, userID, id)
+}
+
+// TitleVisible reports whether the user may see a title (404 unknown, 403 none granted).
+func (s *Service) TitleVisible(ctx context.Context, userID, id uuid.UUID) error {
+	_, err := s.Title(ctx, userID, id)
+	return err
 }

@@ -485,7 +485,97 @@ CREATE TABLE editions (
 CREATE INDEX editions_title_idx ON editions (title_id);
 CREATE INDEX editions_library_idx ON editions (library_id);
 
+-- T005 personal reading state for editions (ADR-0065). Revisions start at 0 (absent row).
+CREATE TABLE edition_position_state (
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    revision        bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    file_id         uuid,
+    content_version uuid,
+    locator         jsonb,
+    captured_at     timestamptz,
+    received_at     timestamptz,
+    device_name     text,
+    PRIMARY KEY (user_id, edition_id)
+);
+
+-- Latest per-device candidate evidence; kept when the canonical position advances.
+CREATE TABLE edition_position_evidence (
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    session_id      uuid NOT NULL,
+    file_id         uuid NOT NULL,
+    content_version uuid NOT NULL,
+    locator         jsonb NOT NULL,
+    captured_at     timestamptz NOT NULL,
+    received_at     timestamptz NOT NULL,
+    device_name     text NOT NULL,
+    PRIMARY KEY (user_id, edition_id, session_id)
+);
+
+CREATE TABLE edition_completion_state (
+    user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    edition_id uuid NOT NULL REFERENCES editions (id),
+    revision   bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    finished   boolean NOT NULL DEFAULT false,
+    changed_at timestamptz,
+    PRIMARY KEY (user_id, edition_id)
+);
+
+-- Immutable per-edition title history; recording history stays in completion_history.
+CREATE TABLE edition_history (
+    seq             bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    title_id        uuid NOT NULL REFERENCES titles (id),
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    file_id         uuid NOT NULL,
+    content_version uuid NOT NULL,
+    event           text NOT NULL CHECK (event IN ('manual_finish', 'manual_unfinish')),
+    operation_id    uuid NOT NULL,
+    captured_at     timestamptz NOT NULL,
+    received_at     timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (user_id, operation_id)
+);
+CREATE INDEX edition_history_title_idx ON edition_history (user_id, title_id, seq);
+
+-- One receipt namespace per authenticated user across every T005 personal mutation kind.
+-- Never pruned automatically. Fingerprint covers method, resource and semantic request.
+CREATE TABLE t005_receipts (
+    user_id      uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    operation_id uuid NOT NULL,
+    fingerprint  bytea NOT NULL,
+    status       integer NOT NULL,
+    body         jsonb NOT NULL,
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, operation_id)
+);
+
+CREATE TABLE t005_conflicts (
+    id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id               uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    resource_kind         text NOT NULL CHECK (resource_kind IN ('position', 'completion', 'annotation', 'shelf', 'membership', 'shelf-order')),
+    resource_id           uuid NOT NULL,
+    edition_id            uuid REFERENCES editions (id),
+    reason                text NOT NULL CHECK (reason IN ('stale_revision', 'content_changed', 'locator_incompatible', 'deleted', 'access_changed')),
+    operation_id          uuid NOT NULL,
+    candidate             jsonb NOT NULL,
+    base_revision         bigint NOT NULL,
+    current_revision      bigint NOT NULL,
+    created_at            timestamptz NOT NULL DEFAULT now(),
+    resolved_at           timestamptz,
+    resolved_operation_id uuid,
+    resolved_revision     bigint
+);
+CREATE INDEX t005_conflicts_user_idx ON t005_conflicts (user_id, resource_id, created_at);
+
 -- +goose Down
+DROP TABLE t005_conflicts;
+DROP TABLE t005_receipts;
+DROP TABLE edition_history;
+DROP TABLE edition_completion_state;
+DROP TABLE edition_position_evidence;
+DROP TABLE edition_position_state;
 DROP TABLE editions;
 DROP TABLE import_items;
 DROP TABLE import_plans;

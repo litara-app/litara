@@ -28,7 +28,9 @@ if _t4.exists():
 # they are implemented; every other T005 operation is listed as PENDING and its
 # schemas are compared only when an implemented operation reaches them. Never
 # drop a route from the contract to make this pass: add it to IMPLEMENTED_T005.
-IMPLEMENTED_T005 = {'listTitles', 'getTitle', 'listTitleRecordings', 'listEditions', 'getEdition', 'getReaderSnapshot'}
+IMPLEMENTED_T005 = {'listTitles', 'getTitle', 'listTitleRecordings', 'listEditions', 'getEdition', 'getReaderSnapshot',
+                    'getReadingPosition', 'writeReadingPosition', 'getReadingCompletion', 'writeReadingCompletion',
+                    'getReadingHistory', 'listPersonalConflicts', 'resolvePersonalConflict'}
 PENDING_T005 = []
 _t5 = ROOT / 'contracts' / 't005' / 'openapi.json'
 if _t5.exists():
@@ -40,6 +42,12 @@ if _t5.exists():
                 _x_paths.setdefault(_p, {})[_m] = _o
             else:
                 PENDING_T005.append(_o['operationId'])
+    # T005Conflict.candidate lists every personal-state write kind. Members whose
+    # resource kinds are not implemented yet are dropped from the compared copy;
+    # remove a name here in the same change that implements its conflicts.
+    PENDING_CANDIDATES = {'T005AnnotationWrite', 'T005Delete', 'T005ShelfWrite', 'T005ShelfOrder', 'T005MembershipCandidate'}
+    _cand = _x['components']['schemas']['T005Conflict']['properties']['candidate']
+    _cand['oneOf'] = [m for m in _cand['oneOf'] if m['$ref'].rsplit('/', 1)[-1] not in PENDING_CANDIDATES]
     _seen, _stack = set(), []
 
     def _walk(node):

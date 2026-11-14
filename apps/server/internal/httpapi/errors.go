@@ -37,6 +37,28 @@ type Problem struct {
 	CurrentLayoutRevision string                `json:"currentLayoutRevision,omitempty" format:"uuid"`
 
 	headers http.Header
+	// t005 carries T005 conflict members (currentRevision, currentContentVersion,
+	// successorRecordingIds). They are written by MarshalJSON so the generated
+	// T003 Problem schema is unchanged; T005Problem documents them.
+	t005 map[string]any
+}
+
+// MarshalJSON appends the T005 members after the shared fields.
+func (p Problem) MarshalJSON() ([]byte, error) {
+	type plain Problem
+	b, err := json.Marshal(plain(p))
+	if err != nil || len(p.t005) == 0 {
+		return b, err
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	for k, v := range p.t005 {
+		raw, _ := json.Marshal(v)
+		m[k] = raw
+	}
+	return json.Marshal(m)
 }
 
 func (p *Problem) Error() string             { return fmt.Sprintf("%d %s", p.Status, p.Code) }
@@ -158,6 +180,13 @@ func (a *API) toProblem(ctx context.Context, err error) *Problem {
 				_ = json.Unmarshal(raw, &p.CurrentCompletion)
 			case "currentLayoutRevision":
 				_ = json.Unmarshal(raw, &p.CurrentLayoutRevision)
+			case "currentRevision", "currentContentVersion", "successorRecordingIds":
+				if p.t005 == nil {
+					p.t005 = map[string]any{}
+				}
+				var v any
+				_ = json.Unmarshal(raw, &v)
+				p.t005[k] = v
 			}
 		}
 		if ae.RetryAfterSeconds > 0 {
