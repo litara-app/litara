@@ -249,6 +249,15 @@ func (q *Queue) EnqueueExtract(_ context.Context, _ pgx.Tx, id uuid.UUID) error 
 	return nil
 }
 
+// DrainExtracts returns and clears the queued comic extraction IDs.
+func (q *Queue) DrainExtracts() []uuid.UUID {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	ids := q.Extracts
+	q.Extracts = nil
+	return ids
+}
+
 func (q *Queue) EnqueueImport(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()

@@ -43,7 +43,7 @@ test.describe.configure({ mode: "serial" });
 // Browser projects share one database, so each test starts from no annotations.
 async function clearAnnotations(page: Page) {
   const eds = await (await page.request.get("/api/v1/editions")).json();
-  const id = eds.items[0].id as string;
+  const id = eds.items.find((e: { file: { format: string } }) => e.file.format === "epub").id as string;
   const list = await (await page.request.get(`/api/v1/editions/${id}/annotations?includeDeleted=false&size=200`)).json();
   for (const a of list.items) {
     const res = await page.request.delete(`/api/v1/editions/${id}/annotations/${a.id}`, {

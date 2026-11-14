@@ -1,8 +1,13 @@
 package httpapi_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
 	"net"
 	"net/http"
 	"os"
@@ -43,6 +48,29 @@ func novel(t *testing.T, p string) {
 	writeZip(t, p, files)
 }
 
+// comicFixtures writes a three-page CBZ (natural order 1, 2, 10 with distinct solid
+// colors), a hostile CBZ and a CBR for the browser end-to-end tests.
+func comicFixtures(t *testing.T, dir string) {
+	solid := func(c color.RGBA) string {
+		img := image.NewRGBA(image.Rect(0, 0, 300, 450))
+		draw.Draw(img, img.Bounds(), &image.Uniform{c}, image.Point{}, draw.Src)
+		var b bytes.Buffer
+		_ = png.Encode(&b, img)
+		return b.String()
+	}
+	writeZip(t, filepath.Join(dir, "test-comic.cbz"), map[string]string{
+		"ComicInfo.xml": `<ComicInfo><Title>The Test Comic</Title><Series>Test Series</Series><Number>1</Number><Writer>Cy Panel</Writer></ComicInfo>`,
+		"pages/1.png":   solid(color.RGBA{255, 0, 0, 255}), "pages/2.png": solid(color.RGBA{0, 255, 0, 255}), "pages/10.png": solid(color.RGBA{0, 0, 255, 255}),
+	})
+	writeZip(t, filepath.Join(dir, "hostile.cbz"), map[string]string{
+		"ComicInfo.xml": `<ComicInfo><Title>The Hostile Comic</Title></ComicInfo>`,
+		"../escape.png": solid(color.RGBA{1, 1, 1, 255}), "1.png": solid(color.RGBA{2, 2, 2, 255}),
+	})
+	if err := os.WriteFile(filepath.Join(dir, "legacy.cbr"), []byte("Rar! not extracted"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestE2EServe boots the real application (API, web UI, separate reader origin)
 // on fixed local ports with a seeded ebook for the browser end-to-end tests,
 // then waits. It is skipped unless LITARA_E2E_SERVE=1 and is started by
@@ -73,6 +101,7 @@ func TestE2EServe(t *testing.T) {
 		t.Fatalf("admin grant on the seeded library: %d %s", r.StatusCode, r.Body)
 	}
 	novel(t, filepath.Join(root, "Eve Tester", "novel.epub"))
+	comicFixtures(t, filepath.Join(root, "Hero"))
 	scanTwice(t, e, admin, d.Library.ID)
 
 	serve := func(addr string, h http.Handler) {
@@ -90,6 +119,21 @@ func TestE2EServe(t *testing.T) {
 	}
 	serve("127.0.0.1:8091", e.Handler)
 	serve("127.0.0.1:8092", webui.Reader(os.DirFS(filepath.Join(webDir, "reader")), origins))
+	// Run queued comic extractions as the River worker would.
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-time.After(300 * time.Millisecond):
+				for _, id := range e.Queue.DrainExtracts() {
+					_ = e.Reading.RunExtraction(context.Background(), id)
+				}
+			}
+		}
+	}()
 	fmt.Println("E2E READY", app, "user", seed.UserAName, "password", e.Password)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()

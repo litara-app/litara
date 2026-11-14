@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router";
 import { get } from "../api/client";
 import type { Annotation, AnnotationData, Locator, Page, ReaderSnapshot } from "../api/types";
 import { Busy, ErrorBox } from "../ui/common";
+import { ComicReader } from "./ComicReader";
 import { remoteSource } from "./fileSource";
 import { loadReaderOrigin, ReaderHost, type PaintedAnnotation, type ReaderEvent, type ReaderKind, type ReaderStyle } from "./host";
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
@@ -43,6 +44,7 @@ export function ReaderPage() {
   const snapshot = useQuery({ queryKey: ["reader", editionId], queryFn: () => get<ReaderSnapshot>(`/editions/${editionId}/reader`), staleTime: Infinity, gcTime: 0 });
   if (snapshot.isPending) return <Busy />;
   if (snapshot.error) return <Stack p="md"><ErrorBox error={snapshot.error} /><Button component={Link} to="/" variant="default">Back to library</Button></Stack>;
+  if (["cbz", "cbr", "cb7"].includes(snapshot.data.edition.file.format)) return <ComicReader snapshot={snapshot.data} />;
   return <Reader snapshot={snapshot.data} />;
 }
 

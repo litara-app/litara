@@ -26,7 +26,7 @@ export function EditionPage() {
   if (q.error) return <ErrorBox error={q.error} />;
   const e = q.data;
   const caps = e.capabilities;
-  const readable = ["epub", "kepub", "fb2", "pdf", "cbz"].includes(e.file.format) && caps.read.state !== "unsupported" && e.file.availability === "available" && !!e.file.contentPath;
+  const readable = ["epub", "kepub", "fb2", "pdf", "cbz", "cbr", "cb7"].includes(e.file.format) && caps.read.state !== "unsupported" && e.file.availability === "available" && !!e.file.contentPath;
   return (
     <Stack>
       <Anchor component={Link} to={`/titles/${e.titleId}`}>Back to title</Anchor>
