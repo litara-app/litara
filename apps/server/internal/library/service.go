@@ -18,6 +18,7 @@ import (
 
 	"github.com/deranjer/ebooker/apps/server/internal/apperr"
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
+	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
 
@@ -53,6 +54,11 @@ func Validate(c wire.LibraryConfig) error {
 	}
 	if c.Mode == "index" && c.ImportTemplate != nil {
 		return apperr.Validation("importTemplate applies to managed libraries only")
+	}
+	if c.ImportTemplate != nil {
+		if err := importer.ValidateTemplate(*c.ImportTemplate); err != nil {
+			return apperr.Validation("importTemplate: " + err.Error())
+		}
 	}
 	if c.ScanIntervalSecs < 60 || c.VerifyIntervalSecs < 3600 || c.StabilitySecs < 1 {
 		return apperr.Validation("interval below the minimum")

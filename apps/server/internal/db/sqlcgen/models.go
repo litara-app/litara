@@ -115,6 +115,32 @@ type Fingerprint struct {
 	VerifiedAt     time.Time `json:"verified_at"`
 }
 
+type ImportItem struct {
+	ID           uuid.UUID     `json:"id"`
+	PlanID       uuid.UUID     `json:"plan_id"`
+	SourceRel    string        `json:"source_rel"`
+	SourceSha256 string        `json:"source_sha256"`
+	SizeBytes    int64         `json:"size_bytes"`
+	TargetRel    string        `json:"target_rel"`
+	Suffixed     bool          `json:"suffixed"`
+	DuplicateOf  uuid.NullUUID `json:"duplicate_of"`
+	Decision     string        `json:"decision"`
+	State        string        `json:"state"`
+	Detail       *string       `json:"detail"`
+}
+
+type ImportPlan struct {
+	ID          uuid.UUID     `json:"id"`
+	LibraryID   uuid.UUID     `json:"library_id"`
+	SourcePath  string        `json:"source_path"`
+	State       string        `json:"state"`
+	CreatedBy   uuid.NullUUID `json:"created_by"`
+	ApprovedBy  uuid.NullUUID `json:"approved_by"`
+	CreatedAt   time.Time     `json:"created_at"`
+	ApprovedAt  *time.Time    `json:"approved_at"`
+	CompletedAt *time.Time    `json:"completed_at"`
+}
+
 type InspectionRequest struct {
 	ID             uuid.UUID  `json:"id"`
 	RequestKey     string     `json:"request_key"`

@@ -433,7 +433,38 @@ CREATE TABLE provider_lookups (
     PRIMARY KEY (recording_id, provider)
 );
 
+-- Reviewed, copy-only managed imports (ADR-0046/0054). The source is never modified or removed.
+CREATE TABLE import_plans (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    library_id   uuid NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
+    source_path  text NOT NULL,
+    state        text NOT NULL DEFAULT 'planned' CHECK (state IN ('planned', 'approved', 'running', 'completed', 'failed', 'cancelled')),
+    created_by   uuid REFERENCES users (id),
+    approved_by  uuid REFERENCES users (id),
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    approved_at  timestamptz,
+    completed_at timestamptz
+);
+
+CREATE TABLE import_items (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    plan_id          uuid NOT NULL REFERENCES import_plans (id) ON DELETE CASCADE,
+    source_rel       text NOT NULL,
+    source_sha256    text NOT NULL CHECK (source_sha256 ~ '^[0-9a-f]{64}$'),
+    size_bytes       bigint NOT NULL CHECK (size_bytes >= 0),
+    target_rel       text NOT NULL,
+    suffixed         boolean NOT NULL DEFAULT false,
+    duplicate_of     uuid REFERENCES media_files (id),
+    decision         text NOT NULL DEFAULT 'pending' CHECK (decision IN ('pending', 'import', 'skip')),
+    state            text NOT NULL DEFAULT 'planned' CHECK (state IN ('planned', 'copying', 'verified', 'published', 'failed', 'skipped')),
+    detail           text,
+    UNIQUE (plan_id, source_rel),
+    UNIQUE (plan_id, target_rel)
+);
+
 -- +goose Down
+DROP TABLE import_items;
+DROP TABLE import_plans;
 DROP TABLE provider_lookups;
 DROP TABLE associations;
 DROP TABLE file_metadata;
