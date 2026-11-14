@@ -141,6 +141,9 @@ class LitaraClient(
     suspend fun resolveConflict(recordingId: String, conflictId: String, r: LResolveConflict): LPositionState =
         postJson("/recordings/$recordingId/conflicts/$conflictId/resolve", LitaraJson.encodeToString(r))
 
+    suspend fun resolveCompletionConflict(recordingId: String, conflictId: String, r: LResolveCompletion): LCompletion =
+        postJson("/recordings/$recordingId/completion-conflicts/$conflictId/resolve", LitaraJson.encodeToString(r))
+
     suspend fun writeCompletion(recordingId: String, w: LCompletionWrite): LCompletion =
         sendJson("PUT", "/recordings/$recordingId/completion", LitaraJson.encodeToString(w))
 

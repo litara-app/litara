@@ -57,6 +57,18 @@ class CompletionSync(
         deliver(write.operationId)
     }
 
+    /**
+     * The user's answer to one completion conflict (ADR-0036): keep the server state, apply the preserved event, or
+     * set an explicit manual event. Online only: it starts from queued events delivered and the server's current
+     * revision, so it never resolves against a stale base. Each call is a new operation.
+     */
+    suspend fun resolve(conflictId: String, choice: String, layoutRevision: String, explicitEvent: String? = null): LCompletion = gate.withLock {
+        if (read().isNotEmpty()) deliver(null)
+        val base = client.completion(recordingId).revision
+        client.resolveCompletionConflict(recordingId, conflictId,
+            LResolveCompletion(UUID.randomUUID().toString(), base, layoutRevision, choice, explicitEvent, Instant.now().toString(), null))
+    }
+
     /** Re-sends queued events in order (after reconnect or re-authentication). Null when nothing was pending. */
     suspend fun flush(): FinishOutcome? = gate.withLock {
         if (read().isEmpty()) return@withLock null

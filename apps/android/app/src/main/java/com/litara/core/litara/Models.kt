@@ -142,7 +142,11 @@ data class LConflict(
     val baseRevision: String,
     val createdAt: String,
     val resolvedAt: String?,
-)
+    /** Set (and [candidate] null) for a completion conflict: the preserved event that lost or could not be applied. */
+    val completionCandidate: LCompletionWrite? = null,
+) {
+    val isCompletion: Boolean get() = completionCandidate != null || reason == "completion_changed"
+}
 
 @Serializable
 data class LPositionState(val revision: String, val position: LPosition?, val unresolvedConflicts: List<LConflict>)
@@ -168,6 +172,17 @@ data class LCompletionWrite(
     val baseRevision: String,
     val layoutRevision: String,
     val event: String,
+    val capturedAt: String,
+    val finalPosition: LAnchor?,
+)
+
+@Serializable
+data class LResolveCompletion(
+    val operationId: String,
+    val baseRevision: String,
+    val layoutRevision: String,
+    val choice: String,
+    val event: String?,
     val capturedAt: String,
     val finalPosition: LAnchor?,
 )

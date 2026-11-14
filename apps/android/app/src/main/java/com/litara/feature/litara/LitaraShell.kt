@@ -130,7 +130,7 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
             }
         }
     }
-    ui.prompt?.let { p -> ShellConflict(vm, p) }
+    ui.prompt?.let { p -> ConflictPromptHost(p, vm::resolve, vm::resolveExplicit, vm::resolveCompletion) }
     if (ui.incompatible && ui.prompt == null) {
         AlertDialog(
             onDismissRequest = {},
@@ -260,14 +260,3 @@ private fun ShellDetail(vm: LitaraShellViewModel, ui: ShellUi, onListen: (Int) -
     }
 }
 
-@Composable
-private fun ShellConflict(vm: LitaraShellViewModel, prompt: ConflictPrompt) {
-    val conflict = prompt.conflicts.first()
-    AlertDialog(
-        onDismissRequest = {},
-        title = { Text(stringResource(R.string.litara_which_position)) },
-        text = { Text(stringResource(R.string.litara_conflict_body, prompt.serverLabel, prompt.labels[conflict.id].orEmpty())) },
-        confirmButton = { TextButton({ vm.resolve(conflict, "use_candidate") }) { Text(stringResource(R.string.litara_use_other)) } },
-        dismissButton = { TextButton({ vm.resolve(conflict, "keep_server") }) { Text(stringResource(R.string.litara_keep_server)) } },
-    )
-}

@@ -63,7 +63,7 @@ fun LitaraScreen(vm: LitaraViewModel = hiltViewModel()) {
             else -> Detail(vm, ui)
         }
     }
-    ui.prompt?.let { prompt -> ConflictDialog(vm, prompt) }
+    ui.prompt?.let { prompt -> ConflictPromptHost(prompt, vm::resolve, vm::resolveExplicit, vm::resolveCompletion) }
 }
 
 /** The in-app sign-in step for a Litara server; success flips the app gate to the Litara shell. */
@@ -151,14 +151,3 @@ private fun Detail(vm: LitaraViewModel, ui: LitaraUi) {
     }
 }
 
-@Composable
-private fun ConflictDialog(vm: LitaraViewModel, prompt: ConflictPrompt) {
-    val conflict = prompt.conflicts.first()
-    AlertDialog(
-        onDismissRequest = {},
-        title = { Text(stringResource(R.string.litara_which_position)) },
-        text = { Text(stringResource(R.string.litara_conflict_body, prompt.serverLabel, prompt.labels[conflict.id].orEmpty())) },
-        confirmButton = { TextButton({ vm.resolve(conflict, "use_candidate") }) { Text(stringResource(R.string.litara_use_other)) } },
-        dismissButton = { TextButton({ vm.resolve(conflict, "keep_server") }) { Text(stringResource(R.string.litara_keep_server)) } },
-    )
-}

@@ -323,6 +323,10 @@ class LitaraRepository @Inject constructor(
         return completionSync(t, snap.id).submit(event, snap.layoutRevision, final, snap.completion.revision)
     }
 
+    /** Resolves one completion conflict by the user's explicit choice; [explicitEvent] only for `use_explicit`. */
+    suspend fun resolveCompletionConflict(snap: LRecording, conflictId: String, choice: String, explicitEvent: String? = null) =
+        completionSync(token(), snap.id).resolve(conflictId, choice, snap.layoutRevision, explicitEvent)
+
     /** Delivers queued completion events of the active account for every recording; best effort. */
     suspend fun flushCompletions() {
         val t = token()

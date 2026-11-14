@@ -108,19 +108,10 @@ class LitaraShellViewModel @Inject constructor(
         val s = repo.progress(snap).also { sync = it }
         val state = try { s.load() } catch (e: TransientException) { null }
         if (state != null && state.unresolvedConflicts.isNotEmpty()) {
-            val labels = state.unresolvedConflicts.associate { c ->
-                c.id to (c.candidate?.let { "${it.deviceName}: ${label(snap, it.fileId, it.offsetMs)}" } ?: c.reason)
-            }
-            val serverLabel = state.position?.let { label(snap, it.fileId, it.offsetMs) } ?: "start"
-            _ui.update { it.copy(prompt = ConflictPrompt(serverLabel, state.unresolvedConflicts, labels)) }
+            _ui.update { it.copy(prompt = conflictPrompt(snap, state.position, state.unresolvedConflicts, it.finished)) }
         }
         // A saved position for replaced bytes is kept on the server; playback does not use it until the user decides.
         _ui.update { it.copy(incompatible = backend.incompatibleSavedPosition(id) != null) }
-    }
-
-    private fun label(snap: LRecording, fileId: String, offset: Long): String {
-        val i = snap.files.indexOfFirst { it.id == fileId }
-        return "file ${i + 1} at ${offset / 1000}s"
     }
 
     fun resolve(conflict: LConflict, choice: String) = run {
@@ -128,6 +119,31 @@ class LitaraShellViewModel @Inject constructor(
         val state = s.resolve(conflict.id, choice)
         val remaining = state.unresolvedConflicts
         _ui.update { it.copy(prompt = if (remaining.isEmpty()) null else it.prompt?.copy(conflicts = remaining)) }
+    }
+
+    /** Resolves a position conflict with a position the user picked (file + offset); the caller validated the range. */
+    fun resolveExplicit(conflict: LConflict, fileIndex: Int, offsetMs: Long) = run {
+        val s = sync ?: return@run
+        val snap = _ui.value.detail?.snapshot ?: return@run
+        val f = snap.files.getOrNull(fileIndex) ?: return@run
+        val state = s.resolve(conflict.id, "use_explicit", com.litara.core.litara.LPositionInput(f.id, f.contentVersion, offsetMs, java.time.Instant.now().toString()))
+        _ui.update { it.copy(prompt = if (state.unresolvedConflicts.isEmpty()) null else it.prompt?.copy(conflicts = state.unresolvedConflicts)) }
+    }
+
+    /** The user's answer to a completion conflict: keep the server state, apply the kept event, or set it explicitly. */
+    fun resolveCompletion(conflict: LConflict, choice: String, event: String?) = run {
+        val snap = _ui.value.detail?.snapshot ?: return@run
+        val done = repo.resolveCompletionConflict(snap, conflict.id, choice, event)
+        val state = sync?.load()
+        val remaining = state?.unresolvedConflicts.orEmpty()
+        _ui.update { it.copy(finished = done.finished, prompt = if (remaining.isEmpty()) null else conflictPrompt(snap, state?.position, remaining, done.finished)) }
+    }
+
+    /** A finish the server preserved is offered for resolution immediately instead of only being reported. */
+    private suspend fun showConflicts(snap: LRecording) {
+        val s = sync ?: repo.progress(snap).also { sync = it }
+        val state = s.load()
+        if (state.unresolvedConflicts.isNotEmpty()) _ui.update { it.copy(prompt = conflictPrompt(snap, state.position, state.unresolvedConflicts, it.finished)) }
     }
 
     fun startOver() = run {
@@ -164,7 +180,10 @@ class LitaraShellViewModel @Inject constructor(
             is com.litara.core.litara.FinishOutcome.Done -> _ui.update { it.copy(finished = o.completion.finished, note = null) }
             com.litara.core.litara.FinishOutcome.Queued, is com.litara.core.litara.FinishOutcome.AccessEnded ->
                 _ui.update { it.copy(finished = finished, note = app.getString(R.string.litara_finish_queued)) }
-            is com.litara.core.litara.FinishOutcome.Preserved -> _ui.update { it.copy(error = app.getString(R.string.litara_err_finish_preserved, o.code)) }
+            is com.litara.core.litara.FinishOutcome.Preserved -> {
+                _ui.update { it.copy(error = app.getString(R.string.litara_err_finish_preserved, o.code)) }
+                try { showConflicts(snap) } catch (e: TransientException) { }
+            }
         }
     }
 

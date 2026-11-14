@@ -114,4 +114,18 @@ class CompletionSyncTest {
         assertTrue(puts[0].contains("manual_finish") && puts[1].contains("manual_unfinish"))
         assertTrue("the follower is re-based on the head's revision", puts[1].contains("\"baseRevision\":\"1\""))
     }
+
+    @Test
+    fun `resolving a completion conflict first delivers queued events and uses the current server revision`() = runBlocking {
+        online = false
+        val s = sync()
+        s.submit("manual_finish", "L", null, "0")
+        online = true
+        val done = s.resolve("c1", "use_explicit", "L", "manual_unfinish")
+        assertEquals(2, puts.size)
+        assertTrue("the queued event went first", puts[0].contains("manual_finish"))
+        assertTrue(puts[1].contains("\"choice\":\"use_explicit\"") && puts[1].contains("\"event\":\"manual_unfinish\"") && puts[1].contains("\"baseRevision\":\"1\""))
+        assertTrue(done.finished)
+        assertFalse(s.hasPending())
+    }
 }
