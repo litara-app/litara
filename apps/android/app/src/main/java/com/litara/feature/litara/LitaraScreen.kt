@@ -66,6 +66,19 @@ fun LitaraScreen(vm: LitaraViewModel = hiltViewModel()) {
     ui.prompt?.let { prompt -> ConflictDialog(vm, prompt) }
 }
 
+/** The in-app sign-in step for a Litara server; success flips the app gate to the Litara shell. */
+@Composable
+fun LitaraSignInRoute(onBack: () -> Unit, vm: LitaraViewModel = hiltViewModel()) {
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.litara_title), style = MaterialTheme.typography.titleLarge)
+        ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(LitaraTags.ERROR).clickable { vm.clearError() }) }
+        if (ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        SignIn(vm)
+        TextButton(onBack) { Text(stringResource(R.string.back)) }
+    }
+}
+
 @Composable
 private fun SignIn(vm: LitaraViewModel) {
     var url by rememberSaveable { mutableStateOf("") }

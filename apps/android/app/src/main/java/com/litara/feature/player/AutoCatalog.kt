@@ -45,6 +45,11 @@ class AutoCatalog @Inject constructor(
         return (recent + online + local).distinctBy { it.mediaId }.take(80)
     }
 
+    /** The "Downloaded" shelf: BookOrbit downloads plus this account's complete Litara offline copies. */
+    suspend fun downloadedEntries(labels: AutoBrowseTree.Labels): List<AutoBrowseTree.BrowseEntry> =
+        AutoBrowseTree.downloadedAudiobooks(downloads.downloads.first(), labels) +
+            runCatching { litara.downloaded() }.getOrDefault(emptyList()).mapNotNull { entry(it, labels) }
+
     suspend fun page(page: Int, labels: AutoBrowseTree.Labels, query: String? = null): Page {
         require(page >= 0)
         val term = query?.let { AutoSearch.normalize(it) }.orEmpty()

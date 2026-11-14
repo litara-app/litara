@@ -10,8 +10,11 @@ import dagger.hilt.android.AndroidEntryPoint
 /** Entry to the Litara-server flow (sign in, library, download, play). Not exported; opened from the app. */
 @AndroidEntryPoint
 class LitaraActivity : ComponentActivity() {
+    @javax.inject.Inject lateinit var repo: LitaraRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        repo.restartInto = LitaraActivity::class.java
         setContent { LitaraTheme { Surface { LitaraScreen() } } }
     }
 }

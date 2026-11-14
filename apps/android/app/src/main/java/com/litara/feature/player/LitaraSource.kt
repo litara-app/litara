@@ -25,6 +25,9 @@ interface LitaraSource {
     /** Playable (ready) recordings as cards, from the server or the account's cached list when offline. */
     suspend fun cards(): List<BookCard>
 
+    /** Recordings with a complete, unlocked offline copy on this device (works without a network). */
+    suspend fun downloaded(): List<BookCard>
+
     suspend fun playback(bookId: Int): LitaraPlayback?
 
     /** The server's canonical position (never a device-clock winner); null when unreachable or none. */
@@ -43,6 +46,7 @@ interface LitaraSource {
         override fun scopeKey() = ""
         override fun owns(id: Int) = false
         override suspend fun cards(): List<BookCard> = emptyList()
+        override suspend fun downloaded(): List<BookCard> = emptyList()
         override suspend fun playback(bookId: Int): LitaraPlayback? = null
         override suspend fun serverPosition(bookId: Int): AudioProgress? = null
         override suspend fun push(bookId: Int, fileId: Int, positionSeconds: Double) = true

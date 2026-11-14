@@ -66,7 +66,15 @@ class LitaraRepository @Inject constructor(
     @Volatile private var client: LitaraClient? = null
     @Volatile private var identity: LitaraIdentity? = null
 
-    init { restore() }
+    private val _signedInFlow = kotlinx.coroutines.flow.MutableStateFlow(false)
+
+    /** Observable sign-in state for the app gate (true while a usable Litara session exists). */
+    val signedInFlow: kotlinx.coroutines.flow.StateFlow<Boolean> = _signedInFlow
+
+    init { restore(); _signedInFlow.value = signedIn }
+
+    /** Call after a failure that may have ended the session (revoked refresh token). */
+    fun refreshSignedIn() { _signedInFlow.value = signedIn }
 
     val currentIdentity: LitaraIdentity? get() = identity
     val signedIn: Boolean get() = client != null && store.load() != null
@@ -87,6 +95,9 @@ class LitaraRepository @Inject constructor(
         }
     }
 
+    /** Screen to reopen after a scope change; null reopens the app's normal launcher (the Litara shell when signed in). */
+    @Volatile var restartInto: Class<*>? = null
+
     private fun scopeOf(id: LitaraIdentity) = AccountScope(id.serverId, id.user.id)
 
     /** Signs in. Only a new (server, account) pair gets its own directory; the same account finds its data again. */
@@ -103,13 +114,14 @@ class LitaraRepository @Inject constructor(
         identity = id
         client = probe
         offline.activate(scopeOf(id))
+        _signedInFlow.value = true
         restartOnScopeChange()
         return id
     }
 
     /** The Room database and downloads are per server+account; a different account needs the process to reopen them. */
     private fun restartOnScopeChange() {
-        if (session.dataScopeChanged()) com.litara.core.data.ProcessRestarter.restart(context, LitaraActivity::class.java)
+        if (session.dataScopeChanged()) com.litara.core.data.ProcessRestarter.restart(context, restartInto)
     }
 
     /** Logout locks the account's scope immediately; data is kept, not deleted. */
@@ -119,6 +131,7 @@ class LitaraRepository @Inject constructor(
         client = null
         runCatching { c?.logout() }
         store.signOutKeepIdentity()
+        _signedInFlow.value = false
         restartOnScopeChange()
     }
 
@@ -149,6 +162,24 @@ class LitaraRepository @Inject constructor(
         val t = token()
         val f = File(recDir(t, recordingId), "downloaded.json")
         return f.takeIf { it.exists() }?.let { runCatching { LitaraJson.decodeFromString<LRecording>(it.readText()) }.getOrNull() }
+    }
+
+    /** Every recording with a complete offline copy in the active account scope (no network needed). */
+    fun downloadedRecordings(): List<LRecording> {
+        val t = token()
+        val root = File(dir(t), "rec")
+        return root.listFiles { f -> f.isDirectory }.orEmpty().mapNotNull { d ->
+            if (File(d, "LOCKED").exists()) return@mapNotNull null
+            File(d, "downloaded.json").takeIf { it.exists() }?.let { runCatching { LitaraJson.decodeFromString<LRecording>(it.readText()) }.getOrNull() }
+        }.filter { snap -> snap.files.all { localFile(snap.id, it) != null } }
+    }
+
+    /** Removes the offline copy (bytes and snapshot). Positions waiting to upload stay. */
+    fun deleteDownload(recordingId: String) {
+        val t = token()
+        offline.publish(t) {
+            recDir(t, recordingId).listFiles()?.filter { it.name.endsWith(".bin") || it.name == "downloaded.json" }?.forEach { it.delete() }
+        }
     }
 
     fun isLocked(recordingId: String): Boolean = File(recDir(token(), recordingId), "LOCKED").exists()

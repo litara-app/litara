@@ -38,7 +38,13 @@ internal data class IdMap(val next: Int = HANDLE_BASE, val byUuid: Map<String, I
  * plus millisecond offset on the wire; whole-recording time comes from the ordered snapshot.
  */
 @Singleton
-class LitaraBackend @Inject constructor(private val repo: LitaraRepository) : LitaraSource {
+class LitaraBackend @Inject constructor(
+    private val repo: LitaraRepository,
+    imageUrls: com.litara.core.network.ImageUrls,
+    private val artwork: dagger.Lazy<com.litara.feature.player.AutoArtwork>,
+) : LitaraSource {
+    init { imageUrls.handleArtwork = { id -> if (owns(id)) artwork.get().uri(id).toString() else null } }
+
     private data class Cache(val scopeDir: String, var map: IdMap, val byHandle: MutableMap<Int, String>)
 
     @Volatile private var cache: Cache? = null
@@ -95,6 +101,16 @@ class LitaraBackend @Inject constructor(private val repo: LitaraRepository) : Li
             val h = handle(t, r.id)
             BookCard(h, r.title, r.authors, files = listOf(BookFileRef(h, "m4b", "primary", durationSeconds = r.durationMs?.div(1000.0))),
                 addedAt = "", narrators = r.narrators, hasCover = r.artwork?.thumbnailPath != null)
+        }
+    }
+
+    override suspend fun downloaded(): List<BookCard> {
+        val t = token() ?: return emptyList()
+        if (!repo.signedIn) return emptyList()
+        return repo.downloadedRecordings().map { r ->
+            val h = handle(t, r.id)
+            BookCard(h, r.title, r.authors, files = listOf(BookFileRef(h, "m4b", "primary", durationSeconds = r.durationMs?.div(1000.0))),
+                addedAt = "", narrators = r.narrators, hasCover = false)
         }
     }
 

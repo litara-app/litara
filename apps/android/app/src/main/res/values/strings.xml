@@ -511,4 +511,16 @@
     <string name="litara_status_update">update available (%1$s)</string>
     <string name="litara_status_access">access ended</string>
     <string name="litara_status_finished">finished</string>
+    <string name="litara_tab_library">Library</string>
+    <string name="litara_tab_downloads">Downloads</string>
+    <string name="litara_tab_account">Account</string>
+    <string name="litara_no_recordings">No recordings available to you yet.</string>
+    <string name="litara_no_downloads">Nothing is downloaded. Open a recording and choose Download to listen offline.</string>
+    <string name="litara_delete_download">Delete download</string>
+    <string name="litara_size_mb">%1$d MB</string>
+    <string name="litara_duration_min">%1$d min</string>
+    <string name="litara_account_server">Server: %1$s</string>
+    <string name="litara_account_note">Downloads stay on this device for this account and are locked when access ends.</string>
+    <string name="litara_chapters">Chapters</string>
+    <string name="litara_audio_only">Litara serves audiobooks only in this release; ebook reading arrives with a later server version.</string>
 </resources>
