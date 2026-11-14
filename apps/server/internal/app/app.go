@@ -41,6 +41,8 @@ type WorkerOptions struct {
 	Scanner     *ingest.Scanner
 	Importer    *importer.Service
 	ScanWorkers int
+	// Extractor enables durable comic page extraction. Nil leaves it off.
+	Extractor jobs.Extractor
 }
 
 func WorkerOptionsFrom(cfg *config.Config) WorkerOptions {
@@ -67,6 +69,10 @@ func NewWorkerClient(pool *pgxpool.Pool, insp jobs.Inspector, opts WorkerOptions
 		}
 		queues[jobs.QueueScan] = river.QueueConfig{MaxWorkers: n}
 		queues[jobs.QueueImport] = river.QueueConfig{MaxWorkers: 1}
+		if opts.Extractor != nil {
+			queues[jobs.QueueExtract] = river.QueueConfig{MaxWorkers: 2}
+			river.AddWorker(workers, &jobs.ExtractWorker{Extractor: opts.Extractor, Logger: log})
+		}
 		pe := &lateEnqueuer{}
 		river.AddWorker(workers, &jobs.ScanWorker{Scanner: opts.Scanner, Logger: log})
 		river.AddWorker(workers, &jobs.SchedulerWorker{Pool: pool, Enq: pe, Logger: log})
@@ -99,6 +105,10 @@ type lateEnqueuer struct{ client *river.Client[pgx.Tx] }
 
 func (l *lateEnqueuer) EnqueueScan(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 	return jobs.RiverEnqueuer{Client: l.client}.EnqueueScan(ctx, tx, id)
+}
+
+func (l *lateEnqueuer) EnqueueExtract(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+	return jobs.RiverEnqueuer{Client: l.client}.EnqueueExtract(ctx, tx, id)
 }
 
 func (l *lateEnqueuer) EnqueueImport(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {

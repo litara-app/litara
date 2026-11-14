@@ -120,3 +120,40 @@ SELECT t.id, t.title, t.authors, t.series_name,
                  FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
                  WHERE e.title_id = t.id), '{}')::text[] AS languages
 FROM titles t WHERE t.id = sqlc.arg(id);
+
+-- name: LockEdition :one
+SELECT * FROM editions WHERE id = $1 FOR UPDATE;
+
+-- name: BumpEdition :exec
+UPDATE editions SET revision = revision + 1 WHERE id = $1;
+
+-- name: SetEditionLanguage :exec
+UPDATE editions SET language = $2 WHERE id = $1;
+
+-- name: SetEditionTitle :exec
+UPDATE editions SET title_id = $2, link_state = 'confirmed' WHERE id = $1;
+
+-- name: ListEditionMetadataValues :many
+SELECT * FROM edition_metadata_values WHERE edition_id = $1 ORDER BY field, source;
+
+-- name: UpsertEditionMetadataValue :exec
+INSERT INTO edition_metadata_values (edition_id, field, source, value, protected_clear)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (edition_id, field, source) DO UPDATE SET value = EXCLUDED.value,
+    protected_clear = EXCLUDED.protected_clear, updated_at = now();
+
+-- name: DeleteEditionMetadataValue :execrows
+DELETE FROM edition_metadata_values WHERE edition_id = $1 AND field = $2 AND source = $3;
+
+-- name: CountTitleChildren :one
+SELECT ((SELECT count(*) FROM editions e WHERE e.title_id = $1) + (SELECT count(*) FROM recordings r WHERE r.title_id = $1))::bigint;
+
+-- name: TitleHeldInLibrary :one
+SELECT (EXISTS (SELECT 1 FROM editions e WHERE e.title_id = sqlc.arg(title_id) AND e.library_id = sqlc.arg(library_id))
+     OR EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = sqlc.arg(title_id) AND r.library_id = sqlc.arg(library_id)))::boolean;
+
+-- name: GetEditionFileName :one
+SELECT fv.filename FROM editions e JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current WHERE e.id = $1;
+
+-- name: InsertPlainTitle :exec
+INSERT INTO titles (id, title, authors, series_name, series_index) VALUES ($1, $2, $3, $4, $5);

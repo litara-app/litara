@@ -11,6 +11,15 @@ import (
 	"github.com/google/uuid"
 )
 
+const bumpEdition = `-- name: BumpEdition :exec
+UPDATE editions SET revision = revision + 1 WHERE id = $1
+`
+
+func (q *Queries) BumpEdition(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, bumpEdition, id)
+	return err
+}
+
 const countEditionsPage = `-- name: CountEditionsPage :one
 SELECT count(*)
 FROM editions e
@@ -30,6 +39,17 @@ func (q *Queries) CountEditionsPage(ctx context.Context, arg CountEditionsPagePa
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countTitleChildren = `-- name: CountTitleChildren :one
+SELECT ((SELECT count(*) FROM editions e WHERE e.title_id = $1) + (SELECT count(*) FROM recordings r WHERE r.title_id = $1))::bigint
+`
+
+func (q *Queries) CountTitleChildren(ctx context.Context, titleID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countTitleChildren, titleID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const countTitleRecordings = `-- name: CountTitleRecordings :one
@@ -82,6 +102,35 @@ func (q *Queries) CountTitlesPage(ctx context.Context, arg CountTitlesPageParams
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const deleteEditionMetadataValue = `-- name: DeleteEditionMetadataValue :execrows
+DELETE FROM edition_metadata_values WHERE edition_id = $1 AND field = $2 AND source = $3
+`
+
+type DeleteEditionMetadataValueParams struct {
+	EditionID uuid.UUID `json:"edition_id"`
+	Field     string    `json:"field"`
+	Source    string    `json:"source"`
+}
+
+func (q *Queries) DeleteEditionMetadataValue(ctx context.Context, arg DeleteEditionMetadataValueParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEditionMetadataValue, arg.EditionID, arg.Field, arg.Source)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getEditionFileName = `-- name: GetEditionFileName :one
+SELECT fv.filename FROM editions e JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current WHERE e.id = $1
+`
+
+func (q *Queries) GetEditionFileName(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getEditionFileName, id)
+	var filename string
+	err := row.Scan(&filename)
+	return filename, err
 }
 
 const getEditionRow = `-- name: GetEditionRow :one
@@ -241,6 +290,60 @@ func (q *Queries) InsertEditionTitle(ctx context.Context, arg InsertEditionTitle
 		arg.Identifier,
 	)
 	return err
+}
+
+const insertPlainTitle = `-- name: InsertPlainTitle :exec
+INSERT INTO titles (id, title, authors, series_name, series_index) VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertPlainTitleParams struct {
+	ID          uuid.UUID `json:"id"`
+	Title       string    `json:"title"`
+	Authors     []string  `json:"authors"`
+	SeriesName  *string   `json:"series_name"`
+	SeriesIndex *float64  `json:"series_index"`
+}
+
+func (q *Queries) InsertPlainTitle(ctx context.Context, arg InsertPlainTitleParams) error {
+	_, err := q.db.Exec(ctx, insertPlainTitle,
+		arg.ID,
+		arg.Title,
+		arg.Authors,
+		arg.SeriesName,
+		arg.SeriesIndex,
+	)
+	return err
+}
+
+const listEditionMetadataValues = `-- name: ListEditionMetadataValues :many
+SELECT edition_id, field, source, value, protected_clear, updated_at FROM edition_metadata_values WHERE edition_id = $1 ORDER BY field, source
+`
+
+func (q *Queries) ListEditionMetadataValues(ctx context.Context, editionID uuid.UUID) ([]EditionMetadataValue, error) {
+	rows, err := q.db.Query(ctx, listEditionMetadataValues, editionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EditionMetadataValue
+	for rows.Next() {
+		var i EditionMetadataValue
+		if err := rows.Scan(
+			&i.EditionID,
+			&i.Field,
+			&i.Source,
+			&i.Value,
+			&i.ProtectedClear,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listEditionsPage = `-- name: ListEditionsPage :many
@@ -568,6 +671,56 @@ func (q *Queries) ListUneditionedEbookFiles(ctx context.Context, libraryID uuid.
 	return items, nil
 }
 
+const lockEdition = `-- name: LockEdition :one
+SELECT id, title_id, library_id, file_id, revision, label, language, format, link_state, created_at FROM editions WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockEdition(ctx context.Context, id uuid.UUID) (Edition, error) {
+	row := q.db.QueryRow(ctx, lockEdition, id)
+	var i Edition
+	err := row.Scan(
+		&i.ID,
+		&i.TitleID,
+		&i.LibraryID,
+		&i.FileID,
+		&i.Revision,
+		&i.Label,
+		&i.Language,
+		&i.Format,
+		&i.LinkState,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const setEditionLanguage = `-- name: SetEditionLanguage :exec
+UPDATE editions SET language = $2 WHERE id = $1
+`
+
+type SetEditionLanguageParams struct {
+	ID       uuid.UUID `json:"id"`
+	Language *string   `json:"language"`
+}
+
+func (q *Queries) SetEditionLanguage(ctx context.Context, arg SetEditionLanguageParams) error {
+	_, err := q.db.Exec(ctx, setEditionLanguage, arg.ID, arg.Language)
+	return err
+}
+
+const setEditionTitle = `-- name: SetEditionTitle :exec
+UPDATE editions SET title_id = $2, link_state = 'confirmed' WHERE id = $1
+`
+
+type SetEditionTitleParams struct {
+	ID      uuid.UUID `json:"id"`
+	TitleID uuid.UUID `json:"title_id"`
+}
+
+func (q *Queries) SetEditionTitle(ctx context.Context, arg SetEditionTitleParams) error {
+	_, err := q.db.Exec(ctx, setEditionTitle, arg.ID, arg.TitleID)
+	return err
+}
+
 const titleExists = `-- name: TitleExists :one
 SELECT EXISTS (SELECT 1 FROM titles WHERE id = $1)
 `
@@ -577,6 +730,49 @@ func (q *Queries) TitleExists(ctx context.Context, id uuid.UUID) (bool, error) {
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const titleHeldInLibrary = `-- name: TitleHeldInLibrary :one
+SELECT (EXISTS (SELECT 1 FROM editions e WHERE e.title_id = $1 AND e.library_id = $2)
+     OR EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = $1 AND r.library_id = $2))::boolean
+`
+
+type TitleHeldInLibraryParams struct {
+	TitleID   uuid.UUID `json:"title_id"`
+	LibraryID uuid.UUID `json:"library_id"`
+}
+
+func (q *Queries) TitleHeldInLibrary(ctx context.Context, arg TitleHeldInLibraryParams) (bool, error) {
+	row := q.db.QueryRow(ctx, titleHeldInLibrary, arg.TitleID, arg.LibraryID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const upsertEditionMetadataValue = `-- name: UpsertEditionMetadataValue :exec
+INSERT INTO edition_metadata_values (edition_id, field, source, value, protected_clear)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (edition_id, field, source) DO UPDATE SET value = EXCLUDED.value,
+    protected_clear = EXCLUDED.protected_clear, updated_at = now()
+`
+
+type UpsertEditionMetadataValueParams struct {
+	EditionID      uuid.UUID `json:"edition_id"`
+	Field          string    `json:"field"`
+	Source         string    `json:"source"`
+	Value          []byte    `json:"value"`
+	ProtectedClear bool      `json:"protected_clear"`
+}
+
+func (q *Queries) UpsertEditionMetadataValue(ctx context.Context, arg UpsertEditionMetadataValueParams) error {
+	_, err := q.db.Exec(ctx, upsertEditionMetadataValue,
+		arg.EditionID,
+		arg.Field,
+		arg.Source,
+		arg.Value,
+		arg.ProtectedClear,
+	)
+	return err
 }
 
 const userHasLibraryGrant = `-- name: UserHasLibraryGrant :one

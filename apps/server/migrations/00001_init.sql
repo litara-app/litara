@@ -616,7 +616,42 @@ CREATE TABLE shelf_titles (
 );
 CREATE INDEX shelf_titles_order_idx ON shelf_titles (shelf_id, position, title_id);
 
+-- T005 per-edition metadata sources (ADR-0065). Protected user edits/clears outrank
+-- sidecar, embedded and provider values; the file name is a computed lowest fallback.
+CREATE TABLE edition_metadata_values (
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    field           text NOT NULL CHECK (field IN ('title', 'authors', 'series_name', 'series_index', 'language', 'tags')),
+    source          text NOT NULL CHECK (source IN ('user', 'sidecar', 'embedded', 'provider')),
+    value           jsonb,
+    protected_clear boolean NOT NULL DEFAULT false,
+    updated_at      timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (edition_id, field, source),
+    CHECK (source = 'user' OR NOT protected_clear)
+);
+
+-- T005 comic page extraction (ADR-0067): one durable job and manifest per file
+-- version and extraction profile. Cache files live outside the library roots;
+-- paths are derived from the row ID and never exposed.
+CREATE TABLE comic_extractions (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    file_id          uuid NOT NULL REFERENCES media_files (id),
+    content_version  uuid NOT NULL,
+    profile          text NOT NULL,
+    status           text NOT NULL CHECK (status IN ('processing', 'ready', 'incomplete', 'unsupported')),
+    manifest_version uuid NOT NULL DEFAULT gen_random_uuid(),
+    pages            jsonb NOT NULL DEFAULT '[]',
+    issues           jsonb NOT NULL DEFAULT '[]',
+    cache_bytes      bigint NOT NULL DEFAULT 0 CHECK (cache_bytes >= 0),
+    reserved_bytes   bigint NOT NULL DEFAULT 0 CHECK (reserved_bytes >= 0),
+    created_at       timestamptz NOT NULL DEFAULT now(),
+    updated_at       timestamptz NOT NULL DEFAULT now(),
+    last_used_at     timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (file_id, content_version, profile)
+);
+
 -- +goose Down
+DROP TABLE comic_extractions;
+DROP TABLE edition_metadata_values;
 DROP TABLE shelf_titles;
 DROP TABLE shelves;
 DROP TABLE annotations;

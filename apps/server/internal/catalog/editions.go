@@ -62,7 +62,7 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 	case "mobi", "azw", "azw3":
 		read = incomplete("format_untested", "Foliate recognizes this format but no fixture has been verified in a browser.")
 	case "cbr", "cb7":
-		read = incomplete("page_extraction_pending", "Server-side page extraction for this archive type is not implemented yet.")
+		read = incomplete("archive_library_not_approved", "Server-side page extraction for this archive type needs a vetted Go archive library that is not approved yet.")
 	}
 	if !available && read.State == "supported" {
 		read = incomplete("file_unavailable", "The file is currently missing or unavailable.")
@@ -209,4 +209,37 @@ func (s *Service) AuthorizeEdition(ctx context.Context, userID, id uuid.UUID) (s
 func (s *Service) TitleVisible(ctx context.Context, userID, id uuid.UUID) error {
 	_, err := s.Title(ctx, userID, id)
 	return err
+}
+
+// EditionTx renders an edition through q so a writer sees its own uncommitted
+// change. The caller has already authorized the edition for userID.
+func (s *Service) EditionTx(ctx context.Context, q *sqlcgen.Queries, userID, id uuid.UUID) (wire.T005Edition, error) {
+	r, err := q.GetEditionRow(ctx, id)
+	if err != nil {
+		return wire.T005Edition{}, unavailable(err)
+	}
+	out := s.editionWire(r)
+	out.Completion, err = s.CompletionStateTx(ctx, q, userID, id)
+	return out, err
+}
+
+// Base is the API base path (for building self links).
+func (s *Service) Base() string { return s.apiBase }
+
+// ComicFormat resolves a file the caller may read to its comic edition format.
+// Authorization (404/403/412 order) is ResolveFile's; a file that is not a
+// comic container is refused with 422.
+func (s *Service) ComicFormat(ctx context.Context, userID, fileID, version uuid.UUID) (FileTarget, string, error) {
+	t, err := s.ResolveFile(ctx, userID, fileID, version)
+	if err != nil {
+		return t, "", err
+	}
+	format, err := s.q.FirstGrantedEditionFormat(ctx, sqlcgen.FirstGrantedEditionFormatParams{FileID: fileID, UserID: userID})
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && format != "cbz" && format != "cbr" && format != "cb7") {
+		return t, "", apperr.Validation("This file is not a comic archive.")
+	}
+	if err != nil {
+		return t, "", unavailable(err)
+	}
+	return t, format, nil
 }

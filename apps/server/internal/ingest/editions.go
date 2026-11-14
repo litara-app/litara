@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"context"
+	"encoding/json"
 	"path"
 	"strings"
 
@@ -124,6 +125,38 @@ func (s *Scanner) insertEdition(ctx context.Context, q *sqlcgen.Queries, lib, fi
 	if m.Language != "" {
 		lang = &m.Language
 	}
-	return q.InsertEdition(ctx, sqlcgen.InsertEditionParams{ID: uuid.New(), TitleID: titleID, LibraryID: lib, FileID: fileID,
-		Label: strings.ToUpper(format), Language: lang, Format: format, LinkState: link})
+	edID := uuid.New()
+	if err := q.InsertEdition(ctx, sqlcgen.InsertEditionParams{ID: edID, TitleID: titleID, LibraryID: lib, FileID: fileID,
+		Label: strings.ToUpper(format), Language: lang, Format: format, LinkState: link}); err != nil {
+		return err
+	}
+	if m.Source != "embedded" {
+		return nil // the file name is a computed fallback, never stored as embedded evidence
+	}
+	emb := map[string]any{}
+	if m.Title != "" {
+		emb["title"] = m.Title
+	}
+	if len(m.Authors) > 0 {
+		emb["authors"] = m.Authors
+	}
+	if m.Series != "" {
+		emb["series_name"] = m.Series
+	}
+	if m.SeriesIndex != nil {
+		emb["series_index"] = *m.SeriesIndex
+	}
+	if m.Language != "" {
+		emb["language"] = m.Language
+	}
+	for f, v := range emb {
+		raw, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		if err := q.UpsertEditionMetadataValue(ctx, sqlcgen.UpsertEditionMetadataValueParams{EditionID: edID, Field: f, Source: "embedded", Value: raw}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -45,6 +45,22 @@ type ChapterSource struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+type ComicExtraction struct {
+	ID              uuid.UUID `json:"id"`
+	FileID          uuid.UUID `json:"file_id"`
+	ContentVersion  uuid.UUID `json:"content_version"`
+	Profile         string    `json:"profile"`
+	Status          string    `json:"status"`
+	ManifestVersion uuid.UUID `json:"manifest_version"`
+	Pages           []byte    `json:"pages"`
+	Issues          []byte    `json:"issues"`
+	CacheBytes      int64     `json:"cache_bytes"`
+	ReservedBytes   int64     `json:"reserved_bytes"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	LastUsedAt      time.Time `json:"last_used_at"`
+}
+
 type CompletionHistory struct {
 	Seq         *int64    `json:"seq"`
 	ID          uuid.UUID `json:"id"`
@@ -113,6 +129,15 @@ type EditionHistory struct {
 	OperationID    uuid.UUID `json:"operation_id"`
 	CapturedAt     time.Time `json:"captured_at"`
 	ReceivedAt     time.Time `json:"received_at"`
+}
+
+type EditionMetadataValue struct {
+	EditionID      uuid.UUID `json:"edition_id"`
+	Field          string    `json:"field"`
+	Source         string    `json:"source"`
+	Value          []byte    `json:"value"`
+	ProtectedClear bool      `json:"protected_clear"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type EditionPositionEvidence struct {

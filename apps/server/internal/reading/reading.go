@@ -33,6 +33,8 @@ type Service struct {
 	q    *sqlcgen.Queries
 	cat  *catalog.Service
 	now  func() time.Time
+	// comics is nil until EnableComics.
+	comics *comicState
 }
 
 func New(pool *pgxpool.Pool, cat *catalog.Service, clock func() time.Time) *Service {
@@ -147,6 +149,14 @@ type work func(q *sqlcgen.Queries) (body []byte, durable *apperr.Error, err erro
 // run executes one mutation with per-user idempotent-receipt semantics.
 func (s *Service) run(ctx context.Context, a Actor, op uuid.UUID, fp []byte,
 	lock func(q *sqlcgen.Queries) error, w work) ([]byte, error) {
+	return s.runTx(ctx, a, op, fp, lock, func(_ pgx.Tx, q *sqlcgen.Queries) ([]byte, *apperr.Error, error) { return w(q) })
+}
+
+// txWork is work that also needs the transaction (for example to insert a job).
+type txWork func(tx pgx.Tx, q *sqlcgen.Queries) (body []byte, durable *apperr.Error, err error)
+
+func (s *Service) runTx(ctx context.Context, a Actor, op uuid.UUID, fp []byte,
+	lock func(q *sqlcgen.Queries) error, w txWork) ([]byte, error) {
 	var replay *sqlcgen.T005Receipt
 	var body []byte
 	var durable *apperr.Error
@@ -165,7 +175,7 @@ func (s *Service) run(ctx context.Context, a Actor, op uuid.UUID, fp []byte,
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		b, d, err := w(q)
+		b, d, err := w(tx, q)
 		if err != nil {
 			return err
 		}

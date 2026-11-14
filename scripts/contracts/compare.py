@@ -33,7 +33,9 @@ IMPLEMENTED_T005 = {'listTitles', 'getTitle', 'listTitleRecordings', 'listEditio
                     'getReadingHistory', 'listPersonalConflicts', 'resolvePersonalConflict',
                     'listAnnotations', 'getAnnotation', 'putAnnotation', 'deleteAnnotation',
                     'listShelves', 'getShelf', 'putShelf', 'deleteShelf', 'getShelfTitles', 'addShelfTitle', 'removeShelfTitle',
-                    'orderShelfTitles'}
+                    'orderShelfTitles',
+                    'linkEditionTitle', 'getEditionMetadata', 'setEditionMetadata', 'removeEditionMetadata',
+                    'getComicPages', 'prepareComicPages', 'getComicPage', 'headComicPage'}
 PENDING_T005 = []
 _t5 = ROOT / 'contracts' / 't005' / 'openapi.json'
 if _t5.exists():

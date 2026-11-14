@@ -54,6 +54,9 @@ type Config struct {
 	// WebDir is a built web application directory served by the Go process.
 	// Empty disables static serving.
 	WebDir string
+	// CacheDir holds regenerable derived files such as extracted comic pages. It
+	// must not be inside a library root. Empty selects the OS user cache directory.
+	CacheDir string
 	// ReaderAddr is the separate listener for reader assets (ADR-0071);
 	// PublicOrigin and ReaderOrigin are the browser-visible origins, which must
 	// differ by hostname. All three are required when WebDir is set.
@@ -134,6 +137,7 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		GoogleBooksAPIKey:  get("GOOGLE_BOOKS_API_KEY", ""),
 		ScanWorkers:        getInt("SCAN_WORKERS", 2),
 		WebDir:             get("WEB_DIR", ""),
+		CacheDir:           get("CACHE_DIR", ""),
 		ReaderAddr:         get("READER_ADDR", ""),
 		PublicOrigin:       strings.TrimRight(get("PUBLIC_ORIGIN", ""), "/"),
 		ReaderOrigin:       strings.TrimRight(get("READER_ORIGIN", ""), "/"),

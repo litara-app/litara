@@ -19,6 +19,7 @@ import (
 
 	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
+	"github.com/deranjer/ebooker/apps/server/internal/comics"
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
 	"github.com/deranjer/ebooker/apps/server/internal/importer"
@@ -54,11 +55,12 @@ func (c *Clock) Advance(d time.Duration) {
 
 // Env is one isolated server + database + fixture.
 type Env struct {
-	T        *testing.T
-	Pool     *pgxpool.Pool
-	Server   *httptest.Server
+	T       *testing.T
+	Pool    *pgxpool.Pool
+	Server  *httptest.Server
+	Reading *reading.Service
 	// Handler is the full application handler (for serving it on another listener).
-	Handler http.Handler
+	Handler  http.Handler
 	Fix      *seed.Fixture
 	Accounts *accounts.Service
 	Catalog  *catalog.Service
@@ -81,6 +83,9 @@ type Options struct {
 	NoSeed bool
 	// Web is mounted at "/" for browser end-to-end runs.
 	Web http.Handler
+	// Comic extraction tuning for tests (zero values use the ADR defaults).
+	ComicLimits comics.Limits
+	ComicBudget int64
 }
 
 // New starts the environment; everything is closed at test cleanup.
@@ -117,7 +122,9 @@ func New(t *testing.T, opts ...Options) *Env {
 	meta := metadata.New(pool)
 	e.Writeback = &writeback.Service{Pool: pool, Inspector: t4insp, Scanner: e.Scanner, Metadata: meta, Writers: map[string]writeback.Writer{}, Now: clock.Now}
 	e.Queue = &Queue{}
-	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: reading.New(pool, cat, clock.Now), Library: library.New(pool), Config: o.Cfg,
+	e.Reading = reading.New(pool, cat, clock.Now)
+	e.Reading.EnableComics(reading.ComicOptions{MediaRoot: o.Cfg.MediaRoot, CacheDir: t.TempDir(), Limits: o.ComicLimits, CacheBudget: o.ComicBudget, Enqueuer: e.Queue})
+	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: e.Reading, Library: library.New(pool), Config: o.Cfg,
 		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback}})
 	e.Handler = h
 	e.Server = httptest.NewServer(h)
@@ -222,15 +229,23 @@ func (e *Env) AddSparseRecording(ctx context.Context, library uuid.UUID, path st
 // Queue records job wake-ups instead of running River, so tests choose when
 // queued work executes (and can run it after the request transaction commits).
 type Queue struct {
-	mu      sync.Mutex
-	Scans   []uuid.UUID
-	Imports []uuid.UUID
+	mu       sync.Mutex
+	Scans    []uuid.UUID
+	Imports  []uuid.UUID
+	Extracts []uuid.UUID
 }
 
 func (q *Queue) EnqueueScan(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.Scans = append(q.Scans, id)
+	return nil
+}
+
+func (q *Queue) EnqueueExtract(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.Extracts = append(q.Extracts, id)
 	return nil
 }
 
@@ -245,12 +260,17 @@ func (q *Queue) EnqueueImport(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
 func (e *Env) RunQueued() {
 	e.T.Helper()
 	e.Queue.mu.Lock()
-	scans, imports := e.Queue.Scans, e.Queue.Imports
-	e.Queue.Scans, e.Queue.Imports = nil, nil
+	scans, imports, extracts := e.Queue.Scans, e.Queue.Imports, e.Queue.Extracts
+	e.Queue.Scans, e.Queue.Imports, e.Queue.Extracts = nil, nil, nil
 	e.Queue.mu.Unlock()
 	for _, id := range scans {
 		if _, err := e.Scanner.Run(context.Background(), id); err != nil {
 			e.T.Fatalf("scan %s: %v", id, err)
+		}
+	}
+	for _, id := range extracts {
+		if err := e.Reading.RunExtraction(context.Background(), id); err != nil {
+			e.T.Fatalf("extract %s: %v", id, err)
 		}
 	}
 	for _, id := range imports {

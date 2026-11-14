@@ -137,8 +137,12 @@ func (b *builder) predicate(p wire.T005Predicate) string {
 	case "language":
 		return "EXISTS (" + grantedEditions + " AND e.language IS NOT NULL AND " + b.cmp("e.language", p) + ")"
 	case "tag":
-		return `EXISTS (SELECT 1 FROM metadata_values mv, jsonb_array_elements_text(CASE WHEN jsonb_typeof(mv.value) = 'array' THEN mv.value ELSE '[]'::jsonb END) AS tg(v)
-		        WHERE mv.subject_kind = 'title' AND mv.subject_id = t.id AND mv.field = 'tags' AND NOT mv.protected_clear AND ` + b.cmp("tg.v", p) + ")"
+		return `(EXISTS (SELECT 1 FROM metadata_values mv, jsonb_array_elements_text(CASE WHEN jsonb_typeof(mv.value) = 'array' THEN mv.value ELSE '[]'::jsonb END) AS tg(v)
+		        WHERE mv.subject_kind = 'title' AND mv.subject_id = t.id AND mv.field = 'tags' AND NOT mv.protected_clear AND ` + b.cmp("tg.v", p) + `)
+		   OR EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
+		        JOIN edition_metadata_values ev ON ev.edition_id = e.id AND ev.field = 'tags' AND NOT ev.protected_clear,
+		        jsonb_array_elements_text(CASE WHEN jsonb_typeof(ev.value) = 'array' THEN ev.value ELSE '[]'::jsonb END) AS et(v)
+		        WHERE e.title_id = t.id AND ` + b.cmp("et.v", p) + "))"
 	case "mediaKind":
 		if fold(p.Value) == "ebook" {
 			return "EXISTS (" + grantedEditions + ")"

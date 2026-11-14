@@ -57,7 +57,9 @@ func TestValidateFilterBounds(t *testing.T) {
 	p := func(field, op, v string) wire.T005Filter {
 		return wire.T005Filter{Predicate: &wire.T005Predicate{Kind: "predicate", Field: field, Operator: op, Value: v}}
 	}
-	not := func(f wire.T005Filter) wire.T005Filter { return wire.T005Filter{Not: &wire.T005FilterNot{Kind: "not", Child: f}} }
+	not := func(f wire.T005Filter) wire.T005Filter {
+		return wire.T005Filter{Not: &wire.T005FilterNot{Kind: "not", Child: f}}
+	}
 	group := func(fs ...wire.T005Filter) wire.T005Filter {
 		return wire.T005Filter{Group: &wire.T005FilterGroup{Kind: "all", Children: fs}}
 	}
