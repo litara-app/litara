@@ -16,6 +16,7 @@ import (
 
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 )
 
 // Inspector is the subset of inspect.Inspector the scanner needs.
@@ -335,6 +336,9 @@ func (s *Scanner) reconcile(ctx context.Context, run sqlcgen.ScanRun) (Outcome, 
 		}
 		if err := s.Associate(ctx, run.LibraryID, listing); err != nil {
 			return out, fmt.Errorf("associate: %w", err)
+		}
+		if err := metadata.New(s.Pool).Refresh(ctx, run.LibraryID); err != nil {
+			return out, fmt.Errorf("metadata: %w", err)
 		}
 	}
 	return out, nil

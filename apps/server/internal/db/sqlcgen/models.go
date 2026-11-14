@@ -226,6 +226,14 @@ type PositionState struct {
 	DeviceName     *string       `json:"device_name"`
 }
 
+type ProviderLookup struct {
+	RecordingID uuid.UUID `json:"recording_id"`
+	Provider    string    `json:"provider"`
+	Outcome     string    `json:"outcome"`
+	Detail      *string   `json:"detail"`
+	LookedUpAt  time.Time `json:"looked_up_at"`
+}
+
 type Recording struct {
 	ID               uuid.UUID `json:"id"`
 	TitleID          uuid.UUID `json:"title_id"`
