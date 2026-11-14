@@ -32,3 +32,6 @@ SELECT o.file_id, fp.sha256 FROM fingerprints fp
 JOIN file_versions v ON v.content_version = fp.content_version AND v.current
 JOIN file_observations o ON o.file_id = v.file_id
 WHERE o.library_id = $1 AND fp.sha256 = ANY(sqlc.arg(hashes)::text[]);
+
+-- name: GetImportPlanFor :one
+SELECT * FROM import_plans WHERE id = $1 AND library_id = $2;

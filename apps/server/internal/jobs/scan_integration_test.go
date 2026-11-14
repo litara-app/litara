@@ -111,13 +111,17 @@ func TestSchedulerStartsOnlyDueLibraries(t *testing.T) {
 	if len(due) != 1 || due[0] != a {
 		t.Fatalf("due scans: %v", due)
 	}
-	// Later than one interval, B is due again; verification is due for A only.
+	// Later than one interval, B is due again; a library never scanned is scanned, not verified.
 	due, _ = q.ListDueLibraries(ctx, now.Add(16*time.Minute))
 	if len(due) != 2 {
 		t.Fatalf("after interval: %v", due)
 	}
 	dv, _ := q.ListDueVerification(ctx, now)
-	if len(dv) != 1 || dv[0] != a {
-		t.Fatalf("due verification: %v", dv)
+	if len(dv) != 0 {
+		t.Fatalf("nothing is due for verification a minute after the first scan: %v", dv)
+	}
+	dv, _ = q.ListDueVerification(ctx, now.Add(25*time.Hour))
+	if len(dv) != 1 || dv[0] != b {
+		t.Fatalf("only the library that has been scanned is verified a day later: %v", dv)
 	}
 }

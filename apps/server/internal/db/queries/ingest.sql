@@ -118,13 +118,13 @@ INSERT INTO root_health (library_id, state, detail, checked_at) VALUES ($1, $2, 
 ON CONFLICT (library_id) DO UPDATE SET state = EXCLUDED.state, detail = EXCLUDED.detail, checked_at = EXCLUDED.checked_at;
 
 -- name: ListDueVerification :many
+-- A library is verified one interval after its last verification, or after its first scan if it never was.
 SELECT c.library_id FROM library_config c
-WHERE NOT EXISTS (
-    SELECT 1 FROM scan_runs r
-    WHERE r.library_id = c.library_id
-      AND (r.state IN ('queued', 'running')
-           OR (r.trigger = 'verify' AND r.created_at > sqlc.arg(now)::timestamptz - make_interval(secs => c.verify_interval_secs)))
-);
+WHERE NOT EXISTS (SELECT 1 FROM scan_runs r WHERE r.library_id = c.library_id AND r.state IN ('queued', 'running'))
+  AND EXISTS (SELECT 1 FROM scan_runs r WHERE r.library_id = c.library_id)
+  AND COALESCE((SELECT max(r.created_at) FROM scan_runs r WHERE r.library_id = c.library_id AND r.trigger = 'verify'),
+               (SELECT min(r.created_at) FROM scan_runs r WHERE r.library_id = c.library_id))
+      <= sqlc.arg(now)::timestamptz - make_interval(secs => c.verify_interval_secs);
 
 -- name: ListUngroupedAudio :many
 SELECT o.file_id, v.content_version, o.rel_path, v.duration_ms, fm.result
@@ -175,3 +175,38 @@ ON CONFLICT (library_id, rel_path) DO UPDATE SET kind = EXCLUDED.kind, recording
 
 -- name: ListAssociations :many
 SELECT * FROM associations WHERE library_id = $1 ORDER BY rel_path;
+
+-- name: GetReviewItem :one
+SELECT * FROM review_items WHERE id = $1;
+
+-- name: ResolveReviewItem :one
+UPDATE review_items SET state = 'resolved', resolution = $2, resolved_by = $3, resolved_at = sqlc.arg(now)::timestamptz
+WHERE id = $1 AND state = 'open' RETURNING *;
+
+-- name: HasKeepSeparate :one
+SELECT EXISTS (SELECT 1 FROM review_items WHERE library_id = $1 AND kind = 'move' AND subject_key = $2
+               AND state = 'resolved' AND resolution->>'keepSeparate' = 'true');
+
+-- name: SetRecordingTitle :exec
+UPDATE recordings SET title_id = $2, link_state = 'confirmed' WHERE id = $1;
+
+-- name: ConfirmRecordingLink :exec
+UPDATE recordings SET link_state = 'confirmed' WHERE id = $1;
+
+-- name: DeleteTitleIfUnused :exec
+DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = t.id);
+
+-- name: SetAssociationState :exec
+UPDATE associations SET state = $3, detail = $4, recording_id = $5 WHERE library_id = $1 AND rel_path = $2;
+
+-- name: GetResolvedChoice :one
+SELECT COALESCE(resolution->>'path', '')::text FROM review_items
+WHERE library_id = $1 AND kind = 'association' AND subject_key = $2 AND state = 'resolved'
+ORDER BY resolved_at DESC LIMIT 1;
+
+-- name: RecordResolution :one
+UPDATE review_items SET resolution = $2, resolved_by = $3, resolved_at = sqlc.arg(now)::timestamptz
+WHERE id = $1 AND state = 'resolved' AND resolution->>'auto' = 'true' RETURNING *;
+
+-- name: ListScanRuns :many
+SELECT * FROM scan_runs WHERE library_id = $1 ORDER BY created_at DESC, id LIMIT 20;

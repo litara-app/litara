@@ -53,6 +53,15 @@ func (q *Queries) CloseReviewByKey(ctx context.Context, arg CloseReviewByKeyPara
 	return err
 }
 
+const confirmRecordingLink = `-- name: ConfirmRecordingLink :exec
+UPDATE recordings SET link_state = 'confirmed' WHERE id = $1
+`
+
+func (q *Queries) ConfirmRecordingLink(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, confirmRecordingLink, id)
+	return err
+}
+
 const createScanRun = `-- name: CreateScanRun :one
 INSERT INTO scan_runs (library_id, trigger) VALUES ($1, $2)
 ON CONFLICT (library_id) WHERE state IN ('queued', 'running') DO NOTHING
@@ -107,6 +116,15 @@ type DeleteCandidatesNotInParams struct {
 
 func (q *Queries) DeleteCandidatesNotIn(ctx context.Context, arg DeleteCandidatesNotInParams) error {
 	_, err := q.db.Exec(ctx, deleteCandidatesNotIn, arg.LibraryID, arg.Paths)
+	return err
+}
+
+const deleteTitleIfUnused = `-- name: DeleteTitleIfUnused :exec
+DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = t.id)
+`
+
+func (q *Queries) DeleteTitleIfUnused(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteTitleIfUnused, id)
 	return err
 }
 
@@ -166,6 +184,46 @@ func (q *Queries) GetRecordingByGroupKey(ctx context.Context, arg GetRecordingBy
 	return i, err
 }
 
+const getResolvedChoice = `-- name: GetResolvedChoice :one
+SELECT COALESCE(resolution->>'path', '')::text FROM review_items
+WHERE library_id = $1 AND kind = 'association' AND subject_key = $2 AND state = 'resolved'
+ORDER BY resolved_at DESC LIMIT 1
+`
+
+type GetResolvedChoiceParams struct {
+	LibraryID  uuid.UUID `json:"library_id"`
+	SubjectKey string    `json:"subject_key"`
+}
+
+func (q *Queries) GetResolvedChoice(ctx context.Context, arg GetResolvedChoiceParams) (string, error) {
+	row := q.db.QueryRow(ctx, getResolvedChoice, arg.LibraryID, arg.SubjectKey)
+	var column_1 string
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const getReviewItem = `-- name: GetReviewItem :one
+SELECT id, library_id, kind, subject_key, state, candidates, resolution, resolved_by, created_at, resolved_at FROM review_items WHERE id = $1
+`
+
+func (q *Queries) GetReviewItem(ctx context.Context, id uuid.UUID) (ReviewItem, error) {
+	row := q.db.QueryRow(ctx, getReviewItem, id)
+	var i ReviewItem
+	err := row.Scan(
+		&i.ID,
+		&i.LibraryID,
+		&i.Kind,
+		&i.SubjectKey,
+		&i.State,
+		&i.Candidates,
+		&i.Resolution,
+		&i.ResolvedBy,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+	)
+	return i, err
+}
+
 const getScanRun = `-- name: GetScanRun :one
 SELECT id, library_id, trigger, state, health, files_seen, created_at, started_at, completed_at, failure FROM scan_runs WHERE id = $1
 `
@@ -186,6 +244,23 @@ func (q *Queries) GetScanRun(ctx context.Context, id uuid.UUID) (ScanRun, error)
 		&i.Failure,
 	)
 	return i, err
+}
+
+const hasKeepSeparate = `-- name: HasKeepSeparate :one
+SELECT EXISTS (SELECT 1 FROM review_items WHERE library_id = $1 AND kind = 'move' AND subject_key = $2
+               AND state = 'resolved' AND resolution->>'keepSeparate' = 'true')
+`
+
+type HasKeepSeparateParams struct {
+	LibraryID  uuid.UUID `json:"library_id"`
+	SubjectKey string    `json:"subject_key"`
+}
+
+func (q *Queries) HasKeepSeparate(ctx context.Context, arg HasKeepSeparateParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasKeepSeparate, arg.LibraryID, arg.SubjectKey)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const insertFileMetadata = `-- name: InsertFileMetadata :exec
@@ -440,14 +515,14 @@ func (q *Queries) ListDueLibraries(ctx context.Context, now time.Time) ([]uuid.U
 
 const listDueVerification = `-- name: ListDueVerification :many
 SELECT c.library_id FROM library_config c
-WHERE NOT EXISTS (
-    SELECT 1 FROM scan_runs r
-    WHERE r.library_id = c.library_id
-      AND (r.state IN ('queued', 'running')
-           OR (r.trigger = 'verify' AND r.created_at > $1::timestamptz - make_interval(secs => c.verify_interval_secs)))
-)
+WHERE NOT EXISTS (SELECT 1 FROM scan_runs r WHERE r.library_id = c.library_id AND r.state IN ('queued', 'running'))
+  AND EXISTS (SELECT 1 FROM scan_runs r WHERE r.library_id = c.library_id)
+  AND COALESCE((SELECT max(r.created_at) FROM scan_runs r WHERE r.library_id = c.library_id AND r.trigger = 'verify'),
+               (SELECT min(r.created_at) FROM scan_runs r WHERE r.library_id = c.library_id))
+      <= $1::timestamptz - make_interval(secs => c.verify_interval_secs)
 `
 
+// A library is verified one interval after its last verification, or after its first scan if it never was.
 func (q *Queries) ListDueVerification(ctx context.Context, now time.Time) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listDueVerification, now)
 	if err != nil {
@@ -683,6 +758,41 @@ func (q *Queries) ListRecordingMembers(ctx context.Context, recordingIds []uuid.
 	return items, nil
 }
 
+const listScanRuns = `-- name: ListScanRuns :many
+SELECT id, library_id, trigger, state, health, files_seen, created_at, started_at, completed_at, failure FROM scan_runs WHERE library_id = $1 ORDER BY created_at DESC, id LIMIT 20
+`
+
+func (q *Queries) ListScanRuns(ctx context.Context, libraryID uuid.UUID) ([]ScanRun, error) {
+	rows, err := q.db.Query(ctx, listScanRuns, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ScanRun
+	for rows.Next() {
+		var i ScanRun
+		if err := rows.Scan(
+			&i.ID,
+			&i.LibraryID,
+			&i.Trigger,
+			&i.State,
+			&i.Health,
+			&i.FilesSeen,
+			&i.CreatedAt,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.Failure,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUngroupedAudio = `-- name: ListUngroupedAudio :many
 SELECT o.file_id, v.content_version, o.rel_path, v.duration_ms, fm.result
 FROM file_observations o
@@ -765,12 +875,105 @@ func (q *Queries) MarkScanRunning(ctx context.Context, arg MarkScanRunningParams
 	return i, err
 }
 
+const recordResolution = `-- name: RecordResolution :one
+UPDATE review_items SET resolution = $2, resolved_by = $3, resolved_at = $4::timestamptz
+WHERE id = $1 AND state = 'resolved' AND resolution->>'auto' = 'true' RETURNING id, library_id, kind, subject_key, state, candidates, resolution, resolved_by, created_at, resolved_at
+`
+
+type RecordResolutionParams struct {
+	ID         uuid.UUID     `json:"id"`
+	Resolution []byte        `json:"resolution"`
+	ResolvedBy uuid.NullUUID `json:"resolved_by"`
+	Now        time.Time     `json:"now"`
+}
+
+func (q *Queries) RecordResolution(ctx context.Context, arg RecordResolutionParams) (ReviewItem, error) {
+	row := q.db.QueryRow(ctx, recordResolution,
+		arg.ID,
+		arg.Resolution,
+		arg.ResolvedBy,
+		arg.Now,
+	)
+	var i ReviewItem
+	err := row.Scan(
+		&i.ID,
+		&i.LibraryID,
+		&i.Kind,
+		&i.SubjectKey,
+		&i.State,
+		&i.Candidates,
+		&i.Resolution,
+		&i.ResolvedBy,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+	)
+	return i, err
+}
+
+const resolveReviewItem = `-- name: ResolveReviewItem :one
+UPDATE review_items SET state = 'resolved', resolution = $2, resolved_by = $3, resolved_at = $4::timestamptz
+WHERE id = $1 AND state = 'open' RETURNING id, library_id, kind, subject_key, state, candidates, resolution, resolved_by, created_at, resolved_at
+`
+
+type ResolveReviewItemParams struct {
+	ID         uuid.UUID     `json:"id"`
+	Resolution []byte        `json:"resolution"`
+	ResolvedBy uuid.NullUUID `json:"resolved_by"`
+	Now        time.Time     `json:"now"`
+}
+
+func (q *Queries) ResolveReviewItem(ctx context.Context, arg ResolveReviewItemParams) (ReviewItem, error) {
+	row := q.db.QueryRow(ctx, resolveReviewItem,
+		arg.ID,
+		arg.Resolution,
+		arg.ResolvedBy,
+		arg.Now,
+	)
+	var i ReviewItem
+	err := row.Scan(
+		&i.ID,
+		&i.LibraryID,
+		&i.Kind,
+		&i.SubjectKey,
+		&i.State,
+		&i.Candidates,
+		&i.Resolution,
+		&i.ResolvedBy,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+	)
+	return i, err
+}
+
 const retireCurrentVersion = `-- name: RetireCurrentVersion :exec
 UPDATE file_versions SET current = false WHERE file_id = $1 AND current
 `
 
 func (q *Queries) RetireCurrentVersion(ctx context.Context, fileID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, retireCurrentVersion, fileID)
+	return err
+}
+
+const setAssociationState = `-- name: SetAssociationState :exec
+UPDATE associations SET state = $3, detail = $4, recording_id = $5 WHERE library_id = $1 AND rel_path = $2
+`
+
+type SetAssociationStateParams struct {
+	LibraryID   uuid.UUID     `json:"library_id"`
+	RelPath     string        `json:"rel_path"`
+	State       string        `json:"state"`
+	Detail      *string       `json:"detail"`
+	RecordingID uuid.NullUUID `json:"recording_id"`
+}
+
+func (q *Queries) SetAssociationState(ctx context.Context, arg SetAssociationStateParams) error {
+	_, err := q.db.Exec(ctx, setAssociationState,
+		arg.LibraryID,
+		arg.RelPath,
+		arg.State,
+		arg.Detail,
+		arg.RecordingID,
+	)
 	return err
 }
 
@@ -785,6 +988,20 @@ type SetCurrentVersionAvailableParams struct {
 
 func (q *Queries) SetCurrentVersionAvailable(ctx context.Context, arg SetCurrentVersionAvailableParams) error {
 	_, err := q.db.Exec(ctx, setCurrentVersionAvailable, arg.FileID, arg.Available)
+	return err
+}
+
+const setRecordingTitle = `-- name: SetRecordingTitle :exec
+UPDATE recordings SET title_id = $2, link_state = 'confirmed' WHERE id = $1
+`
+
+type SetRecordingTitleParams struct {
+	ID      uuid.UUID `json:"id"`
+	TitleID uuid.UUID `json:"title_id"`
+}
+
+func (q *Queries) SetRecordingTitle(ctx context.Context, arg SetRecordingTitleParams) error {
+	_, err := q.db.Exec(ctx, setRecordingTitle, arg.ID, arg.TitleID)
 	return err
 }
 

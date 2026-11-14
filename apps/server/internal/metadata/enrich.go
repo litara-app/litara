@@ -170,3 +170,25 @@ func (e *Enricher) ApplyMatch(ctx context.Context, recID uuid.UUID, m Match) err
 	}
 	return e.Apply(ctx, recID)
 }
+
+// ResolveProvider applies (or rejects) one candidate of a provider review.
+func (e *Enricher) ResolveProvider(ctx context.Context, candidates []byte, action string, index *int) error {
+	var c struct {
+		Recording string  `json:"recording"`
+		Matches   []Match `json:"matches"`
+	}
+	if json.Unmarshal(candidates, &c) != nil {
+		return apperr.ErrUnavailable
+	}
+	switch action {
+	case "reject":
+		return nil
+	case "apply":
+		rec, err := uuid.Parse(c.Recording)
+		if err != nil || index == nil || *index < 0 || *index >= len(c.Matches) {
+			return apperr.Validation("index must select one of the offered candidates")
+		}
+		return e.ApplyMatch(ctx, rec, c.Matches[*index])
+	}
+	return apperr.Validation("action must be apply or reject")
+}

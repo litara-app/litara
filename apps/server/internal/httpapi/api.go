@@ -16,8 +16,14 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/apperr"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
+	"github.com/deranjer/ebooker/apps/server/internal/importer"
+	"github.com/deranjer/ebooker/apps/server/internal/ingest"
+	"github.com/deranjer/ebooker/apps/server/internal/jobs"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
+	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
+	"github.com/deranjer/ebooker/apps/server/internal/writeback"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // CookieName is the browser session cookie (ADR-0034).
@@ -43,8 +49,16 @@ type APIDeps struct {
 	Catalog  *catalog.Service
 	Progress *progress.Service
 	Library  *library.Service
-	Config   APIConfig
-	Log      *slog.Logger
+	// T004 services (nil in contract-only builds such as `ctl openapi`).
+	Pool      *pgxpool.Pool
+	Jobs      jobs.Enqueuer
+	Scanner   *ingest.Scanner
+	Metadata  *metadata.Service
+	Enricher  *metadata.Enricher
+	Importer  *importer.Service
+	Writeback *writeback.Service
+	Config    APIConfig
+	Log       *slog.Logger
 }
 
 // API holds handler state.
@@ -82,6 +96,7 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerAuth(api)
 	a.registerAdmin(api)
 	a.registerLibraries(api)
+	a.registerIngest(api)
 	a.registerRecordings(api)
 	a.registerProgress(api)
 	a.registerMedia(api)

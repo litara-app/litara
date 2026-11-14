@@ -32,3 +32,10 @@ SELECT * FROM provider_lookups WHERE recording_id = $1 AND provider = $2;
 -- name: SetProviderLookup :exec
 INSERT INTO provider_lookups (recording_id, provider, outcome, detail) VALUES ($1, $2, $3, $4)
 ON CONFLICT (recording_id, provider) DO UPDATE SET outcome = EXCLUDED.outcome, detail = EXCLUDED.detail, looked_up_at = now();
+
+-- name: GetFileLibrary :one
+SELECT x.library_id::uuid FROM (
+    SELECT o.library_id FROM file_observations o WHERE o.file_id = $1
+    UNION
+    SELECT r.library_id FROM recording_files rf JOIN recordings r ON r.id = rf.recording_id WHERE rf.file_id = $1
+) x LIMIT 1;

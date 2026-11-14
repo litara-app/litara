@@ -203,3 +203,21 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (wire.LibraryDetail, er
 		Health: h,
 	}, nil
 }
+
+// ListIDs returns every configured library (used by background enrichment).
+func (s *Service) ListIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := s.pool.Query(ctx, `SELECT library_id FROM library_config ORDER BY library_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}

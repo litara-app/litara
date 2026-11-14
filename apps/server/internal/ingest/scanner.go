@@ -285,6 +285,12 @@ func (s *Scanner) reconcile(ctx context.Context, run sqlcgen.ScanRun) (Outcome, 
 			}
 			moved[as[0].FileID] = true
 			out.Moved++
+		case keepSeparate(ctx, q, run.LibraryID, p.sha):
+			// A reviewer decided these are different files that happen to share bytes.
+			if err := s.addFile(ctx, run.LibraryID, p.e, p.sha, now); err != nil {
+				return out, err
+			}
+			out.Added++
 		default:
 			// Ambiguous: never guess (ADR-0044). The new path stays a pending candidate.
 			var np []string
@@ -517,4 +523,9 @@ func (s *Scanner) RecordReplacement(ctx context.Context, lib, fileID uuid.UUID) 
 		return s.replace(ctx, lib, o, e, sum, s.now())
 	}
 	return fmt.Errorf("file is not cataloged in this library")
+}
+
+func keepSeparate(ctx context.Context, q *sqlcgen.Queries, lib uuid.UUID, sha string) bool {
+	ok, err := q.HasKeepSeparate(ctx, sqlcgen.HasKeepSeparateParams{LibraryID: lib, SubjectKey: sha})
+	return err == nil && ok
 }

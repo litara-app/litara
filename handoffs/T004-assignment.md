@@ -1,6 +1,6 @@
 # T004 assignment — catalog, library ingestion, metadata and NAS recovery
 
-State: **Draft brief for coordinator review. Unassigned.** One worker will own this package; do not infer an assignment from this file. Only the coordinator updates `TASKS.md`.
+State: **Executed by a single session; see `handoffs/T004.md` for results and gaps.** Originally a draft brief, unassigned. One worker will own this package; do not infer an assignment from this file. Only the coordinator updates `TASKS.md`.
 
 ## Start point
 

@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/google/uuid"
 	"log/slog"
@@ -38,6 +39,7 @@ type WorkerOptions struct {
 	FetchPollInterval time.Duration
 	// Scanner enables T004 library scanning (scan queue, scheduler tick). Nil leaves it off.
 	Scanner     *ingest.Scanner
+	Importer    *importer.Service
 	ScanWorkers int
 }
 
@@ -64,9 +66,13 @@ func NewWorkerClient(pool *pgxpool.Pool, insp jobs.Inspector, opts WorkerOptions
 			n = 2
 		}
 		queues[jobs.QueueScan] = river.QueueConfig{MaxWorkers: n}
+		queues[jobs.QueueImport] = river.QueueConfig{MaxWorkers: 1}
 		pe := &lateEnqueuer{}
 		river.AddWorker(workers, &jobs.ScanWorker{Scanner: opts.Scanner, Logger: log})
 		river.AddWorker(workers, &jobs.SchedulerWorker{Pool: pool, Enq: pe, Logger: log})
+		if opts.Importer != nil {
+			river.AddWorker(workers, &jobs.ImportWorker{Importer: opts.Importer, Logger: log})
+		}
 		periodic = append(periodic, jobs.ScanPeriodic())
 		defer func() { pe.client = client }()
 	}
@@ -93,6 +99,10 @@ type lateEnqueuer struct{ client *river.Client[pgx.Tx] }
 
 func (l *lateEnqueuer) EnqueueScan(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 	return jobs.RiverEnqueuer{Client: l.client}.EnqueueScan(ctx, tx, id)
+}
+
+func (l *lateEnqueuer) EnqueueImport(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+	return jobs.RiverEnqueuer{Client: l.client}.EnqueueImport(ctx, tx, id)
 }
 
 // NewInsertClient builds an insert-only client (no workers) for submitters

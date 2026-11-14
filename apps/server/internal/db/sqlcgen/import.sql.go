@@ -103,6 +103,32 @@ func (q *Queries) GetImportPlan(ctx context.Context, id uuid.UUID) (ImportPlan, 
 	return i, err
 }
 
+const getImportPlanFor = `-- name: GetImportPlanFor :one
+SELECT id, library_id, source_path, state, created_by, approved_by, created_at, approved_at, completed_at FROM import_plans WHERE id = $1 AND library_id = $2
+`
+
+type GetImportPlanForParams struct {
+	ID        uuid.UUID `json:"id"`
+	LibraryID uuid.UUID `json:"library_id"`
+}
+
+func (q *Queries) GetImportPlanFor(ctx context.Context, arg GetImportPlanForParams) (ImportPlan, error) {
+	row := q.db.QueryRow(ctx, getImportPlanFor, arg.ID, arg.LibraryID)
+	var i ImportPlan
+	err := row.Scan(
+		&i.ID,
+		&i.LibraryID,
+		&i.SourcePath,
+		&i.State,
+		&i.CreatedBy,
+		&i.ApprovedBy,
+		&i.CreatedAt,
+		&i.ApprovedAt,
+		&i.CompletedAt,
+	)
+	return i, err
+}
+
 const insertImportItem = `-- name: InsertImportItem :one
 INSERT INTO import_items (plan_id, source_rel, source_sha256, size_bytes, target_rel, suffixed, duplicate_of, decision)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, plan_id, source_rel, source_sha256, size_bytes, target_rel, suffixed, duplicate_of, decision, state, detail

@@ -32,6 +32,21 @@ func (q *Queries) DeleteMetadataValue(ctx context.Context, arg DeleteMetadataVal
 	return err
 }
 
+const getFileLibrary = `-- name: GetFileLibrary :one
+SELECT x.library_id::uuid FROM (
+    SELECT o.library_id FROM file_observations o WHERE o.file_id = $1
+    UNION
+    SELECT r.library_id FROM recording_files rf JOIN recordings r ON r.id = rf.recording_id WHERE rf.file_id = $1
+) x LIMIT 1
+`
+
+func (q *Queries) GetFileLibrary(ctx context.Context, fileID uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getFileLibrary, fileID)
+	var x_library_id uuid.UUID
+	err := row.Scan(&x_library_id)
+	return x_library_id, err
+}
+
 const getProviderLookup = `-- name: GetProviderLookup :one
 SELECT recording_id, provider, outcome, detail, looked_up_at FROM provider_lookups WHERE recording_id = $1 AND provider = $2
 `

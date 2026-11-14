@@ -254,6 +254,22 @@ func (s *Scanner) associateCues(ctx context.Context, q *sqlcgen.Queries, lib uui
 		perRec[found.ID] = append(perRec[found.ID], cueMatch{entry: sc, dir: dir, tracks: tracks, rec: found})
 	}
 	for recID, ms := range perRec {
+		// A reviewer's earlier choice settles which CUE applies to this recording.
+		if len(ms) > 1 {
+			if chosen, err := q.GetResolvedChoice(ctx, sqlcgen.GetResolvedChoiceParams{LibraryID: lib, SubjectKey: "cue:" + recID.String()}); err == nil && chosen != "" {
+				var keep []cueMatch
+				for _, m := range ms {
+					if m.entry.Rel == chosen {
+						keep = append(keep, m)
+					} else if err := s.setAssoc(ctx, q, lib, "cue", m.entry.Rel, nil, "invalid", "another CUE was chosen"); err != nil {
+						return err
+					}
+				}
+				if len(keep) == 1 {
+					ms = keep
+				}
+			}
+		}
 		if len(ms) == 1 {
 			m := ms[0]
 			if err := s.writeCue(ctx, q, m.rec, m.dir, m.tracks); err != nil {
