@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 import { App } from "./App";
 import { AuthProvider } from "./auth/session";
+import { PendingProvider } from "./pending/PendingProvider";
 
 const user = { id: "u1", username: "ada", displayName: "Ada", isAdmin: false, active: true };
 const session = { user, session: {}, csrfToken: "c".repeat(40) };
@@ -27,7 +28,7 @@ function mount(path: string) {
   window.matchMedia ??= (() => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })) as never;
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider><QueryClientProvider client={qc}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></QueryClientProvider></MantineProvider>,
+    <MantineProvider><QueryClientProvider client={qc}><AuthProvider><PendingProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></PendingProvider></AuthProvider></QueryClientProvider></MantineProvider>,
   );
 }
 

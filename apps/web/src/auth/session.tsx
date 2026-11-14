@@ -8,6 +8,8 @@ interface Auth {
   loading: boolean;
   login(username: string, password: string): Promise<void>;
   logout(): Promise<void>;
+  /** The server stopped accepting this session: lock the app until the next sign-in. */
+  expire(): void;
 }
 const Ctx = createContext<Auth | null>(null);
 export const useAuth = () => {
@@ -40,6 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCsrf(s.csrfToken);
       dropData(); // never show another account's cached data
       qc.setQueryData(["session"], s);
+    },
+    expire() {
+      setCsrf("");
+      dropData();
+      qc.setQueryData(["session"], null);
     },
     async logout() {
       try { await api<void>("POST", "/auth/web/logout"); } finally {

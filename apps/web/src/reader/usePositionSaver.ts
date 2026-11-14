@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiError, get, op } from "../api/client";
+import { api, get } from "../api/client";
 import type { Locator, PositionState } from "../api/types";
+import { usePendingQueue, usePendingState } from "../pending/PendingProvider";
 
-export type SaveStatus = "idle" | "saving" | "saved" | "conflict" | "changed" | "error";
+export type SaveStatus = "idle" | "saving" | "offline" | "saved" | "conflict" | "changed" | "error";
 
 export interface Conflict {
   conflictId: string;
@@ -17,99 +18,101 @@ interface Opts {
 }
 
 /**
- * Debounced, serialized position writes. Every write carries the revision it
- * was based on; a 409 pauses saving and lets the reader choose between the
- * saved position and the one just read (revision-aware resume, ADR-0065).
- * Writes from a hidden tab are flushed with keepalive.
+ * Reading-position writes go through the durable pending queue (ADR-0068): each
+ * is stored before it is sent, keeps its operation ID and base revision across
+ * retries, and is never shown as saved until the server accepted it. A 409
+ * pauses saving and lets the reader choose between the saved place and the
+ * one just read (revision-aware resume, ADR-0065).
  */
 export function usePositionSaver({ editionId, fileId, contentVersion, initialRevision }: Opts) {
-  const rev = useRef(initialRevision);
+  const queue = usePendingQueue();
+  const state = usePendingState();
+  const key = `position:${editionId}`;
+  const confirmed = useRef(Number(initialRevision));
   const pending = useRef<Locator | null>(null);
   const timer = useRef<number>(0);
-  const inflight = useRef(false);
-  const paused = useRef(false);
-  const [status, setStatus] = useState<SaveStatus>("idle");
   const [conflict, setConflict] = useState<Conflict | null>(null);
+  const [changed, setChanged] = useState(false);
+  const [sentOnce, setSentOnce] = useState(false);
+  const paused = useRef(false);
 
-  const flush = useCallback(async (): Promise<void> => {
-    if (inflight.current || paused.current || !pending.current) return;
+  const submit = useCallback(() => {
     const locator = pending.current;
-    inflight.current = true;
-    setStatus("saving");
-    try {
-      const st = await api<PositionState>("PUT", `/editions/${editionId}/position`, {
-        ...op(rev.current),
-        anchor: { fileId, contentVersion, locator },
-      });
-      rev.current = st.revision;
-      if (pending.current === locator) pending.current = null;
-      setStatus("saved");
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409 && e.code === "stale_revision") {
-        paused.current = true;
-        const server = await get<PositionState>(`/editions/${editionId}/position`).catch(() => null);
-        if (server) setConflict({ conflictId: String(e.problem.conflictId), server });
-        setStatus("conflict");
-      } else if (e instanceof ApiError && e.status === 412) {
-        paused.current = true; // the file changed under us; saving more would only add conflicts
-        setStatus("changed");
-      } else {
-        setStatus("error");
-      }
-    } finally {
-      inflight.current = false;
-      if (pending.current && !paused.current && status !== "error") timer.current = window.setTimeout(() => void flush(), 2000);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editionId, fileId, contentVersion]);
+    if (!locator || paused.current) return;
+    pending.current = null;
+    const id = crypto.randomUUID();
+    void queue.enqueue({
+      id, kind: "position", resourceKey: key, editionId, method: "PUT", path: `/editions/${editionId}/position`, label: "Reading position",
+      confirmedRevision: confirmed.current, coalesce: true,
+      body: (base) => ({ operationId: id, baseRevision: base, capturedAt: new Date().toISOString(), anchor: { fileId, contentVersion, locator } }),
+    });
+  }, [queue, key, editionId, fileId, contentVersion]);
 
   const schedule = useCallback((locator: Locator) => {
     pending.current = locator;
-    if (!paused.current) setStatus("saving"); // a newer location is waiting to be written
     clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => void flush(), 1500);
-  }, [flush]);
+    timer.current = window.setTimeout(submit, 1500);
+  }, [submit]);
 
-  // Flush when the tab is hidden and when leaving the page.
+  useEffect(() => queue.onSent((op, resp) => {
+    if (op.resourceKey !== key) return;
+    confirmed.current = Number((resp as PositionState).revision);
+    setSentOnce(true);
+  }), [queue, key]);
+
+  useEffect(() => queue.onConflict((op, problem) => {
+    if (op.resourceKey !== key) return;
+    paused.current = true;
+    if (op.status === "conflict" && Number(problem.status) === 412) { setChanged(true); return; }
+    void get<PositionState>(`/editions/${editionId}/position`).then((server) => setConflict({ conflictId: String(problem.conflictId), server })).catch(() => setChanged(true));
+  }), [queue, key, editionId]);
+
+  // Persist the last location when the tab is hidden or the page is left.
   useEffect(() => {
-    const now = () => { clearTimeout(timer.current); void flush(); };
+    const now = () => { clearTimeout(timer.current); submit(); };
     const vis = () => { if (document.visibilityState === "hidden") now(); };
     document.addEventListener("visibilitychange", vis);
     return () => { document.removeEventListener("visibilitychange", vis); now(); };
-  }, [flush]);
+  }, [submit]);
 
-  /** Keep the reader's current location: apply it on top of the server revision. */
+  const dropQueued = useCallback(async () => {
+    for (const o of queue.forKey(key)) await queue.discard(o.id); // later positions are superseded by the choice
+  }, [queue, key]);
+
+  /** Keep the reader's current location: the server applies it on top of the saved revision. */
   const keepMine = useCallback(async () => {
     if (!conflict) return;
     const { conflictId, server } = conflict;
     try {
       const r = await api<{ revision: string }>("POST", `/personal-conflicts/${conflictId}/resolve`, {
-        ...op(server.revision), choice: "use_candidate", contentVersion,
+        operationId: crypto.randomUUID(), baseRevision: server.revision, choice: "use_candidate", contentVersion,
       });
-      rev.current = r.revision;
+      confirmed.current = Number(r.revision);
     } catch {
-      rev.current = server.revision; // fall back to writing from the server revision
+      confirmed.current = Number(server.revision);
     }
+    await dropQueued();
     setConflict(null);
     paused.current = false;
-    setStatus("idle");
-    void flush();
-  }, [conflict, contentVersion, flush]);
+  }, [conflict, contentVersion, dropQueued]);
 
-  /** Adopt the saved position: resolve keeping the server state and return where to go. */
+  /** Adopt the saved position and return where to go. */
   const useServer = useCallback(async (): Promise<Locator | null> => {
     if (!conflict) return null;
     const { conflictId, server } = conflict;
     await api("POST", `/personal-conflicts/${conflictId}/resolve`, {
-      ...op(server.revision), choice: "keep_server", contentVersion: null,
+      operationId: crypto.randomUUID(), baseRevision: server.revision, choice: "keep_server", contentVersion: null,
     }).catch(() => undefined);
-    rev.current = server.revision;
+    confirmed.current = Number(server.revision);
     pending.current = null;
+    await dropQueued();
     setConflict(null);
     paused.current = false;
-    setStatus("saved");
     return server.position?.anchor.contentVersion === contentVersion ? server.position.anchor.locator : null;
-  }, [conflict, contentVersion]);
+  }, [conflict, contentVersion, dropQueued]);
 
+  const queued = state.items.some((o) => o.resourceKey === key && o.status === "pending");
+  const status: SaveStatus = conflict ? "conflict" : changed ? "changed"
+    : queued || pending.current ? (state.offline ? "offline" : "saving") : sentOnce ? "saved" : "idle";
   return { schedule, status, conflict, keepMine, useServer };
 }

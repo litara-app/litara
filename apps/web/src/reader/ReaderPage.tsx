@@ -1,12 +1,13 @@
 import { ActionIcon, Alert, Badge, Button, Drawer, Group, Modal, NavLink, SegmentedControl, Slider, Stack, Tabs, Text, Textarea, Tooltip } from "@mantine/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
-import { api, get, op } from "../api/client";
+import { get } from "../api/client";
 import type { Annotation, AnnotationData, Locator, Page, ReaderSnapshot } from "../api/types";
 import { Busy, ErrorBox } from "../ui/common";
 import { remoteSource } from "./fileSource";
 import { loadReaderOrigin, ReaderHost, type PaintedAnnotation, type ReaderEvent, type ReaderKind, type ReaderStyle } from "./host";
+import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
 import { usePositionSaver } from "./usePositionSaver";
 
 interface TocItem { label: string; href: string | null; items: TocItem[] }
@@ -67,18 +68,44 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   // ---- annotations ----------------------------------------------------------
   const annKey = useMemo(() => ["annotations", e.id], [e.id]);
   const annotations = useQuery({ queryKey: annKey, queryFn: () => get<Page<Annotation>>(`/editions/${e.id}/annotations?includeDeleted=false&size=200`) });
-  const live = useMemo(() => (annotations.data?.items ?? []).filter((a) => !a.deleted && a.data), [annotations.data]);
+  // Server state with this account's unsent writes laid over it, so nothing the
+  // reader just did disappears, and nothing unsaved is presented as saved.
+  const queue = usePendingQueue();
+  const pendingOps = useEditionPending(e.id).filter((o) => o.kind === "annotation");
+  type View = Annotation & { unsaved?: "pending" | "attention" };
+  const view: View[] = useMemo(() => {
+    const byId = new Map<string, View>((annotations.data?.items ?? []).map((a) => [a.id, a]));
+    for (const o of pendingOps) {
+      const id = o.resourceKey.slice("annotation:".length);
+      const flag = o.status === "pending" ? "pending" : "attention";
+      if (o.method === "DELETE") { const cur = byId.get(id); if (cur) byId.set(id, { ...cur, deleted: true, data: null }); continue; }
+      const data = (o.body as { data: AnnotationData }).data;
+      const cur = byId.get(id);
+      byId.set(id, { id, editionId: e.id, revision: cur?.revision ?? "0", deleted: false, data, updatedAt: cur?.updatedAt ?? "", unsaved: flag });
+    }
+    return [...byId.values()];
+  }, [annotations.data, pendingOps, e.id]);
+  const live = useMemo(() => view.filter((a) => !a.deleted && a.data), [view]);
   const current = (a: Annotation) => a.data!.anchor.contentVersion === e.file.contentVersion;
   const refresh = () => qc.invalidateQueries({ queryKey: annKey });
-  const save = useMutation({
-    mutationFn: ({ id, base, data }: { id: string; base: string; data: AnnotationData }) =>
-      api("PUT", `/editions/${e.id}/annotations/${id}`, { ...op(base), data }),
-    onSettled: refresh,
-  });
-  const remove = useMutation({
-    mutationFn: (a: Annotation) => api("DELETE", `/editions/${e.id}/annotations/${a.id}`, op(a.revision)),
-    onSettled: refresh,
-  });
+  useEffect(() => queue.onSent((o) => { if (o.kind === "annotation") refresh(); }), [queue]); // eslint-disable-line react-hooks/exhaustive-deps
+  const serverRevision = (id: string) => Number(annotations.data?.items.find((x) => x.id === id)?.revision ?? "0");
+  const putAnnotation = (id: string, data: AnnotationData, label: string) => {
+    const opId = crypto.randomUUID();
+    void queue.enqueue({
+      id: opId, kind: "annotation", resourceKey: `annotation:${id}`, editionId: e.id, method: "PUT", path: `/editions/${e.id}/annotations/${id}`, label,
+      confirmedRevision: serverRevision(id),
+      body: (base) => ({ operationId: opId, baseRevision: base, capturedAt: new Date().toISOString(), data }),
+    });
+  };
+  const removeAnnotation = (a: Annotation) => {
+    const opId = crypto.randomUUID();
+    void queue.enqueue({
+      id: opId, kind: "annotation", resourceKey: `annotation:${a.id}`, editionId: e.id, method: "DELETE", path: `/editions/${e.id}/annotations/${a.id}`, label: "Delete annotation",
+      confirmedRevision: serverRevision(a.id),
+      body: (base) => ({ operationId: opId, baseRevision: base, capturedAt: new Date().toISOString() }),
+    });
+  };
   const anchorAt = (locator: Locator) => ({ fileId: e.file.id, contentVersion: e.file.contentVersion, locator });
   const cfiLoc = (cfi: string): Locator => ({ kind: "foliate-cfi", version: 1, cfi });
   const hereLocator = (): Locator | null => {
@@ -87,10 +114,10 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   };
   const addBookmark = () => {
     const loc = hereLocator();
-    if (loc) save.mutate({ id: crypto.randomUUID(), base: "0", data: { kind: "bookmark", anchor: anchorAt(loc), selection: null, text: where.tocLabel ?? "", quote: "" } });
+    if (loc) putAnnotation(crypto.randomUUID(), { kind: "bookmark", anchor: anchorAt(loc), selection: null, text: where.tocLabel ?? "", quote: "" }, "Bookmark");
   };
   const addHighlight = (sel: { cfi: string; text: string }) => {
-    save.mutate({ id: crypto.randomUUID(), base: "0", data: { kind: "highlight", anchor: anchorAt(cfiLoc(sel.cfi)), selection: { kind: "foliate-range", version: 1, cfi: sel.cfi }, text: "", quote: sel.text } });
+    putAnnotation(crypto.randomUUID(), { kind: "highlight", anchor: anchorAt(cfiLoc(sel.cfi)), selection: { kind: "foliate-range", version: 1, cfi: sel.cfi }, text: "", quote: sel.text }, "Highlight");
     hostRef.current?.clearSelection();
     setSelection(null);
   };
@@ -98,15 +125,15 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
     if (!noteDraft || !noteDraft.text.trim()) return;
     if (noteDraft.id) {
       const a = live.find((x) => x.id === noteDraft.id)!;
-      save.mutate({ id: a.id, base: a.revision, data: { ...a.data!, text: noteDraft.text } });
+      putAnnotation(a.id, { ...a.data!, text: noteDraft.text }, "Edit note");
     } else if (noteDraft.selection) {
       const s = noteDraft.selection;
-      save.mutate({ id: crypto.randomUUID(), base: "0", data: { kind: "note", anchor: anchorAt(cfiLoc(s.cfi)), selection: { kind: "foliate-range", version: 1, cfi: s.cfi }, text: noteDraft.text, quote: s.text } });
+      putAnnotation(crypto.randomUUID(), { kind: "note", anchor: anchorAt(cfiLoc(s.cfi)), selection: { kind: "foliate-range", version: 1, cfi: s.cfi }, text: noteDraft.text, quote: s.text }, "Note");
       hostRef.current?.clearSelection();
       setSelection(null);
     } else {
       const loc = hereLocator();
-      if (loc) save.mutate({ id: crypto.randomUUID(), base: "0", data: { kind: "note", anchor: anchorAt(loc), selection: null, text: noteDraft.text, quote: "" } });
+      if (loc) putAnnotation(crypto.randomUUID(), { kind: "note", anchor: anchorAt(loc), selection: null, text: noteDraft.text, quote: "" }, "Note");
     }
     setNoteDraft(null);
   };
@@ -190,6 +217,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
 
   const percent = where.fraction === null ? null : Math.round(where.fraction * 100);
   const sv = saver.status;
+  const pend = usePendingState();
   const serverPos = saver.conflict?.server.position;
   return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
@@ -206,6 +234,11 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
         </Group>
       </Group>
 
+      {pend.offline && pend.items.length > 0 && (
+        <Alert color="yellow" m="xs" role="status" data-testid="offline-banner">
+          The server cannot be reached. {pend.items.length} change{pend.items.length === 1 ? " is" : "s are"} kept on this device{pend.durable ? "" : " (this browser cannot keep them across a reload)"} and will be sent when the connection returns. <Link to="/pending">Details</Link>
+        </Alert>
+      )}
       {failure && <Alert color="red" role="alert" m="xs">{failure}</Alert>}
       {notice && <Alert color="yellow" withCloseButton onClose={() => setNotice(null)} m="xs">{notice}</Alert>}
       {e.readiness !== "ready" && <Alert color="yellow" m="xs" title="Limited support">{e.issues.map((i) => i.detail).join(" ") || "This edition is only partly supported."}</Alert>}
@@ -219,7 +252,6 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
           </Group>
         </Alert>
       )}
-      <ErrorBox error={save.error ?? remove.error} />
 
       <div ref={box} style={{ flex: 1, minHeight: 0, position: "relative" }} data-testid="reader-stage">
         {!loaded && !failure && <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}><Busy /></div>}
@@ -236,7 +268,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
         <Text size="xs" c="dimmed" lineClamp={1} maw="60%">{where.tocLabel ?? ""}</Text>
         <Group gap="xs">
           <Text size="xs" c="dimmed" data-testid="progress">{where.pageIndex !== undefined ? `Page ${where.pageIndex + 1} of ${where.numPages}` : percent !== null ? `${percent}%` : ""}</Text>
-          <Badge size="xs" variant="light" color={sv === "error" ? "red" : sv === "saving" ? "gray" : "green"} data-testid="save-status">{sv === "saving" ? "saving" : sv === "saved" ? "position saved" : sv === "error" ? "not saved" : sv === "conflict" ? "paused" : ""}</Badge>
+          <Badge size="xs" variant="light" color={sv === "saving" || sv === "offline" ? "gray" : "green"} data-testid="save-status">{sv === "saving" ? "saving" : sv === "offline" ? "waiting to send" : sv === "saved" ? "position saved" : sv === "conflict" ? "paused" : ""}</Badge>
         </Group>
       </Group>
 
@@ -257,14 +289,16 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
                 return (
                   <Stack key={a.id} gap={2} p="xs" style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 6 }} data-testid="annotation-item">
                     <Group justify="space-between"><Badge variant="light" color={d.kind === "highlight" ? "yellow" : d.kind === "note" ? "blue" : "gray"}>{d.kind}</Badge>
-                      {!ok && <Badge color="orange" variant="outline">older file version</Badge>}</Group>
+                      {!ok && <Badge color="orange" variant="outline">older file version</Badge>}
+                      {a.unsaved === "pending" && <Badge color="gray" variant="outline" data-testid="unsaved">not saved yet</Badge>}
+                      {a.unsaved === "attention" && <Badge color="red" variant="outline" component={Link} to="/pending">needs attention</Badge>}</Group>
                     {d.quote && <Text size="sm" lineClamp={3}>“{d.quote}”</Text>}
                     {d.text && <Text size="sm" fw={500}>{d.text}</Text>}
                     <Group gap="xs">
                       <Button size="compact-xs" variant="default" disabled={!ok}
                         onClick={() => { const l = d.anchor.locator; if (l.kind === "foliate-cfi") hostRef.current?.goto({ cfi: l.cfi }); else if (l.kind === "pdf-page") hostRef.current?.goto({ pageIndex: l.pageIndex }); setPanel(false); }}>Go to</Button>
                       {d.kind === "note" && ok && <Button size="compact-xs" variant="default" onClick={() => setNoteDraft({ id: a.id, text: d.text, selection: null })}>Edit</Button>}
-                      <Button size="compact-xs" color="red" variant="subtle" onClick={() => remove.mutate(a)}>Delete</Button>
+                      <Button size="compact-xs" color="red" variant="subtle" onClick={() => removeAnnotation(a)}>Delete</Button>
                     </Group>
                   </Stack>
                 );

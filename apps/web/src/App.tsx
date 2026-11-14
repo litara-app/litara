@@ -11,6 +11,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { ShelfPage } from "./pages/ShelfPage";
 import { ShelvesPage } from "./pages/ShelvesPage";
 import { TitlePage } from "./pages/TitlePage";
+import { PendingPage } from "./pending/PendingPage";
 import { ReaderPage } from "./reader/ReaderPage";
 import { Busy } from "./ui/common";
 import { Shell } from "./ui/Shell";
@@ -43,6 +44,7 @@ export function App() {
           <Route index element={<LibraryPage />} />
           <Route path="titles/:titleId" element={<TitlePage />} />
           <Route path="editions/:editionId" element={<EditionPage />} />
+          <Route path="pending" element={<PendingPage />} />
           <Route path="shelves" element={<ShelvesPage />} />
           <Route path="shelves/:shelfId" element={<ShelfPage />} />
           <Route path="admin" element={<AdminLayout />}>

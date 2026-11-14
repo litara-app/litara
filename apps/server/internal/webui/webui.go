@@ -38,7 +38,7 @@ func readerCSP(o Origins) string {
 }
 
 // SPA navigation prefixes that may fall back to index.html.
-var spaPrefixes = []string{"/library", "/titles", "/editions", "/read", "/listen", "/shelves", "/settings", "/admin", "/login"}
+var spaPrefixes = []string{"/library", "/titles", "/editions", "/read", "/listen", "/shelves", "/settings", "/admin", "/login", "/pending"}
 
 // App serves the built application (root is the dist directory). The reader
 // directory is not served from this origin.

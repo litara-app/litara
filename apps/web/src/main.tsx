@@ -6,17 +6,18 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { App } from "./App";
 import { AuthProvider } from "./auth/session";
+import { PendingProvider } from "./pending/PendingProvider";
 
 const queryClient = new QueryClient();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <MantineProvider>
-      <QueryClientProvider client={queryClient}><AuthProvider>
+      <QueryClientProvider client={queryClient}><AuthProvider><PendingProvider>
         <BrowserRouter>
           <App />
         </BrowserRouter>
-      </AuthProvider></QueryClientProvider>
+      </PendingProvider></AuthProvider></QueryClientProvider>
     </MantineProvider>
   </StrictMode>,
 );
