@@ -1,4 +1,4 @@
-import { Badge, Card, Group, Stack, Text, Title } from "@mantine/core";
+import { Badge, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { get } from "../api/client";
@@ -45,7 +45,7 @@ export function TitlePage() {
         recordings.data.items.map((r) => (
           <Card key={r.id} withBorder data-testid="recording-card">
             <Text fw={600}>{r.label || "Recording"}</Text>
-            <Text size="sm" c="dimmed">Web playback arrives in a later milestone.</Text>
+            <Button component={Link} to={`/listen/${r.id}`} size="compact-sm" mt="xs">Listen</Button>
           </Card>
         ))
       )}

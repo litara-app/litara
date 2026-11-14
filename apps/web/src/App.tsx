@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth/session";
+import { ListenPage } from "./audio/ListenPage";
 import { AdminLayout } from "./admin/AdminLayout";
 import { LibrariesPage, LibraryAdminPage } from "./admin/LibrariesPage";
 import { RepairPage, RepairPlanPage } from "./admin/RepairPage";
@@ -39,6 +40,7 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<RequireAuth shell={false} />}>
           <Route path="read/:editionId" element={<ReaderPage />} />
+          <Route path="listen/:recordingId" element={<ListenPage />} />
         </Route>
         <Route element={<RequireAuth />}>
           <Route index element={<LibraryPage />} />

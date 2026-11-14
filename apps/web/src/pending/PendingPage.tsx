@@ -24,10 +24,18 @@ function Row({ op }: { op: PendingOp }) {
     setBusy(true);
     setErr(null);
     try {
-      await api("POST", `/personal-conflicts/${conflictId}/resolve`, {
-        operationId: crypto.randomUUID(), baseRevision: String(problem.currentRevision ?? "0"), choice,
-        contentVersion: choice === "use_candidate" ? contentVersionOf(op) : null,
-      });
+      if (op.kind === "recording-position") {
+        // Listening positions use the recording conflict protocol (layout revision, no explicit position).
+        const current = problem.current as { revision?: string } | undefined;
+        await api("POST", `/recordings/${op.editionId}/conflicts/${conflictId}/resolve`, {
+          operationId: crypto.randomUUID(), baseRevision: String(current?.revision ?? "0"), layoutRevision: op.body.layoutRevision, choice, position: null,
+        });
+      } else {
+        await api("POST", `/personal-conflicts/${conflictId}/resolve`, {
+          operationId: crypto.randomUUID(), baseRevision: String(problem.currentRevision ?? "0"), choice,
+          contentVersion: choice === "use_candidate" ? contentVersionOf(op) : null,
+        });
+      }
       // The server settled the retained candidate; later queued writes to this resource were based on it.
       for (const o of queue.forKey(op.resourceKey)) await queue.discard(o.id);
     } catch (e) {
@@ -48,7 +56,7 @@ function Row({ op }: { op: PendingOp }) {
         {op.error && op.status !== "pending" && <Text size="sm" c="red">{op.error}</Text>}
         <ErrorBox error={err instanceof ApiError ? err : err ? new Error(String(err)) : null} />
         <Group gap="xs">
-          {op.status === "conflict" && conflictId && <>
+          {op.status === "conflict" && conflictId && op.kind !== "recording-completion" && <>
             <Button size="compact-sm" variant="default" loading={busy} onClick={() => resolve("keep_server")}>Keep what is saved</Button>
             <Button size="compact-sm" loading={busy} onClick={() => resolve("use_candidate")}>Use my change</Button>
           </>}

@@ -8,9 +8,10 @@ export interface PendingOp {
   /** The original operation ID, reused on every retry so the server can replay. */
   id: string;
   scope: string;
-  kind: "annotation" | "position";
+  kind: "annotation" | "position" | "recording-position" | "recording-completion";
   /** Writes to one resource are sent in order and stop at the first problem. */
   resourceKey: string;
+  /** The edition or recording the write belongs to. */
   editionId: string;
   method: "PUT" | "DELETE";
   path: string;

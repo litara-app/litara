@@ -60,12 +60,12 @@ test("opens an EPUB, shows its text and contents, and navigates", async ({ page 
   // Earlier runs (other browsers share the database) may have saved a position, so go to chapter one explicitly.
   await page.getByRole("button", { name: "Contents & notes" }).click();
   await page.getByRole("dialog").getByText("Chapter One", { exact: true }).first().click();
-  await expect.poll(async () => (await sectionFrame(page)?.locator("body").innerText()) ?? "", { timeout: 20_000 }).toContain("Chapter One");
+  await expect.poll(async () => (await sectionFrame(page)?.locator("body").innerText().catch(() => "")) ?? "", { timeout: 20_000 }).toContain("Chapter One");
   await page.getByRole("button", { name: "Contents & notes" }).click();
   await expect(page.getByRole("dialog").getByText("Chapter Three", { exact: true })).toBeVisible();
   await page.getByRole("dialog").getByText("Chapter Three", { exact: true }).first().click();
   await expect.poll(() => percent(page), { timeout: 15_000 }).toBeGreaterThan(50);
-  await expect.poll(async () => (await sectionFrame(page)?.locator("body").innerText()) ?? "").toContain("Chapter Three");
+  await expect.poll(async () => (await sectionFrame(page)?.locator("body").innerText().catch(() => "")) ?? "").toContain("Chapter Three");
   await page.getByRole("button", { name: "Next page" }).click();
 });
 

@@ -81,3 +81,19 @@ export interface LibraryDetail {
   config: { mode: string; rootPath: string; followSymlinks: boolean; scanIntervalSecs?: number; writebackBackups: boolean; providerOrder: string[] };
   health: { state: string; detail?: string; checkedAt?: string };
 }
+
+export interface AudioFile { id: string; contentVersion: string; sequence: number; filename: string; mimeType: string; sizeBytes: number | null; durationMs: number | null; available: boolean; contentPath: string }
+export interface AudioChapter { id: string; label: string; start: { fileId: string; contentVersion: string; offsetMs: number }; recordingStartMs: number | null; source: string; generated: boolean }
+export interface AudioRecording {
+  id: string; titleId: string; libraryId: string; title: string; authors: string[]; narrators: string[];
+  readiness: "ready" | "incomplete"; durationMs: number | null; artwork: { thumbnailPath: string | null; coverPath: string | null };
+  completion: { revision: string; finished: boolean; changedAt: string | null };
+  schemaVersion: 1; layoutRevision: string; files: AudioFile[]; chapters: AudioChapter[];
+  capabilities: { play: boolean; download: boolean; wholeRecordingSeek: boolean };
+  issues: { code: string; message: string }[];
+}
+export interface AudioPosition { fileId: string; contentVersion: string; offsetMs: number; layoutRevision: string; capturedAt: string; receivedAt: string; deviceName: string }
+export interface AudioPositionState {
+  revision: string; position: AudioPosition | null;
+  unresolvedConflicts: { id: string; reason: string; candidate: AudioPosition | null; baseRevision: string }[];
+}
