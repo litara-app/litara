@@ -103,6 +103,18 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 
 | [0064](0064-pause-github-actions-until-release-readiness.md) | Pause GitHub Actions until explicit release readiness | Accepted |
 
+| [0065](0065-ebook-editions-and-reading-state.md) | File-anchored ebook editions and revisioned reading state | Accepted |
+
+| [0066](0066-private-annotations-and-shelves.md) | Private annotations and private/shared manual/smart shelves | Accepted |
+
+| [0067](0067-isolated-web-readers-and-bounded-comic-extraction.md) | Isolated web readers and bounded comic extraction | Accepted |
+
+| [0068](0068-web-offline-and-t005-client-scope.md) | Online web flows with recoverable pending writes | Accepted |
+
+| [0069](0069-web-tooling-serving-and-t005-gap-ownership.md) | Same-origin web build and end-to-end T005 ownership | Accepted |
+
+| [0070](0070-recording-repair-successors-and-retained-state.md) | Recording repair successors with retained source state | Accepted |
+
 ## Workflow
 
 1. Read [research](RESEARCH.md), relevant decisions, and the reference code.

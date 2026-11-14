@@ -1,0 +1,312 @@
+[
+  {
+    "name": "position-cfi",
+    "schema": "T005PositionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000003",
+      "baseRevision": "0",
+      "anchor": {
+        "fileId": "00000000-0000-4000-8000-000000000001",
+        "contentVersion": "00000000-0000-4000-8000-000000000002",
+        "locator": {
+          "kind": "foliate-cfi",
+          "version": 1,
+          "cfi": "epubcfi(/6/2!/4/2/1:0)"
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": true
+  },
+  {
+    "name": "position-pdf",
+    "schema": "T005PositionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000003",
+      "baseRevision": "0",
+      "anchor": {
+        "fileId": "00000000-0000-4000-8000-000000000001",
+        "contentVersion": "00000000-0000-4000-8000-000000000002",
+        "locator": {
+          "kind": "pdf-page",
+          "version": 1,
+          "pageIndex": 3,
+          "x": 0.1,
+          "y": 0.5
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": true
+  },
+  {
+    "name": "position-comic",
+    "schema": "T005PositionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000003",
+      "baseRevision": "0",
+      "anchor": {
+        "fileId": "00000000-0000-4000-8000-000000000001",
+        "contentVersion": "00000000-0000-4000-8000-000000000002",
+        "locator": {
+          "kind": "comic-page",
+          "version": 1,
+          "pageIndex": 9,
+          "entryId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "manifestVersion": "00000000-0000-4000-8000-000000000007"
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": true
+  },
+  {
+    "name": "percentage-is-not-locator",
+    "schema": "T005PositionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000003",
+      "baseRevision": "0",
+      "anchor": {
+        "fileId": "00000000-0000-4000-8000-000000000001",
+        "contentVersion": "00000000-0000-4000-8000-000000000002",
+        "locator": {
+          "kind": "percentage",
+          "value": 0.7
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": false
+  },
+  {
+    "name": "revision-is-string",
+    "schema": "T005PositionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000003",
+      "baseRevision": 1,
+      "anchor": {
+        "fileId": "00000000-0000-4000-8000-000000000001",
+        "contentVersion": "00000000-0000-4000-8000-000000000002",
+        "locator": {
+          "kind": "foliate-cfi",
+          "version": 1,
+          "cfi": "epubcfi(/6/2!/4/2/1:0)"
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": false
+  },
+  {
+    "name": "caller-not-body-user",
+    "schema": "T005PositionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000003",
+      "baseRevision": "0",
+      "anchor": {
+        "fileId": "00000000-0000-4000-8000-000000000001",
+        "contentVersion": "00000000-0000-4000-8000-000000000002",
+        "locator": {
+          "kind": "foliate-cfi",
+          "version": 1,
+          "cfi": "epubcfi(/6/2!/4/2/1:0)"
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z",
+      "userId": "00000000-0000-4000-8000-000000000099"
+    },
+    "valid": false
+  },
+  {
+    "name": "negative-page",
+    "schema": "T005PositionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000003",
+      "baseRevision": "0",
+      "anchor": {
+        "fileId": "00000000-0000-4000-8000-000000000001",
+        "contentVersion": "00000000-0000-4000-8000-000000000002",
+        "locator": {
+          "kind": "pdf-page",
+          "version": 1,
+          "pageIndex": -1,
+          "x": 0,
+          "y": 0
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": false
+  },
+  {
+    "name": "out-of-page-coordinate",
+    "schema": "T005PositionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000003",
+      "baseRevision": "0",
+      "anchor": {
+        "fileId": "00000000-0000-4000-8000-000000000001",
+        "contentVersion": "00000000-0000-4000-8000-000000000002",
+        "locator": {
+          "kind": "pdf-page",
+          "version": 1,
+          "pageIndex": 1,
+          "x": 1.1,
+          "y": 0
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": false
+  },
+  {
+    "name": "private-highlight",
+    "schema": "T005AnnotationWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000010",
+      "baseRevision": "0",
+      "data": {
+        "kind": "highlight",
+        "anchor": {
+          "fileId": "00000000-0000-4000-8000-000000000001",
+          "contentVersion": "00000000-0000-4000-8000-000000000002",
+          "locator": {
+            "kind": "foliate-cfi",
+            "version": 1,
+            "cfi": "epubcfi(/6/2!/4/2/1:0)"
+          }
+        },
+        "selection": {
+          "kind": "foliate-range",
+          "version": 1,
+          "cfi": "epubcfi(/6/2!/4/2,/1:0,/1:8)"
+        },
+        "text": "My note",
+        "quote": "Test text"
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": true
+  },
+  {
+    "name": "annotation-tombstone",
+    "schema": "T005Annotation",
+    "value": {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "editionId": "00000000-0000-4000-8000-000000000012",
+      "revision": "2",
+      "deleted": true,
+      "data": null,
+      "updatedAt": "2026-11-14T15:01:00Z"
+    },
+    "valid": true
+  },
+  {
+    "name": "shared-viewer-specific-smart-shelf",
+    "schema": "T005ShelfWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000013",
+      "baseRevision": "0",
+      "data": {
+        "name": "Unread fiction",
+        "visibility": "shared",
+        "kind": "smart",
+        "filter": {
+          "kind": "all",
+          "children": [
+            {
+              "kind": "predicate",
+              "field": "tag",
+              "operator": "equals",
+              "value": "fiction"
+            },
+            {
+              "kind": "predicate",
+              "field": "finished",
+              "operator": "equals",
+              "value": "false"
+            }
+          ]
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": true
+  },
+  {
+    "name": "no-owner-private-predicate",
+    "schema": "T005ShelfWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000013",
+      "baseRevision": "0",
+      "data": {
+        "name": "Unread fiction",
+        "visibility": "shared",
+        "kind": "smart",
+        "filter": {
+          "kind": "all",
+          "children": [
+            {
+              "kind": "predicate",
+              "field": "ownerAnnotations",
+              "operator": "equals",
+              "value": "fiction"
+            },
+            {
+              "kind": "predicate",
+              "field": "finished",
+              "operator": "equals",
+              "value": "false"
+            }
+          ]
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": false
+  },
+  {
+    "name": "no-arbitrary-filter-code",
+    "schema": "T005ShelfWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000013",
+      "baseRevision": "0",
+      "data": {
+        "name": "Unread fiction",
+        "visibility": "shared",
+        "kind": "smart",
+        "filter": {
+          "sql": "SELECT * FROM users"
+        }
+      },
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": false
+  },
+  {
+    "name": "manual-finish",
+    "schema": "T005CompletionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "baseRevision": "0",
+      "fileId": "00000000-0000-4000-8000-000000000001",
+      "contentVersion": "00000000-0000-4000-8000-000000000002",
+      "event": "manual_finish",
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": true
+  },
+  {
+    "name": "ebook-no-auto-finish",
+    "schema": "T005CompletionWrite",
+    "value": {
+      "operationId": "00000000-0000-4000-8000-000000000020",
+      "baseRevision": "0",
+      "fileId": "00000000-0000-4000-8000-000000000001",
+      "contentVersion": "00000000-0000-4000-8000-000000000002",
+      "event": "natural_end",
+      "capturedAt": "2026-11-14T15:00:00Z"
+    },
+    "valid": false
+  }
+]

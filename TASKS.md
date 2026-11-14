@@ -9,7 +9,7 @@ Coordination owner: the user and the ADR/integration chat
 
 **T003 and T004 are merged into `main`.** T003 merged in [PR #81](https://github.com/litara-app/litara/pull/81) at `deed67c8eef320e33cdc13da995e802c50f9662a`; T004 merged in [PR #82](https://github.com/litara-app/litara/pull/82) at `2abef2ed46d770bd21d714d299739144de619bce`, initially on the rebuild integration branch. [PR #83](https://github.com/litara-app/litara/pull/83) integrated that branch into `main` at `dae3f3e66cf125fbb428e1d010f7f6b44b3bb591` on 2026-11-14. The user requested this integration. Existing handoff verification evidence is retained; this merge is not fresh runtime/hardware verification. T004's named gaps remain open rather than being declared complete.
 
-**T005 is not implementation-ready.** See [the current readiness review](research/t005/readiness.md) for observed API gaps, decisions, proposed scope and preparation artifacts. No T005 agent is assigned. T006/T007 also remain unassigned. The dated preparation/review sections below are historical; this overview and register supersede their obsolete assignment/readiness statements.
+**T005 is Ready for one implementation owner; unassigned.** ADR-0065–0070 are Accepted from explicit user choices on 2026-11-14. The [complete execution brief](handoffs/T005-assignment.md), [additive contract/fixtures](contracts/t005/README.md) and [readiness evidence](research/t005/readiness.md) are prepared. Shared/smart shelves and necessary server work are included. T006/T007 remain unassigned; do not overlap T005 server/schema/contracts ownership. The dated preparation/review sections below are historical; this overview and register supersede their obsolete assignment/readiness statements.
 
 **Release hold:** 2.0.0 requires a verified personal-state migration path (ADR-0062/0063). GitHub Actions is disabled repository-wide under ADR-0064; do not re-enable CI or publish builds without the user's explicit release-readiness decision. Local development verification remains allowed.
 
@@ -17,7 +17,7 @@ Prefer substantial end-to-end packages over small tickets. Each package may cont
 
 The authoritative working repository is `G:\Programming\ebooker`. `E:\Programming\ebooker` was a separate audit folder, not this Git repository. External reference clones/logs under `E:\Programming\_reference\` are optional local resources, not portable project dependencies.
 
-**Future assignment checkout:** use an explicit committed checkpoint based on integrated `main`, including the accepted decisions, contracts and brief for that assignment. T005 has no Ready checkpoint yet. Do not start new work from the old T003 assignment snapshot, restore historical deletions, or commit another worker's changes. The historical T003 source snapshot was `943e2cd51fb7a59a32b9da1ef9c96a136a019d8f`; it is retained as provenance, not the next assignment base.
+**T005 assignment checkout:** use the exact coordinator-supplied tip of `codex/t005-readiness`, containing the accepted release/T005 decisions, full execution brief and checked contract/fixtures. The committed source checkpoint is recorded below after preparation verification; the final register-only commit may follow it. Do not use the older main-only source or rely on uncommitted coordinator files. Do not start new work from the old T003 assignment snapshot, restore historical deletions, or commit another worker's changes. The historical T003 source snapshot was `943e2cd51fb7a59a32b9da1ef9c96a136a019d8f`; it is retained as provenance, not the next assignment base.
 
 ## Assignment and ownership rules
 
@@ -38,11 +38,17 @@ The authoritative working repository is `G:\Programming\ebooker`. `E:\Programmin
 | T002 | Native Android baseline, media preservation, and adaptation seams | Done: reviewed and merged, PR #80 | Closed; do not repeat import | Future adapter/account-isolation work belongs to T003; physical hardware gates remain |
 | T003 | Shared client contract, accounts, and end-to-end recording playback API | Merged: PR #81, integrated to main by #83 | Closed implementation assignment | Handoff evidence retained; physical hardware and release gates remain |
 | T004 | Catalog, library ingestion, metadata, and NAS recovery | Merged with named gaps: PR #82, integrated to main by #83 | Closed merged assignment; follow-ups need explicit ownership | See handoff: ebook entities, merge/split, writers, provider/NAS verification remain incomplete |
-| T005 | Redesigned web library and complete reading/listening flows | Not ready: decisions, ebook/annotation contracts and execution brief needed | Unassigned | T003/T004 integrated; see research/t005/readiness.md; server and web scope must be assigned together or serialized |
+| T005 | Redesigned web library and complete reading/listening flows | Ready: accepted ADR-0065–0070, contract/fixtures and full brief | Unassigned; user selects one owner | Exact codex/t005-readiness checkpoint; exclusive web/server/schema/contracts scope; T006 waits |
 | T006 | OPDS, email delivery, and basic KOReader integration | Not ready: upstream contracts and protocol decisions needed | Unassigned | T003/T004 plus delivery/auth/revision policies |
 | T007 | Cross-client integration, hardware acceptance, and release readiness | Not ready: earlier packages and test resources needed | Unassigned | Integrated T003–T006, hardware/operators and release decisions |
 
-These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T004 have been integrated. T005–T007 still need execution-ready briefs/checkpoints before assignment. A roadmap description does not authorize a worker to pick one up opportunistically.
+These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T004 have been integrated. T005 now has a complete execution brief/contract; T006–T007 still need execution-ready briefs/checkpoints before assignment. A roadmap description does not authorize a worker to pick one up opportunistically.
+
+## T005 preparation verification — 2026-11-14
+
+The user selected shared/smart shelves, owner-edited sharing, viewer-specific smart evaluation, online retry recovery, the restricted single-address reader boundary, file-anchored/manual-completion reading state, retained annotation conflicts/tombstones, Go-served Vite and one full-stack owner with bounded Go extraction and successor-based recording repair. Accepted ADRs 0065–0070 record those decisions.
+
+Preparation checks passed: 70 ADRs/index; existing T003 static contract checks; T005's 38 operations/65 schemas/15 positive-negative examples/38 scenarios with collision/auth declarations checked; and deterministic generation/container structure for eight synthetic fixtures with nonempty-output protection. Application/reader/browser/codec/hardware behavior remains implementation acceptance work. No builds/releases or CI runs were launched. See the complete execution brief and preparation evidence; Ready does not mean production-ready or Assigned.
 
 ## Readiness review — 2026-11-13
 
@@ -204,9 +210,11 @@ Decision gates: grouping confidence and merge/split behavior, import copy/move/a
 
 ## T005 — Redesigned web library and reading/listening workflows
 
+**Ready preparation, 2026-11-14:** [assignment](handoffs/T005-assignment.md), [contract](contracts/t005/README.md), [readiness](research/t005/readiness.md). Accepted decisions: ADR-0065–0070. Shared and smart shelves are included. This owner receives necessary server/schema/contract extensions plus web; no separate parallel server worker is assigned. The original planning text below is retained as context, superseded where the accepted brief is more specific.
+
 Planned outcome: React/TypeScript/Mantine library/title/edition browsing, metadata review and organization, pristine Foliate-based reading, direct PDF.js, image-comic reading, annotations/notes, and web audio playback against the real API. Include responsive navigation, loading/error/incomplete states, accessibility, exact-file resume, safe reader isolation, and verified source notices. Brand assets under `design/brand/` are reference inputs, not permission to overwrite another agent's design work.
 
-Decision gates: reader/location and annotation contract, API/auth availability, comic extraction/limits, frontend supporting tools, and agreed workflows. Respect the MIT web/AGPL Android boundary. Completion requires actual reading/listening and persistence on supported fixtures, not a static dashboard or mocked-only UI.
+The reader/location, annotation/shelf, extraction/isolation, tooling/serving and workflow decision gates are resolved for T005 by ADR-0065–0070 and contracts/t005/. Respect the MIT web/AGPL Android boundary. Completion requires actual reading/listening and persistence on supported fixtures, not a static dashboard or mocked-only UI.
 
 ## T006 — OPDS, email, and basic KOReader delivery
 
