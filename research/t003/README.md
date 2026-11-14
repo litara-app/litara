@@ -44,8 +44,9 @@ generates all data access (`internal/db/queries/{accounts,catalog,progress}.sql`
 1. **Repeated finish / unfinish of an already-matching state** is accepted (`200`) with no revision bump and no
    history entry. A conflict-resolution `keep_server` does bump the revision (so stale clients re-sync) without
    changing the finished flag.
-2. **Manual completion events ignore a stale layout revision**; only `natural_end` is anchored to the layout and
-   returns `412 layout_changed`. The contract text says "final file/layout change -> 412" for the terminal anchor.
+2. **Every completion event checks the layout revision**, including `manual_finish` and `manual_unfinish`.
+   An obsolete layout returns `412 layout_changed`, preserves the candidate and leaves completion/history unchanged.
+   This follows the shared contract; the earlier manual-event exception was removed in review response R7.
 3. **Offset validation precedes the stale-revision conflict**: a stale write with an out-of-range offset is a `422`
    and creates no conflict (no unusable candidate is stored). The contract lists base revision and offset together.
 4. **Anchor classification order**: unknown/nonmember file -> `422 invalid_position` (or `412 layout_changed` when the

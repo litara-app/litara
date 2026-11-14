@@ -53,8 +53,9 @@ remain **open decisions** and are not selected here.
 
 **Fixed:** `DataScope.of(owner, serverUrl, userId)` and `SessionManager.dataScope` now key the Room database and
 download folders by server AND account; `SyncWorker` refuses to flush when the open database is not the signed-in
-account's. The first account to sign in after an upgrade claims the pre-existing unscoped data (the baseline never
-recorded which account wrote it; this is a documented limitation). The regression test is
+account's. A Litara account does not claim unidentified legacy data: it gets its own scope, while the original data
+stays unattributed in the legacy scope (`LegacyDataOwnershipTest`, review response R3). The BookOrbit upgrade path
+retains its baseline claim behavior. The original failing-first regression test is
 `core/auth/AccountScopeTest` (it failed 4 of 5 against the unmodified baseline; see
 `../../research/t003/l6-baseline-failure.md`), and `core/litara/OfflineStoreTest` covers a task finishing after
 logout or an account switch. The text below describes the original defect.
