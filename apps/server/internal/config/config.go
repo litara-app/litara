@@ -47,6 +47,10 @@ type Config struct {
 	ArgonMemoryKiB uint32
 	ArgonTime      uint32
 	ArgonThreads   uint8
+	// GoogleBooksAPIKey is optional and local; it is only sent to Google Books for libraries that enable it.
+	GoogleBooksAPIKey string
+	// ScanWorkers bounds concurrent library scans.
+	ScanWorkers int
 }
 
 const prefix = "LITARA_"
@@ -118,6 +122,8 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		ArgonMemoryKiB:     uint32(getInt("ARGON2_MEMORY_KIB", 64*1024)),
 		ArgonTime:          uint32(getInt("ARGON2_TIME", 3)),
 		ArgonThreads:       uint8(getInt("ARGON2_THREADS", 2)),
+		GoogleBooksAPIKey:  get("GOOGLE_BOOKS_API_KEY", ""),
+		ScanWorkers:        getInt("SCAN_WORKERS", 2),
 	}
 	for _, o := range strings.Split(get("ALLOWED_ORIGINS", ""), ",") {
 		if o = strings.TrimSpace(o); o != "" {
