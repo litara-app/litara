@@ -21,6 +21,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
 	"github.com/deranjer/ebooker/apps/server/internal/seed"
 	"github.com/deranjer/ebooker/apps/server/internal/testutil"
@@ -95,7 +96,7 @@ func New(t *testing.T, opts ...Options) *Env {
 		}
 		e.Fix = fix
 	}
-	h := httpapi.New(httpapi.Deps{Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Config: o.Cfg}})
+	h := httpapi.New(httpapi.Deps{Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Library: library.New(pool), Config: o.Cfg}})
 	e.Server = httptest.NewServer(h)
 	t.Cleanup(e.Server.Close)
 	return e

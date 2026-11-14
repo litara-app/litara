@@ -27,6 +27,10 @@ An administrator with a library grant configures a library over an OS-mounted di
 7. **Write-back.** JSON sidecar export, then in-file writers enabled one format at a time only with fidelity evidence (content, chapters, artwork). Staged validation, durable journal, version recheck, safe replacement, optional per-library backups default OFF whose failure blocks the write (ADR-0048/0051–0053/0057). A format without evidence stays disabled and reported as such.
 8. **Recovery tests and handoff.**
 
+## Job-queue rule (user decision 2026-11-13: stay on River core)
+
+River core stays (ADR-0024). Keep the exit cheap: T004 code reaches River only through a narrow interface in `internal/jobs` (transactional enqueue, periodic schedule, cancel, status). All business state (scan runs, import and write journals, review items) lives in our tables, never in River's tables; jobs only wake work and must be idempotent. Serialize per-library work with our own unique constraints (for example `scan_runs_one_active`), not River Pro features.
+
 ## Exclusive write scope
 
 `apps/server/**` (new catalog/library/scan/import/metadata/writeback packages, migrations, sqlc, tests), `contracts/t004/**`, `scripts/backend/**`, `scripts/contracts/**`, `.github/workflows/backend.yml`, `deploy/**` (dev only), `research/t004/**`, `handoffs/T004.md`. T003 server code may be extended where the model requires it; keep T003 tests green and explain each change in the handoff.

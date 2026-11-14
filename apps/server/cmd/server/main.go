@@ -19,6 +19,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/app"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
+	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/config"
 	"github.com/deranjer/ebooker/apps/server/internal/db"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
@@ -110,7 +111,7 @@ func run() error {
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
 		Handler: httpapi.New(httpapi.Deps{Pool: pool, Prober: insp, Workers: running.Load, Version: version,
-			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Config: apiCfg, Log: log}}),
+			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Library: library.New(pool), Config: apiCfg, Log: log}}),
 	}
 	errc := make(chan error, 1)
 	go func() {

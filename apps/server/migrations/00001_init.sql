@@ -246,7 +246,153 @@ CREATE TABLE conflicts (
 );
 CREATE INDEX conflicts_open_idx ON conflicts (user_id, recording_id) WHERE resolved_at IS NULL;
 
+-- ===== T004: library ingestion, identity, review and write-back (ADR-0044..0061) =====
+-- Business state lives in these tables; River jobs only wake work (ADR-0024).
+CREATE TABLE library_config (
+    library_id          uuid PRIMARY KEY REFERENCES libraries (id) ON DELETE CASCADE,
+    mode                text NOT NULL CHECK (mode IN ('index', 'managed')),
+    root_path           text NOT NULL CHECK (root_path <> ''),
+    follow_symlinks     boolean NOT NULL DEFAULT false,
+    -- Operator-supplied identity sentinel (relative path + expected content hash); never auto-created.
+    sentinel_path       text,
+    sentinel_sha256     text,
+    scan_interval_secs  integer NOT NULL DEFAULT 900 CHECK (scan_interval_secs >= 60),
+    verify_interval_secs integer NOT NULL DEFAULT 86400 CHECK (verify_interval_secs >= 3600),
+    stability_secs      integer NOT NULL DEFAULT 30 CHECK (stability_secs >= 1),
+    import_template     text,
+    writeback_backups   boolean NOT NULL DEFAULT false,
+    backup_root         text,
+    provider_order      text[] NOT NULL DEFAULT '{}',
+    updated_at          timestamptz NOT NULL DEFAULT now(),
+    CHECK (NOT writeback_backups OR backup_root IS NOT NULL),
+    CHECK (sentinel_path IS NULL OR sentinel_sha256 IS NOT NULL)
+);
+
+CREATE TABLE root_health (
+    library_id  uuid PRIMARY KEY REFERENCES libraries (id) ON DELETE CASCADE,
+    state       text NOT NULL CHECK (state IN ('healthy', 'unavailable', 'identity_mismatch', 'unknown')),
+    detail      text,
+    checked_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE scan_runs (
+    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    library_id    uuid NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
+    trigger       text NOT NULL CHECK (trigger IN ('schedule', 'event', 'manual', 'verify')),
+    state         text NOT NULL DEFAULT 'queued' CHECK (state IN ('queued', 'running', 'completed', 'failed', 'skipped')),
+    health        text CHECK (health IN ('healthy', 'unavailable', 'identity_mismatch')),
+    files_seen    integer NOT NULL DEFAULT 0,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    started_at    timestamptz,
+    completed_at  timestamptz,
+    failure       text
+);
+-- At most one active scan per library (serialization lives in our tables, not the queue).
+CREATE UNIQUE INDEX scan_runs_one_active ON scan_runs (library_id) WHERE state IN ('queued', 'running');
+
+CREATE TABLE file_observations (
+    file_id            uuid PRIMARY KEY REFERENCES media_files (id),
+    library_id         uuid NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
+    rel_path           text NOT NULL,
+    size_bytes         bigint NOT NULL CHECK (size_bytes >= 0),
+    mtime              timestamptz NOT NULL,
+    first_observed_at  timestamptz NOT NULL DEFAULT now(),
+    last_observed_at   timestamptz NOT NULL DEFAULT now(),
+    stable             boolean NOT NULL DEFAULT false,
+    missing_scans      integer NOT NULL DEFAULT 0 CHECK (missing_scans >= 0),
+    missing            boolean NOT NULL DEFAULT false,
+    UNIQUE (library_id, rel_path)
+);
+
+CREATE TABLE fingerprints (
+    content_version  uuid PRIMARY KEY REFERENCES file_versions (content_version),
+    sha256           text NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    size_bytes       bigint NOT NULL CHECK (size_bytes >= 0),
+    mtime            timestamptz NOT NULL,
+    computed_at      timestamptz NOT NULL DEFAULT now(),
+    verified_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX fingerprints_sha_idx ON fingerprints (sha256);
+
+CREATE TABLE review_items (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    library_id   uuid NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
+    kind         text NOT NULL CHECK (kind IN ('move', 'grouping', 'ordering', 'association', 'provider', 'import', 'write')),
+    -- Stable key so a rescan updates, not duplicates, the same open question.
+    subject_key  text NOT NULL,
+    state        text NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'resolved', 'dismissed')),
+    candidates   jsonb NOT NULL,
+    resolution   jsonb,
+    resolved_by  uuid REFERENCES users (id),
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    resolved_at  timestamptz
+);
+CREATE UNIQUE INDEX review_items_one_open ON review_items (library_id, kind, subject_key) WHERE state = 'open';
+
+CREATE TABLE move_candidates (
+    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    library_id    uuid NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
+    missing_file  uuid NOT NULL REFERENCES media_files (id),
+    new_rel_path  text NOT NULL,
+    sha256        text NOT NULL,
+    match_kind    text NOT NULL CHECK (match_kind IN ('unique', 'ambiguous')),
+    review_item   uuid REFERENCES review_items (id),
+    created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE metadata_values (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    subject_kind text NOT NULL CHECK (subject_kind IN ('title', 'recording')),
+    subject_id   uuid NOT NULL,
+    field        text NOT NULL,
+    source       text NOT NULL CHECK (source IN ('user', 'sidecar', 'embedded', 'provider')),
+    value        jsonb,
+    -- A protected clear is an explicit user value of "empty" that rescans must keep.
+    protected_clear boolean NOT NULL DEFAULT false,
+    updated_at   timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (subject_kind, subject_id, field, source),
+    CHECK (source = 'user' OR NOT protected_clear)
+);
+
+CREATE TABLE writeback_plans (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    library_id       uuid NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
+    file_id          uuid NOT NULL REFERENCES media_files (id),
+    base_version     uuid NOT NULL REFERENCES file_versions (content_version),
+    kind             text NOT NULL CHECK (kind IN ('sidecar', 'in_file')),
+    format           text,
+    diff             jsonb NOT NULL,
+    approved_by      uuid REFERENCES users (id),
+    stage            text NOT NULL DEFAULT 'planned'
+                     CHECK (stage IN ('planned', 'approved', 'staged', 'validated', 'backed_up', 'published', 'recovered', 'abandoned', 'refused')),
+    staged_path      text,
+    backup_ref       text,
+    detail           text,
+    created_at       timestamptz NOT NULL DEFAULT now(),
+    updated_at       timestamptz NOT NULL DEFAULT now(),
+    CHECK (kind <> 'in_file' OR format IS NOT NULL)
+);
+
+-- Per-format writer enablement; disabled until fidelity evidence is recorded (ADR-0052).
+CREATE TABLE writer_capabilities (
+    format       text PRIMARY KEY CHECK (format IN ('epub', 'mp3', 'flac', 'm4a', 'm4b')),
+    enabled      boolean NOT NULL DEFAULT false,
+    evidence_ref text,
+    CHECK (NOT enabled OR evidence_ref IS NOT NULL)
+);
+INSERT INTO writer_capabilities (format) VALUES ('epub'), ('mp3'), ('flac'), ('m4a'), ('m4b');
+
 -- +goose Down
+DROP TABLE writer_capabilities;
+DROP TABLE writeback_plans;
+DROP TABLE metadata_values;
+DROP TABLE move_candidates;
+DROP TABLE review_items;
+DROP TABLE fingerprints;
+DROP TABLE file_observations;
+DROP TABLE scan_runs;
+DROP TABLE root_health;
+DROP TABLE library_config;
 DROP TABLE conflicts;
 DROP TABLE operation_receipts;
 DROP TABLE completion_history;

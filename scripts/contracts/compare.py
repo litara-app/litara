@@ -13,6 +13,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = json.loads((ROOT / 'contracts' / 't003' / 'openapi.json').read_text(encoding='utf-8'))
+# T004 additions live in their own contract file and share T003 components.
+_t4 = ROOT / 'contracts' / 't004' / 'openapi.json'
+if _t4.exists():
+    _extra = json.loads(_t4.read_text(encoding='utf-8'))
+    for _p, _item in _extra['paths'].items():
+        assert _p not in CONTRACT['paths'] or not set(_item) & set(CONTRACT['paths'][_p]), f'T004 contract overlaps T003 at {_p}'
+        CONTRACT['paths'].setdefault(_p, {}).update(_item)
+    for _n, _sch in _extra['components']['schemas'].items():
+        assert _n not in CONTRACT['components']['schemas'], f'T004 schema {_n} collides with T003'
+        CONTRACT['components']['schemas'][_n] = _sch
 
 if len(sys.argv) > 1:
     GENERATED = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))

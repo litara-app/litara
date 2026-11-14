@@ -16,6 +16,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/apperr"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
+	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
 )
 
@@ -41,6 +42,7 @@ type APIDeps struct {
 	Accounts *accounts.Service
 	Catalog  *catalog.Service
 	Progress *progress.Service
+	Library  *library.Service
 	Config   APIConfig
 	Log      *slog.Logger
 }
@@ -79,6 +81,7 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerDiscovery(api)
 	a.registerAuth(api)
 	a.registerAdmin(api)
+	a.registerLibraries(api)
 	a.registerRecordings(api)
 	a.registerProgress(api)
 	a.registerMedia(api)
