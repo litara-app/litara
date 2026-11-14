@@ -50,6 +50,8 @@ The user selected shared/smart shelves, owner-edited sharing, viewer-specific sm
 
 Preparation checks passed: 70 ADRs/index; existing T003 static contract checks; T005's 38 operations/65 schemas/15 positive-negative examples/38 scenarios with collision/auth declarations checked; and deterministic generation/container structure for eight synthetic fixtures with nonempty-output protection. Application/reader/browser/codec/hardware behavior remains implementation acceptance work. No builds/releases or CI runs were launched. See the complete execution brief and preparation evidence; Ready does not mean production-ready or Assigned.
 
+**Verified immutable T005 source snapshot:** `208684e5fdce39f6b39baefa03a11517078355a7`. Exported that committed tree into an independent clean source directory: both static contract checkers, all 70 ADR/index checks and the tracked fixture generator passed without uncommitted coordinator source. Validator dependencies were supplied separately from the pinned existing requirements. The following coordinator commit records readiness evidence only; supply the exact final branch-tip hash when assigning, and record that as the worker base. Branch: `codex/t005-readiness`; same preparation is proposed in PR #84. No worker is assigned.
+
 ## Readiness review — 2026-11-13
 
 Evidence: fetched `origin/main` at `bef07cf09e5faf2ca11553d3d82f98927ca483a7`; both PRs report Merged. PR #79's backend check and container-smoke jobs passed, and PR #80's full/fdroid lint/test/assembly job passed. Earlier handoff statements that hosted CI was never run are historical, superseded by these results. Local backend integration/smoke and Android validation evidence remains in the handoffs and review conversation.
