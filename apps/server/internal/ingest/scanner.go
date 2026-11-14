@@ -6,8 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -483,4 +486,35 @@ func (s *Scanner) raiseMoveReview(ctx context.Context, lib uuid.UUID, sha string
 	}
 	_, err = sqlcgen.New(s.Pool).UpsertOpenReview(ctx, sqlcgen.UpsertOpenReviewParams{LibraryID: lib, Kind: "move", SubjectKey: sha, Candidates: raw})
 	return err
+}
+
+// RecordReplacement registers the bytes now at a known file's path as a new
+// content version of the same file (used after a reviewed in-file write).
+// Saved positions are not remapped; recording layouts are invalidated.
+func (s *Scanner) RecordReplacement(ctx context.Context, lib, fileID uuid.UUID) error {
+	q := sqlcgen.New(s.Pool)
+	known, err := q.ListObservations(ctx, lib)
+	if err != nil {
+		return err
+	}
+	for _, o := range known {
+		if o.FileID != fileID {
+			continue
+		}
+		info, err := os.Stat(o.Locator)
+		if err != nil {
+			return err
+		}
+		sum, _, err := HashFile(ctx, o.Locator)
+		if err != nil {
+			return err
+		}
+		mime := mediaTypes[strings.ToLower(filepath.Ext(o.Locator))]
+		e := Entry{Rel: o.RelPath, Abs: o.Locator, Size: info.Size(), Mtime: micro(info.ModTime()), Mime: mime}
+		if o.Sha256 != nil && *o.Sha256 == sum {
+			return s.refreshStat(ctx, lib, o, e, s.now())
+		}
+		return s.replace(ctx, lib, o, e, sum, s.now())
+	}
+	return fmt.Errorf("file is not cataloged in this library")
 }

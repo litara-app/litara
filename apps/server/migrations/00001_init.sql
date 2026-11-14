@@ -365,7 +365,11 @@ CREATE TABLE writeback_plans (
     approved_by      uuid REFERENCES users (id),
     stage            text NOT NULL DEFAULT 'planned'
                      CHECK (stage IN ('planned', 'approved', 'staged', 'validated', 'backed_up', 'published', 'recovered', 'abandoned', 'refused')),
+    recording_id     uuid REFERENCES recordings (id) ON DELETE SET NULL,
+    target_rel       text NOT NULL,
+    base_sha256      text,
     staged_path      text,
+    staged_sha256    text,
     backup_ref       text,
     detail           text,
     created_at       timestamptz NOT NULL DEFAULT now(),

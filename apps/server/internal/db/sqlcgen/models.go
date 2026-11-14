@@ -378,20 +378,24 @@ type UserLibraryGrant struct {
 }
 
 type WritebackPlan struct {
-	ID          uuid.UUID     `json:"id"`
-	LibraryID   uuid.UUID     `json:"library_id"`
-	FileID      uuid.UUID     `json:"file_id"`
-	BaseVersion uuid.UUID     `json:"base_version"`
-	Kind        string        `json:"kind"`
-	Format      *string       `json:"format"`
-	Diff        []byte        `json:"diff"`
-	ApprovedBy  uuid.NullUUID `json:"approved_by"`
-	Stage       string        `json:"stage"`
-	StagedPath  *string       `json:"staged_path"`
-	BackupRef   *string       `json:"backup_ref"`
-	Detail      *string       `json:"detail"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at"`
+	ID           uuid.UUID     `json:"id"`
+	LibraryID    uuid.UUID     `json:"library_id"`
+	FileID       uuid.UUID     `json:"file_id"`
+	BaseVersion  uuid.UUID     `json:"base_version"`
+	Kind         string        `json:"kind"`
+	Format       *string       `json:"format"`
+	Diff         []byte        `json:"diff"`
+	ApprovedBy   uuid.NullUUID `json:"approved_by"`
+	Stage        string        `json:"stage"`
+	RecordingID  uuid.NullUUID `json:"recording_id"`
+	TargetRel    string        `json:"target_rel"`
+	BaseSha256   *string       `json:"base_sha256"`
+	StagedPath   *string       `json:"staged_path"`
+	StagedSha256 *string       `json:"staged_sha256"`
+	BackupRef    *string       `json:"backup_ref"`
+	Detail       *string       `json:"detail"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
 }
 
 type WriterCapability struct {
