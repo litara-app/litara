@@ -68,6 +68,10 @@ func TestE2EServe(t *testing.T) {
 	if r := e.Do("PUT", "/admin/users/"+e.Fix.UserAID.String()+"/libraries/"+d.Library.ID, admin, nil); r.StatusCode != http.StatusNoContent {
 		t.Fatalf("grant: %d %s", r.StatusCode, r.Body)
 	}
+	// The administrator may manage the seeded audiobook library too (repair scenarios).
+	if r := e.Do("PUT", "/admin/users/"+e.Fix.AdminID.String()+"/libraries/"+e.Fix.Lib1.String(), admin, nil); r.StatusCode != http.StatusNoContent {
+		t.Fatalf("admin grant on the seeded library: %d %s", r.StatusCode, r.Body)
+	}
 	novel(t, filepath.Join(root, "Eve Tester", "novel.epub"))
 	scanTwice(t, e, admin, d.Library.ID)
 

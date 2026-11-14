@@ -56,3 +56,28 @@ export type Selection =
   | { kind: "pdf-rectangles"; version: 1; pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] };
 export interface AnnotationData { kind: "highlight" | "note" | "bookmark"; anchor: Anchor; selection: Selection | null; text: string; quote: string }
 export interface Annotation { id: string; editionId: string; revision: string; deleted: boolean; data: AnnotationData | null; updatedAt: string }
+
+export interface MetadataField {
+  field: string; source: string; cleared: boolean; value: unknown;
+  conflicts: { source: string; value: unknown }[];
+}
+export interface MetadataReport { editionId: string; revision: string; fields: MetadataField[] }
+
+export interface RecordingFile { id: string; contentVersion: string; sequence: number; filename: string }
+export interface RecordingSnapshot { id: string; titleId: string; libraryId: string; title: string; layoutRevision: string; files: RecordingFile[] }
+
+export interface RepairOutput { key: string; label: string; files: { fileId: string; contentVersion: string }[] }
+export interface RepairPlan {
+  id: string; revision: string; libraryId: string; titleId: string; kind: "merge" | "split";
+  state: "planned" | "approved" | "applied" | "cancelled" | "stale";
+  sources: { recordingId: string; layoutRevision: string }[]; outputs: RepairOutput[];
+  result: { key: string; recordingId: string }[]; warnings: { code: string; detail: string }[];
+}
+
+export interface ScanRun { id: string; trigger: string; state: string; health?: string; filesSeen: number; createdAt: string; completedAt?: string; failure?: string }
+export interface Review { id: string; kind: string; subjectKey: string; candidates: Record<string, unknown>; createdAt: string }
+export interface LibraryDetail {
+  library: Library;
+  config: { mode: string; rootPath: string; followSymlinks: boolean; scanIntervalSecs?: number; writebackBackups: boolean; providerOrder: string[] };
+  health: { state: string; detail?: string; checkedAt?: string };
+}

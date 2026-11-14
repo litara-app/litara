@@ -40,6 +40,11 @@ export function op(baseRevision: string) {
   return { operationId: crypto.randomUUID(), baseRevision, capturedAt: new Date().toISOString() };
 }
 
+/** Operation ID and base revision only (administrator bodies carry no capturedAt). */
+export function adminOp(baseRevision: string) {
+  return { operationId: crypto.randomUUID(), baseRevision };
+}
+
 export function qs(params: Record<string, string | number | boolean | undefined | null>): string {
   const u = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== "") u.set(k, String(v));

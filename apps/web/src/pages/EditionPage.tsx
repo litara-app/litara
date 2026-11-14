@@ -3,10 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { api, get } from "../api/client";
 import type { Edition } from "../api/types";
+import { EditionAdmin } from "../admin/EditionAdmin";
+import { useAuth } from "../auth/session";
 import { Busy, bytes, CapBadge, ErrorBox } from "../ui/common";
 
 export function EditionPage() {
   const { editionId = "" } = useParams();
+  const { user } = useAuth();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["edition", editionId], queryFn: () => get<Edition>(`/editions/${editionId}`) });
   const finish = useMutation({
@@ -56,6 +59,7 @@ export function EditionPage() {
         </Button>
       </Group>
       <ErrorBox error={finish.error} />
+      {user?.isAdmin && <EditionAdmin edition={e} />}
     </Stack>
   );
 }

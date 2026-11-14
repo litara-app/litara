@@ -12,7 +12,7 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   reporter: [["list"]],
-  use: { baseURL: "http://127.0.0.1:8091" },
+  use: { baseURL: "http://127.0.0.1:8091", screenshot: "only-on-failure" },
   webServer: {
     command: "go test ./internal/httpapi -run TestE2EServe -count=1 -timeout 25m",
     cwd: "../server",
@@ -22,9 +22,12 @@ export default defineConfig({
     stdout: "pipe",
     env: { ...(process.env as Record<string, string>), LITARA_E2E_SERVE: "1", LITARA_E2E_WEBDIR: path.resolve(import.meta.dirname, "dist") },
   },
+  // Administration scenarios change shared state permanently (a repair applies once),
+  // so they run once, in Chromium, after the reader scenarios.
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    { name: "chromium", testIgnore: /admin\.spec/, use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", testIgnore: /admin\.spec/, use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", testIgnore: /admin\.spec/, use: { ...devices["Desktop Safari"] } },
+    { name: "admin", testMatch: /admin\.spec/, dependencies: ["chromium", "firefox", "webkit"], use: { ...devices["Desktop Chrome"] } },
   ],
 });

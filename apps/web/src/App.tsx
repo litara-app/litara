@@ -1,6 +1,10 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth/session";
+import { AdminLayout } from "./admin/AdminLayout";
+import { LibrariesPage, LibraryAdminPage } from "./admin/LibrariesPage";
+import { RepairPage, RepairPlanPage } from "./admin/RepairPage";
+import { UsersPage } from "./admin/UsersPage";
 import { EditionPage } from "./pages/EditionPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -41,6 +45,13 @@ export function App() {
           <Route path="editions/:editionId" element={<EditionPage />} />
           <Route path="shelves" element={<ShelvesPage />} />
           <Route path="shelves/:shelfId" element={<ShelfPage />} />
+          <Route path="admin" element={<AdminLayout />}>
+            <Route index element={<UsersPage />} />
+            <Route path="libraries" element={<LibrariesPage />} />
+            <Route path="libraries/:libraryId" element={<LibraryAdminPage />} />
+            <Route path="repairs" element={<RepairPage />} />
+            <Route path="repairs/:planId" element={<RepairPlanPage />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
