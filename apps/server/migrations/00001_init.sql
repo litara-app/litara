@@ -406,11 +406,10 @@ CREATE TABLE file_metadata (
 -- Stable key so regrouping updates the same recording instead of duplicating it.
 ALTER TABLE recordings ADD COLUMN group_key text;
 CREATE UNIQUE INDEX recordings_group_key ON recordings (library_id, group_key) WHERE group_key IS NOT NULL;
-ALTER TABLE recordings ADD COLUMN ordering_state text NOT NULL DEFAULT 'confirmed'
-    CHECK (ordering_state IN ('confirmed', 'needs_review'));
 ALTER TABLE recordings ADD COLUMN link_state text NOT NULL DEFAULT 'confirmed'
     CHECK (link_state IN ('confirmed', 'provisional'));
 ALTER TABLE titles ADD COLUMN group_key text;
+ALTER TABLE titles ADD COLUMN identifier text;
 
 -- Sidecar / CUE associations (ADR-0055). Only unambiguous matches are stored as associated.
 CREATE TABLE associations (

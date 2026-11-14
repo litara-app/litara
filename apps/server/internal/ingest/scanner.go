@@ -329,6 +329,14 @@ func (s *Scanner) reconcile(ctx context.Context, run sqlcgen.ScanRun) (Outcome, 
 			}
 		}
 	}
+	if listing.Complete {
+		if _, err := s.Group(ctx, run.LibraryID); err != nil {
+			return out, fmt.Errorf("group: %w", err)
+		}
+		if err := s.Associate(ctx, run.LibraryID, listing); err != nil {
+			return out, fmt.Errorf("associate: %w", err)
+		}
+	}
 	return out, nil
 }
 

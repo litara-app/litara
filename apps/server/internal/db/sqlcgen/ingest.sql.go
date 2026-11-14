@@ -22,6 +22,15 @@ func (q *Queries) BumpLayoutForFile(ctx context.Context, fileID uuid.UUID) error
 	return err
 }
 
+const bumpRecordingLayout = `-- name: BumpRecordingLayout :exec
+UPDATE recordings SET layout_revision = gen_random_uuid() WHERE id = $1
+`
+
+func (q *Queries) BumpRecordingLayout(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, bumpRecordingLayout, id)
+	return err
+}
+
 const closeReviewByKey = `-- name: CloseReviewByKey :exec
 UPDATE review_items SET state = 'resolved', resolved_at = $4::timestamptz, resolution = '{"auto": true}'::jsonb
 WHERE library_id = $1 AND kind = $2 AND subject_key = $3 AND state = 'open'
@@ -127,6 +136,36 @@ func (q *Queries) FinishScanRun(ctx context.Context, arg FinishScanRunParams) er
 	return err
 }
 
+const getRecordingByGroupKey = `-- name: GetRecordingByGroupKey :one
+SELECT id, title_id, library_id, narrators, layout_revision, thumbnail_locator, thumbnail_mime, cover_locator, cover_mime, seed_key, created_at, group_key, link_state FROM recordings WHERE library_id = $1 AND group_key = $2
+`
+
+type GetRecordingByGroupKeyParams struct {
+	LibraryID uuid.UUID `json:"library_id"`
+	GroupKey  *string   `json:"group_key"`
+}
+
+func (q *Queries) GetRecordingByGroupKey(ctx context.Context, arg GetRecordingByGroupKeyParams) (Recording, error) {
+	row := q.db.QueryRow(ctx, getRecordingByGroupKey, arg.LibraryID, arg.GroupKey)
+	var i Recording
+	err := row.Scan(
+		&i.ID,
+		&i.TitleID,
+		&i.LibraryID,
+		&i.Narrators,
+		&i.LayoutRevision,
+		&i.ThumbnailLocator,
+		&i.ThumbnailMime,
+		&i.CoverLocator,
+		&i.CoverMime,
+		&i.SeedKey,
+		&i.CreatedAt,
+		&i.GroupKey,
+		&i.LinkState,
+	)
+	return i, err
+}
+
 const getScanRun = `-- name: GetScanRun :one
 SELECT id, library_id, trigger, state, health, files_seen, created_at, started_at, completed_at, failure FROM scan_runs WHERE id = $1
 `
@@ -225,6 +264,52 @@ func (q *Queries) InsertFingerprint(ctx context.Context, arg InsertFingerprintPa
 	return err
 }
 
+const insertIngestRecording = `-- name: InsertIngestRecording :exec
+INSERT INTO recordings (id, title_id, library_id, narrators, group_key, link_state) VALUES ($1, $2, $3, '{}', $4, $5)
+`
+
+type InsertIngestRecordingParams struct {
+	ID        uuid.UUID `json:"id"`
+	TitleID   uuid.UUID `json:"title_id"`
+	LibraryID uuid.UUID `json:"library_id"`
+	GroupKey  *string   `json:"group_key"`
+	LinkState string    `json:"link_state"`
+}
+
+func (q *Queries) InsertIngestRecording(ctx context.Context, arg InsertIngestRecordingParams) error {
+	_, err := q.db.Exec(ctx, insertIngestRecording,
+		arg.ID,
+		arg.TitleID,
+		arg.LibraryID,
+		arg.GroupKey,
+		arg.LinkState,
+	)
+	return err
+}
+
+const insertIngestTitle = `-- name: InsertIngestTitle :exec
+INSERT INTO titles (id, title, authors, group_key, identifier) VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertIngestTitleParams struct {
+	ID         uuid.UUID `json:"id"`
+	Title      string    `json:"title"`
+	Authors    []string  `json:"authors"`
+	GroupKey   *string   `json:"group_key"`
+	Identifier *string   `json:"identifier"`
+}
+
+func (q *Queries) InsertIngestTitle(ctx context.Context, arg InsertIngestTitleParams) error {
+	_, err := q.db.Exec(ctx, insertIngestTitle,
+		arg.ID,
+		arg.Title,
+		arg.Authors,
+		arg.GroupKey,
+		arg.Identifier,
+	)
+	return err
+}
+
 const insertMediaFile = `-- name: InsertMediaFile :exec
 INSERT INTO media_files (id) VALUES ($1)
 `
@@ -258,6 +343,38 @@ func (q *Queries) InsertObservation(ctx context.Context, arg InsertObservationPa
 		arg.Now,
 	)
 	return err
+}
+
+const listAssociations = `-- name: ListAssociations :many
+SELECT id, library_id, kind, rel_path, recording_id, state, detail FROM associations WHERE library_id = $1 ORDER BY rel_path
+`
+
+func (q *Queries) ListAssociations(ctx context.Context, libraryID uuid.UUID) ([]Association, error) {
+	rows, err := q.db.Query(ctx, listAssociations, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Association
+	for rows.Next() {
+		var i Association
+		if err := rows.Scan(
+			&i.ID,
+			&i.LibraryID,
+			&i.Kind,
+			&i.RelPath,
+			&i.RecordingID,
+			&i.State,
+			&i.Detail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCandidates = `-- name: ListCandidates :many
@@ -351,6 +468,77 @@ func (q *Queries) ListDueVerification(ctx context.Context, now time.Time) ([]uui
 	return items, nil
 }
 
+const listLibraryRecordings = `-- name: ListLibraryRecordings :many
+SELECT id, title_id, group_key, link_state FROM recordings WHERE library_id = $1 ORDER BY created_at, id
+`
+
+type ListLibraryRecordingsRow struct {
+	ID        uuid.UUID `json:"id"`
+	TitleID   uuid.UUID `json:"title_id"`
+	GroupKey  *string   `json:"group_key"`
+	LinkState string    `json:"link_state"`
+}
+
+func (q *Queries) ListLibraryRecordings(ctx context.Context, libraryID uuid.UUID) ([]ListLibraryRecordingsRow, error) {
+	rows, err := q.db.Query(ctx, listLibraryRecordings, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLibraryRecordingsRow
+	for rows.Next() {
+		var i ListLibraryRecordingsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.GroupKey,
+			&i.LinkState,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraryTitlesByKey = `-- name: ListLibraryTitlesByKey :many
+SELECT DISTINCT t.id, t.identifier FROM titles t JOIN recordings r ON r.title_id = t.id
+WHERE r.library_id = $1 AND t.group_key = $2
+`
+
+type ListLibraryTitlesByKeyParams struct {
+	LibraryID uuid.UUID `json:"library_id"`
+	GroupKey  *string   `json:"group_key"`
+}
+
+type ListLibraryTitlesByKeyRow struct {
+	ID         uuid.UUID `json:"id"`
+	Identifier *string   `json:"identifier"`
+}
+
+func (q *Queries) ListLibraryTitlesByKey(ctx context.Context, arg ListLibraryTitlesByKeyParams) ([]ListLibraryTitlesByKeyRow, error) {
+	rows, err := q.db.Query(ctx, listLibraryTitlesByKey, arg.LibraryID, arg.GroupKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLibraryTitlesByKeyRow
+	for rows.Next() {
+		var i ListLibraryTitlesByKeyRow
+		if err := rows.Scan(&i.ID, &i.Identifier); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listObservations = `-- name: ListObservations :many
 SELECT o.file_id, o.rel_path, o.size_bytes, o.mtime, o.missing_scans, o.missing,
        v.content_version, v.locator, v.available,
@@ -436,6 +624,98 @@ func (q *Queries) ListOpenReviews(ctx context.Context, libraryID uuid.UUID) ([]R
 			&i.ResolvedBy,
 			&i.CreatedAt,
 			&i.ResolvedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecordingMembers = `-- name: ListRecordingMembers :many
+SELECT rf.recording_id, rf.sequence, o.file_id, v.content_version, o.rel_path, v.duration_ms, fm.result
+FROM recording_files rf
+JOIN file_observations o ON o.file_id = rf.file_id
+JOIN file_versions v ON v.file_id = rf.file_id AND v.current
+LEFT JOIN file_metadata fm ON fm.content_version = v.content_version
+WHERE rf.recording_id = ANY($1::uuid[])
+ORDER BY rf.recording_id, rf.sequence
+`
+
+type ListRecordingMembersRow struct {
+	RecordingID    uuid.UUID `json:"recording_id"`
+	Sequence       int32     `json:"sequence"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	RelPath        string    `json:"rel_path"`
+	DurationMs     *int64    `json:"duration_ms"`
+	Result         []byte    `json:"result"`
+}
+
+func (q *Queries) ListRecordingMembers(ctx context.Context, recordingIds []uuid.UUID) ([]ListRecordingMembersRow, error) {
+	rows, err := q.db.Query(ctx, listRecordingMembers, recordingIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecordingMembersRow
+	for rows.Next() {
+		var i ListRecordingMembersRow
+		if err := rows.Scan(
+			&i.RecordingID,
+			&i.Sequence,
+			&i.FileID,
+			&i.ContentVersion,
+			&i.RelPath,
+			&i.DurationMs,
+			&i.Result,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUngroupedAudio = `-- name: ListUngroupedAudio :many
+SELECT o.file_id, v.content_version, o.rel_path, v.duration_ms, fm.result
+FROM file_observations o
+JOIN file_versions v ON v.file_id = o.file_id AND v.current AND v.available
+LEFT JOIN file_metadata fm ON fm.content_version = v.content_version
+WHERE o.library_id = $1 AND v.mime_type LIKE 'audio/%'
+  AND NOT EXISTS (SELECT 1 FROM recording_files rf WHERE rf.file_id = o.file_id)
+ORDER BY o.rel_path
+`
+
+type ListUngroupedAudioRow struct {
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	RelPath        string    `json:"rel_path"`
+	DurationMs     *int64    `json:"duration_ms"`
+	Result         []byte    `json:"result"`
+}
+
+func (q *Queries) ListUngroupedAudio(ctx context.Context, libraryID uuid.UUID) ([]ListUngroupedAudioRow, error) {
+	rows, err := q.db.Query(ctx, listUngroupedAudio, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUngroupedAudioRow
+	for rows.Next() {
+		var i ListUngroupedAudioRow
+		if err := rows.Scan(
+			&i.FileID,
+			&i.ContentVersion,
+			&i.RelPath,
+			&i.DurationMs,
+			&i.Result,
 		); err != nil {
 			return nil, err
 		}
@@ -606,6 +886,33 @@ func (q *Queries) UpdateObservation(ctx context.Context, arg UpdateObservationPa
 	return err
 }
 
+const upsertAssociation = `-- name: UpsertAssociation :exec
+INSERT INTO associations (library_id, kind, rel_path, recording_id, state, detail) VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (library_id, rel_path) DO UPDATE SET kind = EXCLUDED.kind, recording_id = EXCLUDED.recording_id,
+    state = EXCLUDED.state, detail = EXCLUDED.detail
+`
+
+type UpsertAssociationParams struct {
+	LibraryID   uuid.UUID     `json:"library_id"`
+	Kind        string        `json:"kind"`
+	RelPath     string        `json:"rel_path"`
+	RecordingID uuid.NullUUID `json:"recording_id"`
+	State       string        `json:"state"`
+	Detail      *string       `json:"detail"`
+}
+
+func (q *Queries) UpsertAssociation(ctx context.Context, arg UpsertAssociationParams) error {
+	_, err := q.db.Exec(ctx, upsertAssociation,
+		arg.LibraryID,
+		arg.Kind,
+		arg.RelPath,
+		arg.RecordingID,
+		arg.State,
+		arg.Detail,
+	)
+	return err
+}
+
 const upsertCandidate = `-- name: UpsertCandidate :exec
 INSERT INTO file_candidates (library_id, rel_path, size_bytes, mtime, first_seen_at, last_seen_at)
 VALUES ($1, $2, $3, $4, $5::timestamptz, $5::timestamptz)
@@ -632,6 +939,23 @@ func (q *Queries) UpsertCandidate(ctx context.Context, arg UpsertCandidateParams
 		arg.Mtime,
 		arg.Now,
 	)
+	return err
+}
+
+const upsertIngestChapterSource = `-- name: UpsertIngestChapterSource :exec
+INSERT INTO chapter_sources (recording_id, source, starts) VALUES ($1, $2, $3)
+ON CONFLICT (recording_id, source) DO UPDATE SET starts = EXCLUDED.starts
+WHERE EXCLUDED.source <> 'user'
+`
+
+type UpsertIngestChapterSourceParams struct {
+	RecordingID uuid.UUID `json:"recording_id"`
+	Source      string    `json:"source"`
+	Starts      []byte    `json:"starts"`
+}
+
+func (q *Queries) UpsertIngestChapterSource(ctx context.Context, arg UpsertIngestChapterSourceParams) error {
+	_, err := q.db.Exec(ctx, upsertIngestChapterSource, arg.RecordingID, arg.Source, arg.Starts)
 	return err
 }
 

@@ -239,7 +239,6 @@ type Recording struct {
 	SeedKey          *string   `json:"seed_key"`
 	CreatedAt        time.Time `json:"created_at"`
 	GroupKey         *string   `json:"group_key"`
-	OrderingState    string    `json:"ordering_state"`
 	LinkState        string    `json:"link_state"`
 }
 
@@ -323,6 +322,7 @@ type Title struct {
 	SeedKey     *string   `json:"seed_key"`
 	CreatedAt   time.Time `json:"created_at"`
 	GroupKey    *string   `json:"group_key"`
+	Identifier  *string   `json:"identifier"`
 }
 
 type User struct {

@@ -125,3 +125,53 @@ WHERE NOT EXISTS (
       AND (r.state IN ('queued', 'running')
            OR (r.trigger = 'verify' AND r.created_at > sqlc.arg(now)::timestamptz - make_interval(secs => c.verify_interval_secs)))
 );
+
+-- name: ListUngroupedAudio :many
+SELECT o.file_id, v.content_version, o.rel_path, v.duration_ms, fm.result
+FROM file_observations o
+JOIN file_versions v ON v.file_id = o.file_id AND v.current AND v.available
+LEFT JOIN file_metadata fm ON fm.content_version = v.content_version
+WHERE o.library_id = $1 AND v.mime_type LIKE 'audio/%'
+  AND NOT EXISTS (SELECT 1 FROM recording_files rf WHERE rf.file_id = o.file_id)
+ORDER BY o.rel_path;
+
+-- name: GetRecordingByGroupKey :one
+SELECT * FROM recordings WHERE library_id = $1 AND group_key = $2;
+
+-- name: ListRecordingMembers :many
+SELECT rf.recording_id, rf.sequence, o.file_id, v.content_version, o.rel_path, v.duration_ms, fm.result
+FROM recording_files rf
+JOIN file_observations o ON o.file_id = rf.file_id
+JOIN file_versions v ON v.file_id = rf.file_id AND v.current
+LEFT JOIN file_metadata fm ON fm.content_version = v.content_version
+WHERE rf.recording_id = ANY(sqlc.arg(recording_ids)::uuid[])
+ORDER BY rf.recording_id, rf.sequence;
+
+-- name: ListLibraryRecordings :many
+SELECT id, title_id, group_key, link_state FROM recordings WHERE library_id = $1 ORDER BY created_at, id;
+
+-- name: InsertIngestTitle :exec
+INSERT INTO titles (id, title, authors, group_key, identifier) VALUES ($1, $2, $3, $4, $5);
+
+-- name: InsertIngestRecording :exec
+INSERT INTO recordings (id, title_id, library_id, narrators, group_key, link_state) VALUES ($1, $2, $3, '{}', $4, $5);
+
+-- name: ListLibraryTitlesByKey :many
+SELECT DISTINCT t.id, t.identifier FROM titles t JOIN recordings r ON r.title_id = t.id
+WHERE r.library_id = $1 AND t.group_key = $2;
+
+-- name: BumpRecordingLayout :exec
+UPDATE recordings SET layout_revision = gen_random_uuid() WHERE id = $1;
+
+-- name: UpsertIngestChapterSource :exec
+INSERT INTO chapter_sources (recording_id, source, starts) VALUES ($1, $2, $3)
+ON CONFLICT (recording_id, source) DO UPDATE SET starts = EXCLUDED.starts
+WHERE EXCLUDED.source <> 'user';
+
+-- name: UpsertAssociation :exec
+INSERT INTO associations (library_id, kind, rel_path, recording_id, state, detail) VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (library_id, rel_path) DO UPDATE SET kind = EXCLUDED.kind, recording_id = EXCLUDED.recording_id,
+    state = EXCLUDED.state, detail = EXCLUDED.detail;
+
+-- name: ListAssociations :many
+SELECT * FROM associations WHERE library_id = $1 ORDER BY rel_path;
