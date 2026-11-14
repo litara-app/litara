@@ -42,7 +42,7 @@ func (q *Queries) CountEditionsPage(ctx context.Context, arg CountEditionsPagePa
 }
 
 const countTitleChildren = `-- name: CountTitleChildren :one
-SELECT ((SELECT count(*) FROM editions e WHERE e.title_id = $1) + (SELECT count(*) FROM recordings r WHERE r.title_id = $1))::bigint
+SELECT ((SELECT count(*) FROM editions e WHERE e.title_id = $1) + (SELECT count(*) FROM active_recordings r WHERE r.title_id = $1))::bigint
 `
 
 func (q *Queries) CountTitleChildren(ctx context.Context, titleID uuid.UUID) (int64, error) {
@@ -53,7 +53,7 @@ func (q *Queries) CountTitleChildren(ctx context.Context, titleID uuid.UUID) (in
 }
 
 const countTitleRecordings = `-- name: CountTitleRecordings :one
-SELECT count(*) FROM recordings r
+SELECT count(*) FROM active_recordings r
 JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1
 WHERE r.title_id = $2
 `
@@ -73,16 +73,16 @@ func (q *Queries) CountTitleRecordings(ctx context.Context, arg CountTitleRecord
 const countTitlesPage = `-- name: CountTitlesPage :one
 SELECT count(*) FROM titles t
 WHERE (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id)
-    OR EXISTS (SELECT 1 FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id))
+    OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id))
   AND ($2::text IS NULL OR position(lower($2::text) in lower(
          t.title || chr(10) || array_to_string(t.authors, chr(10)) || chr(10) || COALESCE(t.series_name, ''))) > 0)
   AND ($3::uuid IS NULL OR EXISTS (SELECT 1 FROM user_library_grants gg WHERE gg.user_id = $1 AND gg.library_id = $3))
   AND ($3::uuid IS NULL
        OR EXISTS (SELECT 1 FROM editions e WHERE e.title_id = t.id AND e.library_id = $3)
-       OR EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = t.id AND r.library_id = $3))
+       OR EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id AND r.library_id = $3))
   AND ($4::text IS NULL
        OR ($4::text = 'ebook' AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id))
-       OR ($4::text = 'audio' AND EXISTS (SELECT 1 FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)))
+       OR ($4::text = 'audio' AND EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)))
 `
 
 type CountTitlesPageParams struct {
@@ -184,7 +184,7 @@ func (q *Queries) GetEditionRow(ctx context.Context, id uuid.UUID) (GetEditionRo
 const getTitleForUser = `-- name: GetTitleForUser :many
 SELECT t.id, t.title, t.authors, t.series_name,
        (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id)::bigint AS edition_count,
-       (SELECT count(*) FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)::bigint AS recording_count,
+       (SELECT count(*) FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)::bigint AS recording_count,
        COALESCE((SELECT array_agg(DISTINCT e.language) FILTER (WHERE e.language IS NOT NULL)
                  FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
                  WHERE e.title_id = t.id), '{}')::text[] AS languages
@@ -465,7 +465,7 @@ func (q *Queries) ListFileEditions(ctx context.Context, arg ListFileEditionsPara
 const listLibraryTitlesByKeyAny = `-- name: ListLibraryTitlesByKeyAny :many
 SELECT t.id, t.identifier FROM titles t
 WHERE t.group_key = $2 AND (
-  EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = t.id AND r.library_id = $1)
+  EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id AND r.library_id = $1)
   OR EXISTS (SELECT 1 FROM editions e WHERE e.title_id = t.id AND e.library_id = $1))
 GROUP BY t.id, t.identifier
 `
@@ -502,7 +502,7 @@ func (q *Queries) ListLibraryTitlesByKeyAny(ctx context.Context, arg ListLibrary
 
 const listTitleRecordingsPage = `-- name: ListTitleRecordingsPage :many
 SELECT r.id, r.library_id, t.title
-FROM recordings r JOIN titles t ON t.id = r.title_id
+FROM active_recordings r JOIN titles t ON t.id = r.title_id
 JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1
 WHERE r.title_id = $2
 ORDER BY r.id LIMIT $4 OFFSET $3
@@ -550,7 +550,7 @@ const listTitlesPage = `-- name: ListTitlesPage :many
 WITH visible AS (
   SELECT t.id,
          (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id)::bigint AS edition_count,
-         (SELECT count(*) FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)::bigint AS recording_count
+         (SELECT count(*) FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)::bigint AS recording_count
   FROM titles t
 )
 SELECT t.id, t.title, t.authors, t.series_name, v.edition_count, v.recording_count,
@@ -564,10 +564,10 @@ WHERE v.edition_count + v.recording_count > 0
   AND ($3::uuid IS NULL OR EXISTS (SELECT 1 FROM user_library_grants gg WHERE gg.user_id = $1 AND gg.library_id = $3))
   AND ($3::uuid IS NULL
        OR EXISTS (SELECT 1 FROM editions e WHERE e.title_id = t.id AND e.library_id = $3)
-       OR EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = t.id AND r.library_id = $3))
+       OR EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id AND r.library_id = $3))
   AND ($4::text IS NULL
        OR ($4::text = 'ebook' AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id))
-       OR ($4::text = 'audio' AND EXISTS (SELECT 1 FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)))
+       OR ($4::text = 'audio' AND EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)))
 ORDER BY t.id
 LIMIT $6 OFFSET $5
 `
@@ -734,7 +734,7 @@ func (q *Queries) TitleExists(ctx context.Context, id uuid.UUID) (bool, error) {
 
 const titleHeldInLibrary = `-- name: TitleHeldInLibrary :one
 SELECT (EXISTS (SELECT 1 FROM editions e WHERE e.title_id = $1 AND e.library_id = $2)
-     OR EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = $1 AND r.library_id = $2))::boolean
+     OR EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = $1 AND r.library_id = $2))::boolean
 `
 
 type TitleHeldInLibraryParams struct {

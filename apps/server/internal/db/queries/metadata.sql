@@ -17,7 +17,7 @@ SELECT id, title, authors, series_name, series_index, identifier FROM titles WHE
 UPDATE titles SET title = $2, authors = $3, series_name = $4, series_index = $5 WHERE id = $1;
 
 -- name: GetRecordingRow :one
-SELECT id, title_id, library_id, narrators FROM recordings WHERE id = $1;
+SELECT id, title_id, library_id, narrators FROM active_recordings WHERE id = $1;
 
 -- name: UpdateRecordingNarrators :exec
 UPDATE recordings SET narrators = $2 WHERE id = $1;
@@ -37,5 +37,5 @@ ON CONFLICT (recording_id, provider) DO UPDATE SET outcome = EXCLUDED.outcome, d
 SELECT x.library_id::uuid FROM (
     SELECT o.library_id FROM file_observations o WHERE o.file_id = $1
     UNION
-    SELECT r.library_id FROM recording_files rf JOIN recordings r ON r.id = rf.recording_id WHERE rf.file_id = $1
+    SELECT r.library_id FROM recording_files rf JOIN active_recordings r ON r.id = rf.recording_id WHERE rf.file_id = $1
 ) x LIMIT 1;

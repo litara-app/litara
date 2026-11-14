@@ -120,7 +120,11 @@ CREATE TABLE recordings (
     cover_locator     text,
     cover_mime        text,
     seed_key          text UNIQUE,
-    created_at        timestamptz NOT NULL DEFAULT now()
+    created_at        timestamptz NOT NULL DEFAULT now(),
+    -- A repaired recording keeps its ID as a non-playable tombstone with ordered
+    -- successor references (ADR-0070). Its state, history and conflicts stay.
+    tombstoned_at     timestamptz,
+    successor_ids     uuid[] NOT NULL DEFAULT '{}'
 );
 CREATE INDEX recordings_library_idx ON recordings (library_id);
 
@@ -233,7 +237,7 @@ CREATE TABLE conflicts (
     user_id               uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     recording_id          uuid NOT NULL REFERENCES recordings (id) ON DELETE CASCADE,
     kind                  text NOT NULL CHECK (kind IN ('position', 'completion')),
-    reason                text NOT NULL CHECK (reason IN ('stale_revision', 'layout_changed', 'content_changed', 'completion_changed')),
+    reason                text NOT NULL CHECK (reason IN ('stale_revision', 'layout_changed', 'content_changed', 'completion_changed', 'recording_repaired', 'repair_source')),
     operation_id          uuid NOT NULL,
     -- Position conflicts: the attempted PositionWrite position + device context.
     -- Completion conflicts: the attempted CompletionWrite event.
@@ -649,7 +653,30 @@ CREATE TABLE comic_extractions (
     UNIQUE (file_id, content_version, profile)
 );
 
+-- Active recordings: every catalog, count, scan and authorization query reads this
+-- view so a tombstoned source can never be listed, served or matched again.
+CREATE VIEW active_recordings AS SELECT * FROM recordings WHERE tombstoned_at IS NULL;
+
+-- T005 reviewed recording repair plans (ADR-0070). Sources and outputs are the
+-- immutable reviewed layout; the plan revision gates approve/execute/cancel.
+CREATE TABLE repair_plans (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id   uuid NOT NULL REFERENCES users (id),
+    library_id uuid NOT NULL REFERENCES libraries (id),
+    title_id   uuid NOT NULL REFERENCES titles (id),
+    kind       text NOT NULL CHECK (kind IN ('merge', 'split')),
+    state      text NOT NULL CHECK (state IN ('planned', 'approved', 'applied', 'cancelled', 'stale')),
+    revision   bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    sources    jsonb NOT NULL,
+    outputs    jsonb NOT NULL,
+    result     jsonb NOT NULL DEFAULT '[]',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- +goose Down
+DROP TABLE repair_plans;
+DROP VIEW active_recordings;
 DROP TABLE comic_extractions;
 DROP TABLE edition_metadata_values;
 DROP TABLE shelf_titles;

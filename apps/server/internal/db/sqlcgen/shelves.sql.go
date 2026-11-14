@@ -226,7 +226,7 @@ func (q *Queries) ListShelvesPage(ctx context.Context, arg ListShelvesPageParams
 const listTitlesByIDs = `-- name: ListTitlesByIDs :many
 SELECT t.id, t.title, t.authors, t.series_name,
        (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id)::bigint AS edition_count,
-       (SELECT count(*) FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)::bigint AS recording_count,
+       (SELECT count(*) FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)::bigint AS recording_count,
        COALESCE((SELECT array_agg(DISTINCT e.language) FILTER (WHERE e.language IS NOT NULL)
                  FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
                  WHERE e.title_id = t.id), '{}')::text[] AS languages
@@ -280,7 +280,7 @@ const listVisibleShelfMembers = `-- name: ListVisibleShelfMembers :many
 SELECT m.title_id FROM shelf_titles m
 WHERE m.shelf_id = $1
   AND (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $2 WHERE e.title_id = m.title_id)
-    OR EXISTS (SELECT 1 FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $2 WHERE r.title_id = m.title_id))
+    OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $2 WHERE r.title_id = m.title_id))
 ORDER BY m.position, m.title_id
 `
 
@@ -364,7 +364,7 @@ func (q *Queries) UpdateShelf(ctx context.Context, arg UpdateShelfParams) error 
 
 const userSeesTitle = `-- name: UserSeesTitle :one
 SELECT (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = $2)
-     OR EXISTS (SELECT 1 FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = $2))::boolean
+     OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = $2))::boolean
 `
 
 type UserSeesTitleParams struct {

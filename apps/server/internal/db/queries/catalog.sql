@@ -1,6 +1,7 @@
 -- name: GetRecording :one
 SELECT r.id, r.title_id, r.library_id, r.narrators, r.layout_revision,
        r.thumbnail_locator, r.thumbnail_mime, r.cover_locator, r.cover_mime,
+       r.tombstoned_at, r.successor_ids,
        t.title, t.authors, t.series_name, t.series_index
 FROM recordings r JOIN titles t ON t.id = r.title_id
 WHERE r.id = $1;
@@ -28,7 +29,7 @@ SELECT file_id, current FROM file_versions WHERE content_version = $1;
 -- name: ListFileRecordings :many
 SELECT r.id AS recording_id, r.library_id,
        EXISTS (SELECT 1 FROM user_library_grants g WHERE g.user_id = $2 AND g.library_id = r.library_id) AS granted
-FROM recording_files rf JOIN recordings r ON r.id = rf.recording_id
+FROM recording_files rf JOIN active_recordings r ON r.id = rf.recording_id
 WHERE rf.file_id = $1
 ORDER BY r.id;
 
@@ -39,7 +40,7 @@ SELECT r.id, r.title_id, r.library_id, r.narrators, r.thumbnail_locator, r.cover
        COALESCE(cs.finished, false)::boolean AS completion_finished,
        cs.changed_at AS completion_changed_at,
        ps.received_at AS position_received_at
-FROM recordings r
+FROM active_recordings r
 JOIN titles t ON t.id = r.title_id
 JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = sqlc.arg(user_id)
 LEFT JOIN completion_state cs ON cs.user_id = g.user_id AND cs.recording_id = r.id
@@ -59,7 +60,7 @@ LIMIT sqlc.arg(page_size) OFFSET sqlc.arg(page_offset);
 
 -- name: CountRecordingsPage :one
 SELECT count(*)
-FROM recordings r
+FROM active_recordings r
 JOIN titles t ON t.id = r.title_id
 JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = sqlc.arg(user_id)
 LEFT JOIN completion_state cs ON cs.user_id = g.user_id AND cs.recording_id = r.id
@@ -89,7 +90,7 @@ ORDER BY h.seq LIMIT $3 OFFSET $4;
 SELECT count(*) FROM completion_history WHERE user_id = $1 AND title_id = $2;
 
 -- name: TitleLibraryIDs :many
-SELECT DISTINCT library_id FROM recordings WHERE title_id = $1;
+SELECT DISTINCT library_id FROM active_recordings WHERE title_id = $1;
 
 -- name: SeedUpsertTitle :one
 INSERT INTO titles (id, title, authors, series_name, series_index, seed_key)

@@ -44,7 +44,7 @@ func (q *Queries) CountHistory(ctx context.Context, arg CountHistoryParams) (int
 
 const countRecordingsPage = `-- name: CountRecordingsPage :one
 SELECT count(*)
-FROM recordings r
+FROM active_recordings r
 JOIN titles t ON t.id = r.title_id
 JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1
 LEFT JOIN completion_state cs ON cs.user_id = g.user_id AND cs.recording_id = r.id
@@ -175,25 +175,28 @@ func (q *Queries) GetKnownFileVersion(ctx context.Context, contentVersion uuid.U
 const getRecording = `-- name: GetRecording :one
 SELECT r.id, r.title_id, r.library_id, r.narrators, r.layout_revision,
        r.thumbnail_locator, r.thumbnail_mime, r.cover_locator, r.cover_mime,
+       r.tombstoned_at, r.successor_ids,
        t.title, t.authors, t.series_name, t.series_index
 FROM recordings r JOIN titles t ON t.id = r.title_id
 WHERE r.id = $1
 `
 
 type GetRecordingRow struct {
-	ID               uuid.UUID `json:"id"`
-	TitleID          uuid.UUID `json:"title_id"`
-	LibraryID        uuid.UUID `json:"library_id"`
-	Narrators        []string  `json:"narrators"`
-	LayoutRevision   uuid.UUID `json:"layout_revision"`
-	ThumbnailLocator *string   `json:"thumbnail_locator"`
-	ThumbnailMime    *string   `json:"thumbnail_mime"`
-	CoverLocator     *string   `json:"cover_locator"`
-	CoverMime        *string   `json:"cover_mime"`
-	Title            string    `json:"title"`
-	Authors          []string  `json:"authors"`
-	SeriesName       *string   `json:"series_name"`
-	SeriesIndex      *float64  `json:"series_index"`
+	ID               uuid.UUID   `json:"id"`
+	TitleID          uuid.UUID   `json:"title_id"`
+	LibraryID        uuid.UUID   `json:"library_id"`
+	Narrators        []string    `json:"narrators"`
+	LayoutRevision   uuid.UUID   `json:"layout_revision"`
+	ThumbnailLocator *string     `json:"thumbnail_locator"`
+	ThumbnailMime    *string     `json:"thumbnail_mime"`
+	CoverLocator     *string     `json:"cover_locator"`
+	CoverMime        *string     `json:"cover_mime"`
+	TombstonedAt     *time.Time  `json:"tombstoned_at"`
+	SuccessorIds     []uuid.UUID `json:"successor_ids"`
+	Title            string      `json:"title"`
+	Authors          []string    `json:"authors"`
+	SeriesName       *string     `json:"series_name"`
+	SeriesIndex      *float64    `json:"series_index"`
 }
 
 func (q *Queries) GetRecording(ctx context.Context, id uuid.UUID) (GetRecordingRow, error) {
@@ -209,6 +212,8 @@ func (q *Queries) GetRecording(ctx context.Context, id uuid.UUID) (GetRecordingR
 		&i.ThumbnailMime,
 		&i.CoverLocator,
 		&i.CoverMime,
+		&i.TombstonedAt,
+		&i.SuccessorIds,
 		&i.Title,
 		&i.Authors,
 		&i.SeriesName,
@@ -289,7 +294,7 @@ func (q *Queries) ListFileRecordingIDs(ctx context.Context, fileID uuid.UUID) ([
 const listFileRecordings = `-- name: ListFileRecordings :many
 SELECT r.id AS recording_id, r.library_id,
        EXISTS (SELECT 1 FROM user_library_grants g WHERE g.user_id = $2 AND g.library_id = r.library_id) AS granted
-FROM recording_files rf JOIN recordings r ON r.id = rf.recording_id
+FROM recording_files rf JOIN active_recordings r ON r.id = rf.recording_id
 WHERE rf.file_id = $1
 ORDER BY r.id
 `
@@ -438,7 +443,7 @@ SELECT r.id, r.title_id, r.library_id, r.narrators, r.thumbnail_locator, r.cover
        COALESCE(cs.finished, false)::boolean AS completion_finished,
        cs.changed_at AS completion_changed_at,
        ps.received_at AS position_received_at
-FROM recordings r
+FROM active_recordings r
 JOIN titles t ON t.id = r.title_id
 JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1
 LEFT JOIN completion_state cs ON cs.user_id = g.user_id AND cs.recording_id = r.id
@@ -689,7 +694,7 @@ func (q *Queries) SetLayoutRevision(ctx context.Context, arg SetLayoutRevisionPa
 }
 
 const titleLibraryIDs = `-- name: TitleLibraryIDs :many
-SELECT DISTINCT library_id FROM recordings WHERE title_id = $1
+SELECT DISTINCT library_id FROM active_recordings WHERE title_id = $1
 `
 
 func (q *Queries) TitleLibraryIDs(ctx context.Context, titleID uuid.UUID) ([]uuid.UUID, error) {

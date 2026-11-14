@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/deranjer/ebooker/apps/server/internal/apperr"
+	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
@@ -150,6 +151,13 @@ func (s *Service) WriteCompletion(ctx context.Context, a Actor, recID uuid.UUID,
 			newConflict := func(reason string) (sqlcgen.Conflict, error) {
 				return q.InsertConflict(ctx, sqlcgen.InsertConflictParams{UserID: a.UserID, RecordingID: recID, Kind: "completion", Reason: reason,
 					OperationID: op, Candidate: wire.Raw(in), BaseRevision: base, LayoutRevision: uuid.NullUUID{UUID: layout, Valid: true}, CreatedAt: now})
+			}
+			if rec.TombstonedAt != nil {
+				c, err := newConflict("recording_repaired")
+				if err != nil {
+					return nil, nil, err
+				}
+				return nil, catalog.Repaired(http.StatusPreconditionFailed, rec.SuccessorIds).With("conflictId", c.ID.String()), nil
 			}
 			if in.Event != "natural_end" && layout != rec.LayoutRevision {
 				// Manual events carry no anchor, but they were captured against a layout; an obsolete one is

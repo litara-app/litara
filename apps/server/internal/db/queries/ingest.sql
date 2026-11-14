@@ -136,7 +136,7 @@ WHERE o.library_id = $1 AND v.mime_type LIKE 'audio/%'
 ORDER BY o.rel_path;
 
 -- name: GetRecordingByGroupKey :one
-SELECT * FROM recordings WHERE library_id = $1 AND group_key = $2;
+SELECT * FROM recordings WHERE library_id = $1 AND group_key = $2 AND tombstoned_at IS NULL;
 
 -- name: ListRecordingMembers :many
 SELECT rf.recording_id, rf.sequence, o.file_id, v.content_version, o.rel_path, v.duration_ms, fm.result
@@ -148,7 +148,7 @@ WHERE rf.recording_id = ANY(sqlc.arg(recording_ids)::uuid[])
 ORDER BY rf.recording_id, rf.sequence;
 
 -- name: ListLibraryRecordings :many
-SELECT id, title_id, group_key, link_state FROM recordings WHERE library_id = $1 ORDER BY created_at, id;
+SELECT id, title_id, group_key, link_state FROM active_recordings WHERE library_id = $1 ORDER BY created_at, id;
 
 -- name: InsertIngestTitle :exec
 INSERT INTO titles (id, title, authors, group_key, identifier) VALUES ($1, $2, $3, $4, $5);
@@ -157,7 +157,7 @@ INSERT INTO titles (id, title, authors, group_key, identifier) VALUES ($1, $2, $
 INSERT INTO recordings (id, title_id, library_id, narrators, group_key, link_state) VALUES ($1, $2, $3, '{}', $4, $5);
 
 -- name: ListLibraryTitlesByKey :many
-SELECT DISTINCT t.id, t.identifier FROM titles t JOIN recordings r ON r.title_id = t.id
+SELECT DISTINCT t.id, t.identifier FROM titles t JOIN active_recordings r ON r.title_id = t.id
 WHERE r.library_id = $1 AND t.group_key = $2;
 
 -- name: BumpRecordingLayout :exec
@@ -194,7 +194,7 @@ UPDATE recordings SET title_id = $2, link_state = 'confirmed' WHERE id = $1;
 UPDATE recordings SET link_state = 'confirmed' WHERE id = $1;
 
 -- name: DeleteTitleIfUnused :exec
-DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = t.id);
+DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id);
 
 -- name: SetAssociationState :exec
 UPDATE associations SET state = $3, detail = $4, recording_id = $5 WHERE library_id = $1 AND rel_path = $2;

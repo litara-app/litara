@@ -114,7 +114,7 @@ func (b *builder) bind(v any) string {
 
 const (
 	grantedEditions   = `SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id`
-	grantedRecordings = `SELECT 1 FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id`
+	grantedRecordings = `SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id`
 	visibleTitle      = `(EXISTS (` + grantedEditions + `) OR EXISTS (` + grantedRecordings + `))`
 )
 
@@ -150,7 +150,7 @@ func (b *builder) predicate(p wire.T005Predicate) string {
 		return "EXISTS (" + grantedRecordings + ")"
 	case "format":
 		n := b.bind(fold(p.Value))
-		return "(EXISTS (" + grantedEditions + " AND e.format = " + n + `) OR EXISTS (SELECT 1 FROM recordings r
+		return "(EXISTS (" + grantedEditions + " AND e.format = " + n + `) OR EXISTS (SELECT 1 FROM active_recordings r
 		        JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1
 		        JOIN recording_files rf ON rf.recording_id = r.id
 		        JOIN file_versions fv ON fv.file_id = rf.file_id AND fv.current
@@ -158,14 +158,14 @@ func (b *builder) predicate(p wire.T005Predicate) string {
 	case "finished":
 		q := `(EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
 		        JOIN edition_completion_state cs ON cs.edition_id = e.id AND cs.user_id = $1 AND cs.finished WHERE e.title_id = t.id)
-		   OR EXISTS (SELECT 1 FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1
+		   OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1
 		        JOIN completion_state cs ON cs.recording_id = r.id AND cs.user_id = $1 AND cs.finished WHERE r.title_id = t.id))`
 		return truth(q, p.Value)
 	case "inProgress":
 		q := `(EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
 		        JOIN edition_position_state ps ON ps.edition_id = e.id AND ps.user_id = $1 AND ps.file_id IS NOT NULL
 		        WHERE e.title_id = t.id AND NOT EXISTS (SELECT 1 FROM edition_completion_state cs WHERE cs.edition_id = e.id AND cs.user_id = $1 AND cs.finished))
-		   OR EXISTS (SELECT 1 FROM recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1
+		   OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1
 		        JOIN position_state ps ON ps.recording_id = r.id AND ps.user_id = $1 AND ps.file_id IS NOT NULL
 		        WHERE r.title_id = t.id AND NOT EXISTS (SELECT 1 FROM completion_state cs WHERE cs.recording_id = r.id AND cs.user_id = $1 AND cs.finished)))`
 		return truth(q, p.Value)

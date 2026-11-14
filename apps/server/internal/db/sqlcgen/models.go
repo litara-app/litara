@@ -10,6 +10,24 @@ import (
 	"github.com/google/uuid"
 )
 
+type ActiveRecording struct {
+	ID               uuid.UUID   `json:"id"`
+	TitleID          uuid.UUID   `json:"title_id"`
+	LibraryID        uuid.UUID   `json:"library_id"`
+	Narrators        []string    `json:"narrators"`
+	LayoutRevision   uuid.UUID   `json:"layout_revision"`
+	ThumbnailLocator *string     `json:"thumbnail_locator"`
+	ThumbnailMime    *string     `json:"thumbnail_mime"`
+	CoverLocator     *string     `json:"cover_locator"`
+	CoverMime        *string     `json:"cover_mime"`
+	SeedKey          *string     `json:"seed_key"`
+	CreatedAt        time.Time   `json:"created_at"`
+	TombstonedAt     *time.Time  `json:"tombstoned_at"`
+	SuccessorIds     []uuid.UUID `json:"successor_ids"`
+	GroupKey         *string     `json:"group_key"`
+	LinkState        string      `json:"link_state"`
+}
+
 type Annotation struct {
 	UserID         uuid.UUID `json:"user_id"`
 	ID             uuid.UUID `json:"id"`
@@ -362,19 +380,21 @@ type ProviderLookup struct {
 }
 
 type Recording struct {
-	ID               uuid.UUID `json:"id"`
-	TitleID          uuid.UUID `json:"title_id"`
-	LibraryID        uuid.UUID `json:"library_id"`
-	Narrators        []string  `json:"narrators"`
-	LayoutRevision   uuid.UUID `json:"layout_revision"`
-	ThumbnailLocator *string   `json:"thumbnail_locator"`
-	ThumbnailMime    *string   `json:"thumbnail_mime"`
-	CoverLocator     *string   `json:"cover_locator"`
-	CoverMime        *string   `json:"cover_mime"`
-	SeedKey          *string   `json:"seed_key"`
-	CreatedAt        time.Time `json:"created_at"`
-	GroupKey         *string   `json:"group_key"`
-	LinkState        string    `json:"link_state"`
+	ID               uuid.UUID   `json:"id"`
+	TitleID          uuid.UUID   `json:"title_id"`
+	LibraryID        uuid.UUID   `json:"library_id"`
+	Narrators        []string    `json:"narrators"`
+	LayoutRevision   uuid.UUID   `json:"layout_revision"`
+	ThumbnailLocator *string     `json:"thumbnail_locator"`
+	ThumbnailMime    *string     `json:"thumbnail_mime"`
+	CoverLocator     *string     `json:"cover_locator"`
+	CoverMime        *string     `json:"cover_mime"`
+	SeedKey          *string     `json:"seed_key"`
+	CreatedAt        time.Time   `json:"created_at"`
+	TombstonedAt     *time.Time  `json:"tombstoned_at"`
+	SuccessorIds     []uuid.UUID `json:"successor_ids"`
+	GroupKey         *string     `json:"group_key"`
+	LinkState        string      `json:"link_state"`
 }
 
 type RecordingFile struct {
@@ -390,6 +410,21 @@ type RefreshExchange struct {
 	Generation         int32     `json:"generation"`
 	CreatedAt          time.Time `json:"created_at"`
 	ResponseCiphertext []byte    `json:"response_ciphertext"`
+}
+
+type RepairPlan struct {
+	ID        uuid.UUID `json:"id"`
+	AdminID   uuid.UUID `json:"admin_id"`
+	LibraryID uuid.UUID `json:"library_id"`
+	TitleID   uuid.UUID `json:"title_id"`
+	Kind      string    `json:"kind"`
+	State     string    `json:"state"`
+	Revision  int64     `json:"revision"`
+	Sources   []byte    `json:"sources"`
+	Outputs   []byte    `json:"outputs"`
+	Result    []byte    `json:"result"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type ReviewItem struct {
