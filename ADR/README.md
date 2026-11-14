@@ -61,6 +61,42 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 
 | [0043](0043-t003-retention-and-seeded-integration-scope.md) | Retain sync evidence and scope T003 to a seeded integration slice | Accepted |
 
+| [0044](0044-fingerprint-moves-and-content-replacements.md) | Match unique file moves and version changed bytes | Accepted |
+
+| [0045](0045-conservative-grouping-and-manual-repair.md) | Group conservatively and preserve identities through manual repair | Accepted |
+
+| [0046](0046-reviewed-copy-only-managed-imports.md) | Copy verified managed imports after explicit review | Accepted |
+
+| [0047](0047-metadata-source-priority-and-protected-clears.md) | Prefer protected edits then sidecar metadata over embedded values | Accepted |
+
+| [0048](0048-reviewed-in-file-metadata-writeback.md) | Include explicitly reviewed in-file metadata updates | Accepted |
+
+| [0049](0049-opt-in-metadata-providers.md) | Include opt-in Open Library Google Books and Audnexus enrichment | Accepted |
+
+| [0050](0050-mounted-nas-reconciliation-and-stability.md) | Reconcile OS-mounted libraries without destructive absence handling | Accepted |
+
+| [0051](0051-optional-backups-per-library.md) | Make metadata write-back backups optional per library | Accepted |
+
+| [0052](0052-fidelity-tested-tag-writing-formats.md) | Enable metadata writes only for fidelity-tested formats | Accepted |
+
+| [0053](0053-reviewed-json-sidecar-export.md) | Offer previewed JSON sidecar export alongside in-file updates | Accepted |
+
+| [0054](0054-per-library-modes-and-managed-naming.md) | Configure library modes and preview managed-import templates | Accepted |
+
+| [0055](0055-unambiguous-sidecar-and-cue-association.md) | Associate sidecars and CUE only without ambiguity | Accepted |
+
+| [0056](0056-shared-catalog-administrator-library-permissions.md) | Require administrator status and a library grant for catalog management | Accepted |
+
+| [0057](0057-writeback-recovery-with-backups-off-by-default.md) | Default backups off while requiring recoverable staged writes | Accepted |
+
+| [0058](0058-sha256-cache-and-content-verification.md) | Cache SHA-256 fingerprints with daily and manual verification | Accepted |
+
+| [0059](0059-canonical-root-boundaries-and-explicit-health.md) | Contain paths and explicitly verify library root identity | Accepted |
+
+| [0060](0060-provider-priority-and-identifier-match-review.md) | Configure provider priority and review uncertain metadata matches | Accepted |
+
+| [0061](0061-audio-ordering-and-provisional-title-links.md) | Order audio from consistent evidence and review uncertain title links | Accepted |
+
 ## Workflow
 
 1. Read [research](RESEARCH.md), relevant decisions, and the reference code.
