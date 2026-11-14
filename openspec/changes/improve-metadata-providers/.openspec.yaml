@@ -1,9 +1,0 @@
-schema: spec-driven
-created: 2026-05-14
-tags: [beta]
-notes: |
-  BookBrainz was removed during implementation — the API is alpha-quality with
-  incorrect endpoints and sparse data. Series enrichment chain is now
-  Hardcover → Goodreads only.
-  Audnexus is considered beta: ASIN-only (no title/author search), depends on
-  community-hosted audnex.us instance, and coverage is limited to Audible titles.

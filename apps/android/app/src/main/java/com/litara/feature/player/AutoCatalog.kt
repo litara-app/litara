@@ -24,6 +24,7 @@ class AutoCatalog @Inject constructor(
     private val books: BookDetailRepository,
     private val downloads: DownloadsRepository,
     private val progress: AudioProgressRepository,
+    private val litara: LitaraSource = LitaraSource.None,
 ) {
     data class Page(val entries: List<AutoBrowseTree.BrowseEntry>, val total: Int)
 
@@ -36,23 +37,41 @@ class AutoCatalog @Inject constructor(
         catch (e: CancellationException) { throw e }
         catch (_: Exception) { emptyList() }
         val finished = history.filter { it.percentage >= ResumeCandidates.FINISHED_PERCENT }.map { it.bookId }.toSet()
-        val online = remote.filter { it.id !in finished }.mapNotNull { entry(it, labels) }
+        val online = (remote.filter { it.id !in finished } + runCatching { litara.cards() }.getOrDefault(emptyList()).filter { it.id !in finished })
+            .mapNotNull { entry(it, labels) }
         val byId = (online + local).associateBy { it.mediaId }
         val recent = history.filter { it.percentage < ResumeCandidates.FINISHED_PERCENT }
             .sortedByDescending { it.updatedAt }.mapNotNull { byId[AutoBrowseTree.bookMediaId(it.bookId)] }
         return (recent + online + local).distinctBy { it.mediaId }.take(80)
     }
 
+    /** The "Downloaded" shelf: BookOrbit downloads plus this account's complete Litara offline copies. */
+    suspend fun downloadedEntries(labels: AutoBrowseTree.Labels): List<AutoBrowseTree.BrowseEntry> =
+        AutoBrowseTree.downloadedAudiobooks(downloads.downloads.first(), labels) +
+            runCatching { litara.downloaded() }.getOrDefault(emptyList()).mapNotNull { entry(it, labels) }
+
     suspend fun page(page: Int, labels: AutoBrowseTree.Labels, query: String? = null): Page {
         require(page >= 0)
-        val result = withTimeout(4_000) {
-            api.queryBooks(buildBookQuery(LibraryFilters(formats = BookFiles.AUDIO_FORMATS.toList()),
-                LibrarySort(), page, PAGE_SIZE, query))
-        }
-        return Page(result.items.mapNotNull { entry(it, labels) }, result.total)
+        val term = query?.let { AutoSearch.normalize(it) }.orEmpty()
+        val mine = if (page != 0) emptyList() else runCatching { litara.cards() }.getOrDefault(emptyList())
+            .filter { term.isBlank() || term.split(' ').all { t -> t in AutoSearch.normalize("${it.title} ${it.authors.joinToString(" ")} ${it.narrators.joinToString(" ")}") } }
+            .mapNotNull { entry(it, labels) }
+        val result = try {
+            withTimeout(4_000) {
+                api.queryBooks(buildBookQuery(LibraryFilters(formats = BookFiles.AUDIO_FORMATS.toList()),
+                    LibrarySort(), page, PAGE_SIZE, query))
+            }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            if (mine.isEmpty()) throw e else null
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { if (mine.isEmpty()) throw e else null }
+        return Page(mine + (result?.items?.mapNotNull { entry(it, labels) } ?: emptyList()), (result?.total ?: 0) + mine.size)
     }
 
     suspend fun item(bookId: Int, labels: AutoBrowseTree.Labels): AutoBrowseTree.BrowseEntry? {
+        if (litara.owns(bookId)) {
+            return litara.cards().firstOrNull { it.id == bookId }?.let { entry(it, labels) }
+        }
         AutoBrowseTree.downloadedAudiobooks(downloads.downloads.first(), labels)
             .firstOrNull { it.mediaId == AutoBrowseTree.bookMediaId(bookId) }?.let { return it }
         val book = withTimeout(4_000) { books.detail(bookId) }

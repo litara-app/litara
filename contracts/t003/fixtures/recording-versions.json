@@ -1,0 +1,398 @@
+{
+  "original": {
+    "id": "00000000-0000-4000-8000-000000000100",
+    "titleId": "00000000-0000-4000-8000-000000000101",
+    "libraryId": "00000000-0000-4000-8000-000000000102",
+    "title": "Generated three-file recording",
+    "authors": [
+      "Fixture Author"
+    ],
+    "narrators": [
+      "Fixture Narrator"
+    ],
+    "series": {
+      "name": "Fixture Series",
+      "index": 1
+    },
+    "readiness": "ready",
+    "durationMs": 180000,
+    "artwork": {
+      "thumbnailPath": "/api/v1/recordings/00000000-0000-4000-8000-000000000100/artwork/thumbnail",
+      "coverPath": "/api/v1/recordings/00000000-0000-4000-8000-000000000100/artwork/cover"
+    },
+    "completion": {
+      "revision": "0",
+      "finished": false,
+      "changedAt": null
+    },
+    "lastActivityAt": null,
+    "schemaVersion": 1,
+    "layoutRevision": "00000000-0000-4000-8000-000000000200",
+    "files": [
+      {
+        "id": "00000000-0000-4000-8000-000000000300",
+        "contentVersion": "00000000-0000-4000-8000-000000000400",
+        "sequence": 0,
+        "filename": "track 1.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12000,
+        "durationMs": 60000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000300/versions/00000000-0000-4000-8000-000000000400/content"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000301",
+        "contentVersion": "00000000-0000-4000-8000-000000000401",
+        "sequence": 1,
+        "filename": "track 2.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12001,
+        "durationMs": 90000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000301/versions/00000000-0000-4000-8000-000000000401/content"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000302",
+        "contentVersion": "00000000-0000-4000-8000-000000000402",
+        "sequence": 2,
+        "filename": "track 3.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12002,
+        "durationMs": 30000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000302/versions/00000000-0000-4000-8000-000000000402/content"
+      }
+    ],
+    "chapters": [
+      {
+        "id": "00000000-0000-4000-8000-000000000500",
+        "label": "Chapter spanning files",
+        "start": {
+          "fileId": "00000000-0000-4000-8000-000000000300",
+          "contentVersion": "00000000-0000-4000-8000-000000000400",
+          "offsetMs": 50000
+        },
+        "recordingStartMs": 50000,
+        "source": "embedded",
+        "generated": false
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000501",
+        "label": "Next chapter",
+        "start": {
+          "fileId": "00000000-0000-4000-8000-000000000301",
+          "contentVersion": "00000000-0000-4000-8000-000000000401",
+          "offsetMs": 30000
+        },
+        "recordingStartMs": 90000,
+        "source": "embedded",
+        "generated": false
+      }
+    ],
+    "capabilities": {
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true
+    },
+    "issues": []
+  },
+  "reordered": {
+    "id": "00000000-0000-4000-8000-000000000100",
+    "titleId": "00000000-0000-4000-8000-000000000101",
+    "libraryId": "00000000-0000-4000-8000-000000000102",
+    "title": "Generated three-file recording",
+    "authors": [
+      "Fixture Author"
+    ],
+    "narrators": [
+      "Fixture Narrator"
+    ],
+    "series": {
+      "name": "Fixture Series",
+      "index": 1
+    },
+    "readiness": "ready",
+    "durationMs": 180000,
+    "artwork": {
+      "thumbnailPath": "/api/v1/recordings/00000000-0000-4000-8000-000000000100/artwork/thumbnail",
+      "coverPath": "/api/v1/recordings/00000000-0000-4000-8000-000000000100/artwork/cover"
+    },
+    "completion": {
+      "revision": "0",
+      "finished": false,
+      "changedAt": null
+    },
+    "lastActivityAt": null,
+    "schemaVersion": 1,
+    "layoutRevision": "00000000-0000-4000-8000-000000000201",
+    "files": [
+      {
+        "id": "00000000-0000-4000-8000-000000000301",
+        "contentVersion": "00000000-0000-4000-8000-000000000401",
+        "sequence": 0,
+        "filename": "track 2.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12001,
+        "durationMs": 90000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000301/versions/00000000-0000-4000-8000-000000000401/content"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000300",
+        "contentVersion": "00000000-0000-4000-8000-000000000400",
+        "sequence": 1,
+        "filename": "track 1.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12000,
+        "durationMs": 60000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000300/versions/00000000-0000-4000-8000-000000000400/content"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000302",
+        "contentVersion": "00000000-0000-4000-8000-000000000402",
+        "sequence": 2,
+        "filename": "track 3.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12002,
+        "durationMs": 30000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000302/versions/00000000-0000-4000-8000-000000000402/content"
+      }
+    ],
+    "chapters": [
+      {
+        "id": "00000000-0000-4000-8000-000000000501",
+        "label": "Next chapter",
+        "start": {
+          "fileId": "00000000-0000-4000-8000-000000000301",
+          "contentVersion": "00000000-0000-4000-8000-000000000401",
+          "offsetMs": 30000
+        },
+        "recordingStartMs": 30000,
+        "source": "embedded",
+        "generated": false
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000500",
+        "label": "Chapter spanning files",
+        "start": {
+          "fileId": "00000000-0000-4000-8000-000000000300",
+          "contentVersion": "00000000-0000-4000-8000-000000000400",
+          "offsetMs": 50000
+        },
+        "recordingStartMs": 140000,
+        "source": "embedded",
+        "generated": false
+      }
+    ],
+    "capabilities": {
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true
+    },
+    "issues": []
+  },
+  "replaced": {
+    "id": "00000000-0000-4000-8000-000000000100",
+    "titleId": "00000000-0000-4000-8000-000000000101",
+    "libraryId": "00000000-0000-4000-8000-000000000102",
+    "title": "Generated three-file recording",
+    "authors": [
+      "Fixture Author"
+    ],
+    "narrators": [
+      "Fixture Narrator"
+    ],
+    "series": {
+      "name": "Fixture Series",
+      "index": 1
+    },
+    "readiness": "ready",
+    "durationMs": 180000,
+    "artwork": {
+      "thumbnailPath": "/api/v1/recordings/00000000-0000-4000-8000-000000000100/artwork/thumbnail",
+      "coverPath": "/api/v1/recordings/00000000-0000-4000-8000-000000000100/artwork/cover"
+    },
+    "completion": {
+      "revision": "0",
+      "finished": false,
+      "changedAt": null
+    },
+    "lastActivityAt": null,
+    "schemaVersion": 1,
+    "layoutRevision": "00000000-0000-4000-8000-000000000202",
+    "files": [
+      {
+        "id": "00000000-0000-4000-8000-000000000300",
+        "contentVersion": "00000000-0000-4000-8000-000000000400",
+        "sequence": 0,
+        "filename": "track 1.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12000,
+        "durationMs": 60000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000300/versions/00000000-0000-4000-8000-000000000400/content"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000301",
+        "contentVersion": "00000000-0000-4000-8000-000000000450",
+        "sequence": 1,
+        "filename": "track 2.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12001,
+        "durationMs": 90000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000301/versions/00000000-0000-4000-8000-000000000450/content"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000302",
+        "contentVersion": "00000000-0000-4000-8000-000000000402",
+        "sequence": 2,
+        "filename": "track 3.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12002,
+        "durationMs": 30000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000302/versions/00000000-0000-4000-8000-000000000402/content"
+      }
+    ],
+    "chapters": [
+      {
+        "id": "00000000-0000-4000-8000-000000000500",
+        "label": "Chapter spanning files",
+        "start": {
+          "fileId": "00000000-0000-4000-8000-000000000300",
+          "contentVersion": "00000000-0000-4000-8000-000000000400",
+          "offsetMs": 50000
+        },
+        "recordingStartMs": 50000,
+        "source": "embedded",
+        "generated": false
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000501",
+        "label": "Next chapter",
+        "start": {
+          "fileId": "00000000-0000-4000-8000-000000000301",
+          "contentVersion": "00000000-0000-4000-8000-000000000450",
+          "offsetMs": 30000
+        },
+        "recordingStartMs": 90000,
+        "source": "embedded",
+        "generated": false
+      }
+    ],
+    "capabilities": {
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true
+    },
+    "issues": []
+  },
+  "oldDownload": {
+    "id": "00000000-0000-4000-8000-000000000100",
+    "titleId": "00000000-0000-4000-8000-000000000101",
+    "libraryId": "00000000-0000-4000-8000-000000000102",
+    "title": "Generated three-file recording",
+    "authors": [
+      "Fixture Author"
+    ],
+    "narrators": [
+      "Fixture Narrator"
+    ],
+    "series": {
+      "name": "Fixture Series",
+      "index": 1
+    },
+    "readiness": "ready",
+    "durationMs": 180000,
+    "artwork": {
+      "thumbnailPath": "/api/v1/recordings/00000000-0000-4000-8000-000000000100/artwork/thumbnail",
+      "coverPath": "/api/v1/recordings/00000000-0000-4000-8000-000000000100/artwork/cover"
+    },
+    "completion": {
+      "revision": "0",
+      "finished": false,
+      "changedAt": null
+    },
+    "lastActivityAt": null,
+    "schemaVersion": 1,
+    "layoutRevision": "00000000-0000-4000-8000-000000000200",
+    "files": [
+      {
+        "id": "00000000-0000-4000-8000-000000000300",
+        "contentVersion": "00000000-0000-4000-8000-000000000400",
+        "sequence": 0,
+        "filename": "track 1.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12000,
+        "durationMs": 60000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000300/versions/00000000-0000-4000-8000-000000000400/content"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000301",
+        "contentVersion": "00000000-0000-4000-8000-000000000401",
+        "sequence": 1,
+        "filename": "track 2.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12001,
+        "durationMs": 90000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000301/versions/00000000-0000-4000-8000-000000000401/content"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000302",
+        "contentVersion": "00000000-0000-4000-8000-000000000402",
+        "sequence": 2,
+        "filename": "track 3.mp3",
+        "mimeType": "audio/mpeg",
+        "sizeBytes": 12002,
+        "durationMs": 30000,
+        "available": true,
+        "contentPath": "/api/v1/files/00000000-0000-4000-8000-000000000302/versions/00000000-0000-4000-8000-000000000402/content"
+      }
+    ],
+    "chapters": [
+      {
+        "id": "00000000-0000-4000-8000-000000000500",
+        "label": "Chapter spanning files",
+        "start": {
+          "fileId": "00000000-0000-4000-8000-000000000300",
+          "contentVersion": "00000000-0000-4000-8000-000000000400",
+          "offsetMs": 50000
+        },
+        "recordingStartMs": 50000,
+        "source": "embedded",
+        "generated": false
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000501",
+        "label": "Next chapter",
+        "start": {
+          "fileId": "00000000-0000-4000-8000-000000000301",
+          "contentVersion": "00000000-0000-4000-8000-000000000401",
+          "offsetMs": 30000
+        },
+        "recordingStartMs": 90000,
+        "source": "embedded",
+        "generated": false
+      }
+    ],
+    "capabilities": {
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true
+    },
+    "issues": []
+  },
+  "expected": {
+    "reorderedChapterStarts": [
+      30000,
+      140000
+    ],
+    "oldDownloadUnchanged": true,
+    "changedBytesAutoRemap": false
+  }
+}

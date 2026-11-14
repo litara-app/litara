@@ -1,0 +1,102 @@
+[
+  {
+    "id": "admin-grant-boundary",
+    "when": "admin has no grant",
+    "expect": "GET recording -> 403; explicit self-grant then -> 200"
+  },
+  {
+    "id": "l6-account-switch",
+    "when": "A has dirty progress and download; switch to B during request",
+    "expect": "A response never commits into B; A pending write never authenticates as B"
+  },
+  {
+    "id": "refresh-lost-response",
+    "when": "same session/token/requestId sent again within 60s",
+    "expect": "same token pair, deadlines unchanged; after expiry -> 401 refresh_retry_expired"
+  },
+  {
+    "id": "refresh-reuse",
+    "when": "old token reused with different requestId",
+    "expect": "401 refresh_reuse; revoke that device only"
+  },
+  {
+    "id": "position-retry",
+    "when": "identical operationId/body after successful write",
+    "expect": "original status/body; no additional revision"
+  },
+  {
+    "id": "position-id-collision",
+    "when": "same operationId, different body",
+    "expect": "409 operation_id_reused; no update"
+  },
+  {
+    "id": "stale-position",
+    "when": "current revision 1; write baseRevision 0",
+    "expect": "409 position_conflict, durable candidate and conflictId; unchanged current position"
+  },
+  {
+    "id": "layout-change",
+    "when": "new layout; valid old file/version anchor",
+    "expect": "412 layout_changed; preserve original candidate; refetch and submit new operation against current layout"
+  },
+  {
+    "id": "replacement",
+    "when": "same file ID, different content version",
+    "expect": "412 content_changed; no offset mapping to new bytes; retain old offline snapshot"
+  },
+  {
+    "id": "conflict-resolution-race",
+    "when": "server revision advanced after user saw choices",
+    "expect": "409 preserve unresolved candidate; ask again"
+  },
+  {
+    "id": "natural-end",
+    "when": "last file really reaches playback end",
+    "expect": "finish recording once; one history event for transition; no alternative recording completion"
+  },
+  {
+    "id": "seek-only",
+    "when": "seek to end without playback end event",
+    "expect": "position may change; completion unchanged"
+  },
+  {
+    "id": "access-revoked",
+    "when": "online check confirms grant removed",
+    "expect": "403 library_access_denied; stop affected operations, lock cache, preserve data"
+  },
+  {
+    "id": "offline-outage",
+    "when": "authorization cannot be checked due to network failure",
+    "expect": "keep authorized old snapshot playable offline; do not infer revocation"
+  },
+  {
+    "id": "logout",
+    "when": "logout during in-flight download",
+    "expect": "lock scope immediately; old request cannot publish into new scope"
+  },
+  {
+    "id": "chapter-invalid-source",
+    "when": "source contains negative/duplicate/descending/out-of-file start",
+    "expect": "reject whole source with issue; keep evidence/edits; try next source"
+  },
+  {
+    "id": "incomplete",
+    "when": "missing input or unknown file timing",
+    "expect": "explicit incomplete; no whole-recording play/download; no fabricated zero duration"
+  },
+  {
+    "id": "web-csrf",
+    "when": "cookie request changes state without valid CSRF or allowed Origin",
+    "expect": "403 csrf_failed; no mutation"
+  },
+  {
+    "id": "native-third-party",
+    "when": "third-party client supplies valid bearer and grant",
+    "expect": "same permitted operations; no official-app attestation"
+  },
+  {
+    "id": "completion-stale",
+    "when": "manual/offline completion has stale completion revision",
+    "expect": "409 completion_conflict, preserve attempted event; no hidden overwrite"
+  }
+]

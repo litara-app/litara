@@ -16,13 +16,23 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/app"
+	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/config"
 	"github.com/deranjer/ebooker/apps/server/internal/db"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
+	"github.com/deranjer/ebooker/apps/server/internal/importer"
+	"github.com/deranjer/ebooker/apps/server/internal/ingest"
+	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/jobs"
+	"github.com/deranjer/ebooker/apps/server/internal/library"
+	"github.com/deranjer/ebooker/apps/server/internal/metadata"
+	"github.com/deranjer/ebooker/apps/server/internal/progress"
+	"github.com/deranjer/ebooker/apps/server/internal/writeback"
 )
 
-const version = "0.0.0-t001"
+const version = "0.1.0-t003"
 
 func main() {
 	if err := run(); err != nil {
@@ -65,7 +75,14 @@ func run() error {
 			st.AppVersion, st.AppTarget, st.RiverOK)
 	}
 
-	client, err := app.NewWorkerClient(pool, insp, app.WorkerOptionsFrom(cfg), log)
+	// Library roots are validated by the scanner itself, so its inspector is not
+	// restricted to the legacy single media root.
+	scanInsp := inspect.New(inspect.Config{ProbePath: cfg.FFprobePath, Timeout: cfg.InspectTimeout, MaxOutputBytes: cfg.MaxProbeOutput})
+	wopts := app.WorkerOptionsFrom(cfg)
+	scanner := &ingest.Scanner{Pool: pool, Inspector: scanInsp, Log: log}
+	imp := &importer.Service{Pool: pool, Inspector: scanInsp}
+	wopts.Scanner, wopts.Importer, wopts.ScanWorkers = scanner, imp, cfg.ScanWorkers
+	client, err := app.NewWorkerClient(pool, insp, wopts, log)
 	if err != nil {
 		return err
 	}
@@ -75,10 +92,74 @@ func run() error {
 	}
 	running.Store(true)
 	log.Info("workers started", "inspect_workers", cfg.InspectWorkers)
+	meta := metadata.New(pool)
+	enricher := &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{
+		metadata.ProviderOpenLibrary: metadata.OpenLibrary{HTTP: metadata.HTTP{BaseURL: "https://openlibrary.org"}},
+		metadata.ProviderGoogleBooks: metadata.GoogleBooks{HTTP: metadata.HTTP{BaseURL: "https://www.googleapis.com"}, APIKey: cfg.GoogleBooksAPIKey},
+		metadata.ProviderAudnexus:    metadata.Audnexus{HTTP: metadata.HTTP{BaseURL: "https://api.audnex.us"}},
+	}}
+	// No in-file writer is registered: every format stays disabled until fidelity evidence exists (ADR-0052).
+	wb := &writeback.Service{Pool: pool, Inspector: scanInsp, Scanner: scanner, Metadata: meta, Writers: map[string]writeback.Writer{}}
+	if done, gone, err := wb.Recover(ctx); err != nil {
+		log.Warn("write-back recovery failed", "error", err)
+	} else if done+gone > 0 {
+		log.Info("write-back recovery", "completed", done, "abandoned", gone)
+	}
+	jobsEnq := jobs.RiverEnqueuer{Client: client, MaxAttempts: 3}
+	go func() { // opt-in provider lookups run apart from scans so a slow provider never blocks them
+		t := time.NewTicker(15 * time.Minute)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				libs, err := library.New(pool).ListIDs(ctx)
+				if err != nil {
+					continue
+				}
+				for _, id := range libs {
+					if err := enricher.EnrichLibrary(ctx, id); err != nil && ctx.Err() == nil {
+						log.Warn("provider enrichment", "error", err)
+					}
+				}
+			}
+		}
+	}()
 
+	if cfg.SecretKey == "" {
+		return fmt.Errorf("LITARA_SECRET_KEY is required (generate one with `ctl gen-key`)")
+	}
+	key, err := accounts.ParseKey(cfg.SecretKey)
+	if err != nil {
+		return fmt.Errorf("LITARA_SECRET_KEY: %w", err)
+	}
+	if cfg.DevInsecureHTTP {
+		log.Warn("LITARA_DEV_INSECURE_HTTP=1: browser cookies are not Secure; development use only")
+	}
+	acc := accounts.New(accounts.Options{Pool: pool, SecretKey: key,
+		Argon: accounts.ArgonParams{MemoryKiB: cfg.ArgonMemoryKiB, Time: cfg.ArgonTime, Threads: cfg.ArgonThreads}})
+	apiCfg := httpapi.APIConfig{PublicPrefix: cfg.PublicPrefix, AllowedOrigins: cfg.AllowedOrigins, DevInsecureHTTP: cfg.DevInsecureHTTP, MediaRoot: cfg.MediaRoot}
+	cat := catalog.New(pool, apiCfg.APIBase())
+	go func() { // clear protected refresh responses once their 60-second recovery window ends
+		t := time.NewTicker(10 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if _, err := acc.PurgeExpiredExchanges(ctx); err != nil && ctx.Err() == nil {
+					log.Warn("purge refresh responses", "error", err)
+				}
+			}
+		}
+	}()
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
-		Handler: httpapi.New(httpapi.Deps{Pool: pool, Prober: insp, Workers: running.Load, Version: version}),
+		Handler: httpapi.New(httpapi.Deps{Pool: pool, Prober: insp, Workers: running.Load, Version: version,
+			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Library: library.New(pool), Config: apiCfg, Log: log,
+				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb}}),
 	}
 	errc := make(chan error, 1)
 	go func() {

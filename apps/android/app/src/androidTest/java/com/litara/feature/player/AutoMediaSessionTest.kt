@@ -52,7 +52,7 @@ class AutoMediaSessionTest {
     }
 
     @Test fun offlineSearchVoiceResumeChaptersAndLiveDownloads() = runBlocking {
-        val id = 1_900_000_001
+        val id = 900_000_001 // BookOrbit fixture ids stay below the reserved Litara handle range.
         val otherId = id + 1
         val dependencies = EntryPointAccessors.fromApplication(context, AutoTestDependencies::class.java)
         val database = dependencies.database()
@@ -144,9 +144,24 @@ class AutoMediaSessionTest {
                 main { dependencies.activeBookPlayer().current?.currentMediaItem?.mediaId == refs[1].id.toString() }
             }
 
-            main { client.clearMediaItems(); client.play() }
-            await("empty-queue resumption") {
-                main { client.currentMediaItem?.mediaId == refs[0].id.toString() && client.isPlaying }
+            // The previous steps deliberately seek to file 2. Persist an explicit, newest checkpoint here:
+            // the progress poller and history left by other tests must not decide the test's resume point.
+            val resumeAt = maxOf(System.currentTimeMillis(), progress.recent().maxOfOrNull { it.updatedAt }?.plus(1) ?: 0L)
+            progress.upsert(AudioProgressEntity(id, refs[1].id, 1.0, 55.0, resumeAt, false))
+            main { client.clearMediaItems() }
+            await("queue cleared before resumption") { main { client.mediaItemCount == 0 } }
+            failure.set(null)
+            main { client.play() }
+            try {
+                await("empty-queue resumption") {
+                    main {
+                        client.currentMediaItem?.mediaId == refs[1].id.toString() && client.isPlaying &&
+                            client.currentPosition in 10_900..13_500
+                    }
+                }
+            } catch (e: AssertionError) {
+                val candidates = progress.recent().map { "${it.bookId}:file=${it.currentFileId},pct=${it.percentage},at=${it.updatedAt}" }
+                throw AssertionError("${e.message}; history=$candidates; selected=${main { client.currentMediaItem?.mediaId }}; error=${failure.get()}", e)
             }
             main { client.pause() }
         } finally {

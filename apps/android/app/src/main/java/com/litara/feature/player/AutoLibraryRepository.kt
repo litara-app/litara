@@ -30,11 +30,12 @@ class AutoLibraryRepository @Inject constructor(
     private val session: SessionManager,
     private val downloads: DownloadsRepository,
     private val json: Json,
+    private val litara: LitaraSource = LitaraSource.None,
 ) {
     private data class Snapshot(val scope: String, val loadedAt: Long, val books: List<BookCard>)
     private var snapshot: Snapshot? = null
     private val lock = Mutex()
-    private fun scope() = "${session.serverUrl}|${session.currentUser?.id}"
+    private fun scope() = "${session.serverUrl}|${session.currentUser?.id}|${litara.scopeKey()}"
 
     suspend fun children(id: String, labels: AutoBrowseTree.Labels): List<AutoBrowseTree.BrowseEntry> =
         if (id == AutoBrowseTree.LIBRARY_ID) AutoLibraryTree.modes(labels)
@@ -58,7 +59,7 @@ class AutoLibraryRepository @Inject constructor(
         if (scope() != requestScope) throw AutoRequestException(AutoFailure.INVALID_REQUEST)
         if (session.currentUser == null || session.accessToken == null) {
             snapshot = null
-            return@withLock local
+            return@withLock (local + litara.cards()).distinctBy { it.id }
         }
         val cached = snapshot?.takeIf { it.scope == requestScope }
         val remote = if (cached != null && System.nanoTime() - cached.loadedAt < 120_000_000_000L) cached.books else {
@@ -76,7 +77,7 @@ class AutoLibraryRepository @Inject constructor(
             }
         }
         if (scope() != requestScope) throw AutoRequestException(AutoFailure.INVALID_REQUEST)
-        (remote + local).distinctBy { it.id }
+        (remote + local + litara.cards()).distinctBy { it.id }
     }
 
     private suspend fun loadAll(): List<BookCard> = coroutineScope {

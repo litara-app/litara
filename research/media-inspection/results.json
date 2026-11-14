@@ -1,0 +1,191 @@
+{
+  "cancelled_probe_rejected": true,
+  "engine": "n9.0.1-8",
+  "go_version": "go1.27.1",
+  "guest_memory_limit_bytes": 268435456,
+  "initialization_ms": 1311,
+  "invalid_media_rejected": true,
+  "provenance": {
+    "ffmpeg_version": "n9.0.1",
+    "build_tag": "n9.0.1-8",
+    "commit": "e576598926663c22474916b0a6c91782821626f1",
+    "variants": {
+      "driver-linux-amd64-full-gpl": {
+        "file": "ffmpeg-wasi-driver-linux-amd64-full-gpl",
+        "license": "GPL-2.0-or-later",
+        "h264_encode": "libx264",
+        "profile": "full"
+      },
+      "driver-linux-amd64-full-lgpl": {
+        "file": "ffmpeg-wasi-driver-linux-amd64-full-lgpl",
+        "license": "LGPL-2.1-or-later",
+        "h264_encode": "openh264",
+        "profile": "full"
+      },
+      "driver-linux-amd64-gpl": {
+        "file": "ffmpeg-wasi-driver-linux-amd64-gpl",
+        "license": "GPL-2.0-or-later",
+        "h264_encode": "libx264",
+        "profile": "lean"
+      },
+      "driver-linux-amd64-intermediate-gpl": {
+        "file": "ffmpeg-wasi-driver-linux-amd64-intermediate-gpl",
+        "license": "GPL-2.0-or-later",
+        "h264_encode": "libx264",
+        "profile": "intermediate"
+      },
+      "driver-linux-amd64-intermediate-lgpl": {
+        "file": "ffmpeg-wasi-driver-linux-amd64-intermediate-lgpl",
+        "license": "LGPL-2.1-or-later",
+        "h264_encode": "openh264",
+        "profile": "intermediate"
+      },
+      "driver-linux-amd64-lgpl": {
+        "file": "ffmpeg-wasi-driver-linux-amd64-lgpl",
+        "license": "LGPL-2.1-or-later",
+        "h264_encode": "openh264",
+        "profile": "lean"
+      },
+      "gpl": {
+        "file": "ffmpeg-wasi-gpl.wasm",
+        "license": "GPL-2.0-or-later",
+        "h264_encode": "libx264",
+        "profile": "lean"
+      },
+      "intermediate-gpl": {
+        "file": "ffmpeg-wasi-intermediate-gpl.wasm",
+        "license": "GPL-2.0-or-later",
+        "h264_encode": "libx264",
+        "profile": "intermediate"
+      },
+      "intermediate-lgpl": {
+        "file": "ffmpeg-wasi-intermediate-lgpl.wasm",
+        "license": "LGPL-2.1-or-later",
+        "h264_encode": "openh264",
+        "profile": "intermediate"
+      },
+      "lgpl": {
+        "file": "ffmpeg-wasi-lgpl.wasm",
+        "license": "LGPL-2.1-or-later",
+        "h264_encode": "openh264",
+        "profile": "lean"
+      }
+    },
+    "tooling_license": "MIT"
+  },
+  "results": [
+    {
+      "elapsed_ms": 8,
+      "file": "small.wav",
+      "go_heap_alloc_bytes": 41346232,
+      "go_heap_sys_bytes": 125501440,
+      "io": {
+        "Reads": 3,
+        "Bytes": 32044,
+        "Seeks": 1,
+        "LargestRead": 32768
+      },
+      "probe": {
+        "Format": "wav",
+        "DurationSec": 2,
+        "StartSec": 0,
+        "Streams": [
+          {
+            "index": 0,
+            "type": "audio",
+            "codec": "pcm_s16le",
+            "width": 0,
+            "height": 0,
+            "sample_rate": 8000,
+            "channels": 1,
+            "language": "",
+            "disposition": [],
+            "tags": null
+          }
+        ],
+        "Tags": null,
+        "Chapters": null
+      }
+    },
+    {
+      "elapsed_ms": 6,
+      "file": "chapters.wav",
+      "go_heap_alloc_bytes": 41343312,
+      "go_heap_sys_bytes": 125501440,
+      "io": {
+        "Reads": 3,
+        "Bytes": 32202,
+        "Seeks": 1,
+        "LargestRead": 32768
+      },
+      "probe": {
+        "Format": "wav",
+        "DurationSec": 2,
+        "StartSec": 0,
+        "Streams": [
+          {
+            "index": 0,
+            "type": "audio",
+            "codec": "pcm_s16le",
+            "width": 0,
+            "height": 0,
+            "sample_rate": 8000,
+            "channels": 1,
+            "language": "",
+            "disposition": [],
+            "tags": null
+          }
+        ],
+        "Tags": {
+          "title": "Litara generated fixture"
+        },
+        "Chapters": [
+          {
+            "start": 0,
+            "end": 1,
+            "title": "Opening"
+          },
+          {
+            "start": 1,
+            "end": 2,
+            "title": "Second"
+          }
+        ]
+      }
+    },
+    {
+      "elapsed_ms": 5,
+      "file": "large.wav",
+      "go_heap_alloc_bytes": 41344192,
+      "go_heap_sys_bytes": 125501440,
+      "io": {
+        "Reads": 2,
+        "Bytes": 65536,
+        "Seeks": 1,
+        "LargestRead": 32768
+      },
+      "probe": {
+        "Format": "wav",
+        "DurationSec": 536870.912,
+        "StartSec": 0,
+        "Streams": [
+          {
+            "index": 0,
+            "type": "audio",
+            "codec": "pcm_s16le",
+            "width": 0,
+            "height": 0,
+            "sample_rate": 8000,
+            "channels": 1,
+            "language": "",
+            "disposition": [],
+            "tags": null
+          }
+        ],
+        "Tags": null,
+        "Chapters": null
+      }
+    }
+  ],
+  "wrapper": "v0.16.1"
+}

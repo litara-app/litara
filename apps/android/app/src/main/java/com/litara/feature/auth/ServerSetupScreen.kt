@@ -45,6 +45,7 @@ import com.litara.core.network.UserCaSettings
 @Composable
 fun ServerSetupScreen(
     onConnected: () -> Unit,
+    onUseLitara: () -> Unit,
     modifier: Modifier = Modifier,
     vm: ServerSetupViewModel = hiltViewModel(),
 ) {
@@ -141,5 +142,9 @@ fun ServerSetupScreen(
                 Text(stringResource(R.string.connect))
             }
         }
+        androidx.compose.material3.TextButton(
+            onClick = onUseLitara,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.litara_server_entry)) }
     }
 }

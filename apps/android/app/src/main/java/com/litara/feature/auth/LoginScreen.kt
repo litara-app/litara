@@ -188,6 +188,10 @@ fun LoginScreen(
                 )
             }
             TextButton(onClick = onChangeServer) { Text(stringResource(R.string.change_server)) }
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            TextButton(onClick = { ctx.startActivity(android.content.Intent(ctx, com.litara.feature.litara.LitaraActivity::class.java)) }) {
+                Text(stringResource(R.string.litara_server_entry))
+            }
         }
     }
 }

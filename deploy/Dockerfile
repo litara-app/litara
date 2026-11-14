@@ -44,6 +44,8 @@ COPY --from=ffmpeg /out/bin/ffmpeg /out/bin/ffprobe /opt/litara/bin/
 COPY --from=ffmpeg /out/BUILDINFO.txt /opt/litara/ffmpeg-BUILDINFO.txt
 COPY --from=ffmpeg /out/licenses/ /usr/share/doc/litara/ffmpeg/
 COPY --from=build /out/server /out/ctl /usr/local/bin/
+# Writable managed-library mount point (T004); index libraries mount media read-only elsewhere.
+RUN mkdir -p /library && chown litara /library
 ENV LITARA_FFPROBE_PATH=/opt/litara/bin/ffprobe \
     LITARA_FFMPEG_PATH=/opt/litara/bin/ffmpeg \
     LITARA_HTTP_ADDR=0.0.0.0:8080

@@ -1,0 +1,17 @@
+name: Contract validation
+on:
+  pull_request:
+    paths: ['contracts/**', 'scripts/contracts/**', '.github/workflows/contracts.yml']
+  push:
+    paths: ['contracts/**', 'scripts/contracts/**', '.github/workflows/contracts.yml']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated contract validators
+        run: python3 -m pip install --target .tmp/t003-validation -r scripts/contracts/requirements.txt
+      - name: Validate OpenAPI and shared fixtures
+        run: python3 scripts/contracts/check.py

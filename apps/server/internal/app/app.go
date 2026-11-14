@@ -2,7 +2,11 @@
 package app
 
 import (
+	"context"
 	"fmt"
+	"github.com/deranjer/ebooker/apps/server/internal/importer"
+	"github.com/deranjer/ebooker/apps/server/internal/ingest"
+	"github.com/google/uuid"
 	"log/slog"
 	"time"
 
@@ -33,6 +37,10 @@ type WorkerOptions struct {
 	RetryBase        time.Duration
 	// FetchPollInterval overrides River's job poll interval (tests use a short one).
 	FetchPollInterval time.Duration
+	// Scanner enables T004 library scanning (scan queue, scheduler tick). Nil leaves it off.
+	Scanner     *ingest.Scanner
+	Importer    *importer.Service
+	ScanWorkers int
 }
 
 func WorkerOptionsFrom(cfg *config.Config) WorkerOptions {
@@ -49,12 +57,30 @@ func WorkerOptionsFrom(cfg *config.Config) WorkerOptions {
 func NewWorkerClient(pool *pgxpool.Pool, insp jobs.Inspector, opts WorkerOptions, log *slog.Logger) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &jobs.InspectWorker{Pool: pool, Inspector: insp, Logger: log, RetryBase: opts.RetryBase})
+	queues := map[string]river.QueueConfig{jobs.QueueInspect: {MaxWorkers: opts.Workers}}
+	var periodic []*river.PeriodicJob
+	var client *river.Client[pgx.Tx]
+	if opts.Scanner != nil {
+		n := opts.ScanWorkers
+		if n < 1 {
+			n = 2
+		}
+		queues[jobs.QueueScan] = river.QueueConfig{MaxWorkers: n}
+		queues[jobs.QueueImport] = river.QueueConfig{MaxWorkers: 1}
+		pe := &lateEnqueuer{}
+		river.AddWorker(workers, &jobs.ScanWorker{Scanner: opts.Scanner, Logger: log})
+		river.AddWorker(workers, &jobs.SchedulerWorker{Pool: pool, Enq: pe, Logger: log})
+		if opts.Importer != nil {
+			river.AddWorker(workers, &jobs.ImportWorker{Importer: opts.Importer, Logger: log})
+		}
+		periodic = append(periodic, jobs.ScanPeriodic())
+		defer func() { pe.client = client }()
+	}
 	cfg := &river.Config{
-		Logger:  log,
-		Workers: workers,
-		Queues: map[string]river.QueueConfig{
-			jobs.QueueInspect: {MaxWorkers: opts.Workers},
-		},
+		Logger:                      log,
+		Workers:                     workers,
+		Queues:                      queues,
+		PeriodicJobs:                periodic,
 		MaxAttempts:                 opts.MaxAttempts,
 		JobTimeout:                  opts.JobTimeout,
 		RescueStuckJobsAfter:        opts.RescueStuckAfter,
@@ -62,7 +88,21 @@ func NewWorkerClient(pool *pgxpool.Pool, insp jobs.Inspector, opts WorkerOptions
 		JobCleanerTimeout:           30 * time.Second,
 		CompletedJobRetentionPeriod: 24 * time.Hour,
 	}
-	return river.NewClient(riverpgxv5.New(pool), cfg)
+	var err error
+	client, err = river.NewClient(riverpgxv5.New(pool), cfg)
+	return client, err
+}
+
+// lateEnqueuer resolves the River client after construction (the scheduler worker
+// is registered before the client exists).
+type lateEnqueuer struct{ client *river.Client[pgx.Tx] }
+
+func (l *lateEnqueuer) EnqueueScan(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+	return jobs.RiverEnqueuer{Client: l.client}.EnqueueScan(ctx, tx, id)
+}
+
+func (l *lateEnqueuer) EnqueueImport(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+	return jobs.RiverEnqueuer{Client: l.client}.EnqueueImport(ctx, tx, id)
 }
 
 // NewInsertClient builds an insert-only client (no workers) for submitters

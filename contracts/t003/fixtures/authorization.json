@@ -1,0 +1,56 @@
+[
+  {
+    "actor": "anonymous",
+    "method": "GET",
+    "path": "/api/v1/discovery",
+    "expected": 200
+  },
+  {
+    "actor": "anonymous",
+    "method": "GET",
+    "path": "/api/v1/recordings",
+    "expected": 401
+  },
+  {
+    "actor": "admin-no-grants",
+    "method": "POST",
+    "path": "/api/v1/admin/users",
+    "expected": 201
+  },
+  {
+    "actor": "admin-no-grants",
+    "method": "GET",
+    "path": "/api/v1/recordings/00000000-0000-4000-8000-000000000100",
+    "expected": 403
+  },
+  {
+    "actor": "user-a-granted",
+    "method": "GET",
+    "path": "/api/v1/recordings/00000000-0000-4000-8000-000000000100",
+    "expected": 200
+  },
+  {
+    "actor": "user-b-ungranted",
+    "method": "GET",
+    "path": "/api/v1/files/00000000-0000-4000-8000-000000000300/versions/00000000-0000-4000-8000-000000000400/content",
+    "expected": 403
+  },
+  {
+    "actor": "user-a-granted",
+    "method": "POST",
+    "path": "/api/v1/admin/users",
+    "expected": 403
+  },
+  {
+    "actor": "web-valid-cookie-no-csrf",
+    "method": "PUT",
+    "path": "/api/v1/recordings/00000000-0000-4000-8000-000000000100/position",
+    "expected": 403
+  },
+  {
+    "actor": "user-a-revoked-session",
+    "method": "GET",
+    "path": "/api/v1/me",
+    "expected": 401
+  }
+]

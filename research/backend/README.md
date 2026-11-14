@@ -90,7 +90,7 @@ Covered by tests (real PostgreSQL and real ffprobe unless noted):
 
 ## Not verified / gaps (be explicit)
 
-- **GitHub Actions was not run.** `.github/workflows/backend.yml` mirrors the local commands but has never executed.
+- **Hosted CI follow-up:** the original worker had not run GitHub Actions. PR #79 subsequently passed the backend check and container-smoke jobs before merge on 2026-11-13; TASKS.md records the coordinator verification. This does not add NAS/hardware/platform coverage.
 - **Platforms.** Only linux/amd64 was built and run (image) and a Windows host for Go tests. No arm64, macOS or Windows container is claimed.
 - **Real NAS.** Disappearing/unreadable-input behaviour is simulated (missing file, truncated file, killed DB connections). No real SMB/NFS interruption was tested.
 - **Large valid media.** No multi-GB *valid* M4B/MP3 was inspected; only the zero-filled 3 GiB case. No CBR vs VBR duration accuracy comparison beyond ±250 ms on 3 s fixtures. No Opus-in-M4B, AAC-in-ADTS-only, or multi-file recordings.

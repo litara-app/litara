@@ -1,0 +1,46 @@
+{
+  "accessSeconds": 900,
+  "idleSeconds": 2592000,
+  "absoluteSeconds": 7776000,
+  "refreshRecoverySeconds": 60,
+  "cases": [
+    {
+      "name": "refresh-response-loss",
+      "oldGeneration": 1,
+      "requestId": "00000000-0000-4000-8000-000000000011",
+      "retryAfterSeconds": 59,
+      "expectedStatus": 200,
+      "expectedGeneration": 2,
+      "sameResponse": true
+    },
+    {
+      "name": "refresh-retry-window-ended",
+      "oldGeneration": 1,
+      "requestId": "00000000-0000-4000-8000-000000000011",
+      "retryAfterSeconds": 60,
+      "expectedStatus": 401,
+      "code": "refresh_retry_expired",
+      "revokeOtherSessions": false
+    },
+    {
+      "name": "old-token-different-exchange",
+      "oldGeneration": 1,
+      "requestId": "00000000-0000-4000-8000-000000000012",
+      "retryAfterSeconds": 1,
+      "expectedStatus": 401,
+      "code": "refresh_reuse",
+      "revokeSession": true,
+      "revokeOtherSessions": false
+    },
+    {
+      "name": "revoked-matching-exchange",
+      "oldGeneration": 1,
+      "requestId": "00000000-0000-4000-8000-000000000011",
+      "retryAfterSeconds": 1,
+      "alreadyRevoked": true,
+      "expectedStatus": 401,
+      "code": "session_revoked",
+      "sameResponse": false
+    }
+  ]
+}

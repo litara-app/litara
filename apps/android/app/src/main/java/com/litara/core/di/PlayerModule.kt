@@ -38,10 +38,13 @@ object PlayerModule {
         @ApplicationContext context: Context,
         session: SessionManager,
         userCaTrust: UserCaTrust,
+        litara: com.litara.feature.litara.LitaraRepository,
     ): MediaSource.Factory {
         // OkHttp (not the platform HttpsURLConnection DefaultHttpDataSource uses) so streaming honours
         // the opt-in user-CA trust like every other request.
-        val streamClient = userCaTrust.applyTo(OkHttpClient.Builder()).build()
+        val streamClient = userCaTrust.applyTo(OkHttpClient.Builder())
+            // For the Litara server only: current bearer per request and one refresh-then-retry on 401.
+            .addInterceptor(litara.bearerInterceptor()).authenticator(litara.refreshAuthenticator()).build()
         // Per-request auth header so streaming survives token refresh.
         val httpFactory = DataSource.Factory {
             val token = session.accessToken

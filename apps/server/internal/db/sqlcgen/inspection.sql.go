@@ -8,14 +8,14 @@ package sqlcgen
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 const getInspectionRequest = `-- name: GetInspectionRequest :one
 SELECT id, request_key, source_path, state, outcome, attempts, failure_message, created_at, updated_at, started_at, completed_at FROM inspection_requests WHERE id = $1
 `
 
-func (q *Queries) GetInspectionRequest(ctx context.Context, id pgtype.UUID) (InspectionRequest, error) {
+func (q *Queries) GetInspectionRequest(ctx context.Context, id uuid.UUID) (InspectionRequest, error) {
 	row := q.db.QueryRow(ctx, getInspectionRequest, id)
 	var i InspectionRequest
 	err := row.Scan(
@@ -61,7 +61,7 @@ const getInspectionResult = `-- name: GetInspectionResult :one
 SELECT request_id, completeness, duration_ms, format_name, result, inspected_at, tool_version FROM inspection_results WHERE request_id = $1
 `
 
-func (q *Queries) GetInspectionResult(ctx context.Context, requestID pgtype.UUID) (InspectionResult, error) {
+func (q *Queries) GetInspectionResult(ctx context.Context, requestID uuid.UUID) (InspectionResult, error) {
 	row := q.db.QueryRow(ctx, getInspectionResult, requestID)
 	var i InspectionResult
 	err := row.Scan(
@@ -115,8 +115,8 @@ WHERE id = $1 AND state IN ('queued', 'running')
 `
 
 type MarkInspectionCancelledParams struct {
-	ID             pgtype.UUID `json:"id"`
-	FailureMessage *string     `json:"failure_message"`
+	ID             uuid.UUID `json:"id"`
+	FailureMessage *string   `json:"failure_message"`
 }
 
 func (q *Queries) MarkInspectionCancelled(ctx context.Context, arg MarkInspectionCancelledParams) error {
@@ -132,8 +132,8 @@ WHERE id = $1 AND state IN ('queued', 'running')
 `
 
 type MarkInspectionCompletedParams struct {
-	ID      pgtype.UUID `json:"id"`
-	Outcome *string     `json:"outcome"`
+	ID      uuid.UUID `json:"id"`
+	Outcome *string   `json:"outcome"`
 }
 
 func (q *Queries) MarkInspectionCompleted(ctx context.Context, arg MarkInspectionCompletedParams) (int64, error) {
@@ -152,9 +152,9 @@ WHERE id = $1 AND state IN ('queued', 'running')
 `
 
 type MarkInspectionFailedParams struct {
-	ID             pgtype.UUID `json:"id"`
-	Outcome        *string     `json:"outcome"`
-	FailureMessage *string     `json:"failure_message"`
+	ID             uuid.UUID `json:"id"`
+	Outcome        *string   `json:"outcome"`
+	FailureMessage *string   `json:"failure_message"`
 }
 
 func (q *Queries) MarkInspectionFailed(ctx context.Context, arg MarkInspectionFailedParams) error {
@@ -169,9 +169,9 @@ WHERE id = $1 AND state IN ('queued', 'running')
 `
 
 type MarkInspectionRetryParams struct {
-	ID             pgtype.UUID `json:"id"`
-	Outcome        *string     `json:"outcome"`
-	FailureMessage *string     `json:"failure_message"`
+	ID             uuid.UUID `json:"id"`
+	Outcome        *string   `json:"outcome"`
+	FailureMessage *string   `json:"failure_message"`
 }
 
 func (q *Queries) MarkInspectionRetry(ctx context.Context, arg MarkInspectionRetryParams) error {
@@ -187,7 +187,7 @@ RETURNING id, request_key, source_path, state, outcome, attempts, failure_messag
 `
 
 // Guards against re-running a request that already reached a terminal state.
-func (q *Queries) MarkInspectionRunning(ctx context.Context, id pgtype.UUID) (InspectionRequest, error) {
+func (q *Queries) MarkInspectionRunning(ctx context.Context, id uuid.UUID) (InspectionRequest, error) {
 	row := q.db.QueryRow(ctx, markInspectionRunning, id)
 	var i InspectionRequest
 	err := row.Scan(
@@ -215,7 +215,7 @@ RETURNING id, request_key, source_path, state, outcome, attempts, failure_messag
 `
 
 // Explicit re-inspection: only terminal requests can be reset.
-func (q *Queries) ResetInspectionRequest(ctx context.Context, id pgtype.UUID) (InspectionRequest, error) {
+func (q *Queries) ResetInspectionRequest(ctx context.Context, id uuid.UUID) (InspectionRequest, error) {
 	row := q.db.QueryRow(ctx, resetInspectionRequest, id)
 	var i InspectionRequest
 	err := row.Scan(
@@ -244,12 +244,12 @@ SET completeness = EXCLUDED.completeness, duration_ms = EXCLUDED.duration_ms,
 `
 
 type UpsertInspectionResultParams struct {
-	RequestID    pgtype.UUID `json:"request_id"`
-	Completeness string      `json:"completeness"`
-	DurationMs   *int64      `json:"duration_ms"`
-	FormatName   *string     `json:"format_name"`
-	Result       []byte      `json:"result"`
-	ToolVersion  *string     `json:"tool_version"`
+	RequestID    uuid.UUID `json:"request_id"`
+	Completeness string    `json:"completeness"`
+	DurationMs   *int64    `json:"duration_ms"`
+	FormatName   *string   `json:"format_name"`
+	Result       []byte    `json:"result"`
+	ToolVersion  *string   `json:"tool_version"`
 }
 
 func (q *Queries) UpsertInspectionResult(ctx context.Context, arg UpsertInspectionResultParams) error {

@@ -104,6 +104,8 @@ class PlayerManager @Inject constructor(
     private var sleepTimerEndAtMs: Long? = null
     private var sleepTimerEndOfChapter = false
 
+    @Volatile private var seekLandedAtEnd = false
+
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             // A successful resume clears any earlier error - it's no longer the reason nothing is playing.
@@ -113,6 +115,17 @@ class PlayerManager @Inject constructor(
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             _state.update { it.copy(buffering = playbackState == Player.STATE_BUFFERING) }
+            // Natural end = playback reached the final file's end; a seek that LANDS there never finishes a book.
+            if (playbackState == Player.STATE_ENDED && !seekLandedAtEnd) {
+                _state.value.currentBook?.id?.let { id -> scope.launch { audioProgress.playbackEnded(id) } }
+            }
+        }
+
+        override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+            val files = _state.value.files
+            seekLandedAtEnd = reason == Player.DISCONTINUITY_REASON_SEEK && files.isNotEmpty() &&
+                newPosition.mediaItemIndex == files.lastIndex &&
+                newPosition.positionMs >= ((files.last().durationSeconds ?: Double.MAX_VALUE / 1000.0) * 1000).toLong() - 1000
         }
 
         override fun onPlayerError(error: PlaybackException) {

@@ -1,0 +1,3742 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Litara T003 implementation contract",
+    "version": "0.1.0-development",
+    "description": "Assignment contract under accepted ADRs 0009, 0013, 0018–0022, 0024, 0029–0043. Not a claim that these routes already exist. See README.md for semantic/transactional requirements. This contract is unstable before production."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearer": []
+    },
+    {
+      "browserSession": []
+    }
+  ],
+  "paths": {
+    "/discovery": {
+      "get": {
+        "operationId": "discover",
+        "summary": "discover",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Discovery"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/native/login": {
+      "post": {
+        "operationId": "nativeLogin",
+        "summary": "nativeLogin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Login"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/native/refresh": {
+      "post": {
+        "operationId": "nativeRefresh",
+        "summary": "nativeRefresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Refresh"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/native/logout": {
+      "post": {
+        "operationId": "nativeLogout",
+        "summary": "nativeLogout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/auth/web/login": {
+      "post": {
+        "operationId": "webLogin",
+        "summary": "webLogin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserSession"
+                }
+              }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "description": "HttpOnly; Secure; SameSite=Lax; Path={mount}/api/v1; no Domain; insecure cookie allowed only in explicit development HTTP mode",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Login"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/web/session": {
+      "get": {
+        "operationId": "webSession",
+        "summary": "webSession",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          }
+        ]
+      }
+    },
+    "/auth/web/logout": {
+      "post": {
+        "operationId": "webLogout",
+        "summary": "webLogout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/me": {
+      "get": {
+        "operationId": "currentUser",
+        "summary": "currentUser",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "/sessions": {
+      "get": {
+        "operationId": "listSessions",
+        "summary": "listSessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sessions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "revokeSession",
+        "summary": "revokeSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "operationId": "listUsers",
+        "summary": "listUsers",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "description": "Cap at 200"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createUser",
+        "summary": "createUser",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUser"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{userId}": {
+      "patch": {
+        "operationId": "updateUser",
+        "summary": "updateUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUser"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{userId}/libraries/{libraryId}": {
+      "put": {
+        "operationId": "grantLibrary",
+        "summary": "grantLibrary",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "libraryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "removeLibraryGrant",
+        "summary": "removeLibraryGrant",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "libraryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/libraries": {
+      "get": {
+        "operationId": "listLibraries",
+        "summary": "listLibraries",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "description": "Cap at 200"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "/recordings": {
+      "get": {
+        "operationId": "listRecordings",
+        "summary": "listRecordings",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "description": "Cap at 200"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "libraryId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "completion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "any",
+                "unfinished",
+                "finished"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "title",
+                "recent"
+              ],
+              "default": "title"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recordings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "/recordings/{recordingId}": {
+      "get": {
+        "operationId": "getRecordingSnapshot",
+        "summary": "getRecordingSnapshot",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recording"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "/recordings/{recordingId}/position": {
+      "get": {
+        "operationId": "getPosition",
+        "summary": "getPosition",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "writePosition",
+        "summary": "writePosition",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PositionWrite"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/recordings/{recordingId}/conflicts/{conflictId}/resolve": {
+      "post": {
+        "operationId": "resolveConflict",
+        "summary": "resolveConflict",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "conflictId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveConflict"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/recordings/{recordingId}/completion": {
+      "get": {
+        "operationId": "getCompletion",
+        "summary": "getCompletion",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletionState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "writeCompletion",
+        "summary": "writeCompletion",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletionState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompletionWrite"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/titles/{titleId}/history": {
+      "get": {
+        "operationId": "getTitleHistory",
+        "summary": "getTitleHistory",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "description": "Cap at 200"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/History"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "/files/{fileId}/versions/{contentVersion}/content": {
+      "get": {
+        "operationId": "getFileContent",
+        "summary": "getFileContent",
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "contentVersion",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Range",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "const": "bytes"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store"
+                }
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Exact single byte range (HEAD returns no body)",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "const": "bytes"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store"
+                }
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified (no body)"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "416": {
+            "description": "Unsatisfiable byte range",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      },
+      "head": {
+        "operationId": "headFileContent",
+        "summary": "headFileContent",
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "contentVersion",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Range",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "const": "bytes"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store"
+                }
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Exact single byte range (HEAD returns no body)",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "const": "bytes"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store"
+                }
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified (no body)"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "416": {
+            "description": "Unsatisfiable byte range",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "/recordings/{recordingId}/artwork/thumbnail": {
+      "get": {
+        "operationId": "getThumbnail",
+        "summary": "getThumbnail",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      },
+      "head": {
+        "operationId": "headThumbnail",
+        "summary": "headThumbnail",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "/recordings/{recordingId}/artwork/cover": {
+      "get": {
+        "operationId": "getCover",
+        "summary": "getCover",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      },
+      "head": {
+        "operationId": "headCover",
+        "summary": "headCover",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "const": "private, no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        }
+      }
+    },
+    "/recordings/{recordingId}/completion-conflicts/{conflictId}/resolve": {
+      "post": {
+        "operationId": "resolveCompletionConflict",
+        "summary": "resolveCompletionConflict",
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "conflictId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletionState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication/session required"
+          },
+          "403": {
+            "description": "Library grant or administrative permission denied"
+          },
+          "404": {
+            "description": "Resource absent"
+          },
+          "409": {
+            "description": "Conflict or unavailable recording"
+          },
+          "412": {
+            "description": "Content/layout precondition changed"
+          },
+          "422": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Temporarily unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveCompletionConflict"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque"
+      },
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "litara_session"
+      },
+      "csrf": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "isAdmin": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "isAdmin",
+          "active"
+        ],
+        "additionalProperties": false
+      },
+      "Library": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceName": {
+            "type": "string"
+          },
+          "client": {
+            "type": "string",
+            "enum": [
+              "native",
+              "web"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "idleExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "absoluteExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "deviceName",
+          "client",
+          "createdAt",
+          "lastUsedAt",
+          "idleExpiresAt",
+          "absoluteExpiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "Discovery": {
+        "type": "object",
+        "properties": {
+          "serverId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product": {
+            "const": "Litara"
+          },
+          "apiVersions": {
+            "type": "array",
+            "items": {
+              "const": "v1"
+            },
+            "minItems": 1
+          },
+          "apiBasePath": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "stability": {
+            "const": "development"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "recordings",
+                "range-media",
+                "position-conflicts",
+                "offline-snapshots"
+              ]
+            }
+          },
+          "registration": {
+            "const": "admin-only"
+          }
+        },
+        "required": [
+          "serverId",
+          "product",
+          "apiVersions",
+          "apiBasePath",
+          "stability",
+          "capabilities",
+          "registration"
+        ],
+        "additionalProperties": false
+      },
+      "Login": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "deviceName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "deviceName"
+        ],
+        "additionalProperties": false
+      },
+      "TokenPair": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "minLength": 32
+          },
+          "tokenType": {
+            "const": "Bearer"
+          },
+          "expiresIn": {
+            "const": 900
+          },
+          "refreshToken": {
+            "type": "string",
+            "minLength": 32
+          },
+          "session": {
+            "$ref": "#/components/schemas/Session"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        },
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "refreshToken",
+          "session",
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "Refresh": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "minLength": 32
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "refreshToken",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "BrowserSession": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "session": {
+            "$ref": "#/components/schemas/Session"
+          },
+          "csrfToken": {
+            "type": "string",
+            "minLength": 32
+          }
+        },
+        "required": [
+          "user",
+          "session",
+          "csrfToken"
+        ],
+        "additionalProperties": false
+      },
+      "CreateUser": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 1024
+          },
+          "isAdmin": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "username",
+          "displayName",
+          "password",
+          "isAdmin"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateUser": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "isAdmin": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "minProperties": 1
+      },
+      "UserList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size"
+        ],
+        "additionalProperties": false
+      },
+      "LibraryList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Library"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size"
+        ],
+        "additionalProperties": false
+      },
+      "Sessions": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "Issue": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "cue",
+                  "embedded",
+                  "generated"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fileId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "source",
+          "fileId"
+        ],
+        "additionalProperties": false
+      },
+      "Anchor": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentVersion": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "offsetMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "fileId",
+          "contentVersion",
+          "offsetMs"
+        ],
+        "additionalProperties": false
+      },
+      "File": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentVersion": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "filename": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "contentPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "contentVersion",
+          "sequence",
+          "filename",
+          "mimeType",
+          "sizeBytes",
+          "durationMs",
+          "available",
+          "contentPath"
+        ],
+        "additionalProperties": false
+      },
+      "Chapter": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          },
+          "start": {
+            "$ref": "#/components/schemas/Anchor"
+          },
+          "recordingStartMs": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "user",
+              "cue",
+              "embedded",
+              "generated"
+            ]
+          },
+          "generated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "start",
+          "recordingStartMs",
+          "source",
+          "generated"
+        ],
+        "additionalProperties": false
+      },
+      "Artwork": {
+        "type": "object",
+        "properties": {
+          "thumbnailPath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coverPath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "thumbnailPath",
+          "coverPath"
+        ],
+        "additionalProperties": false
+      },
+      "Position": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentVersion": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "offsetMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "layoutRevision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deviceName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileId",
+          "contentVersion",
+          "offsetMs",
+          "layoutRevision",
+          "capturedAt",
+          "receivedAt",
+          "deviceName"
+        ],
+        "additionalProperties": false
+      },
+      "Conflict": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "stale_revision",
+              "layout_changed",
+              "content_changed",
+              "completion_changed"
+            ]
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Position"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resolvedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completionCandidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompletionWrite"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reason",
+          "candidate",
+          "baseRevision",
+          "createdAt",
+          "resolvedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PositionState": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Position"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unresolvedConflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Conflict"
+            }
+          }
+        },
+        "required": [
+          "revision",
+          "position",
+          "unresolvedConflicts"
+        ],
+        "additionalProperties": false
+      },
+      "CompletionState": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "finished": {
+            "type": "boolean"
+          },
+          "changedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "revision",
+          "finished",
+          "changedAt"
+        ],
+        "additionalProperties": false
+      },
+      "RecordingSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "libraryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "narrators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "series": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "index": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "index"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "readiness": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "incomplete"
+            ]
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "artwork": {
+            "$ref": "#/components/schemas/Artwork"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/CompletionState"
+          },
+          "lastActivityAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "titleId",
+          "libraryId",
+          "title",
+          "authors",
+          "narrators",
+          "series",
+          "readiness",
+          "durationMs",
+          "artwork",
+          "completion",
+          "lastActivityAt"
+        ],
+        "additionalProperties": false
+      },
+      "Recording": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "libraryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "narrators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "series": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "index": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "index"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "readiness": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "incomplete"
+            ]
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "artwork": {
+            "$ref": "#/components/schemas/Artwork"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/CompletionState"
+          },
+          "lastActivityAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schemaVersion": {
+            "const": 1
+          },
+          "layoutRevision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/File"
+            },
+            "minItems": 1
+          },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Chapter"
+            }
+          },
+          "capabilities": {
+            "type": "object",
+            "properties": {
+              "play": {
+                "type": "boolean"
+              },
+              "download": {
+                "type": "boolean"
+              },
+              "wholeRecordingSeek": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "play",
+              "download",
+              "wholeRecordingSeek"
+            ],
+            "additionalProperties": false
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Issue"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "titleId",
+          "libraryId",
+          "title",
+          "authors",
+          "narrators",
+          "series",
+          "readiness",
+          "durationMs",
+          "artwork",
+          "completion",
+          "lastActivityAt",
+          "schemaVersion",
+          "layoutRevision",
+          "files",
+          "chapters",
+          "capabilities",
+          "issues"
+        ],
+        "additionalProperties": false
+      },
+      "Recordings": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordingSummary"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size"
+        ],
+        "additionalProperties": false
+      },
+      "PositionWrite": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "layoutRevision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position": {
+            "type": "object",
+            "properties": {
+              "fileId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "contentVersion": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "offsetMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "capturedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "fileId",
+              "contentVersion",
+              "offsetMs",
+              "capturedAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "layoutRevision",
+          "position"
+        ],
+        "additionalProperties": false
+      },
+      "ResolveConflict": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "layoutRevision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "choice": {
+            "type": "string",
+            "enum": [
+              "keep_server",
+              "use_candidate",
+              "use_explicit"
+            ]
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "fileId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "contentVersion": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "offsetMs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "capturedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "fileId",
+                  "contentVersion",
+                  "offsetMs",
+                  "capturedAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "layoutRevision",
+          "choice",
+          "position"
+        ],
+        "additionalProperties": false
+      },
+      "CompletionWrite": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "layoutRevision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "natural_end",
+              "manual_finish",
+              "manual_unfinish"
+            ]
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finalPosition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Anchor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "layoutRevision",
+          "event",
+          "capturedAt",
+          "finalPosition"
+        ],
+        "additionalProperties": false
+      },
+      "HistoryEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recordingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "natural_end",
+              "manual_finish",
+              "manual_unfinish"
+            ]
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "recordingId",
+          "titleId",
+          "event",
+          "capturedAt",
+          "receivedAt"
+        ],
+        "additionalProperties": false
+      },
+      "History": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryEntry"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size"
+        ],
+        "additionalProperties": false
+      },
+      "Problem": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "requestId"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "detail": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "location": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "location",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "conflictId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "current": {
+            "$ref": "#/components/schemas/PositionState"
+          },
+          "currentCompletion": {
+            "$ref": "#/components/schemas/CompletionState"
+          },
+          "currentLayoutRevision": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": true
+      },
+      "ResolveCompletionConflict": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "layoutRevision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "choice": {
+            "type": "string",
+            "enum": [
+              "keep_server",
+              "use_candidate",
+              "use_explicit"
+            ]
+          },
+          "event": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "natural_end",
+                  "manual_finish",
+                  "manual_unfinish"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finalPosition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Anchor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "layoutRevision",
+          "choice",
+          "event",
+          "capturedAt",
+          "finalPosition"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

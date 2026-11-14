@@ -1,0 +1,44 @@
+# ─── Local Docker build test ──────────────────────────────────────────────────
+#
+# Builds the production image from local source and runs the full stack.
+# Use this to verify the Docker image before pushing.
+#
+#   npm run docker:build   # build the image
+#   npm run docker:up      # start the stack
+#   npm run docker:down    # stop and remove containers
+#
+# The app will be available at http://localhost:3000
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  litara:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/litara
+      JWT_SECRET: local-dev-secret-not-for-production
+    volumes:
+      - ./apps/api/test/ebook-library:/books
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: litara
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data_local:
