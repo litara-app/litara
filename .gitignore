@@ -36,3 +36,5 @@
 # Signing material stays local, including archived debug keys
 *.keystore
 *.pfx
+**/dist-proof/
+**/test-results/

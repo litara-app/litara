@@ -51,6 +51,9 @@ type Config struct {
 	GoogleBooksAPIKey string
 	// ScanWorkers bounds concurrent library scans.
 	ScanWorkers int
+	// WebDir is a built web application directory served by the Go process.
+	// Empty disables static serving.
+	WebDir string
 }
 
 const prefix = "LITARA_"
@@ -124,6 +127,7 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		ArgonThreads:       uint8(getInt("ARGON2_THREADS", 2)),
 		GoogleBooksAPIKey:  get("GOOGLE_BOOKS_API_KEY", ""),
 		ScanWorkers:        getInt("SCAN_WORKERS", 2),
+		WebDir:             get("WEB_DIR", ""),
 	}
 	for _, o := range strings.Split(get("ALLOWED_ORIGINS", ""), ",") {
 		if o = strings.TrimSpace(o); o != "" {

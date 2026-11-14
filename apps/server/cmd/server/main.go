@@ -29,6 +29,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
+	"github.com/deranjer/ebooker/apps/server/internal/webui"
 	"github.com/deranjer/ebooker/apps/server/internal/writeback"
 )
 
@@ -157,7 +158,7 @@ func run() error {
 	}()
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
-		Handler: httpapi.New(httpapi.Deps{Pool: pool, Prober: insp, Workers: running.Load, Version: version,
+		Handler: httpapi.New(httpapi.Deps{Web: webHandler(cfg.WebDir), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
 			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Library: library.New(pool), Config: apiCfg, Log: log,
 				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb}}),
 	}
@@ -189,4 +190,12 @@ func run() error {
 	}
 	log.Info("shutdown complete")
 	return nil
+}
+
+// webHandler serves the built web app when LITARA_WEB_DIR is configured.
+func webHandler(dir string) http.Handler {
+	if dir == "" {
+		return nil
+	}
+	return webui.Handler(os.DirFS(dir))
 }
