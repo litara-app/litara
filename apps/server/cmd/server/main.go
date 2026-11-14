@@ -16,13 +16,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/app"
+	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/config"
 	"github.com/deranjer/ebooker/apps/server/internal/db"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
+	"github.com/deranjer/ebooker/apps/server/internal/progress"
 )
 
-const version = "0.0.0-t001"
+const version = "0.1.0-t003"
 
 func main() {
 	if err := run(); err != nil {
@@ -76,9 +79,38 @@ func run() error {
 	running.Store(true)
 	log.Info("workers started", "inspect_workers", cfg.InspectWorkers)
 
+	if cfg.SecretKey == "" {
+		return fmt.Errorf("LITARA_SECRET_KEY is required (generate one with `ctl gen-key`)")
+	}
+	key, err := accounts.ParseKey(cfg.SecretKey)
+	if err != nil {
+		return fmt.Errorf("LITARA_SECRET_KEY: %w", err)
+	}
+	if cfg.DevInsecureHTTP {
+		log.Warn("LITARA_DEV_INSECURE_HTTP=1: browser cookies are not Secure; development use only")
+	}
+	acc := accounts.New(accounts.Options{Pool: pool, SecretKey: key,
+		Argon: accounts.ArgonParams{MemoryKiB: cfg.ArgonMemoryKiB, Time: cfg.ArgonTime, Threads: cfg.ArgonThreads}})
+	apiCfg := httpapi.APIConfig{PublicPrefix: cfg.PublicPrefix, AllowedOrigins: cfg.AllowedOrigins, DevInsecureHTTP: cfg.DevInsecureHTTP, MediaRoot: cfg.MediaRoot}
+	cat := catalog.New(pool, apiCfg.APIBase())
+	go func() { // clear protected refresh responses once their 60-second recovery window ends
+		t := time.NewTicker(10 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if _, err := acc.PurgeExpiredExchanges(ctx); err != nil && ctx.Err() == nil {
+					log.Warn("purge refresh responses", "error", err)
+				}
+			}
+		}
+	}()
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
-		Handler: httpapi.New(httpapi.Deps{Pool: pool, Prober: insp, Workers: running.Load, Version: version}),
+		Handler: httpapi.New(httpapi.Deps{Pool: pool, Prober: insp, Workers: running.Load, Version: version,
+			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Config: apiCfg, Log: log}}),
 	}
 	errc := make(chan error, 1)
 	go func() {

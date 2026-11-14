@@ -56,6 +56,7 @@ class MediaLibraryCallback @Inject constructor(
     private val autoLibrary: AutoLibraryRepository,
     private val search: AutoSearch,
     private val sessionManager: SessionManager,
+    private val litara: LitaraSource = LitaraSource.None,
 ) : MediaLibrarySession.Callback {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -163,7 +164,7 @@ class MediaLibraryCallback @Inject constructor(
         val entries = when (parent) {
             AutoBrowseTree.ROOT_ID -> return AutoBrowseTree.rootChildren(current(), labels())
             AutoBrowseTree.NOW_PLAYING_CHAPTERS_ID -> current()?.let(AutoBrowseTree::chapterEntries).orEmpty()
-            AutoBrowseTree.DOWNLOADS_ID -> AutoBrowseTree.downloadedAudiobooks(catalog(), labels())
+            AutoBrowseTree.DOWNLOADS_ID -> autoCatalog.downloadedEntries(labels())
             AutoBrowseTree.CONTINUE_ID -> autoCatalog.continueListening(labels())
             else -> return autoLibrary.children(parent, labels())
         }
@@ -193,7 +194,7 @@ class MediaLibraryCallback @Inject constructor(
                 group != null -> run {
                     // Resolve the range's actual titles, including nested local shelf groups.
                     val all = when (group.parent) {
-                        AutoBrowseTree.DOWNLOADS_ID -> AutoBrowseTree.downloadedAudiobooks(catalog(), labels())
+                        AutoBrowseTree.DOWNLOADS_ID -> autoCatalog.downloadedEntries(labels())
                         AutoBrowseTree.CONTINUE_ID -> autoCatalog.continueListening(labels())
                         else -> current()?.let(AutoBrowseTree::chapterEntries).orEmpty()
                     }
@@ -344,7 +345,7 @@ class MediaLibraryCallback @Inject constructor(
             .setSuggested(params?.isSuggested ?: false).build()
     }
 
-    private fun dataScope() = "${sessionManager.serverUrl}|${sessionManager.currentUser?.id}"
+    private fun dataScope() = "${sessionManager.serverUrl}|${sessionManager.currentUser?.id}|${litara.scopeKey()}"
 
     private fun error(error: Throwable): SessionError {
         val reason = if (sessionManager.accessToken == null && error is java.io.IOException) AutoFailure.SIGN_IN else AutoFailure.from(error)

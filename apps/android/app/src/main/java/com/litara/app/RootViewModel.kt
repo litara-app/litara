@@ -16,9 +16,13 @@ import javax.inject.Inject
 class RootViewModel @Inject constructor(
     session: SessionManager,
     private val repo: AuthRepository,
+    litara: com.litara.feature.litara.LitaraRepository,
     val imageUrls: ImageUrls,
 ) : ViewModel() {
     val state: StateFlow<SessionState> = session.state
+
+    /** True while a Litara account is signed in: the app then shows the Litara shell instead of the BookOrbit flow. */
+    val litaraSignedIn: StateFlow<Boolean> = litara.signedInFlow
 
     fun signOut() {
         viewModelScope.launch { repo.logout() }

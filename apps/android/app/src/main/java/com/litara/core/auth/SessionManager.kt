@@ -55,10 +55,8 @@ class SessionManager @Inject constructor(
         val user = storage.getString(SecureStorage.KEY_USER)
             ?.let { runCatching { json.decodeFromString<AuthUser>(it) }.getOrNull() }
 
-        // Data from before servers were kept apart belongs to whichever server this install already uses.
-        if (!serverUrl.isNullOrBlank() && !accessToken.isNullOrBlank() && storage.getString(SecureStorage.KEY_DATA_OWNER) == null) {
-            storage.putString(SecureStorage.KEY_DATA_OWNER, key(serverUrl!!))
-        }
+        // Data from before servers were kept apart belongs to whichever account this install already uses.
+        if (!serverUrl.isNullOrBlank() && !accessToken.isNullOrBlank() && user != null) claimOwner(serverUrl!!, user.id)
 
         _state.value = when {
             serverUrl.isNullOrBlank() -> SessionState.NeedsServer
@@ -72,14 +70,38 @@ class SessionManager @Inject constructor(
     var activeDataScope: String? = null
 
     /**
-     * Names the on-device data (database file and download folders) of the configured server. Book ids
-     * are per server, so each server keeps its own. The first server used owns the original data and has
-     * an empty scope, which keeps existing installs and their downloads exactly where they were.
+     * Names the on-device data (database file and download folders) of the configured server and the
+     * signed-in account. Ids are per server and progress/downloads are per person, so each (server,
+     * account) pair keeps its own (audit L6). The first account used owns the original data and has an
+     * empty scope, which keeps existing installs and their downloads exactly where they were.
      */
     val dataScope: String
-        get() = DataScope.of(storage.getString(SecureStorage.KEY_DATA_OWNER), serverUrl)
+        get() {
+            // A Litara-only account (no BookOrbit user) always gets a scope of its own. Data with no recorded owner is
+            // never handed to it: only an explicit owner record for exactly this account may reuse the legacy scope.
+            val litara = storage.getString(KEY_LITARA_SCOPE)
+            if (currentUser == null && litara != null) {
+                val key = "litara|$litara"
+                return if (storage.getString(SecureStorage.KEY_DATA_OWNER) == key) "" else DataScope.scopeFor(key)
+            }
+            return DataScope.of(storage.getString(SecureStorage.KEY_DATA_OWNER), serverUrl, currentUser?.id)
+        }
+
+    /**
+     * The first account to sign in owns the original data. An owner recorded before accounts were
+     * separated (a bare server key) is upgraded to the first account that signs in to that server.
+     */
+    private fun claimOwner(server: String, userId: Int) {
+        val owner = storage.getString(SecureStorage.KEY_DATA_OWNER)
+        if (owner == null || owner == key(server)) storage.putString(SecureStorage.KEY_DATA_OWNER, DataScope.accountKey(server, userId))
+    }
 
     private fun key(url: String) = DataScope.key(url)
+
+    private companion object {
+        /** Written by the Litara session store: `<serverId>|<userId>` while a Litara account is signed in. */
+        const val KEY_LITARA_SCOPE = "litara_scope"
+    }
 
     /** True when the configured server's data is not what the open database holds (needs an app restart). */
     fun dataScopeChanged(): Boolean = activeDataScope?.let { it != dataScope } == true
@@ -100,8 +122,8 @@ class SessionManager @Inject constructor(
     }
 
     fun signIn(token: String, user: AuthUser) {
-        // The first server anyone signs in to owns the original data; later ones get their own.
-        if (storage.getString(SecureStorage.KEY_DATA_OWNER) == null) serverUrl?.let { storage.putString(SecureStorage.KEY_DATA_OWNER, key(it)) }
+        // The first account anyone signs in with owns the original data; later ones get their own.
+        serverUrl?.let { claimOwner(it, user.id) }
         accessToken = token
         storage.putString(SecureStorage.KEY_ACCESS_TOKEN, token)
         storage.putString(SecureStorage.KEY_USER, json.encodeToString(AuthUser.serializer(), user))

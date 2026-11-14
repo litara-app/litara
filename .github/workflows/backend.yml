@@ -2,9 +2,9 @@ name: backend
 
 on:
   push:
-    paths: ["apps/server/**", "deploy/**", "scripts/backend/**", ".github/workflows/backend.yml"]
+    paths: ["apps/server/**", "deploy/**", "scripts/backend/**", "scripts/contracts/**", "contracts/t003/**", ".github/workflows/backend.yml"]
   pull_request:
-    paths: ["apps/server/**", "deploy/**", "scripts/backend/**", ".github/workflows/backend.yml"]
+    paths: ["apps/server/**", "deploy/**", "scripts/backend/**", "scripts/contracts/**", "contracts/t003/**", ".github/workflows/backend.yml"]
 
 permissions:
   contents: read
@@ -45,12 +45,22 @@ jobs:
           echo "$HOME/ffbin" >> "$GITHUB_PATH"
       - name: Install sqlc
         run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@${SQLC_VERSION}
-      - name: Check (format, vet, build, sqlc, tests)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install contract tooling (pinned)
+        run: python -m pip install --target .tmp/t003-validation -r scripts/contracts/requirements.txt
+      - name: Check (format, vet, build, sqlc, tests incl. T003 API, OpenAPI parity)
         run: scripts/backend/check.sh
 
   container-smoke:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Compose smoke (image, pinned tools, durable flow, read-only media)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install contract tooling (pinned)
+        run: python -m pip install --target .tmp/t003-validation -r scripts/contracts/requirements.txt
+      - name: Compose smoke (image, pinned tools, durable flow, read-only media, seeded authenticated flow)
         run: scripts/backend/smoke.sh

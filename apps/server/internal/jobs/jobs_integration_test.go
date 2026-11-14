@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
@@ -65,7 +65,7 @@ func submitter(t *testing.T, pool *pgxpool.Pool, attempts int) *jobs.Submitter {
 	return &jobs.Submitter{Pool: pool, Client: c, MaxAttempts: attempts}
 }
 
-func waitState(t *testing.T, pool *pgxpool.Pool, id pgtype.UUID, states ...string) sqlcgen.InspectionRequest {
+func waitState(t *testing.T, pool *pgxpool.Pool, id uuid.UUID, states ...string) sqlcgen.InspectionRequest {
 	t.Helper()
 	q := sqlcgen.New(pool)
 	deadline := time.Now().Add(45 * time.Second)
@@ -231,7 +231,7 @@ func TestWorkerConcurrencyBound(t *testing.T) {
 	pool := testutil.MigratedDatabase(t)
 	insp := &blockingInspector{started: make(chan string, 32), release: make(chan struct{}), real: realInspector(t)}
 	sub := submitter(t, pool, 3)
-	var ids []pgtype.UUID
+	var ids []uuid.UUID
 	dir := t.TempDir()
 	for i := 0; i < 8; i++ {
 		p := filepath.Join(dir, "f"+string(rune('a'+i))+".m4a")

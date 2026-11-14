@@ -5,29 +5,215 @@
 package sqlcgen
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
+
+	"github.com/google/uuid"
 )
 
+type ChapterSource struct {
+	ID          uuid.UUID `json:"id"`
+	RecordingID uuid.UUID `json:"recording_id"`
+	Source      string    `json:"source"`
+	Starts      []byte    `json:"starts"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type CompletionHistory struct {
+	Seq         *int64    `json:"seq"`
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
+	TitleID     uuid.UUID `json:"title_id"`
+	RecordingID uuid.UUID `json:"recording_id"`
+	Event       string    `json:"event"`
+	OperationID uuid.UUID `json:"operation_id"`
+	CapturedAt  time.Time `json:"captured_at"`
+	ReceivedAt  time.Time `json:"received_at"`
+}
+
+type CompletionState struct {
+	UserID      uuid.UUID  `json:"user_id"`
+	RecordingID uuid.UUID  `json:"recording_id"`
+	Revision    int64      `json:"revision"`
+	Finished    bool       `json:"finished"`
+	ChangedAt   *time.Time `json:"changed_at"`
+}
+
+type Conflict struct {
+	ID                  uuid.UUID     `json:"id"`
+	UserID              uuid.UUID     `json:"user_id"`
+	RecordingID         uuid.UUID     `json:"recording_id"`
+	Kind                string        `json:"kind"`
+	Reason              string        `json:"reason"`
+	OperationID         uuid.UUID     `json:"operation_id"`
+	Candidate           []byte        `json:"candidate"`
+	BaseRevision        int64         `json:"base_revision"`
+	LayoutRevision      uuid.NullUUID `json:"layout_revision"`
+	CreatedAt           time.Time     `json:"created_at"`
+	ResolvedAt          *time.Time    `json:"resolved_at"`
+	ResolvedOperationID uuid.NullUUID `json:"resolved_operation_id"`
+}
+
+type FileVersion struct {
+	ContentVersion uuid.UUID `json:"content_version"`
+	FileID         uuid.UUID `json:"file_id"`
+	Locator        string    `json:"locator"`
+	Filename       string    `json:"filename"`
+	MimeType       string    `json:"mime_type"`
+	SizeBytes      *int64    `json:"size_bytes"`
+	DurationMs     *int64    `json:"duration_ms"`
+	Available      bool      `json:"available"`
+	Current        bool      `json:"current"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
 type InspectionRequest struct {
-	ID             pgtype.UUID        `json:"id"`
-	RequestKey     string             `json:"request_key"`
-	SourcePath     string             `json:"source_path"`
-	State          string             `json:"state"`
-	Outcome        *string            `json:"outcome"`
-	Attempts       int32              `json:"attempts"`
-	FailureMessage *string            `json:"failure_message"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	StartedAt      pgtype.Timestamptz `json:"started_at"`
-	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	ID             uuid.UUID  `json:"id"`
+	RequestKey     string     `json:"request_key"`
+	SourcePath     string     `json:"source_path"`
+	State          string     `json:"state"`
+	Outcome        *string    `json:"outcome"`
+	Attempts       int32      `json:"attempts"`
+	FailureMessage *string    `json:"failure_message"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	StartedAt      *time.Time `json:"started_at"`
+	CompletedAt    *time.Time `json:"completed_at"`
 }
 
 type InspectionResult struct {
-	RequestID    pgtype.UUID        `json:"request_id"`
-	Completeness string             `json:"completeness"`
-	DurationMs   *int64             `json:"duration_ms"`
-	FormatName   *string            `json:"format_name"`
-	Result       []byte             `json:"result"`
-	InspectedAt  pgtype.Timestamptz `json:"inspected_at"`
-	ToolVersion  *string            `json:"tool_version"`
+	RequestID    uuid.UUID `json:"request_id"`
+	Completeness string    `json:"completeness"`
+	DurationMs   *int64    `json:"duration_ms"`
+	FormatName   *string   `json:"format_name"`
+	Result       []byte    `json:"result"`
+	InspectedAt  time.Time `json:"inspected_at"`
+	ToolVersion  *string   `json:"tool_version"`
+}
+
+type Library struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type MediaFile struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type OperationReceipt struct {
+	UserID      uuid.UUID `json:"user_id"`
+	RecordingID uuid.UUID `json:"recording_id"`
+	OperationID uuid.UUID `json:"operation_id"`
+	Kind        string    `json:"kind"`
+	Fingerprint []byte    `json:"fingerprint"`
+	Status      int32     `json:"status"`
+	Body        []byte    `json:"body"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type PositionEvidence struct {
+	UserID         uuid.UUID `json:"user_id"`
+	RecordingID    uuid.UUID `json:"recording_id"`
+	SessionID      uuid.UUID `json:"session_id"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	OffsetMs       int64     `json:"offset_ms"`
+	LayoutRevision uuid.UUID `json:"layout_revision"`
+	CapturedAt     time.Time `json:"captured_at"`
+	ReceivedAt     time.Time `json:"received_at"`
+	DeviceName     string    `json:"device_name"`
+}
+
+type PositionState struct {
+	UserID         uuid.UUID     `json:"user_id"`
+	RecordingID    uuid.UUID     `json:"recording_id"`
+	Revision       int64         `json:"revision"`
+	FileID         uuid.NullUUID `json:"file_id"`
+	ContentVersion uuid.NullUUID `json:"content_version"`
+	OffsetMs       *int64        `json:"offset_ms"`
+	LayoutRevision uuid.NullUUID `json:"layout_revision"`
+	CapturedAt     *time.Time    `json:"captured_at"`
+	ReceivedAt     *time.Time    `json:"received_at"`
+	DeviceName     *string       `json:"device_name"`
+}
+
+type Recording struct {
+	ID               uuid.UUID `json:"id"`
+	TitleID          uuid.UUID `json:"title_id"`
+	LibraryID        uuid.UUID `json:"library_id"`
+	Narrators        []string  `json:"narrators"`
+	LayoutRevision   uuid.UUID `json:"layout_revision"`
+	ThumbnailLocator *string   `json:"thumbnail_locator"`
+	ThumbnailMime    *string   `json:"thumbnail_mime"`
+	CoverLocator     *string   `json:"cover_locator"`
+	CoverMime        *string   `json:"cover_mime"`
+	SeedKey          *string   `json:"seed_key"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+type RecordingFile struct {
+	RecordingID uuid.UUID `json:"recording_id"`
+	Sequence    int32     `json:"sequence"`
+	FileID      uuid.UUID `json:"file_id"`
+}
+
+type RefreshExchange struct {
+	SessionID          uuid.UUID `json:"session_id"`
+	OldRefreshHash     []byte    `json:"old_refresh_hash"`
+	RequestID          uuid.UUID `json:"request_id"`
+	Generation         int32     `json:"generation"`
+	CreatedAt          time.Time `json:"created_at"`
+	ResponseCiphertext []byte    `json:"response_ciphertext"`
+}
+
+type ServerIdentity struct {
+	Singleton bool      `json:"singleton"`
+	ServerID  uuid.UUID `json:"server_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type Session struct {
+	ID                uuid.UUID  `json:"id"`
+	UserID            uuid.UUID  `json:"user_id"`
+	Kind              string     `json:"kind"`
+	DeviceName        string     `json:"device_name"`
+	CreatedAt         time.Time  `json:"created_at"`
+	LastUsedAt        time.Time  `json:"last_used_at"`
+	IdleExpiresAt     time.Time  `json:"idle_expires_at"`
+	AbsoluteExpiresAt time.Time  `json:"absolute_expires_at"`
+	RevokedAt         *time.Time `json:"revoked_at"`
+	RevokedReason     *string    `json:"revoked_reason"`
+	AccessHash        []byte     `json:"access_hash"`
+	AccessExpiresAt   *time.Time `json:"access_expires_at"`
+	RefreshHash       []byte     `json:"refresh_hash"`
+	RefreshGeneration int32      `json:"refresh_generation"`
+}
+
+type Title struct {
+	ID          uuid.UUID `json:"id"`
+	Title       string    `json:"title"`
+	Authors     []string  `json:"authors"`
+	SeriesName  *string   `json:"series_name"`
+	SeriesIndex *float64  `json:"series_index"`
+	SeedKey     *string   `json:"seed_key"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type User struct {
+	ID           uuid.UUID `json:"id"`
+	UsernameKey  string    `json:"username_key"`
+	Username     string    `json:"username"`
+	DisplayName  string    `json:"display_name"`
+	PasswordHash string    `json:"password_hash"`
+	IsAdmin      bool      `json:"is_admin"`
+	Active       bool      `json:"active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type UserLibraryGrant struct {
+	UserID    uuid.UUID `json:"user_id"`
+	LibraryID uuid.UUID `json:"library_id"`
+	GrantedAt time.Time `json:"granted_at"`
 }

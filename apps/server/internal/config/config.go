@@ -33,6 +33,20 @@ type Config struct {
 	// reclaims it (covers a crashed process).
 	RescueStuckAfter time.Duration
 	ShutdownTimeout  time.Duration
+
+	// SecretKey (base64, 32 bytes) protects the 60-second recoverable refresh
+	// response. Required by the server, not by migrations.
+	SecretKey string
+	// PublicPrefix is the reverse-proxy mount prefix, for example /litara.
+	PublicPrefix string
+	// AllowedOrigins are extra exact browser origins for cookie sessions.
+	AllowedOrigins []string
+	// DevInsecureHTTP is the explicit development-only plain-HTTP cookie mode.
+	DevInsecureHTTP bool
+	// Argon2id work factors for password hashing.
+	ArgonMemoryKiB uint32
+	ArgonTime      uint32
+	ArgonThreads   uint8
 }
 
 const prefix = "LITARA_"
@@ -98,6 +112,23 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		MaxProbeOutput:     getInt("MAX_PROBE_OUTPUT_BYTES", 8<<20),
 		RescueStuckAfter:   getDur("RESCUE_STUCK_AFTER", 5*time.Minute),
 		ShutdownTimeout:    getDur("SHUTDOWN_TIMEOUT", 30*time.Second),
+		SecretKey:          get("SECRET_KEY", ""),
+		PublicPrefix:       strings.TrimRight(get("PUBLIC_PATH_PREFIX", ""), "/"),
+		DevInsecureHTTP:    get("DEV_INSECURE_HTTP", "") == "1",
+		ArgonMemoryKiB:     uint32(getInt("ARGON2_MEMORY_KIB", 64*1024)),
+		ArgonTime:          uint32(getInt("ARGON2_TIME", 3)),
+		ArgonThreads:       uint8(getInt("ARGON2_THREADS", 2)),
+	}
+	for _, o := range strings.Split(get("ALLOWED_ORIGINS", ""), ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			c.AllowedOrigins = append(c.AllowedOrigins, o)
+		}
+	}
+	if c.PublicPrefix != "" && !strings.HasPrefix(c.PublicPrefix, "/") {
+		errs = append(errs, fmt.Errorf("%sPUBLIC_PATH_PREFIX must start with /", prefix))
+	}
+	if c.ArgonMemoryKiB < 8 || c.ArgonTime < 1 || c.ArgonThreads < 1 {
+		errs = append(errs, fmt.Errorf("%sARGON2_* values must be positive (memory at least 8 KiB)", prefix))
 	}
 
 	if err := c.LogLevel.UnmarshalText([]byte(get("LOG_LEVEL", "info"))); err != nil {

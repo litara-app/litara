@@ -31,6 +31,7 @@ class PlayerRepository @Inject constructor(
     private val json: Json,
     @ApplicationContext private val context: Context,
     private val artwork: AutoArtwork,
+    private val litara: LitaraSource = LitaraSource.None,
 ) {
     data class PlayerData(
         val book: BookDetail,
@@ -38,8 +39,49 @@ class PlayerRepository @Inject constructor(
         val mediaItems: List<MediaItem>,
     )
 
+    /** Builds one queue entry. Extras carry what BookAggregatingPlayer needs to present a whole-book timeline. */
+    @OptIn(UnstableApi::class)
+    private fun buildItem(
+        book: BookDetail, bookId: Int, file: BookFileRef, uri: String, performer: String,
+        chapterStarts: DoubleArray, chapterTitles: Array<String>,
+    ): MediaItem {
+        val extras = Bundle().apply {
+            putDouble(BookAggregatingPlayer.EXTRA_DURATION_SEC, file.durationSeconds ?: 0.0)
+            if (chapterStarts.size >= 2) {
+                putDoubleArray(BookAggregatingPlayer.EXTRA_CHAPTER_STARTS_SEC, chapterStarts)
+                putStringArray(BookAggregatingPlayer.EXTRA_CHAPTER_TITLES, chapterTitles)
+            }
+        }
+        val metadata = MediaMetadata.Builder()
+            .setTitle(book.title ?: "Audiobook")
+            .setArtist(performer)
+            .setExtras(extras)
+            .setArtworkUri(artwork.uri(bookId))
+            .build()
+        return MediaItem.Builder()
+            .setMediaId(file.id.toString())
+            .setUri(uri)
+            .setMimeType(audioMimeType(file.format, file.filename))
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
+    /** A Litara recording: identity, order and URIs come from its snapshot; the queue shape is identical. */
+    @OptIn(UnstableApi::class)
+    private suspend fun resolveLitara(bookId: Int): PlayerData? {
+        val pb = litara.playback(bookId) ?: return null
+        if (pb.files.isEmpty() || pb.files.size != pb.uris.size) return null
+        val performer = PlaybackQueue.performerLabel(pb.book)
+        val chapters = PlaybackQueue.resolveChapters(pb.book, PlaybackQueue.totalDurationSec(pb.files))
+        val starts = chapters.map { it.startSec }.toDoubleArray()
+        val titles = chapters.map { it.title }.toTypedArray()
+        val items = pb.files.mapIndexed { i, file -> buildItem(pb.book, bookId, file, pb.uris[i], performer, starts, titles) }
+        return PlayerData(pb.book, pb.files, items)
+    }
+
     @OptIn(UnstableApi::class)
     suspend fun resolve(bookId: Int): PlayerData? {
+        if (litara.owns(bookId)) return resolveLitara(bookId)
         // Use the offline copy's persisted BookDetail when present (works fully offline).
         val download = downloads.get(bookId)?.takeIf { it.isAudiobook }
         val book = if (download != null) {
@@ -73,27 +115,7 @@ class PlayerRepository @Inject constructor(
                 base != null -> "$base/api/v1/${audiobookAssets.path(bookId, file.id, sources)}"
                 else -> return null
             }
-            // Extras carry data BookAggregatingPlayer needs to present a whole-book timeline to the
-            // MediaSession (Bluetooth/Android Auto) instead of ExoPlayer's real per-file position/duration.
-            val extras = Bundle().apply {
-                putDouble(BookAggregatingPlayer.EXTRA_DURATION_SEC, file.durationSeconds ?: 0.0)
-                if (chapterStarts.size >= 2) {
-                    putDoubleArray(BookAggregatingPlayer.EXTRA_CHAPTER_STARTS_SEC, chapterStarts)
-                    putStringArray(BookAggregatingPlayer.EXTRA_CHAPTER_TITLES, chapterTitles)
-                }
-            }
-            val metadata = MediaMetadata.Builder()
-                .setTitle(book.title ?: "Audiobook")
-                .setArtist(performer)
-                .setExtras(extras)
-                .setArtworkUri(artwork.uri(bookId))
-                .build()
-            MediaItem.Builder()
-                .setMediaId(file.id.toString())
-                .setUri(uri)
-                .setMimeType(audioMimeType(file.format, file.filename))
-                .setMediaMetadata(metadata)
-                .build()
+            buildItem(book, bookId, file, uri, performer, chapterStarts, chapterTitles)
         }
         return PlayerData(book, files, items)
     }

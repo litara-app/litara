@@ -12,11 +12,15 @@ import javax.inject.Singleton
 class AudiobookBookmarkRepository @Inject constructor(
     private val api: ApiService,
 ) {
-    suspend fun list(bookId: Int): List<AudiobookBookmark> =
-        api.getAudiobookBookmarks(bookId).sortedBy { it.positionMs }
+    /** Litara handles have no server bookmarks in this release (never ask the old API about them). */
+    private fun unsupported(bookId: Int) = bookId >= LitaraSource.HANDLE_BASE
 
-    suspend fun add(bookId: Int, positionSec: Double, title: String): AudiobookBookmark =
-        api.createAudiobookBookmark(
+    suspend fun list(bookId: Int): List<AudiobookBookmark> =
+        if (unsupported(bookId)) emptyList() else api.getAudiobookBookmarks(bookId).sortedBy { it.positionMs }
+
+    suspend fun add(bookId: Int, positionSec: Double, title: String): AudiobookBookmark {
+        check(!unsupported(bookId)) { "Bookmarks are not available for Litara recordings yet" }
+        return api.createAudiobookBookmark(
             bookId,
             CreateAudiobookBookmark(
                 clientId = UUID.randomUUID().toString(),
@@ -24,6 +28,7 @@ class AudiobookBookmarkRepository @Inject constructor(
                 title = title,
             ),
         )
+    }
 
     suspend fun delete(bookId: Int, bookmarkId: String) = api.deleteAudiobookBookmark(bookId, bookmarkId)
 }

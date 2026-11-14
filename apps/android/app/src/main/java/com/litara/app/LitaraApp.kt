@@ -16,11 +16,14 @@ import androidx.navigation.compose.rememberNavController
 import com.litara.core.auth.SessionState
 import com.litara.feature.auth.LoginScreen
 import com.litara.feature.auth.ServerSetupScreen
+import com.litara.feature.litara.LitaraShell
+import com.litara.feature.litara.LitaraSignInRoute
 import com.litara.ui.LocalImageUrls
 
 private object AuthRoutes {
     const val SERVER_SETUP = "server-setup"
     const val LOGIN = "login"
+    const val LITARA = "litara-sign-in"
 }
 
 /**
@@ -32,13 +35,16 @@ private object AuthRoutes {
 fun LitaraApp() {
     val rootVm: RootViewModel = hiltViewModel()
     val state by rootVm.state.collectAsStateWithLifecycle()
+    val litaraSignedIn by rootVm.litaraSignedIn.collectAsStateWithLifecycle()
 
     when (val s = state) {
         SessionState.Loading -> LoadingScreen()
         is SessionState.SignedIn -> CompositionLocalProvider(LocalImageUrls provides rootVm.imageUrls) {
             AuthenticatedApp(user = s.user, onSignOut = rootVm::signOut)
         }
-        else -> AuthFlow(startAtServerSetup = s is SessionState.NeedsServer)
+        else -> if (litaraSignedIn) {
+            CompositionLocalProvider(LocalImageUrls provides rootVm.imageUrls) { LitaraShell() }
+        } else AuthFlow(startAtServerSetup = s is SessionState.NeedsServer)
     }
 }
 
@@ -51,6 +57,7 @@ private fun AuthFlow(startAtServerSetup: Boolean) {
     ) {
         composable(AuthRoutes.SERVER_SETUP) {
             ServerSetupScreen(
+                onUseLitara = { navController.navigate(AuthRoutes.LITARA) },
                 onConnected = {
                     navController.navigate(AuthRoutes.LOGIN) {
                         popUpTo(AuthRoutes.SERVER_SETUP) { inclusive = true }
@@ -58,6 +65,7 @@ private fun AuthFlow(startAtServerSetup: Boolean) {
                 },
             )
         }
+        composable(AuthRoutes.LITARA) { LitaraSignInRoute(onBack = { navController.popBackStack() }) }
         composable(AuthRoutes.LOGIN) {
             LoginScreen(onChangeServer = { navController.navigate(AuthRoutes.SERVER_SETUP) })
         }

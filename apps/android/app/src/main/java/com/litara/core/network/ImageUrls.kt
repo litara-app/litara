@@ -14,9 +14,17 @@ class ImageUrls @Inject constructor(
 ) {
     private fun base(): String = "${session.serverUrl.orEmpty()}/api/v1"
 
-    fun cover(bookId: Int): String = "${base()}/books/$bookId/cover"
+    /**
+     * Resolves a local Litara handle to an app-scoped artwork URI (set by the Litara backend). Handles are
+     * never valid BookOrbit ids, so they must not be turned into a BookOrbit URL.
+     */
+    @Volatile var handleArtwork: ((Int) -> String?)? = null
 
-    fun thumbnail(bookId: Int): String = "${base()}/books/$bookId/thumbnail"
+    private fun handleCover(id: Int): String? = if (id >= 1_000_000_000) handleArtwork?.invoke(id) ?: "" else null
+
+    fun cover(bookId: Int): String = handleCover(bookId) ?: "${base()}/books/$bookId/cover"
+
+    fun thumbnail(bookId: Int): String = handleCover(bookId) ?: "${base()}/books/$bookId/thumbnail"
 
     fun authorThumbnail(authorId: Int): String = "${base()}/authors/$authorId/thumbnail"
 

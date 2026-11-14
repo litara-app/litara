@@ -33,6 +33,9 @@ class SyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         if (session.currentUser == null) return Result.success()
+        // The open database must belong to the signed-in account (audit L6): never flush a queue that
+        // was written under another account. A scope change restarts the process, which reopens it.
+        if (session.dataScopeChanged()) return Result.success()
         // Run every flush (no short-circuiting `||`): one stuck queue must not starve the others.
         val pending = listOf(
             readingSessionTracker.flushPending(),
