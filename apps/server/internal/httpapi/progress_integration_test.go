@@ -554,3 +554,48 @@ func TestListSearchPaginationRecentAndGrants(t *testing.T) {
 	}
 	_ = strconv.Itoa
 }
+
+// R7: a manual completion event captured against an obsolete layout is not applied; it is preserved (412) and recoverable.
+func TestManualCompletionAfterLayoutChangeIsPreserved(t *testing.T) {
+	for _, event := range []string{"manual_finish", "manual_unfinish"} {
+		t.Run(event, func(t *testing.T) {
+			e := apitest.New(t)
+			c := newCase(t, e, "fixture-user-a")
+			url := "/recordings/" + c.rec.String() + "/completion"
+			base := "0"
+			if event == "manual_unfinish" { // start finished so unfinish would visibly change state
+				status(t, e.Do("PUT", url, c.tok, wire.CompletionWrite{OperationID: uuid.NewString(), BaseRevision: "0", LayoutRevision: c.layout,
+					Event: "manual_finish", CapturedAt: "2026-11-13T12:00:00Z"}), 200, "")
+				base = "1"
+			}
+			if err := seed.Reorder(context.Background(), e.Pool, c.rec, []uuid.UUID{e.Fix.Files["r1-f3"].ID, e.Fix.Files["r1-f1"].ID, e.Fix.Files["r1-f2"].ID}); err != nil {
+				t.Fatal(err)
+			}
+			var before wire.CompletionState
+			e.Do("GET", url, c.tok, nil).JSON(t, &before)
+			var hb wire.History
+			e.Do("GET", "/titles/"+c.snap.TitleID+"/history", c.tok, nil).JSON(t, &hb)
+
+			// The base revision is fresh; only the layout is obsolete.
+			r := e.Do("PUT", url, c.tok, wire.CompletionWrite{OperationID: uuid.NewString(), BaseRevision: base, LayoutRevision: c.layout,
+				Event: event, CapturedAt: "2026-11-13T12:00:00Z"})
+			status(t, r, 412, "layout_changed")
+			p := problem(t, r)
+			if p.ConflictID == "" || p.CurrentLayoutRevision == c.layout {
+				t.Fatalf("412: %+v", p)
+			}
+			var after wire.CompletionState
+			e.Do("GET", url, c.tok, nil).JSON(t, &after)
+			var ha wire.History
+			e.Do("GET", "/titles/"+c.snap.TitleID+"/history", c.tok, nil).JSON(t, &ha)
+			if after.Finished != before.Finished || after.Revision != before.Revision || ha.Total != hb.Total {
+				t.Fatalf("a stale-layout manual event changed state: %+v -> %+v, history %d -> %d", before, after, hb.Total, ha.Total)
+			}
+			st := c.state(c.tok)
+			if len(st.UnresolvedConflicts) != 1 || st.UnresolvedConflicts[0].Reason != "layout_changed" || st.UnresolvedConflicts[0].CompletionCandidate.Value == nil ||
+				st.UnresolvedConflicts[0].CompletionCandidate.Value.Event != event {
+				t.Fatalf("candidate not recoverable: %+v", st.UnresolvedConflicts)
+			}
+		})
+	}
+}

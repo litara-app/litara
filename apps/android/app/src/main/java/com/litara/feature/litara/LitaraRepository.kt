@@ -3,6 +3,9 @@ package com.litara.feature.litara
 import android.content.Context
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.litara.core.litara.AccountScope
+import com.litara.core.litara.AtomicFile
+import com.litara.core.litara.CompletionSync
+import com.litara.core.litara.FinishOutcome
 import com.litara.core.litara.LAnchor
 import com.litara.core.litara.LFile
 import com.litara.core.litara.LRecording
@@ -120,8 +123,11 @@ class LitaraRepository @Inject constructor(
     }
 
     /** The Room database and downloads are per server+account; a different account needs the process to reopen them. */
+    /** Instrumentation shares the app process and turns this off; production always restarts on a scope change. */
+    @Volatile var allowProcessRestart: Boolean = true
+
     private fun restartOnScopeChange() {
-        if (session.dataScopeChanged()) com.litara.core.data.ProcessRestarter.restart(context, restartInto)
+        if (allowProcessRestart && session.dataScopeChanged()) com.litara.core.data.ProcessRestarter.restart(context, restartInto)
     }
 
     /** Logout locks the account's scope immediately; data is kept, not deleted. */
@@ -147,8 +153,9 @@ class LitaraRepository @Inject constructor(
         val t = token()
         val serializer = ListSerializer(LRecordingSummary.serializer())
         return try {
-            val items = requireClient().listRecordings(size = 200).items
+            val items = requireClient().listAllRecordings().items
             offline.publish(t) { File(it, "recordings.json").writeText(LitaraJson.encodeToString(serializer, items)) }
+            runCatching { flushCompletions() } // reconnected: deliver finish events captured offline
             RecordingList(items, fromCache = false)
         } catch (e: TransientException) {
             val cached = offline.read(t) { d -> File(d, "recordings.json").takeIf { it.exists() }?.readText() }
@@ -229,10 +236,9 @@ class LitaraRepository @Inject constructor(
             offline.read(t) { } // fail fast if the scope changed mid-download
         }
         offline.publish(t) {
-            val tmp = File(rd, "downloaded.json.tmp")
-            tmp.writeText(LitaraJson.encodeToString(snap))
-            tmp.copyTo(File(rd, "downloaded.json"), overwrite = true)
-            tmp.delete()
+            // Atomic swap: an interruption leaves the complete old manifest or the complete new one. Old bytes
+            // are removed only after the new manifest is durably in place.
+            AtomicFile.write(File(rd, "downloaded.json"), LitaraJson.encodeToString(snap))
             val keep = snap.files.map { fileName(it) }.toSet() + setOf("downloaded.json", "pending-position.json", "LOCKED")
             rd.listFiles()?.filter { it.name !in keep && it.name.endsWith(".bin") }?.forEach { it.delete() }
         }
@@ -304,11 +310,26 @@ class LitaraRepository @Inject constructor(
     fun progress(snap: LRecording): ProgressSync =
         ProgressSync(requireClient(), snap.id, snap.layoutRevision, snap.files, File(recDir(token(), snap.id), "pending-position.json"))
 
-    suspend fun finish(snap: LRecording, event: String, finalFile: LFile?): com.litara.core.litara.LCompletion {
-        val c = requireClient()
-        val cur = c.completion(snap.id)
+    private fun completionSync(t: ScopeToken, recordingId: String) =
+        CompletionSync(requireClient(), recordingId, File(recDir(t, recordingId), "pending-completion.json"))
+
+    /**
+     * Records a completion event durably (with its own operation id) and delivers it; offline it stays queued for
+     * [flushCompletions]. A natural end carries the final file anchor.
+     */
+    suspend fun finish(snap: LRecording, event: String, finalFile: LFile?): FinishOutcome {
+        val t = token()
         val final = if (event == "natural_end" && finalFile != null) LAnchor(finalFile.id, finalFile.contentVersion, finalFile.durationMs!!) else null
-        return c.writeCompletion(snap.id, com.litara.core.litara.LCompletionWrite(java.util.UUID.randomUUID().toString(), cur.revision,
-            snap.layoutRevision, event, java.time.Instant.now().toString(), final))
+        return completionSync(t, snap.id).submit(event, snap.layoutRevision, final, snap.completion.revision)
     }
+
+    /** Delivers queued completion events of the active account for every recording; best effort. */
+    suspend fun flushCompletions() {
+        val t = token()
+        File(dir(t), "rec").listFiles { f -> f.isDirectory && File(f, "pending-completion.json").exists() }.orEmpty().forEach { d ->
+            completionSync(t, d.name).flush()
+        }
+    }
+
+    fun hasPendingCompletion(recordingId: String): Boolean = File(recDir(token(), recordingId), "pending-completion.json").exists()
 }

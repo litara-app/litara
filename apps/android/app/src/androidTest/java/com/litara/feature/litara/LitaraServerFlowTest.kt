@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
+import dagger.hilt.android.EntryPointAccessors
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -29,6 +30,7 @@ class LitaraServerFlowTest {
     private val clean = object : org.junit.rules.ExternalResource() {
         override fun before() {
             val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+            EntryPointAccessors.fromApplication(ctx, LitaraTestDependencies::class.java).repository().allowProcessRestart = false
             LitaraSessionStore(com.litara.core.auth.SecureStorage(ctx)).forgetIdentity()
             java.io.File(ctx.filesDir, "litara-offline").deleteRecursively()
         }

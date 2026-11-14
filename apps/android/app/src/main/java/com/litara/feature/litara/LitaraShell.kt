@@ -119,6 +119,7 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ui.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(LitaraTags.ERROR).clickable { vm.clearError() }) }
             if (ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             when {
@@ -130,6 +131,15 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
         }
     }
     ui.prompt?.let { p -> ShellConflict(vm, p) }
+    if (ui.incompatible && ui.prompt == null) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.litara_incompat_title)) },
+            text = { Text(stringResource(R.string.litara_incompat_body)) },
+            confirmButton = { TextButton({ vm.startOver() }) { Text(stringResource(R.string.litara_incompat_start_over)) } },
+            dismissButton = { TextButton({ vm.keepSavedPosition() }) { Text(stringResource(R.string.litara_not_now)) } },
+        )
+    }
 }
 
 @Composable
@@ -228,7 +238,7 @@ private fun ShellDetail(vm: LitaraShellViewModel, ui: ShellUi, onListen: (Int) -
     if (view.updateAvailable) Text(stringResource(R.string.litara_update_available))
     ui.downloading?.let { (d, t) -> Text(stringResource(R.string.litara_downloading, d + 1, t)) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button({ onListen(ui.detailHandle) }, enabled = snap.capabilities.play && !view.locked && ui.prompt == null, modifier = Modifier.testTag(ShellTags.PLAY)) {
+        Button({ onListen(ui.detailHandle) }, enabled = snap.capabilities.play && !view.locked && ui.prompt == null && !ui.incompatible, modifier = Modifier.testTag(ShellTags.PLAY)) {
             Text(stringResource(R.string.litara_play))
         }
         Button({ vm.download() }, enabled = snap.capabilities.download && ui.downloading == null && !view.offline && !view.locked && (view.downloaded == null || view.updateAvailable),

@@ -40,6 +40,8 @@ data class ShellUi(
     val finished: Boolean = false,
     val downloading: Pair<Int, Int>? = null,
     val prompt: ConflictPrompt? = null,
+    val incompatible: Boolean = false,
+    val note: String? = null,
 )
 
 /**
@@ -112,6 +114,8 @@ class LitaraShellViewModel @Inject constructor(
             val serverLabel = state.position?.let { label(snap, it.fileId, it.offsetMs) } ?: "start"
             _ui.update { it.copy(prompt = ConflictPrompt(serverLabel, state.unresolvedConflicts, labels)) }
         }
+        // A saved position for replaced bytes is kept on the server; playback does not use it until the user decides.
+        _ui.update { it.copy(incompatible = backend.incompatibleSavedPosition(id) != null) }
     }
 
     private fun label(snap: LRecording, fileId: String, offset: Long): String {
@@ -125,6 +129,14 @@ class LitaraShellViewModel @Inject constructor(
         val remaining = state.unresolvedConflicts
         _ui.update { it.copy(prompt = if (remaining.isEmpty()) null else it.prompt?.copy(conflicts = remaining)) }
     }
+
+    fun startOver() = run {
+        val id = _ui.value.detail?.snapshot?.id ?: return@run
+        backend.startOver(id)
+        _ui.update { it.copy(incompatible = false) }
+    }
+
+    fun keepSavedPosition() = _ui.update { it.copy(incompatible = false) }
 
     fun closeDetail() {
         sync = null
@@ -148,8 +160,12 @@ class LitaraShellViewModel @Inject constructor(
 
     fun setFinished(finished: Boolean) = run {
         val snap = _ui.value.detail?.snapshot ?: return@run
-        val st = repo.finish(snap, if (finished) "manual_finish" else "manual_unfinish", null)
-        _ui.update { it.copy(finished = st.finished) }
+        when (val o = repo.finish(snap, if (finished) "manual_finish" else "manual_unfinish", null)) {
+            is com.litara.core.litara.FinishOutcome.Done -> _ui.update { it.copy(finished = o.completion.finished, note = null) }
+            com.litara.core.litara.FinishOutcome.Queued, is com.litara.core.litara.FinishOutcome.AccessEnded ->
+                _ui.update { it.copy(finished = finished, note = app.getString(R.string.litara_finish_queued)) }
+            is com.litara.core.litara.FinishOutcome.Preserved -> _ui.update { it.copy(error = app.getString(R.string.litara_err_finish_preserved, o.code)) }
+        }
     }
 
     fun signOut() = viewModelScope.launch { repo.signOut() }

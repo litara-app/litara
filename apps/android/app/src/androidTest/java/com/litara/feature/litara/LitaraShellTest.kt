@@ -48,6 +48,7 @@ class LitaraShellTest {
             assumeTrue("litaraUrl/litaraPassword/litaraRecording not provided; real-server shell test not run",
                 url != null && password != null && args.getString("litaraRecording") != null)
             val deps = EntryPointAccessors.fromApplication(context, LitaraTestDependencies::class.java)
+            deps.repository().allowProcessRestart = false
             // Same process as the app: a scope change must not kill the test run.
             deps.session().activeDataScope = null
             runCatching { runBlocking { deps.repository().signOut() } }

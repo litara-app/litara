@@ -51,10 +51,8 @@ class LitaraSessionStore @Inject constructor(private val storage: SecureStorage)
         storage.putString(KEY_IDENTITY, LitaraJson.encodeToString(identity))
         // Read by SessionManager so the Room database and downloads are scoped to this server + account.
         storage.putString(KEY_SCOPE, "${identity.serverId}|${identity.user.id}")
-        // Like any first account, the first one to use an empty install owns the original (unscoped) data set.
-        if (storage.getString(SecureStorage.KEY_DATA_OWNER) == null) {
-            storage.putString(SecureStorage.KEY_DATA_OWNER, "litara|${identity.serverId}|${identity.user.id}")
-        }
+        // Deliberately NOT claiming the legacy (unscoped) data set: with no recorded owner there is no evidence it
+        // belongs to this account, so it stays unattributed and unreadable by a Litara account (ADR-0013/0032/0043).
     }
 
     /** Test/support hook: forget the whole Litara identity as well (offline data on disk is untouched). */

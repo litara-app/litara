@@ -23,6 +23,12 @@ sealed interface ReportOutcome {
 
     /** The session ended or access was revoked; the caller must lock the account scope. */
     data class AccessEnded(val code: String) : ReportOutcome
+
+    /**
+     * The saved server position belongs to different bytes (same file id, other content version). Nothing is
+     * written until the user explicitly chooses; the old position stays on the server untouched.
+     */
+    data class NeedsChoice(val saved: LPosition) : ReportOutcome
 }
 
 /**
@@ -49,19 +55,46 @@ class ProgressSync(
     var position: LPosition? = null
         private set
 
+    private var startOverConfirmed = false
+
+    private var loaded = false
+
     private fun adopt(state: LPositionState) {
+        loaded = true
         revision = state.revision
         position = state.position
         conflicts = state.unresolvedConflicts
     }
 
+    /**
+     * The saved position if its file/version still exists in this snapshot (a compatible reorder keeps it
+     * valid because offsets are file-relative); null if there is none or it belongs to other bytes (ADR-0019/0040).
+     */
+    fun resumeCandidate(): LPosition? = position?.takeIf { p -> files.any { it.id == p.fileId && it.contentVersion == p.contentVersion } }
+
+    /** A saved position that no longer matches this snapshot's bytes; it is preserved, never reinterpreted. */
+    fun incompatiblePosition(): LPosition? = position?.takeIf { it != resumeCandidate() }
+
+    /** The user chose to start over from the current bytes; the next report may replace the saved position. */
+    fun confirmStartOver() { startOverConfirmed = true }
+
     /** Reads server state (and any unresolved conflicts, which survive app restarts). */
     suspend fun load(): LPositionState = gate.withLock { client.position(recordingId).also(::adopt) }
+
+    /**
+     * Learns the server revision once, best effort. A reporter that has never read the server would send base
+     * revision 0 and conflict with its own device (for example after a chapter jump rebuilds the queue).
+     */
+    suspend fun ensureLoaded() {
+        if (loaded) return
+        try { load() } catch (_: TransientException) { } catch (_: SessionEndedException) { }
+    }
 
     /** Index into [files] of the anchored file, or null if the anchor is not a member. */
     fun indexOf(fileId: String): Int? = files.indexOfFirst { it.id == fileId }.takeIf { it >= 0 }
 
     suspend fun report(fileIndex: Int, offsetMs: Long): ReportOutcome = gate.withLock {
+        incompatiblePosition()?.takeIf { !startOverConfirmed }?.let { return@withLock ReportOutcome.NeedsChoice(it) }
         flushPendingLocked()?.let { if (it !is ReportOutcome.Accepted) return@withLock it }
         val f = files[fileIndex]
         val max = f.durationMs ?: Long.MAX_VALUE

@@ -77,7 +77,8 @@ class SessionManager @Inject constructor(
      */
     val dataScope: String
         get() {
-            // A Litara-only account (no BookOrbit user) gets a scope of its own, never the shared owner data.
+            // A Litara-only account (no BookOrbit user) always gets a scope of its own. Data with no recorded owner is
+            // never handed to it: only an explicit owner record for exactly this account may reuse the legacy scope.
             val litara = storage.getString(KEY_LITARA_SCOPE)
             if (currentUser == null && litara != null) {
                 val key = "litara|$litara"

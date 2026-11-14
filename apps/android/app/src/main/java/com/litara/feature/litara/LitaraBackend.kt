@@ -134,14 +134,18 @@ class LitaraBackend @Inject constructor(
             ),
         )
         val uris = snap.files.map { f -> repo.localFile(snap.id, f)?.let { android.net.Uri.fromFile(it).toString() } ?: repo.streamUrl(f) }
-        syncs[uuid] = snap to repo.progress(snap)
+        // A rebuilt queue (chapter jump, resume) keeps the revision this device already knows; a new one reads it first.
+        val existing = syncs[uuid]?.takeIf { it.first.layoutRevision == snap.layoutRevision }
+        val pair = existing?.let { snap to it.second } ?: (snap to repo.progress(snap))
+        syncs[uuid] = pair
+        pair.second.ensureLoaded()
         return LitaraPlayback(book, files, uris)
     }
 
     private suspend fun syncFor(uuid: String): Pair<LRecording, ProgressSync>? {
         syncs[uuid]?.let { return it }
         val snap = snapshot(uuid) ?: return null
-        return (snap to repo.progress(snap)).also { syncs[uuid] = it }
+        return (snap to repo.progress(snap)).also { syncs[uuid] = it; it.second.ensureLoaded() }
     }
 
     private fun fileHandle(t: ScopeToken, f: LFile) = handle(t, f.id)
@@ -151,7 +155,9 @@ class LitaraBackend @Inject constructor(
         val uuid = uuidOf(bookId) ?: return null
         val (snap, sync) = syncFor(uuid) ?: return null
         val state = try { sync.load() } catch (_: TransientException) { return null } catch (_: SessionEndedException) { return null }
-        val p = state.position ?: return null
+        // A position for other bytes (same file id, different content version) is preserved on the server and
+        // never applied to this snapshot; the user chooses explicitly on the phone (ADR-0019/0040).
+        val p = sync.resumeCandidate() ?: return null
         val file = snap.files.firstOrNull { it.id == p.fileId } ?: return null
         val files = fileRefs(t, snap)
         val idx = snap.files.indexOf(file)
@@ -167,6 +173,7 @@ class LitaraBackend @Inject constructor(
         return when (sync.report(index, (positionSeconds * 1000).toLong())) {
             ReportOutcome.Queued -> false
             is ReportOutcome.AccessEnded -> true // locked; the candidate stays with this account's pending file
+            is ReportOutcome.NeedsChoice -> true // nothing is written until the user picks on the phone
             else -> true
         }
     }
@@ -176,8 +183,19 @@ class LitaraBackend @Inject constructor(
         val (snap, sync) = syncFor(uuid) ?: return
         val last = snap.files.last()
         sync.report(snap.files.lastIndex, last.durationMs ?: return)
-        try { repo.finish(snap, "natural_end", last) } catch (_: TransientException) { } catch (_: SessionEndedException) { }
+        // Durably queued when offline or signed out; delivered later with the same operation id.
+        repo.finish(snap, "natural_end", last)
     }
+
+    /** The saved server position when it belongs to other bytes than this snapshot (needs an explicit choice). */
+    suspend fun incompatibleSavedPosition(uuid: String): com.litara.core.litara.LPosition? {
+        val (_, sync) = syncFor(uuid) ?: return null
+        try { sync.load() } catch (_: TransientException) { return null } catch (_: SessionEndedException) { return null }
+        return sync.incompatiblePosition()
+    }
+
+    /** The user chose to start over from the current bytes; later reports may replace the saved position. */
+    suspend fun startOver(uuid: String) { syncFor(uuid)?.second?.confirmStartOver() }
 
     override suspend fun artwork(bookId: Int, destination: File): Boolean {
         val uuid = uuidOf(bookId) ?: return false

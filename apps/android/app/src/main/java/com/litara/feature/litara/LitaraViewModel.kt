@@ -162,7 +162,9 @@ class LitaraViewModel @Inject constructor(
             }
             _ui.update { it.copy(prompt = ConflictPrompt(p?.let { x -> label(snap, x.fileId, x.offsetMs) } ?: "start", state.unresolvedConflicts, labels)) }
         }
-        if (p != null) s.indexOf(p.fileId)?.let { player?.seekTo(it, p.offsetMs) }
+        // Only a position for the SAME bytes is applied; another version's offset is preserved and asked about.
+        s.resumeCandidate()?.let { c -> s.indexOf(c.fileId)?.let { player?.seekTo(it, c.offsetMs) } }
+        if (p != null && s.incompatiblePosition() != null) _ui.update { it.copy(error = app.getString(R.string.litara_incompat_body)) }
     }
 
     private fun label(snap: LRecording, fileId: String, offset: Long): String {
@@ -233,14 +235,14 @@ class LitaraViewModel @Inject constructor(
         is ReportOutcome.Conflict -> R.string.litara_status_conflict
         is ReportOutcome.SnapshotChanged -> R.string.litara_status_update
         is ReportOutcome.AccessEnded -> R.string.litara_status_access
+        is ReportOutcome.NeedsChoice -> R.string.litara_status_choice
     }, (o as? ReportOutcome.SnapshotChanged)?.code.orEmpty())
 
     private fun onNaturalEnd(snap: LRecording) {
         viewModelScope.launch {
             try {
                 reportNowSuspend(snap.files.lastIndex, snap.files.last().durationMs ?: 0)
-                val st = repo.finish(snap, "natural_end", snap.files.last())
-                _ui.update { it.copy(finished = st.finished, statusLine = app.getString(R.string.litara_status_finished)) }
+                applyFinish(repo.finish(snap, "natural_end", snap.files.last()), true)
             } catch (e: Throwable) { if (e is kotlinx.coroutines.CancellationException) throw e; fail(e) }
         }
     }
@@ -249,8 +251,14 @@ class LitaraViewModel @Inject constructor(
 
     fun setFinished(finished: Boolean) = launch {
         val snap = current ?: return@launch
-        val st = repo.finish(snap, if (finished) "manual_finish" else "manual_unfinish", null)
-        _ui.update { it.copy(finished = st.finished) }
+        applyFinish(repo.finish(snap, if (finished) "manual_finish" else "manual_unfinish", null), finished)
+    }
+
+    private fun applyFinish(o: com.litara.core.litara.FinishOutcome, wanted: Boolean) = when (o) {
+        is com.litara.core.litara.FinishOutcome.Done -> _ui.update { it.copy(finished = o.completion.finished, statusLine = app.getString(R.string.litara_status_finished)) }
+        com.litara.core.litara.FinishOutcome.Queued -> _ui.update { it.copy(finished = wanted, statusLine = app.getString(R.string.litara_finish_queued)) }
+        is com.litara.core.litara.FinishOutcome.Preserved -> _ui.update { it.copy(error = app.getString(R.string.litara_err_finish_preserved, o.code)) }
+        is com.litara.core.litara.FinishOutcome.AccessEnded -> _ui.update { it.copy(finished = wanted, statusLine = app.getString(R.string.litara_finish_queued)) }
     }
 
     fun download() = launch {

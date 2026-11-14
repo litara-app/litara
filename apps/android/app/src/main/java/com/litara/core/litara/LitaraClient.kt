@@ -111,6 +111,26 @@ class LitaraClient(
         return getJson("/recordings$qs")
     }
 
+    /**
+     * The whole authorized catalog. The server may cap the page size, so this follows the EFFECTIVE size and
+     * total it reports instead of assuming one page is everything.
+     */
+    suspend fun listAllRecordings(pageSize: Int = 200, maxPages: Int = 500): LRecordings {
+        val all = ArrayList<LRecordingSummary>()
+        var page = 0
+        var total = 0L
+        var effective = pageSize.toLong()
+        while (page < maxPages) {
+            val r = listRecordings(page = page, size = pageSize)
+            all += r.items
+            total = r.total
+            if (r.size > 0) effective = r.size
+            if (r.items.isEmpty() || all.size >= total) break
+            page++
+        }
+        return LRecordings(all, total, 0, effective)
+    }
+
     suspend fun snapshot(recordingId: String): LRecording = getJson("/recordings/$recordingId")
     suspend fun position(recordingId: String): LPositionState = getJson("/recordings/$recordingId/position")
     suspend fun completion(recordingId: String): LCompletion = getJson("/recordings/$recordingId/completion")

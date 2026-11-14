@@ -138,4 +138,25 @@ class LitaraClientTest {
         client.resolveConflict("rec", "c", LResolveConflict("op", "1", "layout", "keep_server", null))
         assertTrue(server.takeRequest().body.readUtf8().contains(""""position":null"""))
     }
+
+    @Test
+    fun `the whole catalog is fetched even when the server caps the page size`() = runBlocking {
+        val total = 250
+        val cap = 100
+        val requested = mutableListOf<String>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                requested += request.path!!
+                val page = Regex("page=(\\d+)").find(request.path!!)!!.groupValues[1].toInt()
+                val items = (page * cap until minOf(total, (page + 1) * cap)).joinToString(",") {
+                    """{"id":"r$it","titleId":"t$it","title":"T$it","readiness":"ready","durationMs":1000}"""
+                }
+                return MockResponse().setBody("""{"items":[$items],"total":$total,"page":$page,"size":$cap}""")
+            }
+        }
+        val all = client.listAllRecordings(pageSize = 200)
+        assertEquals("a recording beyond page zero is reachable", total, all.items.size)
+        assertEquals("r249", all.items.last().id)
+        assertEquals(3, requested.size)
+    }
 }

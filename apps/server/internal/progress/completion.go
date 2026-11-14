@@ -151,6 +151,15 @@ func (s *Service) WriteCompletion(ctx context.Context, a Actor, recID uuid.UUID,
 				return q.InsertConflict(ctx, sqlcgen.InsertConflictParams{UserID: a.UserID, RecordingID: recID, Kind: "completion", Reason: reason,
 					OperationID: op, Candidate: wire.Raw(in), BaseRevision: base, LayoutRevision: uuid.NullUUID{UUID: layout, Valid: true}, CreatedAt: now})
 			}
+			if in.Event != "natural_end" && layout != rec.LayoutRevision {
+				// Manual events carry no anchor, but they were captured against a layout; an obsolete one is
+				// preserved for resolution instead of mutating completion (contract: 412 layout_changed).
+				c, err := newConflict("layout_changed")
+				if err != nil {
+					return nil, nil, err
+				}
+				return nil, problemFor(anchorLayoutChanged, c.ID, rec.LayoutRevision), nil
+			}
 			if in.Event == "natural_end" {
 				files, err := q.ListRecordingFiles(ctx, []uuid.UUID{recID})
 				if err != nil {

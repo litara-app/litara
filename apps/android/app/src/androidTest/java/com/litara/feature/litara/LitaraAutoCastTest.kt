@@ -72,6 +72,7 @@ class LitaraAutoCastTest {
         val deps = EntryPointAccessors.fromApplication(context, LitaraTestDependencies::class.java)
         val repo = deps.repository()
         val backend = deps.backend()
+        repo.allowProcessRestart = false
         // The test shares the app process: do not let a scope change restart (kill) it.
         deps.session().activeDataScope = null
         LitaraSessionStore(SecureStorage(context)).let { runCatching { runBlocking { repo.signOut() } }; it.forgetIdentity() }
@@ -117,7 +118,14 @@ class LitaraAutoCastTest {
             assertEquals(4, chapters.size)
             main { browser.setMediaItem(MediaItem.Builder().setMediaId(AutoBrowseTree.chapterMediaId(handle, 3)).build()); browser.prepare(); browser.play() }
             await("chapter across file boundaries") { main { browser.currentMediaItem?.mediaId != firstFile && browser.isPlaying && browser.currentPosition >= 12_000 } }
+            // R4: progress must keep flowing after chapter navigation: a newer file 3 + offset (not the old file 1 position).
+            await("progress after the chapter jump reaches the server as file 3") {
+                runBlocking { client.position(three).position?.let { it.fileId == snap.files[2].id && it.contentVersion == snap.files[2].contentVersion && it.offsetMs >= 10_000 } == true }
+            }
             main { browser.pause() }
+            val afterPause = runBlocking { client.position(three).position!! }
+            assertEquals("pause reports the real file", snap.files[2].id, afterPause.fileId)
+            assertEquals("a chapter jump must not make this device conflict with itself", 0, client.position(three).unresolvedConflicts.size)
 
             // ---- Cast: the receiver talks only to the phone's proxy; credentials stay on the phone ----
             val proxy = deps.castProxy()

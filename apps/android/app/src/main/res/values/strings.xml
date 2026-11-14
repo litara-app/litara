@@ -511,6 +511,13 @@
     <string name="litara_status_update">update available (%1$s)</string>
     <string name="litara_status_access">access ended</string>
     <string name="litara_status_finished">finished</string>
+    <string name="litara_status_choice">saved position is for different audio; choose first</string>
+    <string name="litara_finish_queued">Finish saved on this device; it is sent when the server is reachable.</string>
+    <string name="litara_err_finish_preserved">The server kept your finish for review (%1$s).</string>
+    <string name="litara_incompat_title">Saved position is for different audio</string>
+    <string name="litara_incompat_body">The audio of this recording changed since your saved position. The old position is kept on the server, not applied. Start over from the beginning?</string>
+    <string name="litara_incompat_start_over">Start over</string>
+    <string name="litara_not_now">Not now</string>
     <string name="litara_tab_library">Library</string>
     <string name="litara_tab_downloads">Downloads</string>
     <string name="litara_tab_account">Account</string>

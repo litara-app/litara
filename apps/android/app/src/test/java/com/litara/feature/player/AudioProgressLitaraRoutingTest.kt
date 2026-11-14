@@ -37,7 +37,7 @@ class AudioProgressLitaraRoutingTest {
         source = mockk(relaxed = true)
         every { source.owns(handle) } returns true
         every { source.owns(neq(handle)) } returns false
-        repo = AudioProgressRepository(dao, api, mockk(), Json { ignoreUnknownKeys = true }, mockk<SyncScheduler>(relaxed = true), source)
+        repo = AudioProgressRepository(dao, api, mockk<AudiobookAssetResolver> { coEvery { forBook(any()) } returns AudiobookAssetResolver.Sources.Legacy }, Json { ignoreUnknownKeys = true }, mockk<SyncScheduler>(relaxed = true), source)
     }
 
     @After
@@ -85,5 +85,17 @@ class AudioProgressLitaraRoutingTest {
         repo.playbackEnded(42)
         coVerify(exactly = 1) { source.ended(handle) }
         coVerify(exactly = 0) { source.ended(42) }
+    }
+
+    @Test
+    fun `a Litara handle whose account is locked never reaches the old BookOrbit API`() = runBlocking {
+        val locked = LitaraSource.HANDLE_BASE + 9
+        every { source.owns(locked) } returns false // signed out / locked: the handle resolves to nothing
+        coEvery { dao.dirtyEntries() } returns listOf(AudioProgressEntity(locked, 7, 1.0, 1.0, 1L, dirty = true))
+        coEvery { dao.get(locked) } returns AudioProgressEntity(locked, 7, 1.0, 1.0, 1L, dirty = true)
+        repo.flushPending()
+        repo.resumePoint(locked, flush = false)
+        coVerify(exactly = 0) { api.saveAudioProgress(any(), any()) }
+        coVerify(exactly = 0) { dao.markSynced(locked) }
     }
 }

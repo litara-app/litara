@@ -92,6 +92,7 @@ class AudioProgressRepository @Inject constructor(
                 else -> null
             }
         }
+        if (bookId >= LitaraSource.HANDLE_BASE) return dao.get(bookId)?.let { ResumePoint(it.toAudioProgress(), it.updatedAt) }
         val local = dao.get(bookId)
         val server = runCatching { serverProgress(bookId) }.getOrNull()
         val serverMillis = server?.updatedAt?.let(::epochMillis)
@@ -110,6 +111,8 @@ class AudioProgressRepository @Inject constructor(
      */
     private suspend fun push(e: AudioProgressEntity): Boolean = runCatching {
         if (litara.owns(e.bookId)) return@runCatching litara.push(e.bookId, e.currentFileId, e.positionSeconds)
+        // A Litara handle whose account is locked or signed out must NEVER reach the old API: keep the row dirty.
+        if (e.bookId >= LitaraSource.HANDLE_BASE) return@runCatching false
         when (val sources = assets.forBook(e.bookId)) {
             Sources.Legacy -> {
                 api.saveAudioProgress(e.bookId, SaveAudioProgress(e.currentFileId, e.positionSeconds, e.percentage))

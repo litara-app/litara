@@ -11,6 +11,7 @@ import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -116,5 +117,71 @@ class ProgressSyncTest {
         val r = (1..4).map { i -> async { sync.report(0, 1000L * i) } }.map { it.await() }
         assertTrue(r.all { it == ReportOutcome.Accepted })
         assertEquals(listOf("0", "1", "2", "3"), bodies.map { Regex(""""baseRevision":"(\d+)"""").find(it)!!.groupValues[1] })
+    }
+}
+
+/** R1: a saved position for different bytes is preserved and never applied; a compatible reorder still resumes. */
+class ProgressSyncCompatibilityTest {
+    @get:Rule val tmp = TemporaryFolder()
+    private lateinit var server: MockWebServer
+    private val puts = CopyOnWriteArrayList<String>()
+
+    @Before
+    fun setUp() {
+        server = MockWebServer().also { it.start() }
+    }
+
+    @After
+    fun tearDown() = server.shutdown()
+
+    private fun sync(files: List<LFile>, savedFile: String, savedVersion: String): ProgressSync {
+        val pos = """{"fileId":"$savedFile","contentVersion":"$savedVersion","offsetMs":5000,"layoutRevision":"L0","capturedAt":"t","receivedAt":"t","deviceName":"d"}"""
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.method == "PUT") puts += request.body.readUtf8()
+                return MockResponse().setBody("""{"revision":"3","position":$pos,"unresolvedConflicts":[]}""")
+            }
+        }
+        val client = LitaraClient(server.url("/api/v1").toString(), OkHttpClient.Builder().build(),
+            InMemoryCredentialStore().also { it.save(StoredCredentials("t", "r")) })
+        return ProgressSync(client, "rec", "L1", files, tmp.newFile().also { it.delete() })
+    }
+
+    private fun file(id: String, version: String) = LFile(id, version, 0, id, "audio/mpeg", 10, 60_000, true, "/x")
+
+    @Test
+    fun `same file id with a new content version does not resume the old offset`() = runBlocking {
+        val s = sync(listOf(file("F", "V2")), "F", "V1")
+        s.load()
+        assertNull("the V1 offset must not be applied to V2 bytes", s.resumeCandidate())
+        assertEquals("F", s.incompatiblePosition()!!.fileId)
+        assertEquals("V1", s.incompatiblePosition()!!.contentVersion)
+    }
+
+    @Test
+    fun `an incompatible saved position blocks writes until the user chooses to start over`() = runBlocking {
+        val s = sync(listOf(file("F", "V2")), "F", "V1")
+        s.load()
+        assertTrue(s.report(0, 1000) is ReportOutcome.NeedsChoice)
+        assertTrue("nothing was written over the preserved position", puts.isEmpty())
+        s.confirmStartOver()
+        assertEquals(ReportOutcome.Accepted, s.report(0, 1000))
+        assertEquals(1, puts.size)
+    }
+
+    @Test
+    fun `a reporter that never read the server learns the revision first instead of conflicting with itself`() = runBlocking {
+        val s = sync(listOf(file("F", "V1")), "F", "V1")
+        s.ensureLoaded()
+        assertEquals(ReportOutcome.Accepted, s.report(0, 1000))
+        assertTrue("the first write carries the server revision, not 0", puts[0].contains("\"baseRevision\":\"3\""))
+    }
+
+    @Test
+    fun `a compatible reorder keeps the saved position because offsets are file relative`() = runBlocking {
+        val s = sync(listOf(file("G", "VG"), file("F", "V1")), "F", "V1")
+        s.load()
+        assertEquals("F", s.resumeCandidate()!!.fileId)
+        assertNull(s.incompatiblePosition())
     }
 }
