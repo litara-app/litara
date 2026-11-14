@@ -45,16 +45,18 @@ export class ReaderHost {
     container: HTMLElement,
     private readonly source: ByteSource,
     private readonly onEvent: (e: ReaderEvent) => void,
+    private readonly readerOrigin: string,
   ) {
     this.ready = new Promise((r) => (this.resolveReady = r));
     const frame = document.createElement("iframe");
-    // Scripts only: no same-origin, forms, popups, downloads or top navigation.
-    frame.setAttribute("sandbox", "allow-scripts");
+    // allow-same-origin applies to the reader origin only (ADR-0071), which
+    // has no credentials; still no forms, popups, downloads or top navigation.
+    frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
     frame.setAttribute("referrerpolicy", "no-referrer");
     frame.setAttribute("title", "Book reader");
     frame.style.cssText = "border:0;width:100%;height:100%";
     frame.addEventListener("load", () => this.handshake(), { once: true });
-    frame.src = "/reader/frame.html";
+    frame.src = `${readerOrigin}/frame.html?parent=${encodeURIComponent(location.origin)}`;
     container.append(frame);
     this.frame = frame;
   }
@@ -65,9 +67,9 @@ export class ReaderHost {
     const { port1, port2 } = new MessageChannel();
     port1.onmessage = (e) => this.onMessage(e.data);
     this.port = port1;
-    // The sandbox origin is opaque, so "*" is the only possible target; the
-    // message carries only a one-time channel id and generation.
-    win.postMessage({ type: "litara.reader.hello", channel: this.channel, generation: this.generation }, "*", [port2]);
+    // Exact target origin: the reader origin only. The message carries just a
+    // one-time channel id and generation.
+    win.postMessage({ type: "litara.reader.hello", channel: this.channel, generation: this.generation }, this.readerOrigin, [port2]);
   }
 
   async open(opts: OpenOptions): Promise<void> {
@@ -129,6 +131,14 @@ export class ReaderHost {
     this.port?.close();
     this.frame.remove();
   }
+}
+
+/** Reads the reader origin the server advertises (ADR-0071). */
+export async function loadReaderOrigin(): Promise<string> {
+  const res = await fetch("/app-config.json", { credentials: "same-origin" });
+  const { readerOrigin } = (await res.json()) as { readerOrigin?: string };
+  if (!readerOrigin || new URL(readerOrigin).origin === location.origin) throw new Error("reader origin misconfigured");
+  return new URL(readerOrigin).origin;
 }
 
 /** Range source over a user-picked File (used by tests and the proof page). */

@@ -114,6 +114,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0069](0069-web-tooling-serving-and-t005-gap-ownership.md) | Same-origin web build and end-to-end T005 ownership | Accepted |
 
 | [0070](0070-recording-repair-successors-and-retained-state.md) | Recording repair successors with retained source state | Accepted |
+| [0071](0071-separate-reader-origin.md) | Serve the web reader from a separate origin | Accepted |
 
 ## Workflow
 

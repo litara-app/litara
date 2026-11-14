@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -158,15 +159,22 @@ func run() error {
 	}()
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
-		Handler: httpapi.New(httpapi.Deps{Web: webHandler(cfg.WebDir), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
+		Handler: httpapi.New(httpapi.Deps{Web: appHandler(cfg), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
 			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Library: library.New(pool), Config: apiCfg, Log: log,
 				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb}}),
 	}
-	errc := make(chan error, 1)
+	errc := make(chan error, 2)
 	go func() {
 		log.Info("http listening", "addr", cfg.HTTPAddr)
 		errc <- srv.ListenAndServe()
 	}()
+	readerSrv := readerServer(cfg)
+	if readerSrv != nil {
+		go func() {
+			log.Info("reader origin listening", "addr", cfg.ReaderAddr, "origin", cfg.ReaderOrigin)
+			errc <- readerSrv.ListenAndServe()
+		}()
+	}
 
 	select {
 	case err := <-errc:
@@ -184,6 +192,9 @@ func run() error {
 	sctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 	_ = srv.Shutdown(sctx)
+	if readerSrv != nil {
+		_ = readerSrv.Shutdown(sctx)
+	}
 	if err := client.Stop(sctx); err != nil {
 		log.Warn("workers did not stop cleanly; hard-stopping", "error", err)
 		_ = client.StopAndCancel(context.Background())
@@ -192,10 +203,26 @@ func run() error {
 	return nil
 }
 
-// webHandler serves the built web app when LITARA_WEB_DIR is configured.
-func webHandler(dir string) http.Handler {
-	if dir == "" {
+// appHandler serves the built web app when LITARA_WEB_DIR is configured.
+func appHandler(cfg *config.Config) http.Handler {
+	if cfg.WebDir == "" {
 		return nil
 	}
-	return webui.Handler(os.DirFS(dir))
+	return webui.App(os.DirFS(cfg.WebDir), webOrigins(cfg))
+}
+
+// readerServer is the separate-origin listener for reader assets (ADR-0071).
+func readerServer(cfg *config.Config) *http.Server {
+	if cfg.WebDir == "" {
+		return nil
+	}
+	sub, err := fs.Sub(os.DirFS(cfg.WebDir), "reader")
+	if err != nil {
+		return nil
+	}
+	return &http.Server{Addr: cfg.ReaderAddr, ReadHeaderTimeout: 10 * time.Second, Handler: webui.Reader(sub, webOrigins(cfg))}
+}
+
+func webOrigins(cfg *config.Config) webui.Origins {
+	return webui.Origins{App: cfg.PublicOrigin, Reader: cfg.ReaderOrigin}
 }

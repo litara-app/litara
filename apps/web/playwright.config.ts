@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: [["list"]],
   use: { baseURL: "http://127.0.0.1:8099" },
   webServer: {
-    command: "go run ./cmd/webserve -dir ../web/dist-proof -addr 127.0.0.1:8099",
+    command: "go run ./cmd/webserve -dir ../web/dist-proof -addr 127.0.0.1:8099 -reader-addr 127.0.0.1:8098 -app-origin http://127.0.0.1:8099 -reader-origin http://localhost:8098",
     cwd: "../server",
     url: "http://127.0.0.1:8099/",
     reuseExistingServer: true,

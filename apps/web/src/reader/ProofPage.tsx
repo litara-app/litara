@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { type ReaderKind, ReaderHost, fileSource } from "./host";
+import { type ReaderKind, ReaderHost, fileSource, loadReaderOrigin } from "./host";
 
 declare global {
   interface Window {
@@ -18,7 +18,8 @@ export function ProofPage() {
     if (!file || !box.current) return;
     window.__proofHost?.dispose();
     window.__proofEvents = [];
-    const host = new ReaderHost(box.current, fileSource(file), (e) => window.__proofEvents!.push(e));
+    const origin = await loadReaderOrigin();
+    const host = new ReaderHost(box.current, fileSource(file), (e) => window.__proofEvents!.push(e), origin);
     window.__proofHost = host;
     await host.open({ kind, name: file.name, limits });
   }

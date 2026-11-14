@@ -1,6 +1,7 @@
-// Litara-owned reader bridge (MIT). It runs inside the opaque-origin sandbox
-// and has no credentials or network privileges. All bytes arrive over a
-// per-open MessageChannel from the authenticated parent (ADR-0067).
+// Litara-owned reader bridge (MIT). It runs on the separate reader origin
+// (ADR-0071), which holds no Litara credentials, and has no network
+// privileges (CSP connect-src blob: only). All bytes arrive over a per-open
+// MessageChannel from the authenticated parent (ADR-0067).
 // Pristine upstream engines live in ./vendor and are never modified.
 
 const MAX_RANGE = 8 * 1024 * 1024; // bytes per bridge reply
@@ -28,10 +29,12 @@ const fail = (code, detail) => send({ t: 'error', generation, code, detail: Stri
 
 // --- handshake -------------------------------------------------------------
 // Accept exactly one hello from the embedding window carrying a port. The
-// opaque origin string proves nothing; source identity and the per-open
-// nonce/generation checked by the parent are the authentication.
+// sender must be the parent window AND the exact application origin named in
+// the frame URL (frame-ancestors enforces the same origin); the parent checks
+// the per-open nonce and generation on the first reply.
+const parentOrigin = new URLSearchParams(location.search).get('parent');
 window.addEventListener('message', function onHello(event) {
-  if (port || event.source !== window.parent) return;
+  if (port || !parentOrigin || event.source !== window.parent || event.origin !== parentOrigin) return;
   const d = event.data;
   if (!d || d.type !== 'litara.reader.hello' || typeof d.channel !== 'string'
       || !Number.isSafeInteger(d.generation) || event.ports.length !== 1) return;
@@ -211,11 +214,6 @@ async function openWhole(size, name) {
 
 async function openPdf(size) {
   const pdfjs = await import('./vendor/pdfjs/pdf.mjs');
-  // An opaque-origin document cannot start a module worker (neither from a
-  // blob: URL nor cross-origin; observed in Chromium) and the PDF worker needs
-  // import.meta, so it cannot run as a classic blob worker either. PDF.js
-  // therefore uses its main-thread "fake worker", imported as a CORS module
-  // from the pinned static path. Parsing shares the sandbox frame's thread.
   pdfjs.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdfjs/pdf.worker.mjs', import.meta.url).href;
   const head = await readRange(size, 0, Math.min(size, 64 * 1024));
   const transport = new pdfjs.PDFDataRangeTransport(size, head);

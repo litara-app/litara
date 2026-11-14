@@ -54,3 +54,31 @@ func TestRescueMustExceedTimeout(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestReaderOriginsRequireDistinctHostnames(t *testing.T) {
+	base := map[string]string{"LITARA_DATABASE_URL": "postgres://u@h/db", "LITARA_WEB_DIR": "web"}
+	with := func(kv ...string) map[string]string {
+		m := map[string]string{}
+		for k, v := range base {
+			m[k] = v
+		}
+		for i := 0; i < len(kv); i += 2 {
+			m[kv[i]] = kv[i+1]
+		}
+		return m
+	}
+	if _, err := loadFrom(env(with())); err == nil || !strings.Contains(err.Error(), "READER_ADDR is required") {
+		t.Fatalf("missing reader config: %v", err)
+	}
+	// Same hostname, different port: cookies are not port-scoped.
+	_, err := loadFrom(env(with("LITARA_READER_ADDR", ":8081", "LITARA_PUBLIC_ORIGIN", "http://localhost:8080", "LITARA_READER_ORIGIN", "http://localhost:8081")))
+	if err == nil || !strings.Contains(err.Error(), "different hostname") {
+		t.Fatalf("port-only difference accepted: %v", err)
+	}
+	if _, err = loadFrom(env(with("LITARA_READER_ADDR", ":8081", "LITARA_PUBLIC_ORIGIN", "https://a.example/x", "LITARA_READER_ORIGIN", "https://r.example"))); err == nil {
+		t.Fatal("origin with a path accepted")
+	}
+	if _, err = loadFrom(env(with("LITARA_READER_ADDR", ":8081", "LITARA_PUBLIC_ORIGIN", "https://a.example", "LITARA_READER_ORIGIN", "https://r.example"))); err != nil {
+		t.Fatal(err)
+	}
+}
