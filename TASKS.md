@@ -1,19 +1,23 @@
 # Litara rebuild work packages
 
-Updated: 2026-11-13
+Updated: 2026-11-14
 Coordination owner: the user and the ADR/integration chat
 
 ## Start here
 
 **T001 and T002 are reviewed, merged, and Done for their scoped foundation/import work.** T001 merged in [PR #79](https://github.com/litara-app/litara/pull/79) at `bef07cf09e5faf2ca11553d3d82f98927ca483a7`; T002 merged in [PR #80](https://github.com/litara-app/litara/pull/80) at `b78b7a3b9f2f676ed6a9252b6ab5860a90ca6c52` on 2026-11-13. The backend and Android validation workflows passed. This does not claim production readiness, working client/server integration, or physical Cast/Auto/NAS acceptance.
 
-**T003 is Ready to assign.** ADR-0031–0043 are Accepted from explicit user choices. The concrete contract, seeded persistence boundary, shared fixtures and exclusive execution brief are complete and committed on the checkpoint branch below. T003 remains Unassigned.
+**T003 and T004 are merged into `main`.** T003 merged in [PR #81](https://github.com/litara-app/litara/pull/81) at `deed67c8eef320e33cdc13da995e802c50f9662a`; T004 merged in [PR #82](https://github.com/litara-app/litara/pull/82) at `2abef2ed46d770bd21d714d299739144de619bce`, initially on the rebuild integration branch. [PR #83](https://github.com/litara-app/litara/pull/83) integrated that branch into `main` at `dae3f3e66cf125fbb428e1d010f7f6b44b3bb591` on 2026-11-14. The user requested this integration. Existing handoff verification evidence is retained; this merge is not fresh runtime/hardware verification. T004's named gaps remain open rather than being declared complete.
+
+**T005 is not implementation-ready.** See [the current readiness review](research/t005/readiness.md) for observed API gaps, decisions, proposed scope and preparation artifacts. No T005 agent is assigned. T006/T007 also remain unassigned. The dated preparation/review sections below are historical; this overview and register supersede their obsolete assignment/readiness statements.
+
+**Release hold:** 2.0.0 requires a verified personal-state migration path (ADR-0062/0063). GitHub Actions is disabled repository-wide under ADR-0064; do not re-enable CI or publish builds without the user's explicit release-readiness decision. Local development verification remains allowed.
 
 Prefer substantial end-to-end packages over small tickets. Each package may contain several reviewable commits and internal milestones, but should finish with a usable result and an evidence-backed handoff.
 
 The authoritative working repository is `G:\Programming\ebooker`. `E:\Programming\ebooker` was a separate audit folder, not this Git repository. External reference clones/logs under `E:\Programming\_reference\` are optional local resources, not portable project dependencies.
 
-**Assignment checkout:** use the tip of `codex/t003-assignment-checkpoint`, not the older source-only main commit. Verified immutable source snapshot: `943e2cd51fb7a59a32b9da1ef9c96a136a019d8f`; the following Ready-register commit adds only checkpoint/readiness metadata. The branch includes merged T001/T002, this register, root agent instructions, all 43 accepted/superseded ADR records and required research, the intended archive/root transition, the T003 contract/fixtures and full execution brief. Record the actual branch-tip commit as the worker base in `handoffs/T003.md`. A fresh checkout no longer depends on uncommitted coordinator files. Do not start from `6720562`/the old stack, restore historical deletions, or commit another worker’s changes. The coordinator supplies the exact Ready branch-tip hash when assigning; do not follow later branch movement silently.
+**Future assignment checkout:** use an explicit committed checkpoint based on integrated `main`, including the accepted decisions, contracts and brief for that assignment. T005 has no Ready checkpoint yet. Do not start new work from the old T003 assignment snapshot, restore historical deletions, or commit another worker's changes. The historical T003 source snapshot was `943e2cd51fb7a59a32b9da1ef9c96a136a019d8f`; it is retained as provenance, not the next assignment base.
 
 ## Assignment and ownership rules
 
@@ -32,13 +36,13 @@ The authoritative working repository is `G:\Programming\ebooker`. `E:\Programmin
 | --- | --- | --- | --- | --- |
 | T001 | Go backend foundation and durable native audio inspection | Done: reviewed and merged, PR #79 | Closed | Init consolidation included; release/platform/NAS follow-ups remain documented |
 | T002 | Native Android baseline, media preservation, and adaptation seams | Done: reviewed and merged, PR #80 | Closed; do not repeat import | Future adapter/account-isolation work belongs to T003; physical hardware gates remain |
-| T003 | Shared client contract, accounts, and end-to-end recording playback API | Ready: committed checkpoint, contract and complete brief | Unassigned; user selects one owner | Start codex/t003-assignment-checkpoint tip; contracts/t003/ and handoffs/T003-assignment.md; exclusive server/Android scope; T004 waits |
-| T004 | Catalog, library ingestion, metadata, and NAS recovery | Not ready: ingestion decisions and execution brief needed | Unassigned | T001 source dependency satisfied; needs checkpoint, shared T003 model boundary and accepted ingestion rules; serialize server edits |
-| T005 | Redesigned web library and complete reading/listening flows | Not ready: upstream contracts and execution brief needed | Unassigned | T003/T004 plus reader/location/annotation decisions; brand assets read-only reference |
+| T003 | Shared client contract, accounts, and end-to-end recording playback API | Merged: PR #81, integrated to main by #83 | Closed implementation assignment | Handoff evidence retained; physical hardware and release gates remain |
+| T004 | Catalog, library ingestion, metadata, and NAS recovery | Merged with named gaps: PR #82, integrated to main by #83 | Closed merged assignment; follow-ups need explicit ownership | See handoff: ebook entities, merge/split, writers, provider/NAS verification remain incomplete |
+| T005 | Redesigned web library and complete reading/listening flows | Not ready: decisions, ebook/annotation contracts and execution brief needed | Unassigned | T003/T004 integrated; see research/t005/readiness.md; server and web scope must be assigned together or serialized |
 | T006 | OPDS, email delivery, and basic KOReader integration | Not ready: upstream contracts and protocol decisions needed | Unassigned | T003/T004 plus delivery/auth/revision policies |
 | T007 | Cross-client integration, hardware acceptance, and release readiness | Not ready: earlier packages and test resources needed | Unassigned | Integrated T003–T006, hardware/operators and release decisions |
 
-These are large work packages, not promises that every open architectural question is already resolved. T003 has a complete execution brief/checkpoint linked below. T004–T007 still need execution-ready briefs/checkpoints before assignment. A roadmap description does not authorize a worker to pick one up opportunistically.
+These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T004 have been integrated. T005–T007 still need execution-ready briefs/checkpoints before assignment. A roadmap description does not authorize a worker to pick one up opportunistically.
 
 ## Readiness review — 2026-11-13
 
