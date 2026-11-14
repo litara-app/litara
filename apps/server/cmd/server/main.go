@@ -19,10 +19,12 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/app"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
-	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/config"
 	"github.com/deranjer/ebooker/apps/server/internal/db"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
+	"github.com/deranjer/ebooker/apps/server/internal/ingest"
+	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
 )
 
@@ -69,7 +71,12 @@ func run() error {
 			st.AppVersion, st.AppTarget, st.RiverOK)
 	}
 
-	client, err := app.NewWorkerClient(pool, insp, app.WorkerOptionsFrom(cfg), log)
+	// Library roots are validated by the scanner itself, so its inspector is not
+	// restricted to the legacy single media root.
+	scanInsp := inspect.New(inspect.Config{ProbePath: cfg.FFprobePath, Timeout: cfg.InspectTimeout, MaxOutputBytes: cfg.MaxProbeOutput})
+	wopts := app.WorkerOptionsFrom(cfg)
+	wopts.Scanner = &ingest.Scanner{Pool: pool, Inspector: scanInsp, Log: log}
+	client, err := app.NewWorkerClient(pool, insp, wopts, log)
 	if err != nil {
 		return err
 	}

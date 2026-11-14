@@ -10,6 +10,16 @@ import (
 	"github.com/google/uuid"
 )
 
+type Association struct {
+	ID          uuid.UUID     `json:"id"`
+	LibraryID   uuid.UUID     `json:"library_id"`
+	Kind        string        `json:"kind"`
+	RelPath     string        `json:"rel_path"`
+	RecordingID uuid.NullUUID `json:"recording_id"`
+	State       string        `json:"state"`
+	Detail      *string       `json:"detail"`
+}
+
 type ChapterSource struct {
 	ID          uuid.UUID `json:"id"`
 	RecordingID uuid.UUID `json:"recording_id"`
@@ -51,6 +61,23 @@ type Conflict struct {
 	CreatedAt           time.Time     `json:"created_at"`
 	ResolvedAt          *time.Time    `json:"resolved_at"`
 	ResolvedOperationID uuid.NullUUID `json:"resolved_operation_id"`
+}
+
+type FileCandidate struct {
+	LibraryID   uuid.UUID `json:"library_id"`
+	RelPath     string    `json:"rel_path"`
+	SizeBytes   int64     `json:"size_bytes"`
+	Mtime       time.Time `json:"mtime"`
+	FirstSeenAt time.Time `json:"first_seen_at"`
+	LastSeenAt  time.Time `json:"last_seen_at"`
+}
+
+type FileMetadatum struct {
+	ContentVersion uuid.UUID `json:"content_version"`
+	Completeness   string    `json:"completeness"`
+	Result         []byte    `json:"result"`
+	Failure        *string   `json:"failure"`
+	InspectedAt    time.Time `json:"inspected_at"`
 }
 
 type FileObservation struct {
@@ -211,6 +238,9 @@ type Recording struct {
 	CoverMime        *string   `json:"cover_mime"`
 	SeedKey          *string   `json:"seed_key"`
 	CreatedAt        time.Time `json:"created_at"`
+	GroupKey         *string   `json:"group_key"`
+	OrderingState    string    `json:"ordering_state"`
+	LinkState        string    `json:"link_state"`
 }
 
 type RecordingFile struct {
@@ -292,6 +322,7 @@ type Title struct {
 	SeriesIndex *float64  `json:"series_index"`
 	SeedKey     *string   `json:"seed_key"`
 	CreatedAt   time.Time `json:"created_at"`
+	GroupKey    *string   `json:"group_key"`
 }
 
 type User struct {

@@ -382,7 +382,52 @@ CREATE TABLE writer_capabilities (
 );
 INSERT INTO writer_capabilities (format) VALUES ('epub'), ('mp3'), ('flac'), ('m4a'), ('m4b');
 
+-- Files seen but not yet stable (or changed since cataloged). Identity is created only after two
+-- unchanged observations at least stability_secs apart (ADR-0050); nothing here is hashed or inspected.
+CREATE TABLE file_candidates (
+    library_id     uuid NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
+    rel_path       text NOT NULL,
+    size_bytes     bigint NOT NULL CHECK (size_bytes >= 0),
+    mtime          timestamptz NOT NULL,
+    first_seen_at  timestamptz NOT NULL,
+    last_seen_at   timestamptz NOT NULL,
+    PRIMARY KEY (library_id, rel_path)
+);
+
+-- Normalized inspection result of one content version (T001 inspector output).
+CREATE TABLE file_metadata (
+    content_version uuid PRIMARY KEY REFERENCES file_versions (content_version),
+    completeness    text NOT NULL CHECK (completeness IN ('complete', 'incomplete', 'failed')),
+    result          jsonb,
+    failure         text,
+    inspected_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- Stable key so regrouping updates the same recording instead of duplicating it.
+ALTER TABLE recordings ADD COLUMN group_key text;
+CREATE UNIQUE INDEX recordings_group_key ON recordings (library_id, group_key) WHERE group_key IS NOT NULL;
+ALTER TABLE recordings ADD COLUMN ordering_state text NOT NULL DEFAULT 'confirmed'
+    CHECK (ordering_state IN ('confirmed', 'needs_review'));
+ALTER TABLE recordings ADD COLUMN link_state text NOT NULL DEFAULT 'confirmed'
+    CHECK (link_state IN ('confirmed', 'provisional'));
+ALTER TABLE titles ADD COLUMN group_key text;
+
+-- Sidecar / CUE associations (ADR-0055). Only unambiguous matches are stored as associated.
+CREATE TABLE associations (
+    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    library_id    uuid NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
+    kind          text NOT NULL CHECK (kind IN ('cue', 'json', 'opf')),
+    rel_path      text NOT NULL,
+    recording_id  uuid REFERENCES recordings (id) ON DELETE SET NULL,
+    state         text NOT NULL CHECK (state IN ('associated', 'needs_review', 'invalid')),
+    detail        text,
+    UNIQUE (library_id, rel_path)
+);
+
 -- +goose Down
+DROP TABLE associations;
+DROP TABLE file_metadata;
+DROP TABLE file_candidates;
 DROP TABLE writer_capabilities;
 DROP TABLE writeback_plans;
 DROP TABLE metadata_values;
