@@ -29,7 +29,9 @@ const ebooks: { title: RegExp; label: string; expect?: "rendered" | "explicit" }
   { title: /^corpus-damaged$/i, label: "Damaged EPUB (truncated)", expect: "explicit" },
   { title: /^The Test Comic$/, label: "CBZ comic", expect: "rendered" },
   { title: /^The Hostile Comic$/, label: "CBZ hostile (traversal)", expect: "explicit" },
-  { title: /^legacy$/i, label: "CBR comic", expect: "explicit" },
+  { title: /^legacy$/i, label: "CBR comic (RAR5, stored)", expect: "rendered" },
+  { title: /^seven$/i, label: "CB7 comic (7z, encoded header)", expect: "rendered" },
+  { title: /^damaged$/i, label: "CBR damaged", expect: "explicit" },
 ];
 const audio = ["mp3", "m4a", "m4b", "ogg", "opus", "flac", "wav"];
 

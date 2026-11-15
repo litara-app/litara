@@ -1,12 +1,10 @@
-// Package comics extracts comic page images from CBZ archives into a private
-// cache under the bounded, streaming rules of ADR-0067. Nothing is published
-// until the whole archive validated; originals are never touched. CBR and CB7
-// are not handled here (no vetted Go dependency is approved yet) and are
-// reported as unsupported by the caller.
+// Package comics extracts comic page images from CBZ, CBR and CB7 archives
+// (ZIP, RAR and 7z, chosen by content, never by extension) into a private cache
+// under the bounded, streaming rules of ADR-0067 and ADR-0072. Nothing is
+// published until the whole archive validated; originals are never touched.
 package comics
 
 import (
-	"archive/zip"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -26,11 +24,12 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/nwaples/rardecode/v2"
 	"golang.org/x/text/unicode/norm"
 )
 
 // Profile names the extraction rules a manifest was produced under.
-const Profile = "cbz-go-zip/1"
+const Profile = "comics-go/2"
 
 // Limits are the ADR-0067 ceilings. Operators may only lower them.
 type Limits struct {
@@ -41,12 +40,14 @@ type Limits struct {
 	MaxEntryBytes int64
 	MaxPixels     int64
 	MaxRatio      int64
+	// MaxDictionary caps the decompression dictionary/window a RAR or 7z may demand (ADR-0072).
+	MaxDictionary int64
 	Timeout       time.Duration
 }
 
 func DefaultLimits() Limits {
 	return Limits{MaxCompressed: 2 << 30, MaxEntries: 10000, MaxPages: 10000, MaxExpanded: 8 << 30, MaxEntryBytes: 100 << 20,
-		MaxPixels: 100_000_000, MaxRatio: 200, Timeout: 120 * time.Second}
+		MaxPixels: 100_000_000, MaxRatio: 200, MaxDictionary: 128 << 20, Timeout: 120 * time.Second}
 }
 
 // Lowered returns l with every nonzero field of o that is smaller applied.
@@ -64,6 +65,7 @@ func (l Limits) Lowered(o Limits) Limits {
 	l.MaxEntryBytes = lowI(l.MaxEntryBytes, o.MaxEntryBytes)
 	l.MaxPixels = lowI(l.MaxPixels, o.MaxPixels)
 	l.MaxRatio = lowI(l.MaxRatio, o.MaxRatio)
+	l.MaxDictionary = lowI(l.MaxDictionary, o.MaxDictionary)
 	if o.Timeout > 0 && o.Timeout < l.Timeout {
 		l.Timeout = o.Timeout
 	}
@@ -203,24 +205,32 @@ func Extract(ctx context.Context, src, dst string, lim Limits, hooks Hooks) (res
 	if st.Size() > lim.MaxCompressed {
 		return res, reject(CodeLimit, "the archive exceeds the compressed size ceiling")
 	}
-	zr, err := zip.OpenReader(src)
-	if err != nil {
-		return res, reject(CodeUnsupported, "the file is not a readable ZIP archive")
+	ar, oerr := openArchive(src, lim)
+	if oerr != nil {
+		return res, oerr
 	}
-	defer zr.Close()
-	if len(zr.File) > lim.MaxEntries {
+	defer ar.Close()
+	members, err := ar.Members(ctx, lim)
+	if err != nil {
+		var re *Error
+		if errors.As(err, &re) {
+			return res, re
+		}
+		return res, reject(CodeUnsupported, "the archive could not be read")
+	}
+	if len(members) > lim.MaxEntries {
 		return res, reject(CodeLimit, "the archive has too many entries")
 	}
 
 	type entry struct {
-		f    *zip.File
+		idx  int // position in archive order
 		norm string
 	}
 	seen := map[string]bool{}
 	var imgs []entry
 	var expanded int64
-	for _, f := range zr.File {
-		n, rerr := normalizeEntry(f.Name)
+	for i, m := range members {
+		n, rerr := normalizeEntry(m.Name)
 		if rerr != nil {
 			return res, rerr
 		}
@@ -229,12 +239,14 @@ func Extract(ctx context.Context, src, dst string, lim Limits, hooks Hooks) (res
 			return res, reject(CodeUnsupported, "two entries share one normalized path")
 		}
 		seen[key] = true
-		mode := f.Mode()
-		if f.FileInfo().IsDir() {
+		if m.Dir {
 			continue
 		}
-		if mode&os.ModeSymlink != 0 || !mode.IsRegular() {
+		if m.Link {
 			return res, reject(CodeUnsupported, "the archive contains a link or special file")
+		}
+		if m.Encrypted {
+			return res, reject(CodeUnsupported, "the archive contains encrypted entries")
 		}
 		ext := strings.ToLower(path.Ext(n))
 		if nestedArchive[ext] {
@@ -244,14 +256,14 @@ func Extract(ctx context.Context, src, dst string, lim Limits, hooks Hooks) (res
 			res.Skipped = append(res.Skipped, "non-image entry")
 			continue
 		}
-		if int64(f.UncompressedSize64) > lim.MaxEntryBytes {
+		if m.Size > lim.MaxEntryBytes {
 			return res, reject(CodeLimit, "an entry exceeds the per-entry size ceiling")
 		}
-		expanded += int64(f.UncompressedSize64)
+		expanded += m.Size
 		if expanded > lim.MaxExpanded {
 			return res, reject(CodeLimit, "the expanded size exceeds the ceiling")
 		}
-		imgs = append(imgs, entry{f, n})
+		imgs = append(imgs, entry{i, n})
 	}
 	if len(imgs) == 0 {
 		return res, reject(CodeUnsupported, "the archive has no page images")
@@ -262,7 +274,17 @@ func Extract(ctx context.Context, src, dst string, lim Limits, hooks Hooks) (res
 	if expanded > 1<<20 && expanded/maxInt64(st.Size(), 1) > lim.MaxRatio {
 		return res, reject(CodeLimit, "the expansion ratio exceeds the ceiling")
 	}
-	sort.SliceStable(imgs, func(i, j int) bool { return naturalLess(imgs[i].norm, imgs[j].norm) })
+	// Page order is the natural order of normalized paths; extraction order is archive order
+	// (sequential formats cannot seek), so each entry remembers the page index it will take.
+	order := make([]int, len(imgs))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool { return naturalLess(imgs[order[a]].norm, imgs[order[b]].norm) })
+	pageIndex := make([]int, len(imgs)) // pageIndex[k] for imgs[k]
+	for page, k := range order {
+		pageIndex[k] = page
+	}
 	if hooks.Reserve != nil {
 		if err := hooks.Reserve(expanded); err != nil {
 			return res, err
@@ -280,18 +302,31 @@ func Extract(ctx context.Context, src, dst string, lim Limits, hooks Hooks) (res
 		}
 	}()
 	var streamed int64
-	for i, e := range imgs {
+	pages := make([]Page, len(imgs))
+	for k, e := range imgs { // archive order
 		if err = ctx.Err(); err != nil {
 			return res, reject(CodeLimit, "extraction exceeded the time ceiling")
 		}
-		page, perr := writePage(ctx, e.f, tmp, i, e.norm, lim, &streamed)
+		rc, oerr := ar.Open(e.idx)
+		if oerr != nil {
+			var re *Error
+			if errors.As(oerr, &re) {
+				err = re
+				return res, re
+			}
+			err = reject(CodeUnsupported, "an entry could not be read")
+			return res, err
+		}
+		page, perr := writePage(ctx, rc, tmp, pageIndex[k], e.norm, lim, &streamed)
+		_ = rc.Close()
 		if perr != nil {
 			err = perr
 			return res, perr
 		}
-		res.Pages = append(res.Pages, page)
+		pages[pageIndex[k]] = page
 		res.Bytes += page.Bytes
 	}
+	res.Pages = pages
 	_ = os.RemoveAll(dst)
 	if err = os.Rename(tmp, dst); err != nil {
 		return res, err
@@ -326,12 +361,7 @@ func (l *limitedWriter) Write(p []byte) (int, error) {
 	return l.w.Write(p)
 }
 
-func writePage(ctx context.Context, f *zip.File, dir string, index int, normPath string, lim Limits, streamed *int64) (Page, error) {
-	rc, err := f.Open()
-	if err != nil {
-		return Page{}, reject(CodeUnsupported, "an entry could not be read")
-	}
-	defer rc.Close()
+func writePage(ctx context.Context, rc io.Reader, dir string, index int, normPath string, lim Limits, streamed *int64) (Page, error) {
 	tmpName := fmt.Sprintf("%05d.part", index)
 	out, err := os.OpenFile(filepath.Join(dir, tmpName), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -350,6 +380,15 @@ func writePage(ctx context.Context, f *zip.File, dir string, index int, normPath
 		var re *Error
 		if errors.As(cerr, &re) {
 			return Page{}, re
+		}
+		if errors.Is(cerr, rardecode.ErrDictionaryTooLarge) {
+			return Page{}, reject(CodeLimit, "the archive needs a larger decompression dictionary than the ceiling")
+		}
+		if errors.Is(cerr, errDictTooLarge) || errors.Is(cerr, errCoderRefused) {
+			return Page{}, sevenFault(cerr)
+		}
+		if errors.Is(cerr, rardecode.ErrBadPassword) {
+			return Page{}, reject(CodeUnsupported, "the archive is encrypted")
 		}
 		return Page{}, reject(CodeUnsupported, "an entry could not be decompressed")
 	}

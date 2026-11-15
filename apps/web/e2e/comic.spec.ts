@@ -128,7 +128,7 @@ test("bookmarks and page notes anchor to a page identity; highlights are not off
   expect(bad.status()).toBe(422);
 });
 
-test("a hostile archive and an unsupported CBR are explained, with no pages and the original offered", async ({ page }) => {
+test("a hostile archive and a damaged CBR are explained, with no pages and the original offered", async ({ page }) => {
   await signIn(page);
   await openComic(page, "The Hostile Comic");
   const box = page.getByTestId("comic-unsupported");
@@ -137,9 +137,25 @@ test("a hostile archive and an unsupported CBR are explained, with no pages and 
   await expect(box.getByRole("link", { name: "Download original" })).toBeVisible();
   await expect(page.getByTestId("comic-page")).toHaveCount(0);
 
-  await openComic(page, "legacy");
-  await expect(page.getByTestId("comic-unsupported")).toContainText("CBR extraction is not available", { timeout: 30_000 });
+  await openComic(page, "damaged"); // a damaged RAR is explained, never guessed at
+  await expect(page.getByTestId("comic-unsupported")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("comic-page")).toHaveCount(0);
 });
+
+for (const [title, label] of [["legacy", "CBR (RAR5)"], ["seven", "CB7 (7z)"]] as const) {
+  test(`${label}: extracts in natural page order through the same bounded path`, async ({ page }) => {
+    await signIn(page);
+    await openComic(page, title);
+    await expect(progress(page)).toHaveText(/Page \d of 3/, { timeout: 30_000 });
+    await page.keyboard.press("Home");
+    await expect(progress(page)).toHaveText("Page 1 of 3");
+    await expect.poll(() => pageColor(page)).toBe("red"); // pages/1.png
+    await page.getByRole("button", { name: "Next page" }).click();
+    await expect.poll(() => pageColor(page)).toBe("green"); // pages/2.png
+    await page.getByRole("button", { name: "Next page" }).click();
+    await expect.poll(() => pageColor(page)).toBe("blue"); // pages/10.png, after 2 (natural order)
+  });
+}
 
 test("page images require the signed-in session", async ({ page, playwright }) => {
   await signIn(page);

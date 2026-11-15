@@ -19,11 +19,11 @@ Of the 18 scenarios that were partial at the final review, four are now covered 
 | `same-origin-fallback` | `PUBLIC_PATH_PREFIX` is not applied to web serving; the Vite development proxy with CSRF is untested. | T005 (the scenario is ADR-0069 behavior) | M |
 | `metadata-import-management` | Browser tests of protected edits, clears and review lists (import and write-back status are covered). | T005 | M |
 | `accessibility-responsive` | Screen-reader and real-device checks; axe cannot scan inside the cross-origin reader frame. | T007 for devices and screen readers; T005 may add checks of the reader controls | — |
-| `format-corpus` | Real-world files (large, messy), KEPUB Kobo spans, MOBI/AZW3 resume, CBR/CB7 (needs ADR-0072: proposed, not yet decided). | T007 for real-world files; Decision for ADR-0072 | — |
+| `format-corpus` | Real-world files (large, messy), KEPUB Kobo spans, MOBI/AZW3 resume, real compressed RAR files (CBR/CB7 now work on generated archives; ADR-0072 accepted). | T007 for real-world files | — |
 
 ## Notes
 - The WebKit comic-navigation timeout seen in review did not reproduce: the comic spec passed 24 of 24 repeats in WebKit and in the final full run. It remains unexplained, so treat it as an intermittent unknown.
 - The T003 repair additions are now in `contracts/t003/` (see the handoff), so they no longer wait on anyone.
 
 ## Decisions recorded (2026-11-15)
-The owner chose: build PDF text selection (done, three browsers); implement the minimal engine-profile mismatch check (done); add a Mark-finished control to the reader menu (done); research CBR/CB7 libraries and propose (ADR-0072, **Proposed**, awaiting the owner's decision; no CBR/CB7 code was written).
+The owner chose: build PDF text selection (done, three browsers); implement the minimal engine-profile mismatch check (done); add a Mark-finished control to the reader menu (done); research CBR/CB7 libraries and propose (ADR-0072; the owner then chose CBR and CB7 together, MPL-2.0 acceptable, a 128 MiB dictionary ceiling and an in-repo RAR5 writer for fixtures, and the ADR is Accepted and implemented).

@@ -64,7 +64,9 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 		// Real-world, DRM and large files were not tested, and CFI resume is unverified (see resume below).
 		read = supported()
 	case "cbr", "cb7":
-		read = incomplete("archive_library_not_approved", "Server-side page extraction for this archive type needs a vetted Go archive library that is not approved yet.")
+		// ADR-0072: bounded Go extraction (rardecode/v2, sevenzip). Verified on generated stored RAR5, 7-Zip and
+		// writer-made 7z archives in the browser matrix; real compressed RAR files were not tested.
+		read = supported()
 	}
 	if !available && read.State == "supported" {
 		read = incomplete("file_unavailable", "The file is currently missing or unavailable.")

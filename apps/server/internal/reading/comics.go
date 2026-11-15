@@ -111,7 +111,7 @@ func (s *Service) PrepareComicPages(ctx context.Context, a Actor, fileID, versio
 	if err != nil {
 		return wire.T005PageManifest{}, err
 	}
-	_, format, err := s.cat.ComicFormat(ctx, a.UserID, fileID, version) // authorize before anything else is judged
+	_, _, err = s.cat.ComicFormat(ctx, a.UserID, fileID, version) // authorize before anything else is judged
 	if err != nil {
 		return wire.T005PageManifest{}, err
 	}
@@ -131,12 +131,6 @@ func (s *Service) PrepareComicPages(ctx context.Context, a Actor, fileID, versio
 			return nil, nil, err
 		}
 		switch {
-		case format != "cbz":
-			// CBR and CB7 need a vetted Go archive dependency that is not approved yet (ADR-0067).
-			issues := wire.Raw([]wire.T005Issue{{Code: comics.CodeUnsupported, Detail: "Server-side " + format + " extraction is not available: no vetted Go archive library is approved yet."}})
-			if err := q.SetExtractionResult(ctx, sqlcgen.SetExtractionResultParams{ID: row.ID, Status: "unsupported", Pages: []byte("[]"), Issues: issues}); err != nil {
-				return nil, nil, err
-			}
 		case created || row.Status == "incomplete":
 			if !created {
 				if err := q.SetExtractionProcessing(ctx, row.ID); err != nil {

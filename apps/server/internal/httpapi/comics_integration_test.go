@@ -14,6 +14,7 @@ import (
 
 	"github.com/deranjer/ebooker/apps/server/internal/apitest"
 	"github.com/deranjer/ebooker/apps/server/internal/comics"
+	"github.com/deranjer/ebooker/apps/server/internal/comics/archivetest"
 	"github.com/deranjer/ebooker/apps/server/internal/seed"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
@@ -75,12 +76,34 @@ func TestComicPagesExtractionServingAndFailures(t *testing.T) {
 	})
 	bad := filepath.Join(c.root, "Hero", "evil.cbz")
 	writeZip(t, bad, map[string]string{"../escape.png": pngPage(2, 2), "1.png": pngPage(2, 2)})
+	// Real RAR5 and 7z archives (written by archivetest), and a damaged RAR that must fail visibly.
 	cbr := filepath.Join(c.root, "Hero", "issue2.cbr")
-	if err := os.WriteFile(cbr, []byte("Rar!\x1a\x07\x00 not extracted"), 0o644); err != nil {
+	if err := archivetest.WriteRAR5(cbr, []archivetest.RarEntry{{Name: "p/2.png", Data: []byte(pngPage(20, 20))}, {Name: "p/1.png", Data: []byte(pngPage(30, 30))}}); err != nil {
+		t.Fatal(err)
+	}
+	cb7 := filepath.Join(c.root, "Hero", "issue3.cb7")
+	if err := archivetest.WriteSevenZip(cb7, []archivetest.SevenEntry{{Name: "p/10.png", Data: []byte(pngPage(10, 10))}, {Name: "p/2.png", Data: []byte(pngPage(20, 20))}}, archivetest.SevenOpts{EncodeHeader: true}); err != nil {
+		t.Fatal(err)
+	}
+	broken := filepath.Join(c.root, "Hero", "issue4.cbr")
+	if err := os.WriteFile(broken, []byte("Rar!\x1a\x07\x01\x00 this is not a real archive"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	scanTwice(t, e, c.admin, c.lib)
-	good, evil, rar := c.edition(t, "CBZ"), c.edition(t, "CBZ"), c.edition(t, "CBR")
+	byFile := func(path string) wire.T005Edition {
+		t.Helper()
+		st, _ := os.Stat(path)
+		var all wire.T005Editions
+		e.Do("GET", "/editions?libraryId="+c.lib+"&size=200", c.userA, nil).JSON(t, &all)
+		for _, x := range all.Items {
+			if x.File.SizeBytes != nil && *x.File.SizeBytes == st.Size() && x.File.Format == filepath.Ext(path)[1:] {
+				return x
+			}
+		}
+		t.Fatalf("no edition for %s", path)
+		return wire.T005Edition{}
+	}
+	good, evil, rar, sevenEd, brokenEd := c.edition(t, "CBZ"), c.edition(t, "CBZ"), byFile(cbr), byFile(cb7), byFile(broken)
 	var eds wire.T005Editions
 	e.Do("GET", "/editions?libraryId="+c.lib, c.userA, nil).JSON(t, &eds)
 	for _, x := range eds.Items {
@@ -190,11 +213,31 @@ func TestComicPagesExtractionServingAndFailures(t *testing.T) {
 	if x := e.Do("GET", pagesPath(evil)+"/0", c.userA, nil); x.StatusCode != 409 || x.Code() != comics.CodeUnsupported {
 		t.Fatalf("hostile page: %d %s", x.StatusCode, x.Body)
 	}
-	// CBR is explicitly unsupported (no approved Go dependency) and enqueues nothing.
-	rp := e.Do("POST", pagesPath(rar), c.userA, extraction(rar.File.ContentVersion))
-	rp.JSON(t, &m)
-	if rp.StatusCode != 202 || m.State != "unsupported" || len(e.Queue.Extracts) != 0 {
-		t.Fatalf("cbr: %d %+v", rp.StatusCode, m)
+	// CBR and CB7 extract through the same bounded path (ADR-0072); a damaged RAR is explained, not guessed.
+	for _, c2 := range []struct {
+		ed     wire.T005Edition
+		pages  int
+		widths []int
+	}{{rar, 2, []int{30, 20}}, {sevenEd, 2, []int{20, 10}}} {
+		started := e.Do("POST", pagesPath(c2.ed), c.userA, extraction(c2.ed.File.ContentVersion))
+		started.JSON(t, &m)
+		if started.StatusCode != 202 || m.State != "processing" {
+			t.Fatalf("%s prepare: %d %+v", c2.ed.File.Format, started.StatusCode, m)
+		}
+		e.RunQueued()
+		e.Do("GET", pagesPath(c2.ed), c.userA, nil).JSON(t, &m)
+		if m.State != "ready" || len(m.Pages) != c2.pages || m.Pages[0].Width != c2.widths[0] || m.Pages[1].Width != c2.widths[1] {
+			t.Fatalf("%s manifest: %+v", c2.ed.File.Format, m)
+		}
+		if pg := e.Do("GET", pagesPath(c2.ed)+"/0", c.userA, nil); pg.StatusCode != 200 || pg.Header.Get("Content-Type") != "image/png" {
+			t.Fatalf("%s page: %d", c2.ed.File.Format, pg.StatusCode)
+		}
+	}
+	e.Do("POST", pagesPath(brokenEd), c.userA, extraction(brokenEd.File.ContentVersion))
+	e.RunQueued()
+	e.Do("GET", pagesPath(brokenEd), c.userA, nil).JSON(t, &m)
+	if m.State != "unsupported" || len(m.Pages) != 0 || len(m.Issues) != 1 {
+		t.Fatalf("damaged rar: %+v", m)
 	}
 	// A non-comic file is refused.
 	epubPath := filepath.Join(c.root, "Hero", "book.epub")

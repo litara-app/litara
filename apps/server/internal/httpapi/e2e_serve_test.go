@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/deranjer/ebooker/apps/server/internal/apitest"
+	"github.com/deranjer/ebooker/apps/server/internal/comics/archivetest"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
 	"github.com/deranjer/ebooker/apps/server/internal/seed"
 	"github.com/deranjer/ebooker/apps/server/internal/webui"
@@ -67,7 +68,19 @@ func comicFixtures(t *testing.T, dir string) {
 		"ComicInfo.xml": `<ComicInfo><Title>The Hostile Comic</Title></ComicInfo>`,
 		"../escape.png": solid(color.RGBA{1, 1, 1, 255}), "1.png": solid(color.RGBA{2, 2, 2, 255}),
 	})
-	if err := os.WriteFile(filepath.Join(dir, "legacy.cbr"), []byte("Rar! not extracted"), 0o644); err != nil {
+	// Real RAR5 (stored) and 7z archives with three colored pages named 1, 2 and 10, and a damaged RAR.
+	pages := []archivetest.RarEntry{{Name: "pages/10.png", Data: []byte(solid(color.RGBA{0, 0, 255, 255}))}, {Name: "pages/2.png", Data: []byte(solid(color.RGBA{0, 255, 0, 255}))}, {Name: "pages/1.png", Data: []byte(solid(color.RGBA{255, 0, 0, 255}))}}
+	if err := archivetest.WriteRAR5(filepath.Join(dir, "legacy.cbr"), pages); err != nil {
+		t.Fatal(err)
+	}
+	var seven []archivetest.SevenEntry
+	for _, e := range pages {
+		seven = append(seven, archivetest.SevenEntry{Name: e.Name, Data: e.Data})
+	}
+	if err := archivetest.WriteSevenZip(filepath.Join(dir, "seven.cb7"), seven, archivetest.SevenOpts{EncodeHeader: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "damaged.cbr"), append([]byte{'R', 'a', 'r', '!', 0x1a, 0x07, 0x01, 0x00}, []byte("not a real archive")...), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
