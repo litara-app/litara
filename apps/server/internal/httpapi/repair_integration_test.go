@@ -204,8 +204,17 @@ func TestRecordingRepairMergeSplitAndRetainedState(t *testing.T) {
 	if w.StatusCode != 412 || wp["code"] != "recording_repaired" || wp["conflictId"] == nil || wp["successorRecordingIds"].([]any)[0] != succ {
 		t.Fatalf("old write: %d %s", w.StatusCode, w.Body)
 	}
+	// The repair errors and conflict reasons must be exactly what contracts/t003 documents.
+	requireDeclared(t, "Problem", problemMap(t, old))
+	requireDeclared(t, "Problem", wp)
+	if wp["code"] == "recording_repaired" {
+		requireEnum(t, "Conflict", "reason", "recording_repaired")
+	}
 	var oldState wire.PositionState
 	e.Do("GET", "/recordings/"+tf.ID+"/position", a, nil).JSON(t, &oldState)
+	for _, c := range append(append([]wire.Conflict{}, oldState.UnresolvedConflicts...), st.UnresolvedConflicts...) {
+		requireEnum(t, "Conflict", "reason", c.Reason) // includes repair_source candidates
+	}
 	if oldState.Revision != "1" || oldState.Position.Value == nil || oldState.Position.Value.OffsetMs != 5000 || len(oldState.UnresolvedConflicts) != 1 {
 		t.Fatalf("retained source state or candidate lost: %+v", oldState)
 	}

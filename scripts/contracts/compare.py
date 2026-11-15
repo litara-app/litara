@@ -93,11 +93,6 @@ else:
 DEVIATIONS = {
     'UpdateUser.minProperties': 'enforced by the handler (422 validation_failed); Huma has no minProperties tag',
     'Problem.additionalProperties': 'Problem is a closed typed struct in Huma; the contract leaves it open',
-    # Additive T005 repair values (contracts/t005/README.md, "update the T003 contract/fixtures"). The T003
-    # contract is outside this task's scope, so the coordinator must add them there; until then they are listed here.
-    'Conflict.reason.enum': 'additive T005 repair reasons recording_repaired and repair_source (T003 contract update pending)',
-    'PositionState.unresolvedConflicts[].reason.enum': 'additive T005 repair reasons recording_repaired and repair_source (T003 contract update pending)',
-    'Problem.current.unresolvedConflicts[].reason.enum': 'additive T005 repair reasons recording_repaired and repair_source (T003 contract update pending)',
 }
 
 errors, notes = [], []

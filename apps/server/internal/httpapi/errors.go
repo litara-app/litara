@@ -35,11 +35,13 @@ type Problem struct {
 	Current               *wire.PositionState   `json:"current,omitempty"`
 	CurrentCompletion     *wire.CompletionState `json:"currentCompletion,omitempty"`
 	CurrentLayoutRevision string                `json:"currentLayoutRevision,omitempty" format:"uuid"`
+	// SuccessorRecordingIDs is present only on recording_repaired errors (T003 Problem, additive).
+	SuccessorRecordingIDs []wire.UUIDStr `json:"successorRecordingIds,omitempty" maxItems:"100"`
 
 	headers http.Header
-	// t005 carries T005 conflict members (currentRevision, currentContentVersion,
-	// successorRecordingIds). They are written by MarshalJSON so the generated
-	// T003 Problem schema is unchanged; T005Problem documents them.
+	// t005 carries the T005 conflict members currentRevision and currentContentVersion.
+	// They are written by MarshalJSON so the generated T003 Problem schema does not grow
+	// them; T005Problem documents them.
 	t005 map[string]any
 }
 
@@ -180,7 +182,9 @@ func (a *API) toProblem(ctx context.Context, err error) *Problem {
 				_ = json.Unmarshal(raw, &p.CurrentCompletion)
 			case "currentLayoutRevision":
 				_ = json.Unmarshal(raw, &p.CurrentLayoutRevision)
-			case "currentRevision", "currentContentVersion", "successorRecordingIds":
+			case "successorRecordingIds":
+				_ = json.Unmarshal(raw, &p.SuccessorRecordingIDs)
+			case "currentRevision", "currentContentVersion":
 				if p.t005 == nil {
 					p.t005 = map[string]any{}
 				}

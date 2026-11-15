@@ -702,5 +702,132 @@
       "finalPosition": null
     },
     "valid": true
+  },
+  {
+    "schema": "Problem",
+    "name": "recording-repaired-read",
+    "value": {
+      "type": "urn:litara:problem:recording_repaired",
+      "title": "recording_repaired",
+      "status": 409,
+      "detail": "Synthetic contract fixture; no private data",
+      "requestId": "00000000-0000-4000-8000-000000000800",
+      "code": "recording_repaired",
+      "successorRecordingIds": [
+        "00000000-0000-4000-8000-000000000910"
+      ]
+    },
+    "valid": true
+  },
+  {
+    "schema": "Problem",
+    "name": "recording-repaired-write",
+    "value": {
+      "type": "urn:litara:problem:recording_repaired",
+      "title": "recording_repaired",
+      "status": 412,
+      "detail": "Synthetic contract fixture; no private data",
+      "requestId": "00000000-0000-4000-8000-000000000800",
+      "code": "recording_repaired",
+      "conflictId": "00000000-0000-4000-8000-000000000702",
+      "successorRecordingIds": [
+        "00000000-0000-4000-8000-000000000910",
+        "00000000-0000-4000-8000-000000000911"
+      ]
+    },
+    "valid": true
+  },
+  {
+    "schema": "Problem",
+    "name": "recording-repaired-no-grant",
+    "value": {
+      "type": "urn:litara:problem:recording_repaired",
+      "title": "recording_repaired",
+      "status": 409,
+      "detail": "Synthetic contract fixture; no private data",
+      "requestId": "00000000-0000-4000-8000-000000000800",
+      "code": "recording_repaired",
+      "successorRecordingIds": []
+    },
+    "valid": true
+  },
+  {
+    "schema": "Problem",
+    "name": "successors-not-uuid",
+    "value": {
+      "type": "urn:litara:problem:recording_repaired",
+      "title": "recording_repaired",
+      "status": 409,
+      "detail": "Synthetic contract fixture; no private data",
+      "requestId": "00000000-0000-4000-8000-000000000800",
+      "code": "recording_repaired",
+      "successorRecordingIds": [
+        "not-a-uuid"
+      ]
+    },
+    "valid": false
+  },
+  {
+    "schema": "Conflict",
+    "name": "reason-recording_repaired",
+    "value": {
+      "id": "00000000-0000-4000-8000-000000000703",
+      "reason": "recording_repaired",
+      "candidate": {
+        "fileId": "00000000-0000-4000-8000-000000000301",
+        "contentVersion": "00000000-0000-4000-8000-000000000401",
+        "offsetMs": 10000,
+        "capturedAt": "2026-11-13T12:00:00Z",
+        "layoutRevision": "00000000-0000-4000-8000-000000000200",
+        "receivedAt": "2026-11-13T12:00:00Z",
+        "deviceName": "Fixture phone A"
+      },
+      "baseRevision": "0",
+      "createdAt": "2026-11-13T12:00:00Z",
+      "resolvedAt": null
+    },
+    "valid": true
+  },
+  {
+    "schema": "Conflict",
+    "name": "reason-repair_source",
+    "value": {
+      "id": "00000000-0000-4000-8000-000000000704",
+      "reason": "repair_source",
+      "candidate": {
+        "fileId": "00000000-0000-4000-8000-000000000301",
+        "contentVersion": "00000000-0000-4000-8000-000000000401",
+        "offsetMs": 10000,
+        "capturedAt": "2026-11-13T12:00:00Z",
+        "layoutRevision": "00000000-0000-4000-8000-000000000200",
+        "receivedAt": "2026-11-13T12:00:00Z",
+        "deviceName": "Fixture phone A"
+      },
+      "baseRevision": "0",
+      "createdAt": "2026-11-13T12:00:00Z",
+      "resolvedAt": null
+    },
+    "valid": true
+  },
+  {
+    "schema": "Conflict",
+    "name": "reason-unknown",
+    "value": {
+      "id": "00000000-0000-4000-8000-000000000700",
+      "reason": "made_up",
+      "candidate": {
+        "fileId": "00000000-0000-4000-8000-000000000301",
+        "contentVersion": "00000000-0000-4000-8000-000000000401",
+        "offsetMs": 10000,
+        "capturedAt": "2026-11-13T12:00:00Z",
+        "layoutRevision": "00000000-0000-4000-8000-000000000200",
+        "receivedAt": "2026-11-13T12:00:00Z",
+        "deviceName": "Fixture phone A"
+      },
+      "baseRevision": "0",
+      "createdAt": "2026-11-13T12:00:00Z",
+      "resolvedAt": null
+    },
+    "valid": false
   }
 ]
