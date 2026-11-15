@@ -305,6 +305,12 @@ func (s *Service) RemoveEditionMetadata(ctx context.Context, a Actor, id uuid.UU
 	return out, json.Unmarshal(body, &out)
 }
 
+// closeGroupingReview closes the open "same title and authors without an identifier" review of an edition once an
+// administrator has decided its title link from the edition page.
+func (s *Service) closeGroupingReview(ctx context.Context, q *sqlcgen.Queries, ed sqlcgen.Edition) error {
+	return q.CloseReviewByKey(ctx, sqlcgen.CloseReviewByKeyParams{LibraryID: ed.LibraryID, Kind: "grouping", SubjectKey: "edition-title:" + ed.FileID.String(), Now: s.now()})
+}
+
 // LinkEditionTitle moves an edition to another title of the same library, or
 // (titleId null) separates it into a new title built from its effective metadata.
 func (s *Service) LinkEditionTitle(ctx context.Context, a Actor, id uuid.UUID, w wire.T005EditionLink) (wire.T005Edition, error) {
@@ -340,7 +346,10 @@ func (s *Service) LinkEditionTitle(ctx context.Context, a Actor, id uuid.UUID, w
 			if !held {
 				return nil, apperr.Validation("That title is not represented in this edition's library.")
 			}
-			return nil, q.SetEditionTitle(ctx, sqlcgen.SetEditionTitleParams{ID: id, TitleID: *target})
+			if err := q.SetEditionTitle(ctx, sqlcgen.SetEditionTitleParams{ID: id, TitleID: *target}); err != nil {
+				return nil, err
+			}
+			return nil, s.closeGroupingReview(ctx, q, ed) // deciding here also settles the open review item
 		}
 		if n, err := q.CountTitleChildren(ctx, ed.TitleID); err != nil {
 			return nil, err
@@ -382,7 +391,10 @@ func (s *Service) LinkEditionTitle(ctx context.Context, a Actor, id uuid.UUID, w
 		if err := q.InsertPlainTitle(ctx, sqlcgen.InsertPlainTitleParams{ID: nt, Title: name, Authors: authors, SeriesName: series, SeriesIndex: index}); err != nil {
 			return nil, err
 		}
-		return nil, q.SetEditionTitle(ctx, sqlcgen.SetEditionTitleParams{ID: id, TitleID: nt})
+		if err := q.SetEditionTitle(ctx, sqlcgen.SetEditionTitleParams{ID: id, TitleID: nt}); err != nil {
+			return nil, err
+		}
+		return nil, s.closeGroupingReview(ctx, q, ed)
 	}, func(q *sqlcgen.Queries) ([]byte, error) {
 		e, err := s.cat.EditionTx(ctx, q, a.UserID, id)
 		return wire.Raw(e), err

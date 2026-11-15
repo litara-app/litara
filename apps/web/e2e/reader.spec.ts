@@ -12,7 +12,9 @@ async function signIn(page: Page) {
 
 async function openBook(page: Page) {
   await page.goto("/");
-  await page.getByText("The Browser Novel").click();
+  await page.getByLabel("Search").fill("The Browser Novel"); // the library is paged: search, do not hope it is on page one
+  await expect(page.getByTestId("title-card").filter({ hasNotText: "The Browser Novel" })).toHaveCount(0, { timeout: 15_000 }); // only matches remain: the list has settled
+  await page.getByText("The Browser Novel", { exact: true }).first().click();
   await page.getByText(/EPUB/).first().click();
   await page.getByRole("link", { name: "Read" }).click();
   await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });

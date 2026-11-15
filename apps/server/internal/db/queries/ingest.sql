@@ -210,3 +210,9 @@ WHERE id = $1 AND state = 'resolved' AND resolution->>'auto' = 'true' RETURNING 
 
 -- name: ListScanRuns :many
 SELECT * FROM scan_runs WHERE library_id = $1 ORDER BY created_at DESC, id LIMIT 20;
+
+-- name: GetEditionByFileID :one
+SELECT * FROM editions WHERE file_id = $1;
+
+-- name: ConfirmEditionLink :exec
+UPDATE editions SET link_state = 'confirmed' WHERE id = $1;

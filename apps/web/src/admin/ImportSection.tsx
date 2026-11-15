@@ -101,7 +101,7 @@ export function WritebackSection({ backupsOn }: { backupsOn: boolean }) {
         <Card withBorder data-testid="writeback-plan">
           <Stack gap="xs">
             <Group justify="space-between"><Text fw={500} style={{ wordBreak: "break-all" }}>{w.kind} to <Code>{w.target}</Code></Text><Badge data-testid="writeback-stage">{w.stage}</Badge></Group>
-            <Code block style={{ maxHeight: 200, overflow: "auto" }}>{JSON.stringify(w.diff, null, 2)}</Code>
+            <Code block tabIndex={0} role="region" aria-label="Details (scrollable)" style={{ maxHeight: 200, overflow: "auto" }}>{JSON.stringify(w.diff, null, 2)}</Code>
             {w.detail && <Text size="sm" c="red">{w.detail}</Text>}
             <Group>
               {w.stage === "planned" && <Button loading={approve.isPending} onClick={() => approve.mutate()}>Approve exactly this diff</Button>}

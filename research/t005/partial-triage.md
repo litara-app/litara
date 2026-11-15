@@ -2,14 +2,10 @@
 
 Proposal for the owner's review. Nothing here is accepted or assigned. "T005" means required behavior that stays in this package; "Decision" means a policy or scope question that needs the owner; "T007" means hardware, NAS, Android or real-device acceptance that the T005 assignment defers. Sizes are rough (S = a test or two, M = a feature-sized change plus tests).
 
-Of the 18 scenarios that were partial at the final review, twelve are now covered (`grant-revocation`, `web-cookie-csrf`, `reader-bridge-forgery`, `annotation-format-matrix`, `scan-editions`, `edition-replacement`, `manual-ebook-finish`, `smart-viewer-state`, `archive-restart-cache`, `cfi-reflow`, `shelf-concurrency`, `audio-web-flow`). Six remain partial.
+Of the 18 scenarios that were partial at the final review, sixteen are now covered. Two remain partial, both deferred to T007 (screen-reader and real-device accessibility checks; real-world files).
 
 | Scenario | What is missing | Proposed owner | Size |
 | --- | --- | --- | --- |
-| `shared-shelf-permissions` | Automated browser test of the shelf screens (API coverage is thorough). | T005 | M |
-| `repair-split` | Browser test of the split flow (API tested with competing plans). | T005 | M |
-| `same-origin-fallback` | `PUBLIC_PATH_PREFIX` is not applied to web serving; the Vite development proxy with CSRF is untested. | T005 (the scenario is ADR-0069 behavior) | M |
-| `metadata-import-management` | Browser tests of protected edits, clears and review lists (import and write-back status are covered). | T005 | M |
 | `accessibility-responsive` | Screen-reader and real-device checks; axe cannot scan inside the cross-origin reader frame. | T007 for devices and screen readers; T005 may add checks of the reader controls | — |
 | `format-corpus` | Real-world files (large, messy), KEPUB Kobo spans, real compressed RAR5 or solid archives (CBR/CB7 work on generated archives and one real RAR4; MOBI/AZW3 resume is now tested on generated files). | T007 for real-world files | — |
 
@@ -19,3 +15,7 @@ Of the 18 scenarios that were partial at the final review, twelve are now covere
 
 ## Decisions recorded (2026-11-15)
 The owner chose: build PDF text selection (done, three browsers); implement the minimal engine-profile mismatch check (done); add a Mark-finished control to the reader menu (done); research CBR/CB7 libraries and propose (ADR-0072; the owner then chose CBR and CB7 together, MPL-2.0 acceptable, a 128 MiB dictionary ceiling and an in-repo RAR5 writer for fixtures, and the ADR is Accepted and implemented).
+
+## Remaining T005 partials closed (2026-11-15)
+Shelf permissions, the repair split, the T004 metadata/review screens and the same-origin fallback now have browser or real-HTTP evidence (see `research/t005/coverage.md`). The browser review of the metadata screens found a real server defect: reviews about an ebook or comic edition that looks like an existing title (`edition-title:` keys) could not be decided from the review list. They now accept keep-separate and link; deciding a title link from the edition page closes the review; the review screen offers only the actions that apply.
+Serving the web app under a path prefix remains unimplemented. It would need a `<base>` element and therefore a CSP change (`base-uri` is `none`); that is an architectural choice that needs its own ADR, so it was not done.

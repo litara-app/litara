@@ -212,6 +212,36 @@ func (s *Scanner) resolveOrdering(ctx context.Context, lib uuid.UUID, item sqlcg
 
 func (s *Scanner) resolveGrouping(ctx context.Context, lib uuid.UUID, item sqlcgen.ReviewItem, in Resolution) error {
 	q := sqlcgen.New(s.Pool)
+	// An ebook or comic edition that shares title and authors with an existing title but no identifier.
+	if fid, isEdition := strings.CutPrefix(item.SubjectKey, "edition-title:"); isEdition {
+		fileID, perr := uuid.Parse(fid)
+		if perr != nil {
+			return apperr.New(http.StatusConflict, "review_stale", "The edition no longer exists.")
+		}
+		ed, err := q.GetEditionByFileID(ctx, fileID)
+		if err != nil {
+			return apperr.New(http.StatusConflict, "review_stale", "The edition no longer exists.")
+		}
+		switch in.Action {
+		case "keep_separate":
+			return q.ConfirmEditionLink(ctx, ed.ID)
+		case "link":
+			var c struct {
+				Existing []string `json:"existingTitles"`
+			}
+			_ = json.Unmarshal(item.Candidates, &c)
+			target, perr := uuid.Parse(in.TitleID)
+			if perr != nil || !contains(c.Existing, in.TitleID) {
+				return bad("titleId must be one of the candidate titles")
+			}
+			old := ed.TitleID
+			if err := q.SetEditionTitle(ctx, sqlcgen.SetEditionTitleParams{ID: ed.ID, TitleID: target}); err != nil {
+				return apperr.ErrUnavailable
+			}
+			return q.DeleteTitleIfUnused(ctx, old)
+		}
+		return bad("action must be link or keep_separate")
+	}
 	if key, isTitle := strings.CutPrefix(item.SubjectKey, "title:"); isTitle {
 		rec, err := q.GetRecordingByGroupKey(ctx, sqlcgen.GetRecordingByGroupKeyParams{LibraryID: lib, GroupKey: &key})
 		if err != nil {

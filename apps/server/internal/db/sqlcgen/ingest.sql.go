@@ -53,6 +53,15 @@ func (q *Queries) CloseReviewByKey(ctx context.Context, arg CloseReviewByKeyPara
 	return err
 }
 
+const confirmEditionLink = `-- name: ConfirmEditionLink :exec
+UPDATE editions SET link_state = 'confirmed' WHERE id = $1
+`
+
+func (q *Queries) ConfirmEditionLink(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, confirmEditionLink, id)
+	return err
+}
+
 const confirmRecordingLink = `-- name: ConfirmRecordingLink :exec
 UPDATE recordings SET link_state = 'confirmed' WHERE id = $1
 `
@@ -152,6 +161,28 @@ func (q *Queries) FinishScanRun(ctx context.Context, arg FinishScanRunParams) er
 		arg.Now,
 	)
 	return err
+}
+
+const getEditionByFileID = `-- name: GetEditionByFileID :one
+SELECT id, title_id, library_id, file_id, revision, label, language, format, link_state, created_at FROM editions WHERE file_id = $1
+`
+
+func (q *Queries) GetEditionByFileID(ctx context.Context, fileID uuid.UUID) (Edition, error) {
+	row := q.db.QueryRow(ctx, getEditionByFileID, fileID)
+	var i Edition
+	err := row.Scan(
+		&i.ID,
+		&i.TitleID,
+		&i.LibraryID,
+		&i.FileID,
+		&i.Revision,
+		&i.Label,
+		&i.Language,
+		&i.Format,
+		&i.LinkState,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getRecordingByGroupKey = `-- name: GetRecordingByGroupKey :one

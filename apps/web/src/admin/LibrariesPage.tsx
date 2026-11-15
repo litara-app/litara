@@ -47,12 +47,19 @@ export function LibrariesPage() {
 }
 
 const ACTIONS: Record<string, string[]> = {
-  move: ["keep_separate", "move"], ordering: ["order"], grouping: ["keep_separate", "link", "group_as_one"], association: ["choose"],
+  move: ["keep_separate", "move"], ordering: ["order"], association: ["choose"],
 };
+
+/** What the server accepts depends on what the review is about: a work that looks like an existing title can be kept
+ *  separate or linked; files of one folder that name different albums can only be grouped as one recording. */
+function actionsFor(r: Review): string[] {
+  if (r.kind === "grouping") return r.subjectKey.startsWith("title:") || r.subjectKey.startsWith("edition-title:") ? ["keep_separate", "link"] : ["group_as_one"];
+  return ACTIONS[r.kind] ?? [];
+}
 
 function ReviewRow({ lib, r }: { lib: string; r: Review }) {
   const qc = useQueryClient();
-  const actions = ACTIONS[r.kind] ?? [];
+  const actions = actionsFor(r);
   const [action, setAction] = useState<string | null>(actions[0] ?? null);
   const [f, setF] = useState({ missingFileId: "", newPath: "", titleId: "", path: "", index: "0", files: "" });
   const resolve = useMutation({
@@ -71,7 +78,7 @@ function ReviewRow({ lib, r }: { lib: string; r: Review }) {
       <Stack gap="xs">
         <Group justify="space-between"><Badge>{r.kind}</Badge><Text size="xs" c="dimmed">{new Date(r.createdAt).toLocaleString()}</Text></Group>
         <Text size="sm" fw={500} style={{ wordBreak: "break-all" }}>{r.subjectKey}</Text>
-        <Code block style={{ maxHeight: 160, overflow: "auto" }}>{JSON.stringify(r.candidates, null, 2)}</Code>
+        <Code block tabIndex={0} role="region" aria-label="Details (scrollable)" style={{ maxHeight: 160, overflow: "auto" }}>{JSON.stringify(r.candidates, null, 2)}</Code>
         {actions.length === 0 ? <Text size="sm" c="dimmed">This kind of review is resolved elsewhere.</Text> : (
           <Group align="flex-end" gap="xs">
             <Select size="xs" label="Decision" allowDeselect={false} value={action} onChange={setAction} data={actions} />

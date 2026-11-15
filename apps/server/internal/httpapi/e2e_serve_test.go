@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/deranjer/ebooker/apps/server/internal/apitest"
 	"github.com/deranjer/ebooker/apps/server/internal/comics/archivetest"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
@@ -110,8 +112,12 @@ func TestE2EServe(t *testing.T) {
 	}
 	const app, reader = "http://127.0.0.1:8091", "http://localhost:8092"
 	origins := webui.Origins{App: app, Reader: reader}
+	allowed := []string{app}
+	if dev := os.Getenv("LITARA_E2E_DEV_ORIGIN"); dev != "" { // the Vite dev server, for the dev-proxy test
+		allowed = append(allowed, dev)
+	}
 	e := apitest.New(t, apitest.Options{
-		Cfg: httpapi.APIConfig{DevInsecureHTTP: true, AllowedOrigins: []string{app}},
+		Cfg: httpapi.APIConfig{DevInsecureHTTP: true, AllowedOrigins: allowed},
 		Web: webui.App(os.DirFS(webDir), origins),
 	})
 	root, _ := filepath.Abs(filepath.Join(e.Cfg.MediaRoot, "ebooks"))
@@ -128,6 +134,14 @@ func TestE2EServe(t *testing.T) {
 	novel(t, filepath.Join(root, "Eve Tester", "novel.epub"))
 	comicFixtures(t, filepath.Join(root, "Hero"))
 	novelTitled(t, filepath.Join(root, "Eve Tester", "replaceable.epub"), "The Replaceable") // replaced on disk by the edition-replacement browser test
+	// Same title and author in an EPUB (with an identifier) and an FB2 (without one): the FB2 stays a separate,
+	// provisional work and raises a grouping review for the administrator.
+	novelTitled(t, filepath.Join(root, "Twin", "twin.epub"), "The Twin")
+	_ = os.MkdirAll(filepath.Join(root, "Twin"), 0o755)
+	if err := os.WriteFile(filepath.Join(root, "Twin", "twin.fb2"), []byte(`<?xml version="1.0" encoding="utf-8"?><FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"><description><title-info>`+
+		`<author><first-name>Eve</first-name><last-name>Tester</last-name></author><book-title>The Twin</book-title><lang>en</lang></title-info></description><body><section><p>Twin text.</p></section></body></FictionBook>`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	// Two editions of one work (same ISBN, title and author), for the explicit-finish sibling check.
 	novelTitled(t, filepath.Join(root, "Pair", "pair-a.epub"), "The Pair")
 	novelTitled(t, filepath.Join(root, "Pair", "pair-b.epub"), "The Pair")
@@ -189,24 +203,50 @@ func TestE2EServe(t *testing.T) {
 	}
 	serve("127.0.0.1:8091", e.Handler)
 	serve("127.0.0.1:8092", webui.Reader(os.DirFS(filepath.Join(webDir, "reader")), origins))
-	// Run queued comic extractions as the River worker would.
+	// Run queued scans, comic extractions and imports as the River worker would. The test queue records a job the
+	// moment a handler enqueues it, which is before that request's transaction commits (River's enqueue only becomes
+	// visible on commit). Running a job in that gap would find no row and silently drop it, so each job waits a
+	// moment after it is first seen; by then the request has finished.
+	const settle = 600 * time.Millisecond
 	stop := make(chan struct{})
 	t.Cleanup(func() { close(stop) })
 	go func() {
+		type job struct {
+			kind string
+			id   uuid.UUID
+		}
+		seen := map[job]time.Time{}
 		for {
 			select {
 			case <-stop:
 				return
-			case <-time.After(300 * time.Millisecond):
-				for _, id := range e.Queue.DrainScans() { // scans requested by browser tests; the clock moves on so files count as stable
-					_, _ = e.Scanner.Run(context.Background(), id)
-					e.Clock.Advance(time.Minute)
+			case <-time.After(200 * time.Millisecond):
+				now := time.Now()
+				for _, id := range e.Queue.DrainScans() {
+					seen[job{"scan", id}] = now
 				}
 				for _, id := range e.Queue.DrainExtracts() {
-					_ = e.Reading.RunExtraction(context.Background(), id)
+					seen[job{"extract", id}] = now
 				}
 				for _, id := range e.Queue.DrainImports() {
-					_ = e.Importer.Execute(context.Background(), id)
+					seen[job{"import", id}] = now
+				}
+				for j, first := range seen {
+					if now.Sub(first) < settle {
+						continue
+					}
+					delete(seen, j)
+					switch j.kind {
+					case "scan": // the clock moves on so files count as stable
+						_, _ = e.Scanner.Run(context.Background(), j.id)
+						e.Clock.Advance(time.Minute)
+					case "extract":
+						if err := e.Reading.RunExtraction(context.Background(), j.id); err != nil {
+							fmt.Println("E2E extraction", j.id, "failed:", err)
+						}
+					case "import":
+						_ = e.Importer.Execute(context.Background(), j.id)
+					}
 				}
 			}
 		}

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/deranjer/ebooker/apps/server/internal/apitest"
 	"github.com/deranjer/ebooker/apps/server/internal/seed"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
@@ -129,5 +131,92 @@ func TestMixedFormatScanKeepsWorksDistinct(t *testing.T) {
 	}
 	if grouping == 0 {
 		t.Fatalf("no grouping review for same-text provisional titles: %+v", rv.Items)
+	}
+
+	// An edition's grouping review can be decided from the review list (it used to fall into the mixed-album branch).
+	editionReviews := func() []wire.Review {
+		var l wire.ReviewList
+		e.Do("GET", "/admin/libraries/"+lib+"/reviews", admin, nil).JSON(t, &l)
+		var out []wire.Review
+		for _, r := range l.Items {
+			if r.Kind == "grouping" && strings.HasPrefix(r.SubjectKey, "edition-title:") {
+				out = append(out, r)
+			}
+		}
+		return out
+	}
+	open := editionReviews()
+	if len(open) == 0 {
+		t.Fatal("no edition grouping review to decide")
+	}
+	target := open[0]
+	resolve := func(body map[string]any) apitest.Response {
+		return e.Do("POST", "/admin/libraries/"+lib+"/reviews/"+target.ID+"/resolve", admin, body)
+	}
+	if x := resolve(map[string]any{"action": "link", "titleId": "00000000-0000-4000-8000-00000000dead"}); x.StatusCode != 422 {
+		t.Fatalf("a link to a title that is not a candidate must be refused: %d %s", x.StatusCode, x.Body)
+	}
+	if x := resolve(map[string]any{"action": "group_as_one"}); x.StatusCode != 422 {
+		t.Fatalf("an action that does not apply to an edition review must be refused: %d %s", x.StatusCode, x.Body)
+	}
+	if len(editionReviews()) != len(open) {
+		t.Fatal("a refused decision closed the review")
+	}
+	if x := resolve(map[string]any{"action": "keep_separate"}); x.StatusCode >= 300 {
+		t.Fatalf("keep_separate: %d %s", x.StatusCode, x.Body)
+	}
+	if len(editionReviews()) != len(open)-1 {
+		t.Fatal("the decided review is still open")
+	}
+}
+
+// Deciding an edition's title link from the edition page also settles its open grouping review.
+func TestEditionLinkFromTheEditionPageClosesItsGroupingReview(t *testing.T) {
+	e := apitest.New(t)
+	root, _ := filepath.Abs(filepath.Join(e.Cfg.MediaRoot, "ebooks"))
+	_ = os.MkdirAll(root, 0o755)
+	admin := e.Login(seed.AdminName, "cli").AccessToken
+	d := setupLibrary(t, e, admin, root)
+	lib := d.Library.ID
+	epubIn(t, filepath.Join(root, "A", "linked.epub"), "Linked Work", "Ann Author", "978-0-306-40615-7", "en")
+	_ = os.MkdirAll(filepath.Join(root, "B"), 0o755)
+	_ = os.WriteFile(filepath.Join(root, "B", "linked.fb2"), []byte(`<?xml version="1.0" encoding="utf-8"?><FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"><description><title-info>`+
+		`<author><first-name>Ann</first-name><last-name>Author</last-name></author><book-title>Linked Work</book-title><lang>en</lang></title-info></description><body><section><p>x</p></section></body></FictionBook>`), 0o644)
+	scanTwice(t, e, admin, lib)
+
+	var eds wire.T005Editions
+	e.Do("GET", "/editions?libraryId="+lib+"&size=50", admin, nil).JSON(t, &eds)
+	var epubEd, fb2Ed wire.T005Edition
+	for _, ed := range eds.Items {
+		switch ed.File.Format {
+		case "epub":
+			epubEd = ed
+		case "fb2":
+			fb2Ed = ed
+		}
+	}
+	if epubEd.ID == "" || fb2Ed.ID == "" || epubEd.TitleID == fb2Ed.TitleID {
+		t.Fatalf("expected two separate works: %+v", eds.Items)
+	}
+	count := func() int {
+		var l wire.ReviewList
+		e.Do("GET", "/admin/libraries/"+lib+"/reviews", admin, nil).JSON(t, &l)
+		n := 0
+		for _, r := range l.Items {
+			if r.Kind == "grouping" && strings.HasPrefix(r.SubjectKey, "edition-title:") {
+				n++
+			}
+		}
+		return n
+	}
+	if count() != 1 {
+		t.Fatalf("expected one open edition review, got %d", count())
+	}
+	x := e.Do("PUT", "/admin/editions/"+fb2Ed.ID+"/title", admin, map[string]any{"operationId": uuid.NewString(), "baseRevision": fb2Ed.Revision, "titleId": epubEd.TitleID})
+	if x.StatusCode != 200 {
+		t.Fatalf("link from the edition page: %d %s", x.StatusCode, x.Body)
+	}
+	if count() != 0 {
+		t.Fatal("linking from the edition page left the review open")
 	}
 }

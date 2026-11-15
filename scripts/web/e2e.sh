@@ -7,12 +7,12 @@
 # Playwright browsers (set LITARA_INSTALL_BROWSERS=1 to install chromium/firefox/webkit
 # first). Calibre's ebook-convert is optional: without it the MOBI/AZW3 rows are reported
 # as "not generated" in the format matrix rather than failing.
-# Ports 8091 and 8092 must be free. Extra arguments go to `playwright test`.
+# Ports 8091, 8092 and 5174 must be free. Extra arguments go to `playwright test`.
 set -euo pipefail
 : "${LITARA_TEST_DATABASE_URL:?set LITARA_TEST_DATABASE_URL to a PostgreSQL superuser URL}"
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/ports.sh"
-require_free_ports 8091 8092
+require_free_ports 8091 8092 5174
 command -v ffmpeg >/dev/null 2>&1 || { echo "error: ffmpeg is required (audio corpus and server media inspection)" >&2; exit 2; }
 py=""
 for c in python3 python py; do # run each candidate: on Windows `python3` can be a Store stub that exists but fails
