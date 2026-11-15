@@ -130,3 +130,47 @@ test("the reader can finish and unfinish the book explicitly, after a confirmati
   await expect(page.getByTestId("finished-badge")).toHaveCount(0, { timeout: 10_000 });
   expect((await completion()).finished).toBe(false);
 });
+
+test("finishing one of two editions of a work finishes only that edition and adds its own history", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const titles = (await (await page.request.get("/api/v1/titles?size=200")).json()).items as { id: string; title: string; editionCount: number }[];
+  const pair = titles.find((t) => t.title === "The Pair");
+  if (!pair) throw new Error("fixture 'The Pair' missing");
+  expect(pair.editionCount).toBe(2); // two editions of one work
+  const eds = ((await (await page.request.get(`/api/v1/editions?titleId=${pair.id}`)).json()) as { items: { id: string }[] }).items;
+  expect(eds).toHaveLength(2);
+  const [one, other] = eds;
+  const finished = async (id: string) => ((await (await page.request.get(`/api/v1/editions/${id}/completion`)).json()) as { finished: boolean }).finished;
+  const position = async (id: string) => ((await (await page.request.get(`/api/v1/editions/${id}/position`)).json()) as { revision: string }).revision;
+  expect(await finished(one.id)).toBe(false);
+  expect(await finished(other.id)).toBe(false);
+  const posBefore = [await position(one.id), await position(other.id)];
+  const history = async () => ((await (await page.request.get(`/api/v1/titles/${pair.id}/reading-history`)).json()) as { items: { event: string; editionId?: string }[] }).items;
+  const historyBefore = (await history()).length;
+
+  // Reading to the end does not finish anything: open the first edition and go to its last chapter.
+  await page.goto(`/read/${one.id}`);
+  await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
+  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("dialog").getByText("Chapter Three", { exact: true }).first().click();
+  expect(await finished(one.id)).toBe(false); // no automatic finish at the end of the book
+
+  // Explicit finish from the reader menu.
+  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Mark finished…" }).click();
+  await page.getByTestId("finish-confirm").click();
+  await expect(page.getByTestId("finished-badge")).toBeVisible({ timeout: 10_000 });
+  expect(await finished(one.id)).toBe(true);
+  expect(await finished(other.id)).toBe(false); // the sibling edition is untouched
+  expect(await position(other.id)).toBe(posBefore[1]);
+  const after = await history();
+  expect(after.length).toBe(historyBefore + 1); // exactly one new history entry, for the finish
+  expect(after.some((h) => h.event === "manual_finish")).toBe(true);
+
+  // Leave the shared server as found.
+  await page.getByRole("button", { name: "Mark unfinished…" }).click();
+  await page.getByTestId("finish-confirm").click();
+  await expect(page.getByTestId("finished-badge")).toHaveCount(0, { timeout: 10_000 });
+  expect(await finished(one.id)).toBe(false);
+});

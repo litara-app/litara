@@ -180,3 +180,53 @@ test("a book request never carries the session cookie into the reader frame", as
   expect(reader.every((c) => !c.includes("litara_session"))).toBe(true);
   expect((await context.cookies("http://localhost:8092")).length).toBe(0);
 });
+
+// cfi-reflow: a location saved at one text size and window shape resumes at the same text after a reload at a
+// different size and shape (the saved CFI names text, not a page number).
+test("a saved place resumes at the same text after the font size and window shape change", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page);
+  await openBook(page);
+  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("dialog").getByText("Chapter Two", { exact: true }).first().click();
+  await expect.poll(async () => (await sectionFrame(page)?.locator("body").innerText().catch(() => "")) ?? "", { timeout: 20_000 }).toContain("Chapter Two");
+  await page.getByRole("button", { name: "Next page" }).click();
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(page.getByTestId("save-status")).toHaveText("position saved", { timeout: 15_000 });
+  const savedCfi = ((await (await page.request.get(`/api/v1/editions/${editionId(page)}/position`)).json()) as { position: { anchor: { locator: { cfi: string } } } }).position.anchor.locator.cfi;
+
+  // Which paragraphs of chapter two are on screen right now (the section frame also holds the off-screen columns).
+  const visibleParagraphs = async (): Promise<number[]> => {
+    const f = await frameWith(page, "Chapter Two");
+    const vp = page.viewportSize()!;
+    const out: number[] = [];
+    for (let n = 1; n <= 60; n++) {
+      const box = await f.locator("p", { hasText: new RegExp(`^Paragraph ${n} of chapter Two`) }).first().boundingBox().catch(() => null);
+      if (box && box.x >= 0 && box.x + box.width <= vp.width + 1 && box.y >= 0 && box.y + box.height <= vp.height + 1) out.push(n);
+    }
+    return out;
+  };
+  await expect.poll(async () => (await visibleParagraphs()).length, { timeout: 15_000 }).toBeGreaterThan(0);
+  const firstBefore = (await visibleParagraphs())[0];
+  expect(firstBefore).toBeGreaterThan(1); // we really are past the start of the chapter
+
+  // A different text size and a narrower, taller window.
+  await page.getByRole("button", { name: "Aa" }).click();
+  const slider = page.getByRole("slider", { name: "Text size" });
+  await slider.focus();
+  for (let i = 0; i < 5; i++) await slider.press("ArrowRight");
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 760, height: 900 });
+  await page.reload();
+  await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
+  await expect.poll(async () => (await sectionFrame(page)?.locator("body").innerText().catch(() => "")) ?? "", { timeout: 20_000 }).toContain("Chapter Two");
+  await expect.poll(async () => (await visibleParagraphs()).includes(firstBefore), { timeout: 15_000, message: `paragraph ${firstBefore} should be on screen again after reflow (saved ${savedCfi})` }).toBe(true);
+
+  // Put the reader back as other specs expect it.
+  await page.getByRole("button", { name: "Aa" }).click();
+  const slider2 = page.getByRole("slider", { name: "Text size" });
+  await slider2.focus();
+  for (let i = 0; i < 5; i++) await slider2.press("ArrowLeft");
+  await page.keyboard.press("Escape");
+});

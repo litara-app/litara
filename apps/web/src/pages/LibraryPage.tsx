@@ -84,7 +84,9 @@ export function LibraryPage() {
             ))}
           </SimpleGrid>
           {titles.data!.total > SIZE && (
-            <Pagination total={Math.ceil(titles.data!.total / SIZE)} value={page + 1} onChange={(p) => set("page", String(p - 1))} />
+            <Pagination total={Math.ceil(titles.data!.total / SIZE)} value={page + 1} onChange={(p) => set("page", String(p - 1))}
+              getControlProps={(c) => ({ "aria-label": { first: "First page", previous: "Previous page", next: "Next page", last: "Last page" }[c] })}
+              getItemProps={(p) => ({ "aria-label": `Page ${p}` })} />
           )}
         </>
       )}

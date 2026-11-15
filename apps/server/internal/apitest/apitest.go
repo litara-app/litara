@@ -249,6 +249,15 @@ func (q *Queue) EnqueueExtract(_ context.Context, _ pgx.Tx, id uuid.UUID) error 
 	return nil
 }
 
+// DrainScans returns and clears the queued scan run IDs.
+func (q *Queue) DrainScans() []uuid.UUID {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	ids := q.Scans
+	q.Scans = nil
+	return ids
+}
+
 // DrainImports returns and clears the queued import plan IDs.
 func (q *Queue) DrainImports() []uuid.UUID {
 	q.mu.Lock()

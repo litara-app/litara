@@ -119,3 +119,37 @@ test("an unreadable recording is explained instead of offering broken controls",
   await expect(page.getByText("This recording cannot be played yet")).toBeVisible();
   await expect(page.getByTestId("play")).toBeDisabled();
 });
+
+test("playing to the natural end records a completion; nothing is finished by merely reaching a chapter", async ({ page, browserName }) => {
+  test.setTimeout(120_000);
+  await signIn(page);
+  const id = await recordingId(page);
+  const completion = async () => (await (await page.request.get(`/api/v1/recordings/${id}/completion`)).json()) as { finished: boolean; revision: string };
+  await page.goto(`/listen/${id}`);
+  const finish = page.getByRole("button", { name: /Mark (un)?finished/ });
+  if ((await finish.innerText()).includes("unfinished")) { // start unfinished (shared server)
+    await finish.click();
+    await expect.poll(async () => (await completion()).finished, { timeout: 15_000 }).toBe(false);
+  }
+  const historyBefore = ((await (await page.request.get("/api/v1/recordings/" + id)).json()) as { titleId: string }).titleId;
+  const events = async () => ((await (await page.request.get(`/api/v1/titles/${historyBefore}/history`)).json()) as { items: { event?: string; source?: string }[] }).items;
+  const countBefore = (await events()).length;
+
+  await page.getByTestId("chapter").nth(3).click(); // "Finale", about 160 s of 180 s
+  await expect.poll(() => secs(page)).toBeGreaterThanOrEqual(160);
+  expect((await completion()).finished).toBe(false); // reaching the last chapter finishes nothing
+
+  // Play on from the start of the finale (about 20 s before the end) and let it run out.
+  if ((await startPlayback(page)) === "unsupported") {
+    test.info().annotations.push({ type: "codec", description: `${browserName}: mp3 unsupported, natural end not driven` });
+    return;
+  }
+  await expect.poll(async () => (await completion()).finished, { timeout: 60_000, message: "the natural end must record a completion" }).toBe(true);
+  const after = await events();
+  expect(after.length).toBe(countBefore + 1); // exactly one new history entry
+  expect(JSON.stringify(after)).toContain("natural_end");
+
+  // Undo so the shared server is as found.
+  await page.getByRole("button", { name: /Mark unfinished/ }).click();
+  await expect.poll(async () => (await completion()).finished, { timeout: 15_000 }).toBe(false);
+});
