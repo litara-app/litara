@@ -57,7 +57,7 @@ Completed (2026-11-15, in this worktree):
 - API integration test: CBR and CB7 prepare, extract and serve pages; a damaged RAR ends as `unsupported` with an issue.
 - Browser (Chromium, Firefox, WebKit): CBR and CB7 open and page in natural order; a damaged CBR is explained.
 
-Not completed: real compressed RAR files (RAR3/RAR5, solid, PPM) were not tested, no sample files were obtained; large-archive memory and time were not measured; fuzzing was limited. These are listed in the audit.
+Also completed: one real compressed RAR4 comic supplied by the owner (68 JPEG pages, 0.48 s) extracted correctly through a skippable local test. Not completed: real RAR5, solid and PPM archives were not tested; large-archive memory and time were not measured; fuzzing was limited. These are listed in the audit.
 
 ## Open questions
 

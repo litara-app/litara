@@ -38,7 +38,7 @@ The v1 module `github.com/nwaples/rardecode` has an unfixed advisory (GO-2025-40
 
 ## Not tested or not covered
 
-- **Real compressed RAR files.** No RAR compressor was available and no sample files were downloaded, so RAR decoding was exercised only on RAR5 "store" archives written by `internal/comics/archivetest` plus header and dictionary refusals. Compressed RAR3/RAR5 (including solid and PPM) rests on the library's own test suite. A few real CBR files would close this.
+- **Real compressed RAR files: one tested.** The owner supplied a real 16 MB RAR4 comic (69 entries, 68 compressed, not solid); it extracted to 68 JPEG pages (1200x1558) in 0.48 s with about 4 MiB allocated, using `TestRealArchiveFromEnvironment` (skipped unless `LITARA_TEST_REAL_ARCHIVE` is set; the file is not in the repository). RAR5, solid, PPM and RAR3-with-VM-filter archives were not tested with real files; RAR5 is covered only by generated "store" archives from `internal/comics/archivetest`.
 - 7z coders other than copy, LZMA and LZMA2 (deflate, bzip2, delta, BCJ filters) are left at the library defaults; they use small fixed memory, but were not tested with hostile input here.
 - Fuzzing was limited to truncation and single-byte corruption of one real 7z.
 - Large-archive performance and memory use were not measured; the 120-second ceiling is enforced between entries and on every write, but not inside a single library skip of up to 100 MiB.
