@@ -6,6 +6,8 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Unit tests read the server's engine-profile constants to prove the two sides agree; never widened for `vite dev`.
+    fs: process.env.VITEST ? { allow: ["../.."] } : undefined,
     proxy: {
       "/api": "http://127.0.0.1:8080",
       "/healthz": "http://127.0.0.1:8080",

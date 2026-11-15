@@ -81,17 +81,20 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 	if !available {
 		resume = incomplete("file_unavailable", "The file is currently missing or unavailable.")
 	}
-	// The annotation API stores bookmarks and notes for any format. The server also
-	// accepts text highlights, but the web reader's selection bridge is not built, so
-	// selection stays incomplete rather than claiming support.
+	// The annotation API stores bookmarks and notes for any format. Text selection and highlighting
+	// are claimed only where the web reader's selection was browser-tested: EPUB (Foliate range
+	// CFIs) and PDF (PDF.js text layer, stored as rectangles) in Chromium, Firefox and WebKit.
 	annotate := supported()
 	if !available {
 		annotate = incomplete("file_unavailable", "The file is currently missing or unavailable.")
 	}
 	c := wire.T005Capabilities{Read: read, Download: download, Resume: resume, PageNote: annotate, Bookmark: annotate}
 	if text {
-		pending := incomplete("selection_untested", "The server stores highlights, but the web reader selection bridge is not implemented or browser-tested yet.")
-		c.TextSelection, c.TextHighlight = pending, pending
+		sel := incomplete("selection_untested", "Text selection in this format has not been browser-tested yet.")
+		if format == "epub" || format == "pdf" {
+			sel = supported()
+		}
+		c.TextSelection, c.TextHighlight = sel, sel
 	} else {
 		no := unsupported("image_pages", "Comic pages are images; there is no text to select.")
 		c.TextSelection, c.TextHighlight = no, no

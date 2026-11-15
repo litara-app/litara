@@ -80,3 +80,53 @@ test("ending the session closes the open reader and its book channel", async ({ 
   await expect(page).toHaveURL(/\/login/, { timeout: 20_000 });
   await expect(page.locator("iframe")).toHaveCount(0);
 });
+
+test("a server engine profile the page does not bundle disables restore, painting and saving, with an explicit message", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const { editionId } = await novel(page);
+  const revision = async () => ((await (await page.request.get(`/api/v1/editions/${editionId}/position`)).json()) as { revision: string }).revision;
+  const before = await revision();
+  await page.route(`**/api/v1/editions/${editionId}/reader`, async (route) => {
+    const res = await route.fetch();
+    const body = (await res.json()) as { engineProfile: string };
+    await route.fulfill({ response: res, json: { ...body, engineProfile: "foliate-js@some-other-build/profile-1" } });
+  });
+  await page.goto(`/read/${editionId}`);
+  await expect(page.getByTestId("profile-mismatch")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("profile-mismatch")).toContainText("Reload");
+  await expect(page.getByRole("button", { name: "Bookmark" })).toBeDisabled();
+  // Turn pages: no position may be written under a profile this page cannot vouch for.
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(3500); // longer than the position save delay
+  expect(await revision()).toBe(before);
+});
+
+test("the reader can finish and unfinish the book explicitly, after a confirmation, without moving the reading place", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page);
+  const { editionId } = await novel(page);
+  const completion = async () => (await (await page.request.get(`/api/v1/editions/${editionId}/completion`)).json()) as { finished: boolean };
+  if ((await completion()).finished) { // shared server: start unfinished
+    const csrfTok = await csrf(page);
+    const cur = (await (await page.request.get(`/api/v1/editions/${editionId}/completion`)).json()) as { revision: string };
+    const eds = (await (await page.request.get(`/api/v1/editions/${editionId}`)).json()) as { file: { id: string; contentVersion: string } };
+    await page.request.put(`/api/v1/editions/${editionId}/completion`, { headers: { "X-CSRF-Token": csrfTok, Origin: ORIGIN },
+      data: { operationId: crypto.randomUUID(), baseRevision: cur.revision, capturedAt: new Date().toISOString(), fileId: eds.file.id, contentVersion: eds.file.contentVersion, event: "manual_unfinish" } });
+  }
+  await page.goto(`/read/${editionId}`);
+  await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
+  const pos = async () => ((await (await page.request.get(`/api/v1/editions/${editionId}/position`)).json()) as { revision: string }).revision;
+  const before = await pos();
+  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Mark finished…" }).click();
+  expect((await completion()).finished).toBe(false); // asking is not finishing
+  await page.getByTestId("finish-confirm").click();
+  await expect(page.getByTestId("finished-badge")).toBeVisible({ timeout: 10_000 });
+  expect((await completion()).finished).toBe(true);
+  expect(await pos()).toBe(before);
+  await page.getByRole("button", { name: "Mark unfinished…" }).click();
+  await page.getByTestId("finish-confirm").click();
+  await expect(page.getByTestId("finished-badge")).toHaveCount(0, { timeout: 10_000 });
+  expect((await completion()).finished).toBe(false);
+});

@@ -123,3 +123,45 @@ test("rotated cropped PDF: area highlight maps to crop-box fractions and stays o
   f = readerFrame(page)!;
   await expect(f.locator("[data-annotation]")).toHaveCount(1);
 });
+
+test("PDF text can be selected, highlighted and painted back, and the quote is the selected text", async ({ page }) => {
+  test.setTimeout(120_000);
+  await signIn(page);
+  const titles = (await (await page.request.get("/api/v1/titles?size=200")).json()).items as { id: string; title: string }[];
+  const t = titles.find((x) => /^corpus-pdf$/i.test(x.title));
+  if (!t) throw new Error("corpus-pdf missing; run with LITARA_E2E_CORPUS (scripts/web/e2e.sh)");
+  const id = ((await (await page.request.get(`/api/v1/editions?titleId=${t.id}`)).json()).items as { id: string }[])[0].id;
+  const csrf = ((await (await page.request.get("/api/v1/auth/web/session")).json()) as { csrfToken: string }).csrfToken;
+  const list = async () => (await (await page.request.get(`/api/v1/editions/${id}/annotations?includeDeleted=false&size=100`)).json()).items as { id: string; revision: string; data: { quote: string; kind: string; selection: { kind: string; rectangles: { x: number; y: number; width: number; height: number }[] } } }[];
+  for (const x of await list()) {
+    const r = await page.request.delete(`/api/v1/editions/${id}/annotations/${x.id}`, {
+      headers: { "X-CSRF-Token": csrf, Origin: "http://127.0.0.1:8091" },
+      data: { operationId: crypto.randomUUID(), baseRevision: x.revision, capturedAt: new Date().toISOString() },
+    });
+    expect(r.status(), await r.text()).toBeLessThan(300);
+  }
+  await page.goto(`/read/${id}`);
+  await expect(page.getByTestId("progress")).toHaveText(/Page 1 of 2/, { timeout: 30_000 });
+  const f = readerFrame(page)!;
+  const word = f.locator(".textLayer span").first();
+  await expect(word).toBeVisible({ timeout: 15_000 });
+  await word.dblclick(); // selects one word of the page text
+  await expect(page.getByTestId("selection-bar")).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Highlight", exact: true }).click();
+  await expect.poll(async () => (await list()).length, { timeout: 15_000 }).toBe(1);
+  const a = (await list())[0];
+  expect(a.data.kind).toBe("highlight");
+  expect(a.data.selection.kind).toBe("pdf-rectangles");
+  expect(a.data.quote.trim().length).toBeGreaterThan(0);
+  expect("Corpus PDF page 1").toContain(a.data.quote.trim());
+  const r = a.data.selection.rectangles[0];
+  expect(r.width).toBeGreaterThan(0.01);
+  expect(r.x + r.width).toBeLessThanOrEqual(1.0001);
+  // Painted over the selected text: the overlay box sits on the text box.
+  await expect(f.locator("[data-annotation]").first()).toBeVisible({ timeout: 10_000 });
+  const o = (await f.locator("[data-annotation]").first().boundingBox())!;
+  const s = (await word.boundingBox())!;
+  expect(o.x).toBeGreaterThanOrEqual(s.x - 3); // the selected word lies inside its text line
+  expect(o.x + o.width).toBeLessThanOrEqual(s.x + s.width + 3);
+  expect(Math.abs(o.y + o.height / 2 - (s.y + s.height / 2))).toBeLessThan(s.height); // same line
+});

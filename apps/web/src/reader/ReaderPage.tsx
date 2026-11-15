@@ -7,6 +7,8 @@ import type { Annotation, AnnotationData, Locator, Page, ReaderSnapshot } from "
 import { Busy, ErrorBox } from "../ui/common";
 import { ComicReader } from "./ComicReader";
 import { remoteSource } from "./fileSource";
+import { FinishControl } from "./FinishControl";
+import { profileMismatch } from "./profile";
 import { loadReaderOrigin, ReaderHost, type PaintedAnnotation, type ReaderEvent, type ReaderKind, type ReaderStyle } from "./host";
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
 import { usePositionSaver } from "./usePositionSaver";
@@ -50,6 +52,8 @@ export function ReaderPage() {
 
 function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const e = snapshot.edition;
+  // The server expects a different engine profile than this build bundles: locators cannot be trusted either way.
+  const mismatch = profileMismatch(snapshot.engine, snapshot.engineProfile);
   const kind = KINDS[e.file.format];
   const box = useRef<HTMLDivElement>(null);
   const hostRef = useRef<ReaderHost | null>(null);
@@ -113,6 +117,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const anchorAt = (locator: Locator) => ({ fileId: e.file.id, contentVersion: e.file.contentVersion, locator });
   const cfiLoc = (cfi: string): Locator => ({ kind: "foliate-cfi", version: 1, cfi });
   const hereLocator = (): Locator | null => {
+    if (mismatch) return null;
     if (kind === "pdf") return where.pageIndex === undefined ? null : { kind: "pdf-page", version: 1, pageIndex: where.pageIndex, x: where.x ?? 0, y: where.y ?? 0 };
     return where.cfi ? cfiLoc(where.cfi) : null;
   };
@@ -146,7 +151,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   };
 
   const painted: PaintedAnnotation[] = useMemo(
-    () => live.filter((a) => current(a) && a.data!.kind !== "bookmark" && (a.data!.selection?.kind === "foliate-range" || a.data!.selection?.kind === "pdf-rectangles"))
+    () => mismatch ? [] : live.filter((a) => current(a) && a.data!.kind !== "bookmark" && (a.data!.selection?.kind === "foliate-range" || a.data!.selection?.kind === "pdf-rectangles"))
       .map((a): PaintedAnnotation => {
         const s = a.data!.selection!;
         const k = a.data!.kind as "highlight" | "note";
@@ -168,13 +173,14 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
           tocLabel: typeof m.tocLabel === "string" ? m.tocLabel : null,
         };
         setWhere(w);
-        if (w.pageIndex !== undefined) saver.schedule({ kind: "pdf-page", version: 1, pageIndex: w.pageIndex, x: w.x ?? 0, y: w.y ?? 0 });
+        if (mismatch) { /* never save a location another engine version cannot interpret */ }
+        else if (w.pageIndex !== undefined) saver.schedule({ kind: "pdf-page", version: 1, pageIndex: w.pageIndex, x: w.x ?? 0, y: w.y ?? 0 });
         else if (w.cfi) saver.schedule({ kind: "foliate-cfi", version: 1, cfi: w.cfi });
         break;
       }
       case "selection":
-        setSelection(m.cleared ? null : typeof m.cfi === "string" ? { cfi: m.cfi, text: String(m.text ?? "") }
-          : m.pdf ? { cfi: "", text: "Selected area", pdf: m.pdf as Sel["pdf"] } : null);
+        setSelection(m.cleared || mismatch ? null : typeof m.cfi === "string" ? { cfi: m.cfi, text: String(m.text ?? "") }
+          : m.pdf ? { cfi: "", text: typeof m.text === "string" ? m.text : "", pdf: m.pdf as Sel["pdf"] } : null);
         break;
       case "annotation-click": {
         const a = live.find((x) => x.id === m.id);
@@ -196,7 +202,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
     let host: ReaderHost | null = null;
     let cancelled = false;
     const saved = snapshot.position.position;
-    const restore = saved && saved.anchor.contentVersion === e.file.contentVersion
+    const restore = !mismatch && saved && saved.anchor.contentVersion === e.file.contentVersion
       ? (saved.anchor.locator.kind === "foliate-cfi" ? { cfi: saved.anchor.locator.cfi } : saved.anchor.locator.kind === "pdf-page" ? { pageIndex: saved.anchor.locator.pageIndex, x: saved.anchor.locator.x, y: saved.anchor.locator.y } : {})
       : {};
     loadReaderOrigin().then((origin) => {
@@ -241,8 +247,8 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
         <Group gap="xs" wrap="nowrap">
           <Tooltip label="Previous page"><ActionIcon variant="default" aria-label="Previous page" onClick={() => hostRef.current?.nav("prev")}>‹</ActionIcon></Tooltip>
           <Tooltip label="Next page"><ActionIcon variant="default" aria-label="Next page" onClick={() => hostRef.current?.nav("next")}>›</ActionIcon></Tooltip>
-          <Button size="compact-sm" variant="default" onClick={addBookmark} disabled={!loaded}>Bookmark</Button>
-          {kind === "pdf" && <Button size="compact-sm" variant={areaMode ? "filled" : "default"} aria-pressed={areaMode} data-testid="area-tool" disabled={!loaded} onClick={() => { const n = !areaMode; setAreaMode(n); hostRef.current?.setPdfMode(n ? "area" : "off"); }}>Highlight area</Button>}
+          <Button size="compact-sm" variant="default" onClick={addBookmark} disabled={!loaded || mismatch}>Bookmark</Button>
+          {kind === "pdf" && <Button size="compact-sm" variant={areaMode ? "filled" : "default"} aria-pressed={areaMode} data-testid="area-tool" disabled={!loaded || mismatch} onClick={() => { const n = !areaMode; setAreaMode(n); hostRef.current?.setPdfMode(n ? "area" : "off"); }}>Highlight area</Button>}
           <Button size="compact-sm" variant="default" onClick={() => setSettings(true)}>Aa</Button>
         </Group>
       </Group>
@@ -254,6 +260,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
       )}
       {failure && <Alert color="red" role="alert" m="xs">{failure}</Alert>}
       {notice && <Alert color="yellow" withCloseButton onClose={() => setNotice(null)} m="xs">{notice}</Alert>}
+      {mismatch && <Alert color="orange" m="xs" role="alert" title="Reader version mismatch" data-testid="profile-mismatch">The server expects a different reader engine version ({snapshot.engineProfile}) than this page uses. To avoid saving or restoring a wrong place, your saved position and highlights are not applied and nothing new is saved from here. Reload to get the matching version.</Alert>}
       {e.readiness !== "ready" && <Alert color="yellow" m="xs" title="Limited support">{e.issues.map((i) => i.detail).join(" ") || "This edition is only partly supported."}</Alert>}
       {sv === "changed" && <Alert color="orange" m="xs" role="alert" title="This book file changed" >A newer version of the file exists, so your position is no longer being saved. <Button size="compact-xs" onClick={() => location.reload()}>Reload</Button></Alert>}
       {sv === "conflict" && (
@@ -273,7 +280,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
 
       {selection && (
         <Group p="xs" justify="center" gap="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }} data-testid="selection-bar">
-          <Text size="sm" lineClamp={1} maw={260}>“{selection.text}”</Text>
+          <Text size="sm" lineClamp={1} maw={260}>{selection.text ? `“${selection.text}”` : "Selected area"}</Text>
           <Button size="compact-sm" onClick={() => addHighlight(selection)}>Highlight</Button>
           <Button size="compact-sm" variant="default" onClick={() => setNoteDraft({ text: "", selection })}>Add note</Button>
         </Group>
@@ -287,6 +294,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
       </Group>
 
       <Drawer opened={panel} onClose={() => setPanel(false)} title="Contents & notes" position="right" size="md">
+        <FinishControl edition={e} />
         <Tabs defaultValue="toc">
           <Tabs.List><Tabs.Tab value="toc">Contents</Tabs.Tab><Tabs.Tab value="notes">Notes ({live.length})</Tabs.Tab></Tabs.List>
           <Tabs.Panel value="toc" pt="sm">
@@ -333,7 +341,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
 
       <Modal opened={!!noteDraft} onClose={() => setNoteDraft(null)} title={noteDraft?.id ? "Edit note" : "New note"}>
         <Stack>
-          {noteDraft?.selection && <Text size="sm" c="dimmed" lineClamp={3}>“{noteDraft.selection.text}”</Text>}
+          {noteDraft?.selection && <Text size="sm" c="dimmed" lineClamp={3}>{noteDraft.selection.text ? `“${noteDraft.selection.text}”` : "Selected area"}</Text>}
           <Textarea label="Note" autosize minRows={3} maxLength={65536} data-autofocus value={noteDraft?.text ?? ""} onChange={(ev) => setNoteDraft((d) => d && { ...d, text: ev.currentTarget.value })} />
           <Group justify="flex-end"><Button variant="default" onClick={() => setNoteDraft(null)}>Cancel</Button><Button onClick={submitNote} disabled={!noteDraft?.text.trim()}>Save note</Button></Group>
         </Stack>

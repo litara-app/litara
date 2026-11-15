@@ -339,7 +339,18 @@ async function openPdf(size, restore) {
   canvas.style.cssText = 'display:block;max-width:none;touch-action:pan-x pan-y';
   const layer = document.createElement('div');
   layer.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none';
-  wrap.append(canvas, layer);
+  // Text layer (selectable, invisible text) between the page image and the highlight overlay.
+  const textDiv = document.createElement('div');
+  textDiv.className = 'textLayer';
+  if (!document.getElementById('pdf-text-css')) {
+    const css = document.createElement('style');
+    css.id = 'pdf-text-css';
+    css.textContent = '.textLayer{position:absolute;inset:0;overflow:clip;line-height:1;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;z-index:1}' +
+      '.textLayer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}' +
+      '.textLayer ::selection{background:rgba(34,139,230,.35)}';
+    document.head.append(css);
+  }
+  wrap.append(canvas, textDiv, layer);
   stage.append(wrap);
 
   let page = null, viewport = null, current = -1, busy = null, mode = 'off', rubber = null;
@@ -398,6 +409,15 @@ async function openPdf(size, restore) {
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    textDiv.replaceChildren();
+    textDiv.style.setProperty('--scale-factor', String(viewport.scale));
+    textDiv.style.setProperty('--total-scale-factor', String(viewport.scale));
+    textDiv.style.setProperty('--scale-round-x', '1px');
+    textDiv.style.setProperty('--scale-round-y', '1px');
+    textDiv.style.width = canvas.width + 'px';
+    textDiv.style.height = canvas.height + 'px';
+    try { await new pdfjs.TextLayer({ textContentSource: page.streamTextContent(), container: textDiv, viewport }).render(); }
+    catch { /* a page without usable text stays selectable by area only */ }
     paint();
     if (at && Number.isFinite(at.x) && Number.isFinite(at.y)) {
       const [vx, vy] = toViewport(clamp01(at.x), clamp01(at.y));
@@ -438,8 +458,36 @@ async function openPdf(size, restore) {
     const b = toFraction(Math.max(s0[0], x), Math.max(s0[1], y));
     // Corners map to opposite crop-box corners under rotation, so normalize.
     const rect = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.max(Math.abs(b.x - a.x), 1e-6), height: Math.max(Math.abs(b.y - a.y), 1e-6) };
-    send({ t: 'selection', generation, pdf: { pageIndex: current, rectangles: [rect] } });
+    send({ t: 'selection', generation, text: '', pdf: { pageIndex: current, rectangles: [rect] } });
   });
+
+  // Text selection: report the selected text and its line rectangles as crop-box fractions.
+  let selTimer = 0;
+  const onSelection = () => {
+    clearTimeout(selTimer);
+    selTimer = setTimeout(() => {
+      const sel = document.getSelection();
+      if (!viewport || !sel || sel.isCollapsed || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (!textDiv.contains(range.commonAncestorContainer)) return;
+      const text = sel.toString();
+      if (!text.trim()) return;
+      const cb = canvas.getBoundingClientRect();
+      const rectangles = [];
+      for (const r of range.getClientRects()) {
+        if (r.width < 2 || r.height < 2) continue;
+        const a = toFraction(r.left - cb.left, r.top - cb.top);
+        const b = toFraction(r.right - cb.left, r.bottom - cb.top);
+        const w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
+        if (w <= 0 || h <= 0) continue;
+        rectangles.push({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: w, height: h });
+        if (rectangles.length >= 256) break;
+      }
+      if (!rectangles.length) return;
+      send({ t: 'selection', generation, text: text.slice(0, 16384), pdf: { pageIndex: current, rectangles } });
+    }, 200);
+  };
+  document.addEventListener('selectionchange', onSelection);
 
   let restored = true;
   const want = Number.isSafeInteger(restore.pageIndex) ? restore.pageIndex : 0;
@@ -447,7 +495,7 @@ async function openPdf(size, restore) {
   await show(restored ? want : 0, restored ? { x: restore.x, y: restore.y } : null);
   if (!restored) send({ t: 'restore-failed', generation });
   session = {
-    dispose: () => { clearTimeout(scrollTimer); task.destroy(); wrap.remove(); },
+    dispose: () => { clearTimeout(scrollTimer); clearTimeout(selTimer); document.removeEventListener('selectionchange', onSelection); task.destroy(); wrap.remove(); },
     goto: m => queue(() => show(Number.isSafeInteger(m.pageIndex) ? m.pageIndex : 0, { x: m.x, y: m.y })),
     nav: dir => queue(() => show(current + (dir === 'prev' ? -1 : 1))),
     style: m => {
@@ -460,8 +508,8 @@ async function openPdf(size, restore) {
         && i.pdf.rectangles.length <= 256 && i.pdf.rectangles.every(r => [r.x, r.y, r.width, r.height].every(Number.isFinite)));
       paint();
     },
-    clearSelection: () => { rubber?.remove(); rubber = null; },
-    pdfMode: m => { mode = m; canvas.style.cursor = m === 'area' ? 'crosshair' : 'default'; canvas.style.touchAction = m === 'area' ? 'none' : 'pan-x pan-y'; },
+    clearSelection: () => { rubber?.remove(); rubber = null; document.getSelection()?.removeAllRanges(); },
+    pdfMode: m => { mode = m; textDiv.style.pointerEvents = m === 'area' ? 'none' : 'auto'; canvas.style.cursor = m === 'area' ? 'crosshair' : 'default'; canvas.style.touchAction = m === 'area' ? 'none' : 'pan-x pan-y'; },
   };
   send({ t: 'toc', generation, items: [] });
   send({ t: 'loaded', generation, engine: 'pdfjs', pages: doc.numPages });
