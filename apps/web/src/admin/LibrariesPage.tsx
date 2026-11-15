@@ -4,7 +4,9 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, get } from "../api/client";
 import type { Library, LibraryDetail, Page, Review, ScanRun } from "../api/types";
+import { ScrollRegion } from "../ui/ScrollRegion";
 import { Busy, ErrorBox } from "../ui/common";
+import { ImportSection, WritebackSection } from "./ImportSection";
 
 export function LibrariesPage() {
   const nav = useNavigate();
@@ -119,7 +121,7 @@ export function LibraryAdminPage() {
         <Checkbox label="Also re-hash every file (verify)" checked={verify} onChange={(e) => setVerify(e.currentTarget.checked)} />
       </Group>
       <ErrorBox error={start.error ?? scans.error} />
-      <Table.ScrollContainer minWidth={480}>
+      <ScrollRegion label="Scan runs">
         <Table verticalSpacing="xs" data-testid="scans-table">
           <Table.Thead><Table.Tr><Table.Th>Started</Table.Th><Table.Th>Trigger</Table.Th><Table.Th>State</Table.Th><Table.Th>Files</Table.Th></Table.Tr></Table.Thead>
           <Table.Tbody>
@@ -132,12 +134,14 @@ export function LibraryAdminPage() {
             ))}
           </Table.Tbody>
         </Table>
-      </Table.ScrollContainer>
+      </ScrollRegion>
 
       <Title order={4}>Reviews</Title>
       {reviews.isPending ? <Busy /> : reviews.data?.items.length === 0 ? <Text c="dimmed">Nothing needs review.</Text> :
         reviews.data?.items.map((r) => <ReviewRow key={r.id} lib={libraryId} r={r} />)}
-      <Text size="xs" c="dimmed">Imports, provider lookups and in-file metadata write-back are not in the web app yet.</Text>
+      <ImportSection libraryId={libraryId} />
+      <WritebackSection backupsOn={d.config.writebackBackups} />
+      <Text size="xs" c="dimmed">Provider lookups are not in the web app yet.</Text>
     </Stack>
   );
 }

@@ -235,7 +235,7 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
 
       <div style={{ background: "var(--mantine-color-body)", borderTop: "1px solid var(--mantine-color-default-border)" }}>
         <Group px="sm" py={6} gap="md" wrap="nowrap">
-          <Slider style={{ flex: 1 }} min={1} max={Math.max(n, 2)} value={index + 1} onChange={(v) => go(v - 1)} disabled={n < 2} aria-label="Page" label={(v) => `Page ${v}`} inverted={style.dir === "rtl"} />
+          <Slider style={{ flex: 1 }} min={1} max={Math.max(n, 2)} value={index + 1} onChange={(v) => go(v - 1)} disabled={n < 2} aria-label="Page" thumbLabel="Page" label={(v) => `Page ${v}`} inverted={style.dir === "rtl"} />
           <Text size="sm" ff="monospace" data-testid="comic-progress">Page {index + 1} of {n}</Text>
           <Badge size="xs" variant="light" color={sv === "saving" || sv === "offline" ? "gray" : "green"} data-testid="save-status">
             {sv === "saving" ? "saving" : sv === "offline" ? "waiting to send" : sv === "saved" ? "position saved" : sv === "conflict" ? "paused" : ""}</Badge>

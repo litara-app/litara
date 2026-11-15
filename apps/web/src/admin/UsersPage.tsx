@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, get } from "../api/client";
 import type { Library, Page, User } from "../api/types";
+import { ScrollRegion } from "../ui/ScrollRegion";
 import { Busy, ErrorBox } from "../ui/common";
 
 function CreateUser() {
@@ -68,7 +69,7 @@ export function UsersPage() {
       <Text size="sm" c="dimmed">
         Grants are listed here only for libraries you can see. The server does not list another account&apos;s existing grants, so choose a library and grant or revoke.
       </Text>
-      <Table.ScrollContainer minWidth={600}>
+      <ScrollRegion label="Users table">
         <Table verticalSpacing="xs" data-testid="users-table">
           <Table.Thead><Table.Tr><Table.Th>User</Table.Th><Table.Th>Status</Table.Th><Table.Th>Library access</Table.Th><Table.Th /></Table.Tr></Table.Thead>
           <Table.Tbody>
@@ -87,7 +88,7 @@ export function UsersPage() {
             ))}
           </Table.Tbody>
         </Table>
-      </Table.ScrollContainer>
+      </ScrollRegion>
     </Stack>
   );
 }

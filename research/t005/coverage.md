@@ -2,16 +2,16 @@
 
 Evidence is limited to checks that were actually executed in this worktree. "Covered" means the scenario's expectation was exercised by a test with the real API and, where the scenario requires it, a real browser. "Partial" lists exactly what was and was not exercised. Nothing here is a hardware, NAS or production claim.
 
-**38 scenarios: 18 covered, 15 partial, 5 not covered.**
+**38 scenarios: 20 covered, 18 partial, 0 not covered.**
 
 | Scenario | Verification required | Status | Evidence and gaps |
 | --- | --- | --- | --- |
 | `scan-editions` | real-api-browser | Partial | API `TestEbookEditionsEndToEnd` (EPUB, conservative link, provisional review). PDF/FB2/comics/translation EPUB were not scanned together; no browser step. |
-| `edition-move` | real-api | Not covered | No edition-specific move test. Identity follows the file ID by construction (`SyncEditions`), unproven for moves. |
+| `edition-move` | real-api | Covered | API `TestEditionSurvivesFileMoveAndRename`: position, bookmark and annotations survive a rename/move and rescans; same edition/file/version/title IDs; bytes still served; next position write succeeds at the stored revision. |
 | `edition-replacement` | real-api-browser | Partial | API `TestEditionContentChangeInvalidatesLocationsAndCompletionHistory` (same edition/file, new version, 412 + durable candidate, refused transfer). No browser step. |
 | `ebook-file-auth` | real-api-browser | Covered | API `TestEbookEditionsEndToEnd` (ebook-only library, GET/HEAD/Range exact bytes, other callers denied, no recording row); every reader e2e fetches the bytes through the browser. |
 | `cfi-reflow` | real-browser | Partial | Real Foliate-generated CFIs saved and resumed in Chromium, Firefox, WebKit (`reader.spec`). Reflow under a different viewport/profile and unsupported-profile disabling were not tested. |
-| `pdf-coordinates` | real-browser | Not covered | PDF position is page-level only (x,y = 0,0); no PDF highlights or coordinate round-trip; only render proof in `reader-isolation`. |
+| `pdf-coordinates` | real-browser | Covered | Browser `pdf.spec.ts` in Chromium, Firefox and WebKit: a cropped (CropBox) and rotated (90) PDF with a known rectangle; the area-highlight drag is saved as unrotated crop-box fractions within 0.02 of the known values; the overlay stays within 3 px of the content at 100% and 70% zoom; reload restores it. PDF positions carry x/y. Android interoperability and text-selection highlights on PDF are not tested. |
 | `comic-order` | real-api-browser | Covered | Engine unit test and API `TestComicPagesExtractionServingAndFailures`; browser `comic.spec` verifies 1,2,10 order by decoded page color in all three browsers. |
 | `backward-save` | real-api-browser | Covered | API `TestEditionPositionRevisionsReceiptsAndConflicts` (explicit backward seek is a new revision; no percentage/clock choice). |
 | `position-conflict` | real-api-browser | Covered | API conflict/resolve tests for editions and recordings; browser `reader.spec` stale write -> banner -> keep-my-place; `offline.spec` conflict resolution page. |
@@ -39,8 +39,8 @@ Evidence is limited to checks that were actually executed in this worktree. "Cov
 | `repair-split` | real-api-browser | Partial | API split with two competing plans verified; the split UI was not browser-tested. |
 | `repair-stale-plan` | real-api | Covered | API: stale layout 412, second plan loses with 412 and `stale`, execute replay returns identical successor IDs. Atomicity was not fault-injected. |
 | `repair-tombstone` | real-api | Covered | API: old snapshot 409 and old writes 412 with durable candidates and successor IDs only for granted callers; unrelated recording unchanged. |
-| `metadata-import-management` | real-api-browser | Not covered | Metadata editing, scan and review lists exist in the UI. Imports, provider lookups and in-file write-back screens do not exist, so the import/approval/writer-status flow is not covered. |
+| `metadata-import-management` | real-api-browser | Partial | Browser `admin.spec.ts` (Chromium): copy-only import preview, per-item skip, approval, execution with files verified on disk, and write-back status (writers off, sidecar diff approval and write). Provider lookups do not exist; in-file writers remain off by decision; only the sidecar path was exercised. |
 | `same-origin-fallback` | real-http | Partial | Go `webui` tests and `reader-isolation` routing checks (API/assets never get index.html, reader origin serves only reader files). The Vite development proxy was not tested; `PUBLIC_PATH_PREFIX` is not applied. |
-| `accessibility-responsive` | real-browser | Not covered | Only a manual narrow-width look. No keyboard/focus/label/screen-reader audit and no automated accessibility checks. |
-| `format-corpus` | real-api-browser | Not covered | Exercised: EPUB, CBZ, FB2 and PDF render (proof), MP3 (Chromium, Firefox). Not exercised: KEPUB/MOBI/AZW real files, CBR/CB7 (unsupported), M4A/M4B/FLAC/OGG, fixed-layout, encrypted/damaged variants. No per-browser capability matrix was produced. |
+| `accessibility-responsive` | real-browser | Partial | `a11y.spec.ts`: axe-core WCAG A/AA scan of the main screens in Chromium (clean after fixes: contrast theme, scroll-region focus, slider labels), keyboard reachability and dialog focus trap/release in Chromium and Firefox (skipped in WebKit, which does not Tab to buttons by default), narrow-width reflow checks. No screen-reader testing; axe cannot scan inside the reader iframe. |
+| `format-corpus` | real-api-browser | Partial | `format.spec.ts` and `research/t005/format-matrix.md`: generated EPUB, KEPUB (no Kobo spans), fixed-layout, FB2, PDF, MOBI, AZW3, damaged EPUB, CBZ, hostile CBZ, CBR and MP3/M4A/M4B/OGG/Opus/FLAC/WAV in three browsers, each reaching an explicit state. CBR/CB7 unsupported; MOBI/AZW3 resume unverified; real-world files beyond synthetic fixtures untested. |
 | `release-hold` | inspection | Covered | Inspection: no change under `.github`, `archive`, Android, `TASKS.md`, `AGENTS.md`, `contracts`; no tags, signing, publishing or CI activation; no legacy importer. |

@@ -5,7 +5,7 @@
 export const MAX_RANGE = 8 * 1024 * 1024;
 export const MAX_OUTSTANDING = 2;
 
-export type ReaderKind = "epub" | "cbz" | "fb2" | "pdf";
+export type ReaderKind = "epub" | "cbz" | "fb2" | "pdf" | "mobi";
 
 /** Byte source for the exact file/version being opened. */
 export interface ByteSource {
@@ -24,12 +24,12 @@ export interface OpenOptions {
   /** Lower-only resource ceilings (see ADR-0067). */
   limits?: Record<string, number>;
   /** Saved location to restore; an unresolved one is reported as restore-failed. */
-  restore?: { cfi?: string; pageIndex?: number };
+  restore?: { cfi?: string; pageIndex?: number; x?: number; y?: number };
 }
 
 export type ReaderTheme = "light" | "sepia" | "dark";
 export interface ReaderStyle { fontPct: number; theme: ReaderTheme; flow: "paginated" | "scrolled" }
-export interface PaintedAnnotation { id: string; cfi: string; kind: "highlight" | "note" }
+export interface PaintedAnnotation { id: string; cfi?: string; pdf?: { pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] }; kind: "highlight" | "note" }
 
 const INBOUND = new Set(["ready", "range", "loaded", "relocate", "blocked-link", "error", "toc", "selection", "annotation-click", "restore-failed", "key"]);
 
@@ -83,10 +83,11 @@ export class ReaderHost {
     this.post({ t: "open", kind: opts.kind, name: opts.name, size: this.source.size, limits: opts.limits, restore: opts.restore });
   }
 
-  goto(target: { cfi?: string; href?: string; fraction?: number; pageIndex?: number }) { this.post({ t: "goto", ...target }); }
+  goto(target: { cfi?: string; href?: string; fraction?: number; pageIndex?: number; x?: number; y?: number }) { this.post({ t: "goto", ...target }); }
   nav(dir: "next" | "prev") { this.post({ t: "nav", dir }); }
   setStyle(style: ReaderStyle) { this.post({ t: "style", ...style }); }
   setAnnotations(items: PaintedAnnotation[]) { this.post({ t: "annotations", items }); }
+  setPdfMode(mode: "off" | "area") { this.post({ t: "pdf-mode", mode }); }
   clearSelection() { this.post({ t: "clear-selection" }); }
 
   private post(msg: Record<string, unknown>, transfer: Transferable[] = []) {

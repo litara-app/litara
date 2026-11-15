@@ -60,7 +60,9 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 	case "kepub":
 		read = incomplete("format_untested", "KEPUB uses the EPUB reader but Kobo-specific spans are not yet tested.")
 	case "mobi", "azw", "azw3":
-		read = incomplete("format_untested", "Foliate recognizes this format but no fixture has been verified in a browser.")
+		// A Calibre-generated MOBI and AZW3 rendered text in Chromium, Firefox and WebKit (research/t005/format-matrix.md).
+		// Real-world, DRM and large files were not tested, and CFI resume is unverified (see resume below).
+		read = supported()
 	case "cbr", "cb7":
 		read = incomplete("archive_library_not_approved", "Server-side page extraction for this archive type needs a vetted Go archive library that is not approved yet.")
 	}
@@ -73,6 +75,9 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 	}
 	text := format != "cbz" && format != "cbr" && format != "cb7"
 	resume := supported()
+	if format == "mobi" || format == "azw" || format == "azw3" {
+		resume = incomplete("cfi_untested", "Locations in this format have not been verified to resume exactly.")
+	}
 	if !available {
 		resume = incomplete("file_unavailable", "The file is currently missing or unavailable.")
 	}

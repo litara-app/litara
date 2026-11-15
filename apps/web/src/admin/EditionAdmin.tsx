@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { adminOp, api, ApiError, get, qs } from "../api/client";
 import type { Edition, MetadataReport, Page, Title as TitleT } from "../api/types";
+import { ScrollRegion } from "../ui/ScrollRegion";
 import { Busy, ErrorBox } from "../ui/common";
 
 const FIELDS = ["title", "authors", "series_name", "series_index", "language", "tags"];
@@ -59,7 +60,7 @@ export function EditionAdmin({ edition }: { edition: Edition }) {
     <Card withBorder data-testid="edition-admin">
       <Stack>
         <Group justify="space-between"><Title order={4}>Administrator tools</Title><Badge variant="light">edition revision {report.data.revision}</Badge></Group>
-        <Table.ScrollContainer minWidth={420}>
+        <ScrollRegion label="Metadata table">
           <Table verticalSpacing={4} data-testid="metadata-table">
             <Table.Thead><Table.Tr><Table.Th>Field</Table.Th><Table.Th>Effective value</Table.Th><Table.Th>Source</Table.Th><Table.Th>Other evidence</Table.Th></Table.Tr></Table.Thead>
             <Table.Tbody>
@@ -73,7 +74,7 @@ export function EditionAdmin({ edition }: { edition: Edition }) {
               ))}
             </Table.Tbody>
           </Table>
-        </Table.ScrollContainer>
+        </ScrollRegion>
 
         <Group align="flex-end" gap="xs">
           <Select size="xs" label="Field" allowDeselect={false} value={field} onChange={setField} data={FIELDS} />

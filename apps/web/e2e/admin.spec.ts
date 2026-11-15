@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
 const PASSWORD = "synthetic-fixture-password";
 
@@ -67,6 +69,35 @@ test("edition metadata shows provenance, accepts a protected edit and restores",
   await expect(titleRow.getByText("embedded")).toBeVisible();
   // The title cannot be cleared.
   await expect(admin.getByRole("button", { name: "Protected clear" })).toBeDisabled();
+});
+
+test("a copy-only import is previewed, decided, approved and run; write-back stays off", async ({ page }) => {
+  const info = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../test-results/e2e-info.json"), "utf8")) as { importSource: string };
+  await signIn(page, "fixture-admin");
+  await page.goto("/admin/libraries");
+  await page.getByRole("link", { name: "Shelf" }).click();
+  await page.getByLabel("Source folder on the server").fill(info.importSource);
+  await page.getByRole("button", { name: "Preview import" }).click();
+  const plan = page.getByTestId("import-plan");
+  await expect(plan).toBeVisible();
+  await expect(page.getByTestId("import-state")).toHaveText("planned");
+  const items = plan.getByTestId("import-item");
+  await expect(items).toHaveCount(2);
+  await expect(items.first()).toContainText("part1.mp3");
+  // Skipping one item is an explicit decision recorded before approval.
+  await plan.getByRole("switch", { name: /part2\.mp3/ }).click({ force: true }); // a controlled switch: the state flips after the server records the decision
+  await expect(items.nth(1)).toContainText("skip");
+  await page.getByRole("button", { name: "Approve plan" }).click();
+  await expect(page.getByTestId("import-state")).toHaveText("approved");
+  await page.getByRole("button", { name: "Copy files now" }).click();
+  await expect(page.getByTestId("import-state")).toHaveText("completed", { timeout: 30_000 });
+  await expect(items.first()).toContainText("published");
+  await expect(items.nth(1)).toContainText("skipped");
+  // Write-back: every in-file writer is off, backups are off by default, and no write can be started without a recording.
+  const writers = page.getByTestId("writers");
+  await expect(writers).toContainText("in-file writing off");
+  await expect(writers).not.toContainText("in-file writing on");
+  await expect(writers).toContainText("backups before replacing files: off (default)");
 });
 
 test("a reviewed merge: plan, approve, apply", async ({ page }) => {

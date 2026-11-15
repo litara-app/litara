@@ -155,7 +155,7 @@ function Player({ recording: r, initial }: { recording: AudioRecording; initial:
             <Text ff="monospace" data-testid="elapsed">{fmt(shown)}</Text>
             <Text ff="monospace" c="dimmed" data-testid="total">{fmt(total)}</Text>
           </Group>
-          <Slider min={0} max={Math.max(total, 1)} value={shown} label={(v) => fmt(v)} disabled={!ready} aria-label="Position in the recording"
+          <Slider min={0} max={Math.max(total, 1)} value={shown} label={(v) => fmt(v)} disabled={!ready} aria-label="Position in the recording" thumbLabel="Position in the recording"
             onChange={setScrub} onChangeEnd={(v) => { setScrub(null); player.seekWhole(v); }} />
           <Group justify="center" gap="md">
             <Button variant="default" disabled={!ready} onClick={() => player.skip(-30_000)} aria-label="Back 30 seconds">−30s</Button>

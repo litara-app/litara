@@ -12,9 +12,9 @@ import { useEditionPending, usePendingQueue, usePendingState } from "../pending/
 import { usePositionSaver } from "./usePositionSaver";
 
 interface TocItem { label: string; href: string | null; items: TocItem[] }
-interface Where { cfi: string | null; fraction: number | null; pageIndex?: number; numPages?: number; tocLabel: string | null }
+interface Where { cfi: string | null; fraction: number | null; pageIndex?: number; x?: number; y?: number; numPages?: number; tocLabel: string | null }
 
-const KINDS: Record<string, ReaderKind> = { epub: "epub", kepub: "epub", fb2: "fb2", pdf: "pdf", cbz: "cbz" };
+const KINDS: Record<string, ReaderKind> = { epub: "epub", kepub: "epub", fb2: "fb2", pdf: "pdf", cbz: "cbz", mobi: "mobi", azw: "mobi", azw3: "mobi" };
 const STYLE_KEY = "litara.reader.style";
 const DEFAULT_STYLE: ReaderStyle = { fontPct: 100, theme: "light", flow: "paginated" };
 
@@ -59,11 +59,13 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
   const [where, setWhere] = useState<Where>({ cfi: null, fraction: null, tocLabel: null });
-  const [selection, setSelection] = useState<{ cfi: string; text: string } | null>(null);
+  type Sel = { cfi: string; text: string; pdf?: { pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] } };
+  const [selection, setSelection] = useState<Sel | null>(null);
+  const [areaMode, setAreaMode] = useState(false);
   const [style, setStyle] = useState<ReaderStyle>(loadStyle);
   const [panel, setPanel] = useState(false);
   const [settings, setSettings] = useState(false);
-  const [noteDraft, setNoteDraft] = useState<{ id?: string; text: string; selection: { cfi: string; text: string } | null } | null>(null);
+  const [noteDraft, setNoteDraft] = useState<{ id?: string; text: string; selection: Sel | null } | null>(null);
 
   const saver = usePositionSaver({ editionId: e.id, fileId: e.file.id, contentVersion: e.file.contentVersion, initialRevision: snapshot.position.revision });
 
@@ -111,15 +113,18 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const anchorAt = (locator: Locator) => ({ fileId: e.file.id, contentVersion: e.file.contentVersion, locator });
   const cfiLoc = (cfi: string): Locator => ({ kind: "foliate-cfi", version: 1, cfi });
   const hereLocator = (): Locator | null => {
-    if (kind === "pdf") return where.pageIndex === undefined ? null : { kind: "pdf-page", version: 1, pageIndex: where.pageIndex, x: 0, y: 0 };
+    if (kind === "pdf") return where.pageIndex === undefined ? null : { kind: "pdf-page", version: 1, pageIndex: where.pageIndex, x: where.x ?? 0, y: where.y ?? 0 };
     return where.cfi ? cfiLoc(where.cfi) : null;
   };
   const addBookmark = () => {
     const loc = hereLocator();
     if (loc) putAnnotation(crypto.randomUUID(), { kind: "bookmark", anchor: anchorAt(loc), selection: null, text: where.tocLabel ?? "", quote: "" }, "Bookmark");
   };
-  const addHighlight = (sel: { cfi: string; text: string }) => {
-    putAnnotation(crypto.randomUUID(), { kind: "highlight", anchor: anchorAt(cfiLoc(sel.cfi)), selection: { kind: "foliate-range", version: 1, cfi: sel.cfi }, text: "", quote: sel.text }, "Highlight");
+  const selData = (s: Sel): { anchor: ReturnType<typeof anchorAt>; selection: AnnotationData["selection"] } => s.pdf
+    ? { anchor: anchorAt({ kind: "pdf-page", version: 1, pageIndex: s.pdf.pageIndex, x: s.pdf.rectangles[0].x, y: s.pdf.rectangles[0].y }), selection: { kind: "pdf-rectangles", version: 1, pageIndex: s.pdf.pageIndex, rectangles: s.pdf.rectangles } }
+    : { anchor: anchorAt(cfiLoc(s.cfi)), selection: { kind: "foliate-range", version: 1, cfi: s.cfi } };
+  const addHighlight = (sel: Sel) => {
+    putAnnotation(crypto.randomUUID(), { kind: "highlight", ...selData(sel), text: "", quote: sel.text }, "Highlight");
     hostRef.current?.clearSelection();
     setSelection(null);
   };
@@ -130,7 +135,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
       putAnnotation(a.id, { ...a.data!, text: noteDraft.text }, "Edit note");
     } else if (noteDraft.selection) {
       const s = noteDraft.selection;
-      putAnnotation(crypto.randomUUID(), { kind: "note", anchor: anchorAt(cfiLoc(s.cfi)), selection: { kind: "foliate-range", version: 1, cfi: s.cfi }, text: noteDraft.text, quote: s.text }, "Note");
+      putAnnotation(crypto.randomUUID(), { kind: "note", ...selData(s), text: noteDraft.text, quote: s.text }, "Note");
       hostRef.current?.clearSelection();
       setSelection(null);
     } else {
@@ -141,8 +146,12 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   };
 
   const painted: PaintedAnnotation[] = useMemo(
-    () => live.filter((a) => current(a) && a.data!.selection?.kind === "foliate-range" && a.data!.kind !== "bookmark")
-      .map((a) => ({ id: a.id, cfi: (a.data!.selection as { cfi: string }).cfi, kind: a.data!.kind as "highlight" | "note" })),
+    () => live.filter((a) => current(a) && a.data!.kind !== "bookmark" && (a.data!.selection?.kind === "foliate-range" || a.data!.selection?.kind === "pdf-rectangles"))
+      .map((a): PaintedAnnotation => {
+        const s = a.data!.selection!;
+        const k = a.data!.kind as "highlight" | "note";
+        return s.kind === "pdf-rectangles" ? { id: a.id, pdf: { pageIndex: s.pageIndex, rectangles: s.rectangles }, kind: k } : { id: a.id, cfi: (s as { cfi: string }).cfi, kind: k };
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [live, e.file.contentVersion],
   );
@@ -155,16 +164,17 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
       case "relocate": {
         const w: Where = {
           cfi: typeof m.cfi === "string" ? m.cfi : null, fraction: typeof m.fraction === "number" ? m.fraction : null,
-          pageIndex: typeof m.pageIndex === "number" ? m.pageIndex : undefined, numPages: typeof m.numPages === "number" ? m.numPages : undefined,
+          pageIndex: typeof m.pageIndex === "number" ? m.pageIndex : undefined, x: typeof m.x === "number" ? m.x : undefined, y: typeof m.y === "number" ? m.y : undefined, numPages: typeof m.numPages === "number" ? m.numPages : undefined,
           tocLabel: typeof m.tocLabel === "string" ? m.tocLabel : null,
         };
         setWhere(w);
-        if (w.pageIndex !== undefined) saver.schedule({ kind: "pdf-page", version: 1, pageIndex: w.pageIndex, x: 0, y: 0 });
+        if (w.pageIndex !== undefined) saver.schedule({ kind: "pdf-page", version: 1, pageIndex: w.pageIndex, x: w.x ?? 0, y: w.y ?? 0 });
         else if (w.cfi) saver.schedule({ kind: "foliate-cfi", version: 1, cfi: w.cfi });
         break;
       }
       case "selection":
-        setSelection(m.cleared || typeof m.cfi !== "string" ? null : { cfi: m.cfi, text: String(m.text ?? "") });
+        setSelection(m.cleared ? null : typeof m.cfi === "string" ? { cfi: m.cfi, text: String(m.text ?? "") }
+          : m.pdf ? { cfi: "", text: "Selected area", pdf: m.pdf as Sel["pdf"] } : null);
         break;
       case "annotation-click": {
         const a = live.find((x) => x.id === m.id);
@@ -187,7 +197,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
     let cancelled = false;
     const saved = snapshot.position.position;
     const restore = saved && saved.anchor.contentVersion === e.file.contentVersion
-      ? (saved.anchor.locator.kind === "foliate-cfi" ? { cfi: saved.anchor.locator.cfi } : saved.anchor.locator.kind === "pdf-page" ? { pageIndex: saved.anchor.locator.pageIndex } : {})
+      ? (saved.anchor.locator.kind === "foliate-cfi" ? { cfi: saved.anchor.locator.cfi } : saved.anchor.locator.kind === "pdf-page" ? { pageIndex: saved.anchor.locator.pageIndex, x: saved.anchor.locator.x, y: saved.anchor.locator.y } : {})
       : {};
     loadReaderOrigin().then((origin) => {
       if (cancelled || !box.current) return;
@@ -232,6 +242,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
           <Tooltip label="Previous page"><ActionIcon variant="default" aria-label="Previous page" onClick={() => hostRef.current?.nav("prev")}>‹</ActionIcon></Tooltip>
           <Tooltip label="Next page"><ActionIcon variant="default" aria-label="Next page" onClick={() => hostRef.current?.nav("next")}>›</ActionIcon></Tooltip>
           <Button size="compact-sm" variant="default" onClick={addBookmark} disabled={!loaded}>Bookmark</Button>
+          {kind === "pdf" && <Button size="compact-sm" variant={areaMode ? "filled" : "default"} aria-pressed={areaMode} data-testid="area-tool" disabled={!loaded} onClick={() => { const n = !areaMode; setAreaMode(n); hostRef.current?.setPdfMode(n ? "area" : "off"); }}>Highlight area</Button>}
           <Button size="compact-sm" variant="default" onClick={() => setSettings(true)}>Aa</Button>
         </Group>
       </Group>
@@ -249,7 +260,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
         <Alert color="orange" m="xs" role="alert" title="Your reading position changed elsewhere">
           <Group gap="xs">
             <Text size="sm">{serverPos ? `Saved from ${serverPos.deviceName || "another device"}.` : "A different place was saved."}</Text>
-            {serverPos && <Button size="compact-xs" onClick={async () => { const loc = await saver.useServer(); if (loc?.kind === "foliate-cfi") hostRef.current?.goto({ cfi: loc.cfi }); else if (loc?.kind === "pdf-page") hostRef.current?.goto({ pageIndex: loc.pageIndex }); }}>Go to saved place</Button>}
+            {serverPos && <Button size="compact-xs" onClick={async () => { const loc = await saver.useServer(); if (loc?.kind === "foliate-cfi") hostRef.current?.goto({ cfi: loc.cfi }); else if (loc?.kind === "pdf-page") hostRef.current?.goto({ pageIndex: loc.pageIndex, x: loc.x, y: loc.y }); }}>Go to saved place</Button>}
             <Button size="compact-xs" variant="default" onClick={() => void saver.keepMine()}>Keep my place</Button>
           </Group>
         </Alert>
@@ -298,7 +309,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
                     {d.text && <Text size="sm" fw={500}>{d.text}</Text>}
                     <Group gap="xs">
                       <Button size="compact-xs" variant="default" disabled={!ok}
-                        onClick={() => { const l = d.anchor.locator; if (l.kind === "foliate-cfi") hostRef.current?.goto({ cfi: l.cfi }); else if (l.kind === "pdf-page") hostRef.current?.goto({ pageIndex: l.pageIndex }); setPanel(false); }}>Go to</Button>
+                        onClick={() => { const l = d.anchor.locator; if (l.kind === "foliate-cfi") hostRef.current?.goto({ cfi: l.cfi }); else if (l.kind === "pdf-page") hostRef.current?.goto({ pageIndex: l.pageIndex, x: l.x, y: l.y }); setPanel(false); }}>Go to</Button>
                       {d.kind === "note" && ok && <Button size="compact-xs" variant="default" onClick={() => setNoteDraft({ id: a.id, text: d.text, selection: null })}>Edit</Button>}
                       <Button size="compact-xs" color="red" variant="subtle" onClick={() => removeAnnotation(a)}>Delete</Button>
                     </Group>
@@ -313,7 +324,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
       <Drawer opened={settings} onClose={() => setSettings(false)} title="Reading settings" position="bottom" size="auto">
         <Stack pb="md">
           <Text size="sm">Text size {style.fontPct}%</Text>
-          <Slider min={70} max={220} step={10} value={style.fontPct} onChange={(v) => changeStyle({ fontPct: v })} aria-label="Text size" />
+          <Slider min={70} max={220} step={10} value={style.fontPct} onChange={(v) => changeStyle({ fontPct: v })} aria-label="Text size" thumbLabel="Text size" />
           <SegmentedControl value={style.theme} onChange={(v) => changeStyle({ theme: v as ReaderStyle["theme"] })} data={[{ value: "light", label: "Light" }, { value: "sepia", label: "Sepia" }, { value: "dark", label: "Dark" }]} />
           {kind !== "pdf" && <SegmentedControl value={style.flow} onChange={(v) => changeStyle({ flow: v as ReaderStyle["flow"] })} data={[{ value: "paginated", label: "Pages" }, { value: "scrolled", label: "Scroll" }]} />}
         </Stack>

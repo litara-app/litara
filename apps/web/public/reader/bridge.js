@@ -59,6 +59,7 @@ function onPortMessage(event) {
     case 'style': return void session?.style?.(m);
     case 'annotations': return void session?.annotations?.(Array.isArray(m.items) ? m.items : []);
     case 'clear-selection': return void session?.clearSelection?.();
+    case 'pdf-mode': return void session?.pdfMode?.(m.mode === 'area' ? 'area' : 'off');
     default: return;
   }
 }
@@ -133,6 +134,7 @@ async function open(m) {
   const limits = lowerLimits(m.limits);
   if (kind === 'epub' || kind === 'cbz') return openZip(kind, size, String(name ?? ''), limits, restore);
   if (kind === 'fb2') return openWhole(size, String(name ?? ''), restore);
+  if (kind === 'mobi') return openMobi(size, String(name ?? ''), restore);
   if (kind === 'pdf') return openPdf(size, restore);
   throw Object.assign(new Error('unsupported kind'), { code: 'unsupported_kind' });
 }
@@ -262,7 +264,7 @@ async function mountFoliate(book, restore) {
   applyStyle({});
   const paint = async next => {
     for (const old of items) await view.deleteAnnotation({ value: old.cfi }).catch(() => {});
-    items = next.slice(0, 2000).filter(i => typeof i?.cfi === 'string' && i.cfi.length <= 16384 && typeof i.id === 'string');
+    items = next.slice(0, 2000).filter(i => typeof i?.cfi === 'string' && i.cfi && i.cfi.length <= 16384 && typeof i.id === 'string');
     byValue.clear();
     for (const i of items) {
       byValue.set(i.cfi, i.id);
@@ -281,8 +283,9 @@ async function mountFoliate(book, restore) {
     annotations: paint,
     clearSelection: () => { for (const c of view.renderer?.getContents?.() ?? []) c.doc?.getSelection?.()?.removeAllRanges(); },
   };
-  send({ t: 'toc', generation, items: toc(book.toc) });
-  send({ t: 'loaded', generation, engine: 'foliate', sections: book.sections?.length ?? 0, title: typeof book.metadata?.title === 'string' ? book.metadata.title : null });
+  const opened = view.book ?? book;
+  send({ t: 'toc', generation, items: toc(opened.toc) });
+  send({ t: 'loaded', generation, engine: 'foliate', sections: opened.sections?.length ?? 0, title: typeof opened.metadata?.title === 'string' ? opened.metadata.title : null });
 }
 
 async function openZip(kind, size, name, limits, restore) {
@@ -305,6 +308,15 @@ async function openWhole(size, name, restore) {
   await mountFoliate(await makeFB2(new File([bytes], name || 'book.fb2')), restore);
 }
 
+// MOBI, AZW and AZW3 are read whole (bounded) and parsed by pristine Foliate's mobi.js.
+async function openMobi(size, name, restore) {
+  if (size > WHOLE_FILE_MAX) throw new LimitError('archive_limit');
+  const bytes = await readRange(size, 0, size);
+  await mountFoliate(new File([bytes], name || 'book.mobi'), restore);
+}
+
+const clamp01 = v => Math.min(1, Math.max(0, v));
+
 async function openPdf(size, restore) {
   const pdfjs = await import('./vendor/pdfjs/pdf.mjs');
   pdfjs.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdfjs/pdf.worker.mjs', import.meta.url).href;
@@ -318,39 +330,138 @@ async function openPdf(size, restore) {
     disableAutoFetch: true, disableStream: true, stopAtErrors: false,
   });
   const doc = await task.promise;
+  const stage = document.getElementById('stage');
+  const wrap = document.createElement('div');
+  wrap.id = 'pdfwrap';
+  wrap.style.cssText = 'position:relative;width:fit-content;margin:0 auto';
   const canvas = document.createElement('canvas');
   canvas.id = 'pdf';
-  document.getElementById('stage').append(canvas);
-  let current = -1;
-  let busy = null;
+  canvas.style.cssText = 'display:block;max-width:none;touch-action:pan-x pan-y';
+  const layer = document.createElement('div');
+  layer.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none';
+  wrap.append(canvas, layer);
+  stage.append(wrap);
+
+  let page = null, viewport = null, current = -1, busy = null, mode = 'off', rubber = null;
   let style = { fontPct: 100, theme: 'light' };
-  const show = async index => {
+  let items = [];
+
+  // Coordinates: fractions of the UNROTATED crop box, measured from its top-left (contracts/t005/README.md).
+  // pdf.js maps between viewport pixels (rotation and crop applied) and PDF user space.
+  const box = () => { const [x0, y0, x1, y1] = page.view; return { x0, y0, w: x1 - x0, h: y1 - y0 }; };
+  const toFraction = (vx, vy) => {
+    const [x, y] = viewport.convertToPdfPoint(vx, vy);
+    const b = box();
+    return { x: clamp01((x - b.x0) / b.w), y: clamp01((b.y0 + b.h - y) / b.h) };
+  };
+  const toViewport = (fx, fy) => {
+    const b = box();
+    return viewport.convertToViewportPoint(b.x0 + fx * b.w, b.y0 + b.h - fy * b.h);
+  };
+
+  const paint = () => {
+    layer.replaceChildren();
+    if (!page) return;
+    for (const it of items) {
+      if (it.pdf.pageIndex !== current) continue;
+      for (const r of it.pdf.rectangles) {
+        const [ax, ay] = toViewport(r.x, r.y);
+        const [bx, by] = toViewport(r.x + r.width, r.y + r.height);
+        const d = document.createElement('div');
+        d.dataset.annotation = it.id;
+        d.style.cssText = `position:absolute;left:${Math.min(ax, bx)}px;top:${Math.min(ay, by)}px;width:${Math.abs(bx - ax)}px;height:${Math.abs(by - ay)}px;` +
+          `background:${it.kind === 'note' ? 'rgba(126,200,255,.4)' : 'rgba(255,213,74,.4)'};pointer-events:auto;cursor:pointer`;
+        d.addEventListener('click', () => send({ t: 'annotation-click', generation, id: it.id }));
+        layer.append(d);
+      }
+    }
+  };
+
+  const report = () => {
+    if (!viewport) return;
+    const vx = Math.max(0, stage.scrollLeft - wrap.offsetLeft);
+    const vy = Math.max(0, stage.scrollTop - wrap.offsetTop);
+    const f = toFraction(Math.min(vx, viewport.width), Math.min(vy, viewport.height));
+    send({ t: 'relocate', generation, pageIndex: current, numPages: doc.numPages, x: f.x, y: f.y, cfi: null,
+      fraction: doc.numPages > 1 ? current / (doc.numPages - 1) : 1, tocLabel: null });
+  };
+  let scrollTimer = 0;
+  stage.addEventListener('scroll', () => { clearTimeout(scrollTimer); scrollTimer = setTimeout(report, 300); });
+
+  const show = async (index, at) => {
     const i = Math.min(doc.numPages - 1, Math.max(0, index));
-    if (i === current && !busy) return;
+    page = await doc.getPage(i + 1);
     current = i;
-    const page = await doc.getPage(i + 1);
     const base = page.getViewport({ scale: 1 });
-    const scale = Math.min(3, Math.max(0.5, (style.fontPct / 100) * (Math.min(document.getElementById('stage').clientWidth || base.width, 1400) / base.width)));
-    const viewport = page.getViewport({ scale });
+    const scale = Math.min(3, Math.max(0.5, (style.fontPct / 100) * (Math.min(stage.clientWidth || base.width, 1400) / base.width)));
+    viewport = page.getViewport({ scale });
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-    document.getElementById('stage').scrollTop = 0;
-    send({ t: 'relocate', generation, pageIndex: i, numPages: doc.numPages, cfi: null, fraction: doc.numPages > 1 ? i / (doc.numPages - 1) : 1, tocLabel: null });
+    paint();
+    if (at && Number.isFinite(at.x) && Number.isFinite(at.y)) {
+      const [vx, vy] = toViewport(clamp01(at.x), clamp01(at.y));
+      stage.scrollLeft = wrap.offsetLeft + vx;
+      stage.scrollTop = wrap.offsetTop + vy;
+    } else { stage.scrollTop = 0; stage.scrollLeft = 0; }
+    report();
   };
-  const queue = fn => (busy = (busy ?? Promise.resolve()).then(fn).finally(() => { busy = null; }));
+  let tail = Promise.resolve();
+  const queue = fn => (tail = tail.then(fn).catch(err => fail('render_failed', String(err?.message ?? err))));
+
+  // Area highlight: drag a rectangle; it is reported as unrotated crop-box fractions.
+  let start = null;
+  const local = e => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  canvas.addEventListener('pointerdown', e => {
+    if (mode !== 'area' || e.button !== 0) return;
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    start = local(e);
+    rubber?.remove();
+    rubber = document.createElement('div');
+    rubber.style.cssText = 'position:absolute;border:2px dashed #228be6;background:rgba(34,139,230,.2);pointer-events:none';
+    layer.append(rubber);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!start || !rubber) return;
+    const [x, y] = local(e);
+    rubber.style.left = `${Math.min(start[0], x)}px`; rubber.style.top = `${Math.min(start[1], y)}px`;
+    rubber.style.width = `${Math.abs(x - start[0])}px`; rubber.style.height = `${Math.abs(y - start[1])}px`;
+  });
+  canvas.addEventListener('pointerup', e => {
+    if (!start) return;
+    const [x, y] = local(e);
+    const s0 = start;
+    start = null;
+    if (Math.abs(x - s0[0]) < 4 || Math.abs(y - s0[1]) < 4) { rubber?.remove(); rubber = null; return send({ t: 'selection', generation, cleared: true }); }
+    const a = toFraction(Math.min(s0[0], x), Math.min(s0[1], y));
+    const b = toFraction(Math.max(s0[0], x), Math.max(s0[1], y));
+    // Corners map to opposite crop-box corners under rotation, so normalize.
+    const rect = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.max(Math.abs(b.x - a.x), 1e-6), height: Math.max(Math.abs(b.y - a.y), 1e-6) };
+    send({ t: 'selection', generation, pdf: { pageIndex: current, rectangles: [rect] } });
+  });
+
   let restored = true;
   const want = Number.isSafeInteger(restore.pageIndex) ? restore.pageIndex : 0;
-  if (want >= doc.numPages) { restored = false; }
-  await show(restored ? want : 0);
+  if (want >= doc.numPages) restored = false;
+  await show(restored ? want : 0, restored ? { x: restore.x, y: restore.y } : null);
   if (!restored) send({ t: 'restore-failed', generation });
   session = {
-    dispose: () => { task.destroy(); canvas.remove(); },
-    goto: m => queue(() => show(Number.isSafeInteger(m.pageIndex) ? m.pageIndex : 0)),
+    dispose: () => { clearTimeout(scrollTimer); task.destroy(); wrap.remove(); },
+    goto: m => queue(() => show(Number.isSafeInteger(m.pageIndex) ? m.pageIndex : 0, { x: m.x, y: m.y })),
     nav: dir => queue(() => show(current + (dir === 'prev' ? -1 : 1))),
-    style: m => { style = { fontPct: Number.isFinite(m.fontPct) ? m.fontPct : 100, theme: m.theme }; document.documentElement.style.background = THEMES[m.theme]?.bg ?? '#fff'; return queue(() => { const c = current; current = -1; return show(c); }); },
-    annotations: () => {}, // PDF highlights are not drawn in this milestone
-    clearSelection: () => {},
+    style: m => {
+      style = { fontPct: Number.isFinite(m.fontPct) ? m.fontPct : 100, theme: m.theme };
+      document.documentElement.style.background = THEMES[m.theme]?.bg ?? '#fff';
+      return queue(() => { const f = viewport ? toFraction(Math.max(0, stage.scrollLeft - wrap.offsetLeft), Math.max(0, stage.scrollTop - wrap.offsetTop)) : null; return show(current, f); });
+    },
+    annotations: next => {
+      items = next.slice(0, 2000).filter(i => typeof i?.id === 'string' && i.pdf && Number.isSafeInteger(i.pdf.pageIndex) && Array.isArray(i.pdf.rectangles)
+        && i.pdf.rectangles.length <= 256 && i.pdf.rectangles.every(r => [r.x, r.y, r.width, r.height].every(Number.isFinite)));
+      paint();
+    },
+    clearSelection: () => { rubber?.remove(); rubber = null; },
+    pdfMode: m => { mode = m; canvas.style.cursor = m === 'area' ? 'crosshair' : 'default'; canvas.style.touchAction = m === 'area' ? 'none' : 'pan-x pan-y'; },
   };
   send({ t: 'toc', generation, items: [] });
   send({ t: 'loaded', generation, engine: 'pdfjs', pages: doc.numPages });

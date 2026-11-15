@@ -20,7 +20,7 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 240_000,
     stdout: "pipe",
-    env: { ...(process.env as Record<string, string>), LITARA_E2E_SERVE: "1", LITARA_E2E_WEBDIR: path.resolve(import.meta.dirname, "dist") },
+    env: { ...(process.env as Record<string, string>), LITARA_E2E_SERVE: "1", LITARA_E2E_WEBDIR: path.resolve(import.meta.dirname, "dist"), LITARA_E2E_INFO: path.resolve(import.meta.dirname, "test-results/e2e-info.json") },
   },
   // Administration scenarios change shared state permanently (a repair applies once),
   // so they run once, in Chromium, after the reader scenarios.
