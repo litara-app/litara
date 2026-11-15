@@ -77,3 +77,63 @@ test("a shared smart shelf of unfinished books shows each viewer their own match
     await adminCtx.close();
   }
 });
+
+// shelf-concurrency, browser half: two tabs of one account edit a manual shelf from the same revision. One
+// edit wins; the other is refused with the stale-shelf message, shows the current list, keeps a durable
+// conflict, and a retry from the refreshed view succeeds exactly once (no duplicate, no lost member).
+test("two tabs removing from one shelf at the same revision: one wins, the other is told and can retry", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "shared server state; one browser is enough");
+  test.setTimeout(120_000);
+  await signIn(page, "fixture-user-a");
+  const tab2 = await page.context().newPage();
+  const names = ["The Browser Novel", "The Replaceable", "The Pair"];
+  const titles = (await (await page.request.get("/api/v1/titles?size=200")).json()).items as { id: string; title: string }[];
+  const ids = names.map((n) => titles.find((t) => t.title === n)!.id);
+  const headers = async () => ({ "X-CSRF-Token": await csrf(page), Origin: ORIGIN });
+  const stamp = () => ({ operationId: crypto.randomUUID(), capturedAt: new Date().toISOString() });
+  const sid = crypto.randomUUID();
+  const created = await page.request.put(`/api/v1/shelves/${sid}`, { headers: await headers(), data: { ...stamp(), baseRevision: "0", data: { name: "Two tabs", visibility: "private", kind: "manual", filter: null } } });
+  expect(created.status(), await created.text()).toBe(200);
+  let revision = 1;
+  for (const id of ids) {
+    const r = await page.request.put(`/api/v1/shelves/${sid}/titles/${id}`, { headers: await headers(), data: { ...stamp(), baseRevision: String(revision) } });
+    expect(r.status(), await r.text()).toBe(200);
+    revision++;
+  }
+  const base = revision;
+  const shown = async (p: Page) => (await p.getByTestId("shelf-title").allInnerTexts()).join("\n");
+  try {
+    for (const p of [page, tab2]) {
+      await p.goto(`/shelves/${sid}`);
+      await expect(p.getByTestId("shelf-title")).toHaveCount(3, { timeout: 15_000 });
+    }
+    const card = (p: Page, name: string) => p.getByTestId("shelf-title").filter({ hasText: name });
+
+    // Tab 1 removes the first title: that wins.
+    await card(page, names[0]).getByRole("button", { name: "Remove" }).click();
+    await expect(page.getByTestId("shelf-title")).toHaveCount(2, { timeout: 15_000 });
+
+    // Tab 2 still holds the old revision and removes a different title: refused, told, list refreshed.
+    await card(tab2, names[1]).getByRole("button", { name: "Remove" }).click();
+    await expect(tab2.getByText("This shelf changed elsewhere")).toBeVisible({ timeout: 15_000 });
+    await expect(tab2.getByTestId("shelf-title")).toHaveCount(2, { timeout: 15_000 }); // now the current list
+    expect(await shown(tab2)).not.toContain(names[0]);
+    expect(await shown(tab2)).toContain(names[1]); // its own removal was not applied
+    const mid = (await (await page.request.get(`/api/v1/shelves/${sid}`)).json()) as { revision: string };
+    expect(mid.revision).toBe(String(base + 1)); // only the winner spent a revision
+    const conflicts = (await (await page.request.get(`/api/v1/personal-conflicts?resourceId=${sid}`)).json()) as { items: unknown[] };
+    expect(conflicts.items).toHaveLength(1); // the refused edit is kept as a durable candidate
+
+    // Retry from the refreshed view: it succeeds once.
+    await card(tab2, names[1]).getByRole("button", { name: "Remove" }).click();
+    await expect(tab2.getByTestId("shelf-title")).toHaveCount(1, { timeout: 15_000 });
+    const left = (await (await page.request.get(`/api/v1/shelves/${sid}/titles`)).json()) as { items: { title: string }[] };
+    expect(left.items.map((t) => t.title)).toEqual([names[2]]);
+    const end = (await (await page.request.get(`/api/v1/shelves/${sid}`)).json()) as { revision: string };
+    expect(end.revision).toBe(String(base + 2));
+  } finally {
+    const cur = (await (await page.request.get(`/api/v1/shelves/${sid}`)).json()) as { revision: string };
+    await page.request.delete(`/api/v1/shelves/${sid}`, { headers: await headers(), data: { ...stamp(), baseRevision: cur.revision } });
+    await tab2.close();
+  }
+});

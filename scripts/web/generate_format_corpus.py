@@ -12,7 +12,11 @@ out = os.path.abspath(sys.argv[1])
 shutil.rmtree(out, ignore_errors=True)
 os.makedirs(out)
 
-PARA = "<p>The quick brown fox jumps over the lazy dog. " * 3 + "</p>"
+def paras(chapter, n=90):
+    """Numbered paragraphs, so a test can tell exactly which text is on screen."""
+    return "".join(f"<p>Paragraph {j} of chapter {chapter}: the quick brown fox jumps over the lazy dog while the reader turns pages.</p>" for j in range(1, n + 1))
+
+
 CONTAINER = '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/></rootfiles></container>'
 
 
@@ -32,7 +36,7 @@ def epub(path, title, fixed=False, chapters=3):
         z.writestr("OPS/nav.xhtml", nav)
         for i in range(chapters):
             vp = '<meta name="viewport" content="width=600,height=800"/>' if fixed else ""
-            z.writestr(f"OPS/c{i}.xhtml", f'<html xmlns="http://www.w3.org/1999/xhtml"><head><title>c{i}</title>{vp}</head><body><h1>Chapter {i + 1}</h1>{PARA * 30}</body></html>')
+            z.writestr(f"OPS/c{i}.xhtml", f'<html xmlns="http://www.w3.org/1999/xhtml"><head><title>c{i}</title>{vp}</head><body><h1>Chapter {i + 1}</h1>{paras(i + 1)}</body></html>')
 
 
 epub(f"{out}/corpus-epub.epub", "Corpus EPUB")
@@ -49,7 +53,7 @@ os.remove(f"{out}/damaged-source.epub")
 open(f"{out}/corpus-fb2.fb2", "w", encoding="utf8").write(
     '<?xml version="1.0" encoding="utf-8"?><FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"><description><title-info><genre>prose</genre>'
     '<author><first-name>Corpus</first-name><last-name>Author</last-name></author><book-title>Corpus FB2</book-title><lang>en</lang></title-info></description>'
-    '<body><section><title><p>Chapter 1</p></title>' + "<p>The quick brown fox jumps over the lazy dog.</p>" * 200 + "</section></body></FictionBook>")
+    '<body><section><title><p>Chapter 1</p></title>' + "".join(f"<p>Paragraph {j} of chapter 1: the quick brown fox jumps over the lazy dog while the reader turns pages.</p>" for j in range(1, 201)) + "</section></body></FictionBook>")
 
 
 # PDF with real text (two pages)

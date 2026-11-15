@@ -230,3 +230,65 @@ test("a saved place resumes at the same text after the font size and window shap
   for (let i = 0; i < 5; i++) await slider2.press("ArrowLeft");
   await page.keyboard.press("Escape");
 });
+
+// cfi-reflow for the other Foliate formats: FB2 and MOBI (generated corpus with numbered paragraphs). The place
+// saved after turning pages must be the same text after a reload, after a text-size change, and after both.
+for (const [title, label, chapter] of [["Corpus FB2", "FB2", "1"], ["corpus-mobi", "MOBI", "1"], ["corpus-azw3", "AZW3", "1"]] as const) {
+  test(`${label}: a saved place is the same text after a reload and after a text-size change`, async ({ page }) => {
+    test.setTimeout(150_000);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signIn(page);
+    const titles = (await (await page.request.get("/api/v1/titles?size=200")).json()).items as { id: string; title: string }[];
+    const t = titles.find((x) => x.title.toLowerCase() === title.toLowerCase());
+    if (!t) throw new Error(`corpus fixture ${title} missing; run with LITARA_E2E_CORPUS (scripts/web/e2e.sh)`);
+    const ed = ((await (await page.request.get(`/api/v1/editions?titleId=${t.id}`)).json()).items as { id: string }[])[0];
+    const saved = async () => ((await (await page.request.get(`/api/v1/editions/${ed.id}/position`)).json()) as { revision: string; position: { anchor: { locator: { kind: string; cfi: string } } } | null });
+    const first = (await saved()).position?.anchor.locator.cfi;
+
+    // Which numbered paragraphs are fully on screen right now.
+    const visible = async (): Promise<number[]> => {
+      const f = await frameWith(page, `of chapter ${chapter}`);
+      const vp = page.viewportSize()!;
+      const out: number[] = [];
+      for (let n = 1; n <= 90; n++) {
+        const box = await f.locator("p", { hasText: new RegExp(`^Paragraph ${n} of chapter ${chapter}`) }).first().boundingBox().catch(() => null);
+        if (box && box.x >= 0 && box.x + box.width <= vp.width + 1 && box.y >= 0 && box.y + box.height <= vp.height + 1) out.push(n);
+      }
+      return out;
+    };
+    const open = async () => {
+      await page.goto(`/read/${ed.id}`);
+      await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
+      await expect.poll(async () => (await visible()).length, { timeout: 20_000 }).toBeGreaterThan(0);
+    };
+    await open();
+    for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next page" }).click();
+    await page.waitForTimeout(1200);
+    await expect(page.getByTestId("save-status")).toHaveText("position saved", { timeout: 15_000 });
+    await expect.poll(async () => (await saved()).position?.anchor.locator.cfi).not.toBe(first);
+    expect((await saved()).position!.anchor.locator.kind).toBe("foliate-cfi");
+    const lead = (await visible())[0];
+    expect(lead, "turning pages moved past the first paragraph").toBeGreaterThan(1);
+
+    await open(); // reload
+    expect(await visible(), `${label}: paragraph ${lead} is on screen after a reload`).toContain(lead);
+
+    // A larger text size re-flows the book; the same text stays on screen, then survives a reload too.
+    await page.getByRole("button", { name: "Aa" }).click();
+    const slider = page.getByRole("slider", { name: "Text size" });
+    await slider.focus();
+    for (let i = 0; i < 4; i++) await slider.press("ArrowRight");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(1500);
+    expect(await visible(), `${label}: paragraph ${lead} stays on screen after the text size changes`).toContain(lead);
+    await page.waitForTimeout(2200); // let the position save
+    await open();
+    expect(await visible(), `${label}: paragraph ${lead} is on screen after reflow and reload`).toContain(lead);
+
+    await page.getByRole("button", { name: "Aa" }).click();
+    const slider2 = page.getByRole("slider", { name: "Text size" });
+    await slider2.focus();
+    for (let i = 0; i < 4; i++) await slider2.press("ArrowLeft");
+    await page.keyboard.press("Escape");
+  });
+}

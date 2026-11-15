@@ -61,7 +61,7 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 		read = incomplete("format_untested", "KEPUB uses the EPUB reader but Kobo-specific spans are not yet tested.")
 	case "mobi", "azw", "azw3":
 		// A Calibre-generated MOBI and AZW3 rendered text in Chromium, Firefox and WebKit (research/t005/format-matrix.md).
-		// Real-world, DRM and large files were not tested, and CFI resume is unverified (see resume below).
+		// Real-world, DRM and large files were not tested.
 		read = supported()
 	case "cbr", "cb7":
 		// ADR-0072: bounded Go extraction (rardecode/v2, sevenzip). Verified on generated stored RAR5, 7-Zip and
@@ -76,10 +76,9 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 		download = incomplete("file_unavailable", "The file is currently missing or unavailable.")
 	}
 	text := format != "cbz" && format != "cbr" && format != "cb7"
+	// Resume is claimed for the formats whose saved places were browser-tested to come back as the same text after a
+	// reload and a text-size change: EPUB, FB2, MOBI and AZW3 (generated fixtures, Chromium, Firefox, WebKit).
 	resume := supported()
-	if format == "mobi" || format == "azw" || format == "azw3" {
-		resume = incomplete("cfi_untested", "Locations in this format have not been verified to resume exactly.")
-	}
 	if !available {
 		resume = incomplete("file_unavailable", "The file is currently missing or unavailable.")
 	}

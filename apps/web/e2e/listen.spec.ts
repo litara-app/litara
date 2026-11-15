@@ -153,3 +153,60 @@ test("playing to the natural end records a completion; nothing is finished by me
   await page.getByRole("button", { name: /Mark unfinished/ }).click();
   await expect.poll(async () => (await completion()).finished, { timeout: 15_000 }).toBe(false);
 });
+
+// Audio position conflict in the browser: another device saves a newer place while this tab still holds the older
+// revision. The tab's next save is refused, the banner names the other device, and both choices work. No playback
+// is needed, so this runs in every browser.
+test("a place saved from another device is offered, and both choices resolve the conflict", async ({ page, playwright }) => {
+  test.setTimeout(120_000);
+  await signIn(page);
+  const id = await recordingId(page);
+  const ORIGIN = "http://127.0.0.1:8091";
+  const device = await playwright.request.newContext({ baseURL: ORIGIN });
+  const login = await device.post("/api/v1/auth/native/login", { data: { username: "fixture-user-a", password: PASSWORD, deviceName: "kitchen-tablet" } });
+  expect(login.status()).toBe(200);
+  const auth = { Authorization: `Bearer ${((await login.json()) as { accessToken: string }).accessToken}` };
+  const snap = (await (await device.get(`/api/v1/recordings/${id}`, { headers: auth })).json()) as { layoutRevision: string; files: { id: string; contentVersion: string; durationMs: number }[] };
+  const current = async () => (await (await device.get(`/api/v1/recordings/${id}/position`, { headers: auth })).json()) as { revision: string; position: { fileId: string; offsetMs: number; deviceName: string } | null; unresolvedConflicts: unknown[] };
+  const otherDeviceSaves = async (fileIndex: number, offsetMs: number) => {
+    const r = await device.put(`/api/v1/recordings/${id}/position`, {
+      headers: auth,
+      data: { operationId: crypto.randomUUID(), baseRevision: (await current()).revision, layoutRevision: snap.layoutRevision,
+        position: { fileId: snap.files[fileIndex].id, contentVersion: snap.files[fileIndex].contentVersion, offsetMs, capturedAt: new Date().toISOString() } },
+    });
+    expect(r.status(), await r.text()).toBe(200);
+  };
+  try {
+    await page.goto(`/listen/${id}`);
+    await page.getByTestId("chapter").first().click(); // this tab saves its own place first
+    await expect(page.getByTestId("save-status")).toHaveText("position saved", { timeout: 15_000 });
+
+    // The other device saves 20 s into the second file (80 s overall) while this tab is unaware.
+    await otherDeviceSaves(1, 20_000);
+    await page.getByTestId("chapter").nth(3).click(); // "Finale": this tab's save carries the old revision
+    await expect(page.getByText("Your place changed on another device")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/kitchen-tablet/)).toBeVisible();
+    await expect(page.getByTestId("save-status")).toHaveText("paused"); // nothing more is written until the choice
+
+    // Choice 1: go to the other device's place.
+    await page.getByRole("button", { name: "Go to that place" }).click();
+    await expect(page.getByText("Your place changed on another device")).toHaveCount(0, { timeout: 15_000 });
+    await expect.poll(() => secs(page), { timeout: 10_000 }).toBeGreaterThanOrEqual(79);
+    expect(await secs(page)).toBeLessThanOrEqual(82);
+    expect((await current()).position?.deviceName).toBe("kitchen-tablet");
+
+    // Choice 2: a second conflict, resolved by keeping this tab's own place.
+    await otherDeviceSaves(0, 10_000);
+    await page.getByTestId("chapter").nth(3).click();
+    await expect(page.getByText("Your place changed on another device")).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Keep my place" }).click();
+    await expect(page.getByText("Your place changed on another device")).toHaveCount(0, { timeout: 15_000 });
+    const final = await current();
+    const idx = snap.files.findIndex((f) => f.id === final.position?.fileId);
+    const whole = snap.files.slice(0, idx).reduce((n, f) => n + f.durationMs, 0) + (final.position?.offsetMs ?? 0);
+    expect(whole).toBeGreaterThanOrEqual(160_000); // this tab's jump to the finale, not the other device's 10 s
+    expect(final.unresolvedConflicts).toHaveLength(0);
+  } finally {
+    await device.dispose();
+  }
+});
