@@ -18,4 +18,4 @@ The owner chose: build PDF text selection (done, three browsers); implement the 
 
 ## Remaining T005 partials closed (2026-11-15)
 Shelf permissions, the repair split, the T004 metadata/review screens and the same-origin fallback now have browser or real-HTTP evidence (see `research/t005/coverage.md`). The browser review of the metadata screens found a real server defect: reviews about an ebook or comic edition that looks like an existing title (`edition-title:` keys) could not be decided from the review list. They now accept keep-separate and link; deciding a title link from the edition page closes the review; the review screen offers only the actions that apply.
-Serving the web app under a path prefix remains unimplemented. It would need a `<base>` element and therefore a CSP change (`base-uri` is `none`); that is an architectural choice that needs its own ADR, so it was not done.
+Serving the web app under a URL path prefix is deliberately not supported (owner decision, 2026-11-15): the intended deployment is one hostname per service, such as `litara.example.com`.
