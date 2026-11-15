@@ -263,6 +263,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
             {serverPos && <Button size="compact-xs" onClick={async () => { const loc = await saver.useServer(); if (loc?.kind === "foliate-cfi") hostRef.current?.goto({ cfi: loc.cfi }); else if (loc?.kind === "pdf-page") hostRef.current?.goto({ pageIndex: loc.pageIndex, x: loc.x, y: loc.y }); }}>Go to saved place</Button>}
             <Button size="compact-xs" variant="default" onClick={() => void saver.keepMine()}>Keep my place</Button>
           </Group>
+          {saver.resolveError && <Text size="sm" c="red" mt={4} data-testid="resolve-error">Not changed: {saver.resolveError} Both places are still kept.</Text>}
         </Alert>
       )}
 

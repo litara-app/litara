@@ -36,7 +36,9 @@ export class PendingQueue {
   private listeners = new Set<Listener>();
   private sentHandlers = new Set<SentHandler>();
   private conflictHandlers = new Set<ProblemHandler>();
+  private blockedHandlers = new Set<ProblemHandler>();
   private snapshot: QueueState;
+  private lock: Promise<unknown> = Promise.resolve();
 
   constructor(private store: PendingStore, private send: Send, private now: () => number = Date.now) {
     this.snapshot = this.compute();
@@ -50,6 +52,8 @@ export class PendingQueue {
   getState = (): QueueState => this.snapshot;
   subscribe = (l: Listener) => { this.listeners.add(l); return () => { this.listeners.delete(l); }; };
   onSent(h: SentHandler) { this.sentHandlers.add(h); return () => { this.sentHandlers.delete(h); }; }
+  /** A write was refused because access was removed (403); the record is kept, locked. */
+  onBlocked(h: ProblemHandler) { this.blockedHandlers.add(h); return () => { this.blockedHandlers.delete(h); }; }
   onConflict(h: ProblemHandler) { this.conflictHandlers.add(h); return () => { this.conflictHandlers.delete(h); }; }
 
   /**
@@ -85,30 +89,42 @@ export class PendingQueue {
    * resource (each accepted write increments it by one). coalesce replaces a
    * never-sent pending write to the same resource (positions: latest wins).
    */
-  async enqueue(spec: Omit<PendingOp, "scope" | "createdAt" | "attempts" | "status" | "baseRevision" | "body"> & {
+  enqueue(spec: Omit<PendingOp, "scope" | "createdAt" | "attempts" | "status" | "baseRevision" | "body"> & {
     confirmedRevision: number; coalesce?: boolean; body: (baseRevision: string) => Record<string, unknown>;
   }): Promise<PendingOp> {
-    if (!this.scope) throw new Error("not signed in");
-    const { confirmedRevision, coalesce, body, ...rest } = spec;
-    let chain = this.forKey(spec.resourceKey);
-    if (coalesce) {
-      const last = chain[chain.length - 1];
-      if (last && last.status === "pending" && last.attempts === 0) {
-        await this.store.delete(last.id);
-        this.cache = this.cache.filter((o) => o.id !== last.id);
-        chain = chain.slice(0, -1);
-        const keepBase = last.baseRevision;
-        return this.put({ ...rest, baseRevision: keepBase, body: body(String(keepBase)) });
-      }
-    }
-    const base = chain.length ? chain[chain.length - 1].baseRevision + 1 : confirmedRevision;
-    return this.put({ ...rest, baseRevision: base, body: body(String(base)) });
+    // Revision allocation reads the queued chain and then writes to storage: run enqueues one at a
+    // time so two writes to one resource can never be given the same base revision.
+    const scope = this.scope; // fixed now, not when the queue gets to it
+    const run = this.lock.then(() => this.enqueueNow(scope, spec));
+    this.lock = run.catch(() => undefined);
+    return run;
   }
 
-  private async put(p: Omit<PendingOp, "scope" | "createdAt" | "attempts" | "status">): Promise<PendingOp> {
-    const op: PendingOp = { ...p, scope: this.scope!, createdAt: this.now(), attempts: 0, status: "pending" };
-    await this.store.put(op); // durable before any send
-    this.cache = [...this.cache, op];
+  private async enqueueNow(scope: string | null, spec: Parameters<PendingQueue["enqueue"]>[0]): Promise<PendingOp> {
+    // The record belongs to the account that made the change, even if another signs in meanwhile.
+    if (!scope) throw new Error("not signed in");
+    const { confirmedRevision, coalesce, body, ...rest } = spec;
+    // The queued chain for this account: from memory when it is active, otherwise from its stored records.
+    const chain = this.scope === scope
+      ? this.forKey(spec.resourceKey)
+      : (await this.store.list(scope)).filter((o) => o.resourceKey === spec.resourceKey).sort((x, y) => x.createdAt - y.createdAt);
+    const last = chain[chain.length - 1];
+    // Only an unsent write may be replaced, and never while a send run could be holding it.
+    if (coalesce && last && last.status === "pending" && last.attempts === 0 && !this.running && this.scope === scope) {
+      const written = await this.put(scope, { ...rest, baseRevision: last.baseRevision, body: body(String(last.baseRevision)) }, last.id);
+      return written;
+    }
+    const base = last ? last.baseRevision + 1 : confirmedRevision;
+    return this.put(scope, { ...rest, baseRevision: base, body: body(String(base)) });
+  }
+
+  /** Store a write (durably, before any send); `replaces` is removed only after the new record exists. */
+  private async put(scope: string, p: Omit<PendingOp, "scope" | "createdAt" | "attempts" | "status">, replaces?: string): Promise<PendingOp> {
+    const op: PendingOp = { ...p, scope, createdAt: this.now(), attempts: 0, status: "pending" };
+    await this.store.put(op);
+    if (replaces) await this.store.delete(replaces);
+    if (this.scope !== scope) return op; // another account is active now: the record waits, untouched, for its owner
+    this.cache = [...this.cache.filter((o) => o.id !== replaces), op];
     this.publish();
     void this.flush();
     return op;
@@ -172,6 +188,7 @@ export class PendingQueue {
     await this.store.put(op);
     this.publish();
     if (status === "conflict") this.conflictHandlers.forEach((h) => h(op, op.problem ?? {}));
+    if (status === "blocked") this.blockedHandlers.forEach((h) => h(op, op.problem ?? {}));
     return "halt";
   }
 

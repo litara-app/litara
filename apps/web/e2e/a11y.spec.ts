@@ -19,7 +19,8 @@ async function violations(page: Page) {
 async function ids(page: Page) {
   const eds = await (await page.request.get("/api/v1/editions?size=200")).json();
   const recs = await (await page.request.get("/api/v1/recordings?size=200")).json();
-  const by = (f: string) => eds.items.find((e: { file: { format: string } }) => e.file.format === f);
+  const novelTitle = (await (await page.request.get("/api/v1/titles?q=The%20Browser%20Novel")).json()).items[0].id as string; // by title: the corpus adds other EPUBs
+  const by = (f: string) => eds.items.find((e: { file: { format: string }; titleId: string }) => e.file.format === f && e.titleId === novelTitle);
   const comicTitle = (await (await page.request.get("/api/v1/titles?q=The%20Test%20Comic")).json()).items[0].id;
   const comic = (await (await page.request.get(`/api/v1/editions?titleId=${comicTitle}`)).json()).items[0];
   return { epub: by("epub").id as string, title: by("epub").titleId as string, cbz: comic.id as string,

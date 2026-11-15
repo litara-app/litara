@@ -187,7 +187,7 @@ type Position struct {
 
 type Conflict struct {
 	ID                  string                    `json:"id" format:"uuid"`
-	Reason              string                    `json:"reason" enum:"stale_revision,layout_changed,content_changed,completion_changed"`
+	Reason              string                    `json:"reason" enum:"stale_revision,layout_changed,content_changed,completion_changed,recording_repaired,repair_source"`
 	Candidate           Nullable[Position]        `json:"candidate"`
 	BaseRevision        string                    `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
 	CreatedAt           string                    `json:"createdAt" format:"date-time"`

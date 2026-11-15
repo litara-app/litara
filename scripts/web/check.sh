@@ -2,7 +2,10 @@
 # Local web checks: lockfile-exact install, typecheck+build, unit tests.
 # Real-API browser tests are separate: scripts/web/e2e.sh (needs PostgreSQL).
 set -euo pipefail
-cd "$(dirname "$0")/../../apps/web"
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/ports.sh"
+require_free_ports 8098 8099
+cd "$here/../../apps/web"
 npm ci
 npm run build
 npm test

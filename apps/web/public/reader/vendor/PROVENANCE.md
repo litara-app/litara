@@ -7,4 +7,5 @@
 
 foliate-js files copied byte-for-byte: view, epub, epubcfi, comic-book, fb2, fixed-layout, mobi, overlayer, paginator, progress, search, text-walker, uri-template, footnotes, and its `vendor/zip.js` (zip.js, BSD-3-Clause) and `vendor/fflate.js` (MIT). foliate's `pdf.js` wrapper, bundled pdfjs copy, tts, reader UI and tests are deliberately omitted (direct PDF.js is used for PDF, ADR-0027).
 SHA-256 of every vendored file: `CHECKSUMS.sha256`. Litara-owned code (`../bridge.js`, `../frame.html`) is outside this directory.
-Not vendored yet: PDF.js cmaps/standard fonts/wasm (affects some CJK, non-embedded fonts and JPX/CCITT images) and zip.js license text.
+Third-party notices for the two bundled helpers under `foliate-js/vendor/`: `LICENSE.zip.js.txt` (zip.js, BSD-3-Clause, Gildas Lormeau) and `LICENSE.fflate.txt` (fflate, MIT, Arjun Barrett). The texts were taken from the published npm packages `@zip.js/zip.js` 2.25.0 and `fflate` 0.8.3 because foliate-js ships these as minified bundles without a license header or version; the exact upstream versions inside the bundles were not determined, so the copyright years may differ from the bundled copies. Foliate-js's own license is `foliate-js/LICENSE`; PDF.js's is `pdfjs/LICENSE` (Apache-2.0).
+Not vendored yet: PDF.js cmaps/standard fonts/wasm (affects some CJK, non-embedded fonts and JPX/CCITT images).

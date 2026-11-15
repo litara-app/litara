@@ -15,6 +15,7 @@ import { TitlePage } from "./pages/TitlePage";
 import { PendingPage } from "./pending/PendingPage";
 import { ReaderPage } from "./reader/ReaderPage";
 import { Busy } from "./ui/common";
+import { AccessGuard } from "./ui/AccessGuard";
 import { Shell } from "./ui/Shell";
 
 // Compiled only for proof builds; tree-shaken from production.
@@ -27,7 +28,7 @@ function RequireAuth({ shell = true }: { shell?: boolean }) {
   const loc = useLocation();
   if (loading) return <Busy />;
   if (!user) return <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />;
-  return shell ? <Shell /> : <Outlet />;
+  return <AccessGuard>{shell ? <Shell /> : <Outlet />}</AccessGuard>;
 }
 
 // The in-browser reader, annotations UI, audio player, administration and

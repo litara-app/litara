@@ -27,6 +27,37 @@ const err = (status: number, extra: Record<string, unknown> = {}) => new ApiErro
 
 beforeEach(() => { vi.useRealTimers(); });
 
+describe("pending queue ownership and ordering", () => {
+  /** A store whose writes complete slowly, so enqueues overlap the way they do in a busy page. */
+  class SlowStore extends MemoryStore {
+    async put(op: PendingOp) { await new Promise((r) => setTimeout(r, 5)); return super.put(op); }
+    async delete(id: string) { await new Promise((r) => setTimeout(r, 5)); return super.delete(id); }
+  }
+
+  test("simultaneous writes to one resource get distinct, consecutive base revisions", async () => {
+    const h = harness(new SlowStore());
+    await h.q.setScope(A);
+    h.set(() => new Promise(() => undefined)); // nothing is ever accepted, so the chain keeps growing
+    const ops = await Promise.all([h.q.enqueue(spec("k", 7)), h.q.enqueue(spec("k", 7)), h.q.enqueue(spec("k", 7))]);
+    expect(ops.map((o) => o.baseRevision)).toEqual([7, 8, 9]);
+  });
+
+  test("a write started under one account stays that account's if another signs in before it is stored", async () => {
+    const h = harness(new SlowStore());
+    await h.q.setScope(A);
+    h.set(() => new Promise(() => undefined));
+    const mine = h.q.enqueue(spec("k", 0));
+    await h.q.setScope(B); // account switch while the write is being stored
+    const op = await mine;
+    expect(op.scope).toBe(A);
+    expect(h.q.getState().items).toHaveLength(0); // not shown to, and not sent as, account B
+    expect((await h.store.list(A)).map((o) => o.id)).toEqual([op.id]);
+    expect(await h.store.list(B)).toHaveLength(0);
+    await h.q.setScope(A); // the owner returns and finds it
+    expect(h.q.getState().items.map((o) => o.id)).toEqual([op.id]);
+  });
+});
+
 describe("pending queue", () => {
   test("stores before sending and removes after the server accepts", async () => {
     const h = harness();
@@ -121,9 +152,12 @@ describe("pending queue", () => {
   test("a 403 locks the write instead of dropping it, and a 401 pauses everything", async () => {
     const h = harness();
     await h.q.setScope(A);
-    h.set(async () => { throw err(403); });
+    const blocked: string[] = [];
+    h.q.onBlocked((o, problem) => blocked.push(`${o.id}:${String(problem.code)}`));
+    h.set(async () => { throw err(403, { code: "library_access_denied" }); });
     const op = await h.q.enqueue(spec("k", 0));
     await settle();
+    expect(blocked).toEqual([`${op.id}:library_access_denied`]); // the UI is told so it can clear protected content
     expect(h.q.getState().items[0]).toMatchObject({ id: op.id, status: "blocked" });
     expect(await h.store.list(A)).toHaveLength(1);
 

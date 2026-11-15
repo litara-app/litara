@@ -16,8 +16,11 @@ async function csrf(page: Page) {
 }
 
 async function editionOf(page: Page): Promise<string> {
-  const eds = await (await page.request.get("/api/v1/editions")).json();
-  return eds.items.find((e: { file: { format: string } }) => e.file.format === "epub").id;
+  const titles = (await (await page.request.get("/api/v1/titles?size=200")).json()).items as { id: string; title: string }[];
+  const novel = titles.find((t) => t.title === "The Browser Novel")!; // by title: the corpus adds other EPUBs
+  const eds = await (await page.request.get(`/api/v1/editions?titleId=${novel.id}`)).json();
+  const id = eds.items[0].id as string;
+  return id;
 }
 
 async function annotations(page: Page, edition: string) {

@@ -47,7 +47,7 @@ export function PendingProvider({ children, queue }: { children: ReactNode; queu
   }), [queue]);
 
   // Bind the queue to the signed-in account; with none, it is locked.
-  useEffect(() => { void q.setScope(user ? `${location.origin}|${user.id}` : null); }, [q, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { checkedAt = 0; checkedUser = ""; void q.setScope(user ? `${location.origin}|${user.id}` : null); }, [q, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Retry when connectivity or visibility returns.
   useEffect(() => {

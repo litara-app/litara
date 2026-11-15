@@ -217,6 +217,7 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
           <Group gap="xs"><Text size="sm">{serverPos ? `Saved from ${serverPos.deviceName || "another device"}.` : "A different page was saved."}</Text>
             {serverPos && <Button size="compact-xs" onClick={async () => { const loc = await saver.useServer(); if (loc?.kind === "comic-page") { const i = m.pages.findIndex((p) => p.entryId === loc.entryId); if (i >= 0) setIndex(i); } }}>Go to saved page</Button>}
             <Button size="compact-xs" variant="default" onClick={() => void saver.keepMine()}>Keep my page</Button></Group>
+          {saver.resolveError && <Text size="sm" c="red" mt={4} data-testid="resolve-error">Not changed: {saver.resolveError} Both places are still kept.</Text>}
         </Alert>
       )}
 

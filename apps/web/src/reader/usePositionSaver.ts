@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, get } from "../api/client";
+import { api, ApiError, get } from "../api/client";
 import type { Locator, PositionState } from "../api/types";
 import { usePendingQueue, usePendingState } from "../pending/PendingProvider";
 
@@ -35,6 +35,9 @@ export function usePositionSaver({ editionId, fileId, contentVersion, initialRev
   const [changed, setChanged] = useState(false);
   const [sentOnce, setSentOnce] = useState(false);
   const paused = useRef(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+  // One operation ID per resolution attempt, reused on retry so a lost reply cannot apply twice.
+  const resolveOp = useRef(crypto.randomUUID());
 
   const submit = useCallback(() => {
     const locator = pending.current;
@@ -79,30 +82,43 @@ export function usePositionSaver({ editionId, fileId, contentVersion, initialRev
     for (const o of queue.forKey(key)) await queue.discard(o.id); // later positions are superseded by the choice
   }, [queue, key]);
 
-  /** Keep the reader's current location: the server applies it on top of the saved revision. */
+  /**
+   * Keep the reader's current location: the server applies it on top of the saved revision.
+   * If the server does not confirm the resolution, nothing is dropped and the conflict stays open.
+   */
   const keepMine = useCallback(async () => {
     if (!conflict) return;
     const { conflictId, server } = conflict;
+    setResolveError(null);
     try {
       const r = await api<{ revision: string }>("POST", `/personal-conflicts/${conflictId}/resolve`, {
-        operationId: crypto.randomUUID(), baseRevision: server.revision, choice: "use_candidate", contentVersion,
+        operationId: resolveOp.current, baseRevision: server.revision, choice: "use_candidate", contentVersion,
       });
       confirmed.current = Number(r.revision);
-    } catch {
-      confirmed.current = Number(server.revision);
+    } catch (e) {
+      setResolveError(e instanceof ApiError ? e.message : "The saved place could not be reached. Your place is still kept here; try again.");
+      return; // keep the conflict, the queued writes and the pause
     }
+    resolveOp.current = crypto.randomUUID();
     await dropQueued();
     setConflict(null);
     paused.current = false;
   }, [conflict, contentVersion, dropQueued]);
 
-  /** Adopt the saved position and return where to go. */
+  /** Adopt the saved position and return where to go (null, with the conflict kept, if it could not be resolved). */
   const useServer = useCallback(async (): Promise<Locator | null> => {
     if (!conflict) return null;
     const { conflictId, server } = conflict;
-    await api("POST", `/personal-conflicts/${conflictId}/resolve`, {
-      operationId: crypto.randomUUID(), baseRevision: server.revision, choice: "keep_server", contentVersion: null,
-    }).catch(() => undefined);
+    setResolveError(null);
+    try {
+      await api("POST", `/personal-conflicts/${conflictId}/resolve`, {
+        operationId: resolveOp.current, baseRevision: server.revision, choice: "keep_server", contentVersion: null,
+      });
+    } catch (e) {
+      setResolveError(e instanceof ApiError ? e.message : "The saved place could not be reached. Your own place is still kept; try again.");
+      return null;
+    }
+    resolveOp.current = crypto.randomUUID();
     confirmed.current = Number(server.revision);
     pending.current = null;
     await dropQueued();
@@ -114,5 +130,5 @@ export function usePositionSaver({ editionId, fileId, contentVersion, initialRev
   const queued = state.items.some((o) => o.resourceKey === key && o.status === "pending");
   const status: SaveStatus = conflict ? "conflict" : changed ? "changed"
     : queued || pending.current ? (state.offline ? "offline" : "saving") : sentOnce ? "saved" : "idle";
-  return { schedule, status, conflict, keepMine, useServer };
+  return { schedule, status, conflict, keepMine, useServer, resolveError };
 }
