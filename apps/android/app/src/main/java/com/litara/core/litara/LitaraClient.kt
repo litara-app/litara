@@ -147,6 +147,49 @@ class LitaraClient(
     suspend fun writeCompletion(recordingId: String, w: LCompletionWrite): LCompletion =
         sendJson("PUT", "/recordings/$recordingId/completion", LitaraJson.encodeToString(w))
 
+    // ---- ebooks and comics (T005 editions) -----------------------------------------
+
+    suspend fun listTitles(page: Int = 0, size: Int = 50, q: String? = null, mediaKind: String? = null): LTitles {
+        val qs = buildString {
+            append("?page=$page&size=$size")
+            if (q != null) append("&q=").append(java.net.URLEncoder.encode(q, "UTF-8"))
+            if (mediaKind != null) append("&mediaKind=").append(java.net.URLEncoder.encode(mediaKind, "UTF-8"))
+        }
+        return getJson("/titles$qs")
+    }
+
+    suspend fun listEditions(page: Int = 0, size: Int = 50, titleId: String? = null): LEditions {
+        val qs = buildString {
+            append("?page=$page&size=$size")
+            if (titleId != null) append("&titleId=").append(java.net.URLEncoder.encode(titleId, "UTF-8"))
+        }
+        return getJson("/editions$qs")
+    }
+
+    /** Every edition the account may see, following the server's effective page size and total. */
+    suspend fun listAllEditions(titleId: String? = null, pageSize: Int = 200, maxPages: Int = 500): List<LEdition> {
+        val all = ArrayList<LEdition>()
+        var page = 0
+        while (page < maxPages) {
+            val r = listEditions(page = page, size = pageSize, titleId = titleId)
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
+    suspend fun edition(editionId: String): LEdition = getJson("/editions/$editionId")
+    suspend fun readerSnapshot(editionId: String): LReaderSnapshot = getJson("/editions/$editionId/reader")
+    suspend fun editionPosition(editionId: String): LEditionPositionState = getJson("/editions/$editionId/position")
+    suspend fun editionCompletion(editionId: String): LCompletion = getJson("/editions/$editionId/completion")
+
+    suspend fun writeEditionPosition(editionId: String, w: LEditionPositionWrite): LEditionPositionState =
+        sendJson("PUT", "/editions/$editionId/position", LitaraJson.encodeToString(w))
+
+    suspend fun writeEditionCompletion(editionId: String, w: LEditionCompletionWrite): LCompletion =
+        sendJson("PUT", "/editions/$editionId/completion", LitaraJson.encodeToString(w))
+
     // ---- plumbing ---------------------------------------------------------------
 
     private suspend inline fun <reified T> getJson(path: String, authenticated: Boolean = true): T =
