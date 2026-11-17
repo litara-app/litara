@@ -122,6 +122,7 @@ func New(d Deps) http.Handler {
 	})
 	if d.API != nil {
 		RegisterAPI(mux, *d.API)
+		RegisterProtocols(mux, *d.API)
 	}
 	if d.Web != nil {
 		mux.Handle("/", d.Web)

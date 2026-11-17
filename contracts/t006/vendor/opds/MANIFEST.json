@@ -1,0 +1,46 @@
+{
+  "purpose": "OPDS 2.0 JSON schemas used by the T006 conformance test. Not redistributed: upstream declares no license.",
+  "retrieved": "2026-11-16",
+  "files": [
+    {
+      "file": "schema/acquisition-object.schema.json",
+      "url": "https://raw.githubusercontent.com/opds-community/specs/8fda670fc72f110abcf68ad5d26e99ecfeeabf03/schema/acquisition-object.schema.json",
+      "repo": "opds-community/specs",
+      "commit": "8fda670fc72f110abcf68ad5d26e99ecfeeabf03",
+      "sha256": "82b0d83eea6ac9ecb20ce40f202ed4cb53b53e33abedaec8384e8f8002d0374a",
+      "bytes": 406
+    },
+    {
+      "file": "schema/feed-metadata.schema.json",
+      "url": "https://raw.githubusercontent.com/opds-community/specs/8fda670fc72f110abcf68ad5d26e99ecfeeabf03/schema/feed-metadata.schema.json",
+      "repo": "opds-community/specs",
+      "commit": "8fda670fc72f110abcf68ad5d26e99ecfeeabf03",
+      "sha256": "71b79e22783a7be3faf1631fab5aeef5c24f3aecd17cdf73b31bb24e6271e494",
+      "bytes": 934
+    },
+    {
+      "file": "schema/feed.schema.json",
+      "url": "https://raw.githubusercontent.com/opds-community/specs/8fda670fc72f110abcf68ad5d26e99ecfeeabf03/schema/feed.schema.json",
+      "repo": "opds-community/specs",
+      "commit": "8fda670fc72f110abcf68ad5d26e99ecfeeabf03",
+      "sha256": "58c63e6c476a1c463832b96008ae94dba6e9823c735b9cf34a50fdd12e876c1c",
+      "bytes": 3832
+    },
+    {
+      "file": "schema/properties.schema.json",
+      "url": "https://raw.githubusercontent.com/opds-community/specs/8fda670fc72f110abcf68ad5d26e99ecfeeabf03/schema/properties.schema.json",
+      "repo": "opds-community/specs",
+      "commit": "8fda670fc72f110abcf68ad5d26e99ecfeeabf03",
+      "sha256": "e65f63b1c0048d8d267b690398656d072dc13116536145b6a988c8c1bd1603ea",
+      "bytes": 4089
+    },
+    {
+      "file": "schema/publication.schema.json",
+      "url": "https://raw.githubusercontent.com/opds-community/specs/8fda670fc72f110abcf68ad5d26e99ecfeeabf03/schema/publication.schema.json",
+      "repo": "opds-community/specs",
+      "commit": "8fda670fc72f110abcf68ad5d26e99ecfeeabf03",
+      "sha256": "6afdb55e9bc39ac8b6d70e72dc3a4aac6419b13bc2d6ecea57f4d5ad1b1c115b",
+      "bytes": 2251
+    }
+  ]
+}

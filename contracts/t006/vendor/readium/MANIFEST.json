@@ -1,0 +1,165 @@
+{
+  "files": [
+    {
+      "file": "schema/a11y.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "e06834cc80be2239c4bcab95098a43f894da42beefe73b71690e18d013dbae6a",
+      "bytes": 3628
+    },
+    {
+      "file": "schema/altIdentifier.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "45f7d0146551740a2bd381cbc63c39038d0081a05fcf2dbcb7234aff7c41f8a1",
+      "bytes": 640
+    },
+    {
+      "file": "schema/article.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "8bc6a929f796d8277fbec6aeacaa1da286a7f8c5fddb32cb2b2c741f1973d5ab",
+      "bytes": 1733
+    },
+    {
+      "file": "schema/chapter.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "9b182ab7cf67dc29fa3306d84a0472090f799d92a899ebe93a4a442204556f54",
+      "bytes": 1181
+    },
+    {
+      "file": "schema/collection.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "42fd72ec94fea39292f6a86de1964028836c8d6760c19b71fe7300e7a37c7c83",
+      "bytes": 1113
+    },
+    {
+      "file": "schema/contributor.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "b2c6faffe22b52625f6aa8d9dcc0824dbe81321384d41de5ccbbd0c8e7914f65",
+      "bytes": 1221
+    },
+    {
+      "file": "schema/episode.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "88b42128ad31b5adacc46a77f7b5dc8247746eec6990f52e7187c351fd96cf56",
+      "bytes": 1111
+    },
+    {
+      "file": "schema/extensions/encryption/properties.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "a1c3b60c0ceb843d8e21466c089b4f46071f1331e75a7785e3504674eff9ee7a",
+      "bytes": 1328
+    },
+    {
+      "file": "schema/extensions/epub/metadata.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "1fb524eeafafaf31a64d94179cb7486bc1cf638dd2b60130fca4f442f3fa4f0a",
+      "bytes": 710
+    },
+    {
+      "file": "schema/extensions/epub/properties.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "9314e49ec3dca79ca89ae93d5fcb2c29155699e95a9b5e4dc4079614734df64c",
+      "bytes": 841
+    },
+    {
+      "file": "schema/extensions/epub/subcollections.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "64ec516326c0ccb246d69c6b340c3f9fd8454c5022ac0b22f0641c584e87f62b",
+      "bytes": 911
+    },
+    {
+      "file": "schema/issue.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "50a59c0f877a96ca6f13e74da5265bcc9dcc47608437af02c8e503711bbf56a4",
+      "bytes": 1251
+    },
+    {
+      "file": "schema/language-map.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "9c8ec169789b0d53c518b7ec0d9ac497a9a64af4d3e7cd2258d4e5ec7e2bf51c",
+      "bytes": 1082
+    },
+    {
+      "file": "schema/link.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "79cd0daf776964934507af6116fd21d02e618397247715ed3470a129ac517b28",
+      "bytes": 4557
+    },
+    {
+      "file": "schema/metadata.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "554848b3c80aa5c78c8cac63da716d0ba26891f4a351faf6ce0e95e7395572dd",
+      "bytes": 5849
+    },
+    {
+      "file": "schema/periodical.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "e1e95f5202235a3c38034879d3a9c1b07131950c5abf26a0a2bfa775c049b807",
+      "bytes": 1251
+    },
+    {
+      "file": "schema/publication.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "8f9bbe70dfb2793783d370a09db1b9e4b6022b83db164541e2aa382d213046ff",
+      "bytes": 1788
+    },
+    {
+      "file": "schema/season.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "bb890cf5272b4a40ff50eb27c85f3c5ddd12040fec57445ce2a083f8cc0088e8",
+      "bytes": 1181
+    },
+    {
+      "file": "schema/series.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "508f59ecb80c892c3a332b98cdda8b4f3d87eb86056105a0119081efc22c8a50",
+      "bytes": 1531
+    },
+    {
+      "file": "schema/storyArc.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "6d5afaeae4b6921f6d01ee025e89fea9560ea1e96784be9419cf50b1ee12f1f3",
+      "bytes": 1322
+    },
+    {
+      "file": "schema/subcollection.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "fd95b6fd95d104b41acb1066c3faefab295e9c6020533db9d691d02d907403e4",
+      "bytes": 1199
+    },
+    {
+      "file": "schema/subject.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "de23387b6bd17ccbb71e3e39904af07d952037c641df47480c4e227751ee89c3",
+      "bytes": 1015
+    },
+    {
+      "file": "schema/volume.schema.json",
+      "repo": "readium/webpub-manifest",
+      "commit": "9bcf48e3108c567d1d3eb2e7ab0f847d62725691",
+      "sha256": "0f6b7c8c91344f77cad9136709dc54f259460a0fb233d155a3ac1993d3150a00",
+      "bytes": 1323
+    }
+  ]
+}

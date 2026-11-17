@@ -104,6 +104,11 @@ func New(t *testing.T, opts ...Options) *Env {
 	key, _ := accounts.GenerateKey()
 	kb, _ := accounts.ParseKey(key)
 	o.Cfg.MediaRoot = t.TempDir()
+	// The listener is bound first so absolute OPDS links name the real test origin.
+	srv := httptest.NewUnstartedServer(nil)
+	if o.Cfg.PublicOrigin == "" {
+		o.Cfg.PublicOrigin = "http://" + srv.Listener.Addr().String()
+	}
 	acc := accounts.New(accounts.Options{Pool: pool, Clock: clock.Now, SecretKey: kb, Argon: accounts.ArgonParams{MemoryKiB: 8, Time: 1, Threads: 1}})
 	base := o.Cfg.APIBase()
 	cat := catalog.New(pool, base)
@@ -132,7 +137,9 @@ func New(t *testing.T, opts ...Options) *Env {
 	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: e.Reading, Library: library.New(pool), Config: o.Cfg,
 		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback, Integrations: e.Integrations}})
 	e.Handler = h
-	e.Server = httptest.NewServer(h)
+	srv.Config.Handler = h
+	srv.Start()
+	e.Server = srv
 	t.Cleanup(e.Server.Close)
 	return e
 }
@@ -184,6 +191,30 @@ func (e *Env) Do(method, path, token string, body any, hdr ...string) Response {
 	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	for i := 0; i+1 < len(hdr); i += 2 {
+		req.Header.Set(hdr[i], hdr[i+1])
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		e.T.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	return Response{resp, b}
+}
+
+// Proto sends a request to a root-mounted protocol route (OPDS, KOReader): the
+// path is used as given, with no /api/v1 prefix. Headers are key/value pairs.
+func (e *Env) Proto(method, path string, body []byte, hdr ...string) Response {
+	e.T.Helper()
+	var rd io.Reader
+	if body != nil {
+		rd = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, e.Server.URL+path, rd)
+	if err != nil {
+		e.T.Fatal(err)
 	}
 	for i := 0; i+1 < len(hdr); i += 2 {
 		req.Header.Set(hdr[i], hdr[i+1])

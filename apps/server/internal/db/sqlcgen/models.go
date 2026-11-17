@@ -357,6 +357,29 @@ type MoveCandidate struct {
 	CreatedAt   time.Time     `json:"created_at"`
 }
 
+type OpdsPublicationRow struct {
+	PublicationID  uuid.UUID     `json:"publication_id"`
+	MediaKind      string        `json:"media_kind"`
+	LibraryID      uuid.UUID     `json:"library_id"`
+	TitleID        uuid.UUID     `json:"title_id"`
+	Title          string        `json:"title"`
+	Authors        []string      `json:"authors"`
+	SeriesName     *string       `json:"series_name"`
+	SeriesIndex    *float64      `json:"series_index"`
+	Language       *string       `json:"language"`
+	Label          string        `json:"label"`
+	Narrators      []string      `json:"narrators"`
+	FileID         uuid.UUID     `json:"file_id"`
+	ContentVersion uuid.UUID     `json:"content_version"`
+	Filename       string        `json:"filename"`
+	MimeType       string        `json:"mime_type"`
+	SizeBytes      *int64        `json:"size_bytes"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	RecordingID    uuid.NullUUID `json:"recording_id"`
+	FileOrder      int32         `json:"file_order"`
+	FileCount      int32         `json:"file_count"`
+}
+
 type OperationReceipt struct {
 	UserID      uuid.UUID `json:"user_id"`
 	RecordingID uuid.UUID `json:"recording_id"`

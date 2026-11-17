@@ -44,6 +44,9 @@ type APIConfig struct {
 	DevInsecureHTTP bool
 	// MediaRoot restricts which locators may be served.
 	MediaRoot string
+	// PublicOrigin is the configured bare origin (https://host) used for every
+	// absolute OPDS link. Request Host/Forwarded headers are never trusted for it.
+	PublicOrigin string
 }
 
 // APIDeps are the services behind the public contract.

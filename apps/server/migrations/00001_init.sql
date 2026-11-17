@@ -703,7 +703,35 @@ CREATE TABLE integration_credentials (
 );
 CREATE INDEX integration_credentials_user_idx ON integration_credentials (user_id, created_at, id);
 
+-- T006 OPDS publications (ADR-0073): one row per downloadable original. An
+-- ebook/comic publication is the edition (its ID is the stable publication ID);
+-- an audio publication is one file of an active recording (its file ID is the
+-- publication ID). Only current, available files with known size appear, so no
+-- advertised link names absent bytes. Grants are joined by the queries.
+CREATE VIEW opds_publication_rows AS
+SELECT e.id AS publication_id,
+       CASE WHEN e.format IN ('cbz', 'cbr', 'cb7') THEN 'comic' ELSE 'ebook' END::text AS media_kind,
+       e.library_id, t.id AS title_id, t.title, t.authors, t.series_name, t.series_index,
+       e.language, e.label, '{}'::text[] AS narrators,
+       e.file_id, fv.content_version, fv.filename, fv.mime_type, fv.size_bytes, fv.created_at AS updated_at,
+       NULL::uuid AS recording_id, 0::int AS file_order, 1::int AS file_count
+FROM editions e
+JOIN titles t ON t.id = e.title_id
+JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current AND fv.available AND fv.size_bytes IS NOT NULL
+UNION ALL
+SELECT rf.file_id AS publication_id, 'audio'::text AS media_kind,
+       r.library_id, t.id AS title_id, t.title, t.authors, t.series_name, t.series_index,
+       NULL::text AS language, ''::text AS label, r.narrators,
+       rf.file_id, fv.content_version, fv.filename, fv.mime_type, fv.size_bytes, fv.created_at AS updated_at,
+       r.id AS recording_id, (rf.sequence + 1)::int AS file_order,
+       (SELECT count(*)::int FROM recording_files c WHERE c.recording_id = r.id) AS file_count
+FROM recording_files rf
+JOIN active_recordings r ON r.id = rf.recording_id
+JOIN titles t ON t.id = r.title_id
+JOIN file_versions fv ON fv.file_id = rf.file_id AND fv.current AND fv.available AND fv.size_bytes IS NOT NULL;
+
 -- +goose Down
+DROP VIEW opds_publication_rows;
 DROP TABLE integration_credentials;
 DROP TABLE integration_settings;
 DROP TABLE repair_plans;

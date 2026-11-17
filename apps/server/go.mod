@@ -11,6 +11,7 @@ require (
 	github.com/pressly/goose/v3 v3.30.1
 	github.com/riverqueue/river v0.51.2
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.51.2
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/ulikunitz/xz v0.5.15
 	golang.org/x/crypto v0.59.0
 	golang.org/x/term v0.48.0

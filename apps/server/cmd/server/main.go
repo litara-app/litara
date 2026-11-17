@@ -83,7 +83,7 @@ func run() error {
 	// Library roots are validated by the scanner itself, so its inspector is not
 	// restricted to the legacy single media root.
 	scanInsp := inspect.New(inspect.Config{ProbePath: cfg.FFprobePath, Timeout: cfg.InspectTimeout, MaxOutputBytes: cfg.MaxProbeOutput})
-	apiCfg := httpapi.APIConfig{PublicPrefix: cfg.PublicPrefix, AllowedOrigins: cfg.AllowedOrigins, DevInsecureHTTP: cfg.DevInsecureHTTP, MediaRoot: cfg.MediaRoot}
+	apiCfg := httpapi.APIConfig{PublicPrefix: cfg.PublicPrefix, AllowedOrigins: cfg.AllowedOrigins, DevInsecureHTTP: cfg.DevInsecureHTTP, MediaRoot: cfg.MediaRoot, PublicOrigin: cfg.PublicOrigin}
 	cat := catalog.New(pool, apiCfg.APIBase())
 	rd := reading.New(pool, cat, nil)
 	wopts := app.WorkerOptionsFrom(cfg)
