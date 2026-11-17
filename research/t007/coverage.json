@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "task": "T007",
+  "note": "Preparation only: all scenarios pending. Worker records actual commands/environment and linked evidence; preparation cannot pass runtime or release gates.",
+  "scenarios": [
+    {
+      "id": "native-catalog",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "native-reflowable",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "native-pdf-comic",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "locator-roundtrip",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "native-personal-state",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "native-offline-isolation",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "audio-regression",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "auth-refresh",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "ingest-reader",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "repair-native",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "metadata-writers",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "write-recovery",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "providers",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "reconcile-concurrency",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "tls-reader-isolation",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "process-restart",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "smtp-key-restart",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "secret-logs",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "opds-conformance",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "backup-restore",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "package-notices",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "corpus-capabilities",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "nas-mounted",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "koreader-app",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "koreader-large-digest",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "accessibility",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "android-emulator",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "physical-phone",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "Physical Android resource/operator not confirmed."
+    },
+    {
+      "id": "physical-auto",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "Physical Android resource/operator not confirmed."
+    },
+    {
+      "id": "physical-cast",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "User requested Chromecast debugging last; actual receiver/controller not identified."
+    },
+    {
+      "id": "migration-gate",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "Separate package or explicit user decision required."
+    },
+    {
+      "id": "release-policy",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "Separate package or explicit user decision required."
+    }
+  ]
+}

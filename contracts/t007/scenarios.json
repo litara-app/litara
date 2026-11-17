@@ -1,0 +1,620 @@
+{
+  "schemaVersion": 1,
+  "task": "T007",
+  "baseline": "8de06b96c704bbf2a6067dc4df61a25401390393",
+  "prepared": "2026-11-17",
+  "states": [
+    "pending",
+    "passed",
+    "failed",
+    "partial",
+    "blocked",
+    "not-applicable"
+  ],
+  "scenarios": [
+    {
+      "id": "native-catalog",
+      "title": "Native edition/catalog acquisition",
+      "phase": "local",
+      "gaps": [
+        "G01"
+      ],
+      "adrs": [
+        "0006",
+        "0013",
+        "0038",
+        "0065"
+      ],
+      "expect": "Real server lists paginated ebooks/comics separately from recordings; granted exact-version bytes open in native readers; revoked/foreign content denied.",
+      "evidence": "Real-server native/emulator UI steps; byte hashes and HTTP assertions.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "native-reflowable",
+      "title": "Native reflowable reader",
+      "phase": "local",
+      "gaps": [
+        "G01",
+        "G02"
+      ],
+      "adrs": [
+        "0027",
+        "0065",
+        "0068"
+      ],
+      "expect": "Preserved reader opens supported EPUB/KEPUB/FB2/MOBI/AZW3 fixtures, navigates and restores exact file/version; unsupported variants explicit.",
+      "evidence": "Actual Android reader events and emulator assertions; file/provenance inventory.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "native-pdf-comic",
+      "title": "Native PDF and comic reader",
+      "phase": "local",
+      "gaps": [
+        "G01",
+        "G02"
+      ],
+      "adrs": [
+        "0027",
+        "0065"
+      ],
+      "expect": "PDF coordinates/page/crop/rotation and comic index/entry identities are correct; CBZ/CBR/CB7 capability is truthful.",
+      "evidence": "Actual PDF/comic UI, renderer outputs, page/entry fixtures.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "locator-roundtrip",
+      "title": "Web/native actual locator compatibility",
+      "phase": "local",
+      "gaps": [
+        "G02"
+      ],
+      "adrs": [
+        "0027",
+        "0065",
+        "0068"
+      ],
+      "expect": "Actual produced locators round trip in both directions for supported same-file profiles after reflow; incompatible profiles/bytes never relabeled or resumed by percentage.",
+      "evidence": "Paired renderer trace/fixtures, selection or page identity assertions; coordinator decision for any new semantic boundary.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "native-personal-state",
+      "title": "Native annotations, shelves and completion",
+      "phase": "local",
+      "gaps": [
+        "G01"
+      ],
+      "adrs": [
+        "0015",
+        "0022",
+        "0065",
+        "0066"
+      ],
+      "expect": "Supported private typed annotations/bookmarks/notes and ordinary shelf access use real APIs; manual completion affects only the edition/history; conflicts/tombstones retained.",
+      "evidence": "Native UI and persisted state, concurrent/stale writes and deletion replay.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "native-offline-isolation",
+      "title": "Native durable queues and downloads",
+      "phase": "local",
+      "gaps": [
+        "G01",
+        "G03"
+      ],
+      "adrs": [
+        "0013",
+        "0032",
+        "0039",
+        "0040",
+        "0065"
+      ],
+      "expect": "Force-stop/relaunch/lost response preserve operation/base/version; account switch never exposes/sends another owner's content; revoked access locks; old downloads retain version.",
+      "evidence": "Both-flavor emulator tests, restarted process, database/queue assertions with synthetic accounts.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "audio-regression",
+      "title": "Integrated native/web audio regression",
+      "phase": "local",
+      "gaps": [
+        "G03"
+      ],
+      "adrs": [
+        "0018",
+        "0019",
+        "0020",
+        "0035",
+        "0040"
+      ],
+      "expect": "Real decode, backward seek, cross-file chapters, natural-end/manual completion and explicit resume conflicts survive native/web handoff; proxy retains credentials.",
+      "evidence": "Both native flavors plus browser/API assertions against merged server.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "auth-refresh",
+      "title": "Sessions, refresh and grant revocation",
+      "phase": "local",
+      "gaps": [
+        "G03"
+      ],
+      "adrs": [
+        "0031",
+        "0033",
+        "0036",
+        "0037",
+        "0041"
+      ],
+      "expect": "Lost refresh response/serialized retries, disable/revoke, cookie CSRF and native media expiry work; account switch ignores late responses.",
+      "evidence": "Real API/browser/native concurrency, no token in receiver/reader data.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "ingest-reader",
+      "title": "Ingestion to edition/recording workflows",
+      "phase": "local",
+      "gaps": [
+        "G04",
+        "G09"
+      ],
+      "adrs": [
+        "0044",
+        "0045",
+        "0061",
+        "0065"
+      ],
+      "expect": "Scan/move/replacement preserves IDs as selected, produces editions/recordings and truthful capability; changed-byte old state 412; no duplicate ebook model.",
+      "evidence": "Real scan/probe, source hashes, native/web read and play.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "repair-native",
+      "title": "Recording repair with old clients/offline state",
+      "phase": "local",
+      "gaps": [
+        "G03",
+        "G04"
+      ],
+      "adrs": [
+        "0039",
+        "0040",
+        "0070"
+      ],
+      "expect": "Merge/split yields successors/tombstones; old native snapshot and pending writes show explicit choices without losing canonical/history/candidates.",
+      "evidence": "Real repair API/UI then native online/offline retries and DB assertions.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "metadata-writers",
+      "title": "Per-format in-file writer fidelity",
+      "phase": "local",
+      "gaps": [
+        "G05"
+      ],
+      "adrs": [
+        "0048",
+        "0051",
+        "0052",
+        "0057"
+      ],
+      "expect": "EPUB/MP3/FLAC/M4A/M4B field/variant writers enabled only with unchanged payload/chapter/artwork/unknown-tag evidence; unsafe variant disabled.",
+      "evidence": "Per-format round trips, decoded/element payload comparison, artwork hashes, malformed/stale plan failures.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "write-recovery",
+      "title": "Reviewed write/import safety",
+      "phase": "local",
+      "gaps": [
+        "G05",
+        "G07",
+        "G11"
+      ],
+      "adrs": [
+        "0046",
+        "0051",
+        "0053",
+        "0057"
+      ],
+      "expect": "Review and recheck, backup defaults/failure and staged recovery work; concurrent imports cannot overwrite; originals unchanged unless explicitly approved.",
+      "evidence": "Actual process-death stage runs; two publishers/workers; before/after bytes and journal.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "providers",
+      "title": "Opt-in provider qualification",
+      "phase": "local",
+      "gaps": [
+        "G06"
+      ],
+      "adrs": [
+        "0047",
+        "0049",
+        "0060"
+      ],
+      "expect": "Configured accepted providers fill gaps only; protected edits/clears survive; live synthetic/public query evidence and current terms recorded or clear blocker.",
+      "evidence": "Pinned adapter tests plus identified live/public query results and primary references; no replacement provider.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "reconcile-concurrency",
+      "title": "Reconciliation and concurrent workers",
+      "phase": "local",
+      "gaps": [
+        "G06",
+        "G07",
+        "G11"
+      ],
+      "adrs": [
+        "0050",
+        "0058",
+        "0059"
+      ],
+      "expect": "Stability/two healthy absence scans and root identity work; unavailable roots preserve history; two servers serialize safely; hints cannot replace polling.",
+      "evidence": "Disposable local roots and multi-process/db assertions, healthy/unhealthy scan evidence.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "tls-reader-isolation",
+      "title": "Actual TLS and separate reader origin",
+      "phase": "local",
+      "gaps": [
+        "G10"
+      ],
+      "adrs": [
+        "0037",
+        "0041",
+        "0067",
+        "0071"
+      ],
+      "expect": "Certificate validation, secure cookies, real proxy headers and reader origin isolation hold in packaged stack; hostile books/bridges cannot reach privileged routes.",
+      "evidence": "Actual local TLS proxy/browser/native with valid and invalid certs; CORS/CSP/CSRF/network trace.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "process-restart",
+      "title": "Process-death job/state recovery",
+      "phase": "local",
+      "gaps": [
+        "G11",
+        "G14"
+      ],
+      "adrs": [
+        "0024",
+        "0043",
+        "0057",
+        "0067",
+        "0074",
+        "0076"
+      ],
+      "expect": "Kill server after partial extraction/import and durable SMTP boundary; restart preserves state and recovers coherently without uncertain resend.",
+      "evidence": "Owned process IDs, observed stage, sink counts and durable record checks before/after; no hook-only pass.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "smtp-key-restart",
+      "title": "SMTP key loss through real restart",
+      "phase": "local",
+      "gaps": [
+        "G14"
+      ],
+      "adrs": [
+        "0074"
+      ],
+      "expect": "Missing/wrong key at startup fails closed without loss; restoring original key recovers config and safe delivery on local sink.",
+      "evidence": "Separate processes/environments, encrypted DB inspection and synthetic log redaction; no real recipients.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "secret-logs",
+      "title": "Credential log regression",
+      "phase": "local",
+      "gaps": [
+        "G12"
+      ],
+      "adrs": [
+        "0041",
+        "0073",
+        "0074",
+        "0076"
+      ],
+      "expect": "Synthetic app passwords, KOReader keys, native tokens and SMTP secrets absent from actual server/proxy/error logs.",
+      "evidence": "Automated positive control plus non-disclosure assertions; redacted report only.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "opds-conformance",
+      "title": "OPDS semantic/conformance closure",
+      "phase": "local",
+      "gaps": [
+        "G12"
+      ],
+      "adrs": [
+        "0073"
+      ],
+      "expect": "Both feeds project granted data; Atom/XML semantics and identified authoritative validation rules checked; formal limits explicit; JSON schema checks pinned.",
+      "evidence": "Real endpoint responses and parser/validator outputs, licenses/checksums; no unavailable-schema full-conformance claim.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "backup-restore",
+      "title": "Independent whole-stack restore rehearsal",
+      "phase": "local",
+      "gaps": [
+        "G17"
+      ],
+      "adrs": [
+        "0007",
+        "0008",
+        "0043",
+        "0057",
+        "0074"
+      ],
+      "expect": "Fresh restored stack preserves IDs/versions/grants/progress/annotations/shelves/conflicts/receipts and SMTP safety with keys; media unchanged.",
+      "evidence": "Backup manifest without secrets, restore commands, before/after invariant/workflow assertions; production policy unchosen.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "package-notices",
+      "title": "Unsigned package and provenance",
+      "phase": "local",
+      "gaps": [
+        "G10",
+        "G15"
+      ],
+      "adrs": [
+        "0017",
+        "0023",
+        "0028",
+        "0064",
+        "0071"
+      ],
+      "expect": "Local package contains actual web/reader/media tools/notices; host FFmpeg absent; full/F-Droid dependency separation; build hashes/differences documented.",
+      "evidence": "Clean local artifact builds and inventory, source/license references and checksums; no signing/upload/tag/CI.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "corpus-capabilities",
+      "title": "Realistic per-capability corpus",
+      "phase": "assisted",
+      "gaps": [
+        "G08",
+        "G09",
+        "G18"
+      ],
+      "adrs": [
+        "0025",
+        "0027",
+        "0028"
+      ],
+      "expect": "Read/probe/seek/resume/annotate/download/write outcomes named per format/codec/client; RAR variants/fonts/PDF/audio corpus lawful; valid >4 GiB separate from sparse arithmetic.",
+      "evidence": "Fixture origin/license/hash/size and device/browser version; outputs and explicit incomplete states.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "nas-mounted",
+      "title": "Mounted NAS acceptance",
+      "phase": "assisted",
+      "gaps": [
+        "G07",
+        "G18"
+      ],
+      "adrs": [
+        "0007",
+        "0050",
+        "0057",
+        "0059"
+      ],
+      "expect": "Dedicated mounted SMB/NFS test roots recover disconnect, rename, partial copy and publication safely without destructive absences; unsupported writes fail closed.",
+      "evidence": "Named host/protocol/filesystem/mount/options; coordinated disconnect/reconnect and race traces, no private share mutation.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "koreader-app",
+      "title": "Actual KOReader/OPDS app over TLS",
+      "phase": "assisted",
+      "gaps": [
+        "G13"
+      ],
+      "adrs": [
+        "0073",
+        "0075",
+        "0076"
+      ],
+      "expect": "Full app authenticates, searches/pages/downloads exact originals; two device credentials retain stale conflicts and web resolution; restart preserves baselines/candidates.",
+      "evidence": "Pinned actual app/device/UI and TLS evidence; no UI stand-ins counted; generic 409 warning disclosed.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "koreader-large-digest",
+      "title": "Upstream large-file digest agreement",
+      "phase": "local",
+      "gaps": [
+        "G13"
+      ],
+      "adrs": [
+        "0075"
+      ],
+      "expect": "Upstream algorithm and server agree on sparse >1 GiB vectors and available valid large content; identity ambiguity/replacement refuse guessing.",
+      "evidence": "Upstream version/source hashes, sparse versus valid-file labels and independent digest outputs.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "accessibility",
+      "title": "Screen-reader, keyboard and touch",
+      "phase": "assisted",
+      "gaps": [
+        "G08"
+      ],
+      "adrs": [
+        "0011",
+        "0068"
+      ],
+      "expect": "Manual screen reader can operate app plus actual reader/annotations/conflicts; focus/labels/contrast/touch reflow reviewed; automated iframe gap not called pass.",
+      "evidence": "Named reader/OS/browser/device/version and task results; automated axe supplementary.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "android-emulator",
+      "title": "Both Android emulator flavors",
+      "phase": "local",
+      "gaps": [
+        "G01",
+        "G03",
+        "G18"
+      ],
+      "adrs": [
+        "0005",
+        "0023",
+        "0068"
+      ],
+      "expect": "Full/F-Droid real UI/native reader/audio/account/recovery instrumentation and lint/unit/assembly pass against integrated server.",
+      "evidence": "Owned emulator identity, OS/ABI/WebView, commands/counts/skips; prior emulator untouched.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": ""
+    },
+    {
+      "id": "physical-phone",
+      "title": "Physical Android acceptance",
+      "phase": "external",
+      "gaps": [
+        "G18"
+      ],
+      "adrs": [
+        "0005",
+        "0011"
+      ],
+      "expect": "Phone decoder/background/offline, TalkBack/media and device lifecycle verified on actual phone; emulator cannot close.",
+      "evidence": "Actual hardware/operator/version required; currently unconfirmed resource.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": "Physical Android resource/operator not confirmed."
+    },
+    {
+      "id": "physical-auto",
+      "title": "Physical Android Auto acceptance",
+      "phase": "external",
+      "gaps": [
+        "G18"
+      ],
+      "adrs": [
+        "0005",
+        "0011"
+      ],
+      "expect": "Real head unit browse/search/artwork/voice/steering-wheel/resume succeeds with safe user-operated setup.",
+      "evidence": "Named actual head unit/phone/versions/operator; emulator/DHU evidence remains separate.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": "Physical Android resource/operator not confirmed."
+    },
+    {
+      "id": "physical-cast",
+      "title": "Delayed actual Chromecast debugging",
+      "phase": "cast-last",
+      "gaps": [
+        "G03",
+        "G18"
+      ],
+      "adrs": [
+        "0005",
+        "0020"
+      ],
+      "expect": "Actual receiver handoff/seek/reconnect/expiry/revocation through preserved phone proxy works; no server token goes to receiver.",
+      "evidence": "User-coordinated final phase; named receiver/controller/firmware/network and redacted traces. Pending until run.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": "User requested Chromecast debugging last; actual receiver/controller not identified."
+    },
+    {
+      "id": "migration-gate",
+      "title": "Separate migration release hold",
+      "phase": "release-hold",
+      "gaps": [
+        "G16"
+      ],
+      "adrs": [
+        "0062",
+        "0063"
+      ],
+      "expect": "T008 remains separately unassigned until design/decisions; no T007 importer or false migration/release pass.",
+      "evidence": "Release-gate report referencing ADR-0063 open source/mapping/conversion questions.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": "Separate package or explicit user decision required."
+    },
+    {
+      "id": "release-policy",
+      "title": "Production decisions and release hold",
+      "phase": "release-hold",
+      "gaps": [
+        "G15",
+        "G17"
+      ],
+      "adrs": [
+        "0030",
+        "0062",
+        "0063",
+        "0064"
+      ],
+      "expect": "Unchosen support/migration execution/backup/signing/distribution policies identified; Actions disabled and no release/publish authorized.",
+      "evidence": "Coordinator-facing decision list and changed-path audit; any remote hold check is read-only, not reactivation.",
+      "state": "pending",
+      "evidencePaths": [],
+      "blocker": "Separate package or explicit user decision required."
+    }
+  ]
+}
