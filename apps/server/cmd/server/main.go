@@ -271,6 +271,18 @@ type deliveryGate struct {
 	svc   *delivery.Service
 }
 
+// Recover lets the periodic recovery sweep run through the gate (the worker wiring looks for this method).
+func (g *deliveryGate) Recover(ctx context.Context, limit int) (int, error) {
+	select {
+	case <-g.ready:
+		return g.svc.Recover(ctx, limit)
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
+}
+
+var _ jobs.DeliveryRecoverer = (*deliveryGate)(nil)
+
 func (g *deliveryGate) Process(ctx context.Context, id uuid.UUID) error {
 	select {
 	case <-g.ready:

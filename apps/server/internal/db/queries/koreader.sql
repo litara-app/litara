@@ -135,3 +135,6 @@ FROM editions e
 JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
 WHERE e.file_id = sqlc.arg(file_id)
 LIMIT 1;
+
+-- name: GetOwnBindingAny :one
+SELECT * FROM koreader_bindings WHERE id = $1 AND user_id = $2;

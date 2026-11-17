@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/deranjer/ebooker/apps/server/internal/apitest"
 	"github.com/deranjer/ebooker/apps/server/internal/smtptest"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
@@ -135,5 +136,44 @@ func TestDeliveryRecoverySweep(t *testing.T) {
 	}
 	if n, _ := d.e.Delivery.Recover(t.Context(), 10); n != 0 {
 		t.Fatalf("settled deliveries must not be picked up again: %d", n)
+	}
+}
+
+// A stored response is never replayed to someone who has lost the library: the grant is checked before the receipt.
+func TestKOReaderReplayRequiresLibraryGrant(t *testing.T) {
+	k := newKOEnv(t)
+	doc, ed := k.docs["vol2"], k.editions["vol2"]
+	A, B := k.credA1, k.credA2
+	k.get(doc, A, k.pwA1)
+	k.do("PUT", "/1/syncs/progress", A, k.pwA1, koPut(doc, "a1", 0.2, "A"))
+	k.get(doc, B, k.pwA2)
+	k.do("PUT", "/1/syncs/progress", B, k.pwA2, koPut(doc, "b-cand", 0.7, "B"))
+	c := k.conflicts(t)[0]
+	settle := map[string]any{"operationId": uuid.NewString(), "baseRevision": c.CurrentRevision, "action": "keep_server"}
+	if r := k.e.Do("POST", "/koreader/conflicts/"+c.ID+"/resolve", k.userA, settle); r.StatusCode != 200 {
+		t.Fatalf("resolve: %d %s", r.StatusCode, r.Body)
+	}
+	bind := map[string]any{"operationId": uuid.NewString(), "baseRevision": "0", "credentialId": A.ID, "fileId": ed.File.ID, "contentVersion": ed.File.ContentVersion, "document": doc}
+	bid := uuid.NewString()
+	if r := k.e.Do("PUT", "/koreader/bindings/"+bid, k.userA, bind); r.StatusCode != 200 {
+		t.Fatalf("bind: %d %s", r.StatusCode, r.Body)
+	}
+	del := map[string]any{"operationId": uuid.NewString(), "baseRevision": "1"}
+	if r := k.e.Do("DELETE", "/koreader/bindings/"+bid, k.userA, del); r.StatusCode != 200 {
+		t.Fatalf("unbind: %d %s", r.StatusCode, r.Body)
+	}
+	if r := k.e.Do("DELETE", "/admin/users/"+k.e.Fix.UserAID.String()+"/libraries/"+k.lib, k.admin, nil); r.StatusCode != 204 {
+		t.Fatalf("revoke: %d", r.StatusCode)
+	}
+	for name, req := range map[string]func() apitest.Response{
+		"resolve replay": func() apitest.Response {
+			return k.e.Do("POST", "/koreader/conflicts/"+c.ID+"/resolve", k.userA, settle)
+		},
+		"bind replay":   func() apitest.Response { return k.e.Do("PUT", "/koreader/bindings/"+bid, k.userA, bind) },
+		"delete replay": func() apitest.Response { return k.e.Do("DELETE", "/koreader/bindings/"+bid, k.userA, del) },
+	} {
+		if r := req(); r.StatusCode != 403 {
+			t.Fatalf("%s after revoke: %d %s", name, r.StatusCode, r.Body)
+		}
 	}
 }

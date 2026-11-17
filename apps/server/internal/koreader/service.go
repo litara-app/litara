@@ -478,7 +478,17 @@ func (s *Service) settle(ctx context.Context, userID, id uuid.UUID, opStr, baseS
 		return wire.T006KoPosition{}, err
 	}
 	fp := receipts.Fingerprint("POST", "koreader/conflicts/"+id.String()+"/"+kind, map[string]any{"base": base})
-	_, body, err := s.rc.Run(ctx, userID, op, fp, nil, func(tx pgx.Tx, q *sqlcgen.Queries) (int, []byte, *apperr.Error, error) {
+	_, body, err := s.rc.Run(ctx, userID, op, fp, func(_ pgx.Tx, q *sqlcgen.Queries) error {
+		// Runs before any stored response is replayed, so a revoked library never gets an old position back.
+		c, err := q.GetOwnKoConflict(ctx, sqlcgen.GetOwnKoConflictParams{ID: id, UserID: userID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil // unknown or not yours: the work reports 404
+		}
+		if err != nil {
+			return err
+		}
+		return requireGrant(ctx, q, userID, c.FileID)
+	}, func(tx pgx.Tx, q *sqlcgen.Queries) (int, []byte, *apperr.Error, error) {
 		// Lock order is source first (as PUT does), then the conflict row: read without a lock here.
 		if _, err := q.GetOwnKoConflict(ctx, sqlcgen.GetOwnKoConflictParams{ID: id, UserID: userID}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -493,6 +503,17 @@ func (s *Service) settle(ctx context.Context, userID, id uuid.UUID, opStr, baseS
 	}
 	var out wire.T006KoPosition
 	return out, json.Unmarshal(body, &out)
+}
+
+// requireGrant fails with 403 unless the user holds a library grant covering the file's edition.
+func requireGrant(ctx context.Context, q *sqlcgen.Queries, userID, fileID uuid.UUID) error {
+	if _, err := q.FileGrantedToUser(ctx, sqlcgen.FileGrantedToUserParams{UserID: userID, FileID: fileID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperr.ErrAccessDenied
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *Service) settleLocked(ctx context.Context, q *sqlcgen.Queries, userID, id uuid.UUID, base int64, action string) (int, []byte, *apperr.Error, error) {
@@ -605,7 +626,9 @@ func (s *Service) PutBinding(ctx context.Context, userID, id uuid.UUID, in wire.
 		return wire.T006DigestBinding{}, apperr.Validation("credentialId, fileId, contentVersion and document must be valid")
 	}
 	fp := receipts.Fingerprint("PUT", "koreader/bindings/"+id.String(), map[string]any{"base": base, "c": credID, "d": in.Document, "f": fileID, "v": ver})
-	_, body, err := s.rc.Run(ctx, userID, op, fp, nil, func(tx pgx.Tx, q *sqlcgen.Queries) (int, []byte, *apperr.Error, error) {
+	_, body, err := s.rc.Run(ctx, userID, op, fp, func(_ pgx.Tx, q *sqlcgen.Queries) error {
+		return requireGrant(ctx, q, userID, fileID) // before any stored response is replayed
+	}, func(tx pgx.Tx, q *sqlcgen.Queries) (int, []byte, *apperr.Error, error) {
 		cred, err := q.GetOwnCredentialForUpdate(ctx, sqlcgen.GetOwnCredentialForUpdateParams{ID: credID, UserID: userID})
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && (cred.Kind != integrations.KindKOReader || cred.RevokedAt != nil)) {
 			return 0, nil, apperr.ErrNotFound, nil
@@ -685,7 +708,16 @@ func (s *Service) DeleteBinding(ctx context.Context, userID, id uuid.UUID, in wi
 		return wire.T006DigestBinding{}, err
 	}
 	fp := receipts.Fingerprint("DELETE", "koreader/bindings/"+id.String(), map[string]any{"base": base})
-	_, body, err := s.rc.Run(ctx, userID, op, fp, nil, func(tx pgx.Tx, q *sqlcgen.Queries) (int, []byte, *apperr.Error, error) {
+	_, body, err := s.rc.Run(ctx, userID, op, fp, func(_ pgx.Tx, q *sqlcgen.Queries) error {
+		b, err := q.GetOwnBindingAny(ctx, sqlcgen.GetOwnBindingAnyParams{ID: id, UserID: userID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		return requireGrant(ctx, q, userID, b.FileID) // before any stored response is replayed
+	}, func(tx pgx.Tx, q *sqlcgen.Queries) (int, []byte, *apperr.Error, error) {
 		b, err := q.GetOwnBindingForUpdate(ctx, sqlcgen.GetOwnBindingForUpdateParams{ID: id, UserID: userID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, nil, apperr.ErrNotFound, nil

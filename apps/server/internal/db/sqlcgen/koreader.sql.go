@@ -292,6 +292,32 @@ func (q *Queries) GetKoReceipt(ctx context.Context, arg GetKoReceiptParams) (Kor
 	return i, err
 }
 
+const getOwnBindingAny = `-- name: GetOwnBindingAny :one
+SELECT id, user_id, credential_id, document, file_id, content_version, revision, deleted, created_at FROM koreader_bindings WHERE id = $1 AND user_id = $2
+`
+
+type GetOwnBindingAnyParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetOwnBindingAny(ctx context.Context, arg GetOwnBindingAnyParams) (KoreaderBinding, error) {
+	row := q.db.QueryRow(ctx, getOwnBindingAny, arg.ID, arg.UserID)
+	var i KoreaderBinding
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CredentialID,
+		&i.Document,
+		&i.FileID,
+		&i.ContentVersion,
+		&i.Revision,
+		&i.Deleted,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getOwnBindingForUpdate = `-- name: GetOwnBindingForUpdate :one
 SELECT id, user_id, credential_id, document, file_id, content_version, revision, deleted, created_at FROM koreader_bindings WHERE id = $1 AND user_id = $2 FOR UPDATE
 `
