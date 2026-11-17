@@ -1,6 +1,6 @@
 # Litara rebuild work packages
 
-Updated: 2026-11-14
+Updated: 2026-11-16
 Coordination owner: the user and the ADR/integration chat
 
 ## Start here
@@ -9,7 +9,7 @@ Coordination owner: the user and the ADR/integration chat
 
 **T003 and T004 are merged into `main`.** T003 merged in [PR #81](https://github.com/litara-app/litara/pull/81) at `deed67c8eef320e33cdc13da995e802c50f9662a`; T004 merged in [PR #82](https://github.com/litara-app/litara/pull/82) at `2abef2ed46d770bd21d714d299739144de619bce`, initially on the rebuild integration branch. [PR #83](https://github.com/litara-app/litara/pull/83) integrated that branch into `main` at `dae3f3e66cf125fbb428e1d010f7f6b44b3bb591` on 2026-11-14. The user requested this integration. Existing handoff verification evidence is retained; this merge is not fresh runtime/hardware verification. T004's named gaps remain open rather than being declared complete.
 
-**T005 is Ready for one implementation owner; unassigned.** ADR-0065–0070 are Accepted from explicit user choices on 2026-11-14. The [complete execution brief](handoffs/T005-assignment.md), [additive contract/fixtures](contracts/t005/README.md) and [readiness evidence](research/t005/readiness.md) are prepared. Shared/smart shelves and necessary server work are included. T006/T007 remain unassigned; do not overlap T005 server/schema/contracts ownership. The dated preparation/review sections below are historical; this overview and register supersede their obsolete assignment/readiness statements.
+**T005 is implemented and coordinator-approved for PR review; integration pending.** The implementation is on `codex/t005-web-reading`; [the handoff](handoffs/T005.md) records the 2026-11-16 review, resolved blockers and fresh checks. All 38 contract operations are implemented; scenario coverage is 36 covered and two partial, retained for T007 (real-device/screen-reader accessibility and broader real-world files). T005 is not merged or declared production-ready. T006/T007 remain unassigned; avoid overlapping server/schema ownership until integration. The dated preparation/review sections below are historical; this overview and register supersede their obsolete assignment/readiness statements.
 
 **Release hold:** 2.0.0 requires a verified personal-state migration path (ADR-0062/0063). GitHub Actions is disabled repository-wide under ADR-0064; do not re-enable CI or publish builds without the user's explicit release-readiness decision. Local development verification remains allowed.
 
@@ -38,11 +38,11 @@ The authoritative working repository is `G:\Programming\ebooker`. `E:\Programmin
 | T002 | Native Android baseline, media preservation, and adaptation seams | Done: reviewed and merged, PR #80 | Closed; do not repeat import | Future adapter/account-isolation work belongs to T003; physical hardware gates remain |
 | T003 | Shared client contract, accounts, and end-to-end recording playback API | Merged: PR #81, integrated to main by #83 | Closed implementation assignment | Handoff evidence retained; physical hardware and release gates remain |
 | T004 | Catalog, library ingestion, metadata, and NAS recovery | Merged with named gaps: PR #82, integrated to main by #83 | Closed merged assignment; follow-ups need explicit ownership | See handoff: ebook entities, merge/split, writers, provider/NAS verification remain incomplete |
-| T005 | Redesigned web library and complete reading/listening flows | Ready: accepted ADR-0065–0070, contract/fixtures and full brief | Unassigned; user selects one owner | Exact codex/t005-readiness checkpoint; exclusive web/server/schema/contracts scope; T006 waits |
+| T005 | Redesigned web library and complete reading/listening flows | Coordinator-approved for PR; integration pending | Implementation: Claude Code; coordinator review: Codex | codex/t005-web-reading; handoffs/T005.md; two T007 partials and release gates retained |
 | T006 | OPDS, email delivery, and basic KOReader integration | Not ready: upstream contracts and protocol decisions needed | Unassigned | T003/T004 plus delivery/auth/revision policies |
 | T007 | Cross-client integration, hardware acceptance, and release readiness | Not ready: earlier packages and test resources needed | Unassigned | Integrated T003–T006, hardware/operators and release decisions |
 
-These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T004 have been integrated. T005 now has a complete execution brief/contract; T006–T007 still need execution-ready briefs/checkpoints before assignment. A roadmap description does not authorize a worker to pick one up opportunistically.
+These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T004 have been integrated. T005 is implemented and approved for PR review; T006–T007 still need execution-ready briefs/checkpoints before assignment. A roadmap description does not authorize a worker to pick one up opportunistically.
 
 ## T005 preparation verification — 2026-11-14
 
