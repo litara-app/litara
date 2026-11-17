@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
+	"github.com/deranjer/ebooker/apps/server/internal/reading"
 	"github.com/deranjer/ebooker/apps/server/internal/writeback"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -48,6 +50,7 @@ type APIDeps struct {
 	Accounts *accounts.Service
 	Catalog  *catalog.Service
 	Progress *progress.Service
+	Reading  *reading.Service
 	Library  *library.Service
 	// T004 services (nil in contract-only builds such as `ctl openapi`).
 	Pool      *pgxpool.Pool
@@ -90,6 +93,8 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	cfg.CreateHooks = nil // no $schema link headers: bodies match the shared contract exactly
 	cfg.Transformers = append(cfg.Transformers, a.stampRequestID)
 	api := humago.NewWithPrefix(mux, "/api/v1", cfg)
+	reg := api.OpenAPI().Components.Schemas
+	reg.Map()["T005Problem"] = reg.Schema(reflect.TypeFor[T005Problem](), false, "T005Problem")
 	api.UseMiddleware(a.middleware(api))
 
 	a.registerDiscovery(api)
@@ -99,6 +104,13 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerIngest(api)
 	a.registerRecordings(api)
 	a.registerProgress(api)
+	a.registerEditions(api)
+	a.registerReading(api)
+	a.registerAnnotations(api)
+	a.registerShelves(api)
+	a.registerEditionAdmin(api)
+	a.registerComics(api)
+	a.registerRepair(api)
 	a.registerMedia(api)
 	return api
 }

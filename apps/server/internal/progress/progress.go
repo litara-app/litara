@@ -403,6 +403,13 @@ func (s *Service) WritePosition(ctx context.Context, a Actor, recID uuid.UUID, i
 					OperationID: op, Candidate: wire.Raw(candidate), BaseRevision: base, LayoutRevision: uuid.NullUUID{UUID: layout, Valid: true}, CreatedAt: now})
 			}
 
+			if rec.TombstonedAt != nil { // a repaired recording keeps the attempt as a candidate and names its successors
+				c, err := newConflict("recording_repaired")
+				if err != nil {
+					return nil, nil, err
+				}
+				return nil, catalog.Repaired(http.StatusPreconditionFailed, rec.SuccessorIds).With("conflictId", c.ID.String()), nil
+			}
 			problem, member, err := classify(ctx, q, files, layout == rec.LayoutRevision, fileID, version)
 			if err != nil {
 				return nil, nil, err

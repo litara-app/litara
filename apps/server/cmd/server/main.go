@@ -8,10 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -29,6 +31,8 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
+	"github.com/deranjer/ebooker/apps/server/internal/reading"
+	"github.com/deranjer/ebooker/apps/server/internal/webui"
 	"github.com/deranjer/ebooker/apps/server/internal/writeback"
 )
 
@@ -78,7 +82,11 @@ func run() error {
 	// Library roots are validated by the scanner itself, so its inspector is not
 	// restricted to the legacy single media root.
 	scanInsp := inspect.New(inspect.Config{ProbePath: cfg.FFprobePath, Timeout: cfg.InspectTimeout, MaxOutputBytes: cfg.MaxProbeOutput})
+	apiCfg := httpapi.APIConfig{PublicPrefix: cfg.PublicPrefix, AllowedOrigins: cfg.AllowedOrigins, DevInsecureHTTP: cfg.DevInsecureHTTP, MediaRoot: cfg.MediaRoot}
+	cat := catalog.New(pool, apiCfg.APIBase())
+	rd := reading.New(pool, cat, nil)
 	wopts := app.WorkerOptionsFrom(cfg)
+	wopts.Extractor = rd
 	scanner := &ingest.Scanner{Pool: pool, Inspector: scanInsp, Log: log}
 	imp := &importer.Service{Pool: pool, Inspector: scanInsp}
 	wopts.Scanner, wopts.Importer, wopts.ScanWorkers = scanner, imp, cfg.ScanWorkers
@@ -106,6 +114,17 @@ func run() error {
 		log.Info("write-back recovery", "completed", done, "abandoned", gone)
 	}
 	jobsEnq := jobs.RiverEnqueuer{Client: client, MaxAttempts: 3}
+	cacheDir := cfg.CacheDir
+	if cacheDir == "" {
+		if d, err := os.UserCacheDir(); err == nil {
+			cacheDir = filepath.Join(d, "litara")
+		}
+	}
+	if cacheDir == "" {
+		log.Warn("no cache directory is available; comic page extraction is disabled (set LITARA_CACHE_DIR)")
+	} else {
+		rd.EnableComics(reading.ComicOptions{MediaRoot: cfg.MediaRoot, CacheDir: cacheDir, Enqueuer: jobsEnq})
+	}
 	go func() { // opt-in provider lookups run apart from scans so a slow provider never blocks them
 		t := time.NewTicker(15 * time.Minute)
 		defer t.Stop()
@@ -139,8 +158,6 @@ func run() error {
 	}
 	acc := accounts.New(accounts.Options{Pool: pool, SecretKey: key,
 		Argon: accounts.ArgonParams{MemoryKiB: cfg.ArgonMemoryKiB, Time: cfg.ArgonTime, Threads: cfg.ArgonThreads}})
-	apiCfg := httpapi.APIConfig{PublicPrefix: cfg.PublicPrefix, AllowedOrigins: cfg.AllowedOrigins, DevInsecureHTTP: cfg.DevInsecureHTTP, MediaRoot: cfg.MediaRoot}
-	cat := catalog.New(pool, apiCfg.APIBase())
 	go func() { // clear protected refresh responses once their 60-second recovery window ends
 		t := time.NewTicker(10 * time.Second)
 		defer t.Stop()
@@ -157,15 +174,22 @@ func run() error {
 	}()
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
-		Handler: httpapi.New(httpapi.Deps{Pool: pool, Prober: insp, Workers: running.Load, Version: version,
-			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Library: library.New(pool), Config: apiCfg, Log: log,
+		Handler: httpapi.New(httpapi.Deps{Web: appHandler(cfg), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
+			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Reading: rd, Library: library.New(pool), Config: apiCfg, Log: log,
 				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb}}),
 	}
-	errc := make(chan error, 1)
+	errc := make(chan error, 2)
 	go func() {
 		log.Info("http listening", "addr", cfg.HTTPAddr)
 		errc <- srv.ListenAndServe()
 	}()
+	readerSrv := readerServer(cfg)
+	if readerSrv != nil {
+		go func() {
+			log.Info("reader origin listening", "addr", cfg.ReaderAddr, "origin", cfg.ReaderOrigin)
+			errc <- readerSrv.ListenAndServe()
+		}()
+	}
 
 	select {
 	case err := <-errc:
@@ -183,10 +207,37 @@ func run() error {
 	sctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 	_ = srv.Shutdown(sctx)
+	if readerSrv != nil {
+		_ = readerSrv.Shutdown(sctx)
+	}
 	if err := client.Stop(sctx); err != nil {
 		log.Warn("workers did not stop cleanly; hard-stopping", "error", err)
 		_ = client.StopAndCancel(context.Background())
 	}
 	log.Info("shutdown complete")
 	return nil
+}
+
+// appHandler serves the built web app when LITARA_WEB_DIR is configured.
+func appHandler(cfg *config.Config) http.Handler {
+	if cfg.WebDir == "" {
+		return nil
+	}
+	return webui.App(os.DirFS(cfg.WebDir), webOrigins(cfg))
+}
+
+// readerServer is the separate-origin listener for reader assets (ADR-0071).
+func readerServer(cfg *config.Config) *http.Server {
+	if cfg.WebDir == "" {
+		return nil
+	}
+	sub, err := fs.Sub(os.DirFS(cfg.WebDir), "reader")
+	if err != nil {
+		return nil
+	}
+	return &http.Server{Addr: cfg.ReaderAddr, ReadHeaderTimeout: 10 * time.Second, Handler: webui.Reader(sub, webOrigins(cfg))}
+}
+
+func webOrigins(cfg *config.Config) webui.Origins {
+	return webui.Origins{App: cfg.PublicOrigin, Reader: cfg.ReaderOrigin}
 }

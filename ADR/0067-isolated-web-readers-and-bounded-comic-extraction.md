@@ -38,6 +38,8 @@ Planned browser tests: book scripts cannot execute or access cookies/parent/API/
 
 None within the selected direction/ceilings. Exact dependency pins, CSP/asset configuration and browser compatibility are mandatory first-milestone implementation evidence. Incompatibility must be reported rather than weakening the selected isolation boundary; no parser support or browser security is claimed as already tested.
 
+Amended on 2026-11-14 by [ADR-0071](0071-separate-reader-origin.md): the reader frame moves from an opaque-origin sandbox to a separate reader origin because pristine Foliate cannot render in the opaque sandbox. All other controls here remain in force.
+
 ## References
 
 - [Foliate security guidance](https://github.com/johnfactotum/foliate-js#security)

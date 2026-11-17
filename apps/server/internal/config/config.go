@@ -51,6 +51,18 @@ type Config struct {
 	GoogleBooksAPIKey string
 	// ScanWorkers bounds concurrent library scans.
 	ScanWorkers int
+	// WebDir is a built web application directory served by the Go process.
+	// Empty disables static serving.
+	WebDir string
+	// CacheDir holds regenerable derived files such as extracted comic pages. It
+	// must not be inside a library root. Empty selects the OS user cache directory.
+	CacheDir string
+	// ReaderAddr is the separate listener for reader assets (ADR-0071);
+	// PublicOrigin and ReaderOrigin are the browser-visible origins, which must
+	// differ by hostname. All three are required when WebDir is set.
+	ReaderAddr   string
+	PublicOrigin string
+	ReaderOrigin string
 }
 
 const prefix = "LITARA_"
@@ -124,6 +136,11 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		ArgonThreads:       uint8(getInt("ARGON2_THREADS", 2)),
 		GoogleBooksAPIKey:  get("GOOGLE_BOOKS_API_KEY", ""),
 		ScanWorkers:        getInt("SCAN_WORKERS", 2),
+		WebDir:             get("WEB_DIR", ""),
+		CacheDir:           get("CACHE_DIR", ""),
+		ReaderAddr:         get("READER_ADDR", ""),
+		PublicOrigin:       strings.TrimRight(get("PUBLIC_ORIGIN", ""), "/"),
+		ReaderOrigin:       strings.TrimRight(get("READER_ORIGIN", ""), "/"),
 	}
 	for _, o := range strings.Split(get("ALLOWED_ORIGINS", ""), ",") {
 		if o = strings.TrimSpace(o); o != "" {
@@ -160,5 +177,29 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	if c.MaxProbeOutput < 1024 {
 		errs = append(errs, fmt.Errorf("%sMAX_PROBE_OUTPUT_BYTES must be at least 1024", prefix))
 	}
+	if c.WebDir != "" {
+		errs = append(errs, validateReaderOrigins(c)...)
+	}
 	return c, errors.Join(errs...)
+}
+
+// validateReaderOrigins enforces ADR-0071: distinct hostnames, bare origins.
+func validateReaderOrigins(c *Config) []error {
+	var errs []error
+	if c.ReaderAddr == "" {
+		errs = append(errs, fmt.Errorf("%sREADER_ADDR is required when %sWEB_DIR is set", prefix, prefix))
+	}
+	hosts := map[string]string{}
+	for _, e := range []struct{ key, v string }{{"PUBLIC_ORIGIN", c.PublicOrigin}, {"READER_ORIGIN", c.ReaderOrigin}} {
+		u, err := url.Parse(e.v)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.Path != "" || u.RawQuery != "" || u.User != nil {
+			errs = append(errs, fmt.Errorf("%s%s must be a bare http(s) origin such as https://host, got %q", prefix, e.key, e.v))
+			continue
+		}
+		hosts[e.key] = strings.ToLower(u.Hostname())
+	}
+	if a, b := hosts["PUBLIC_ORIGIN"], hosts["READER_ORIGIN"]; a != "" && a == b {
+		errs = append(errs, fmt.Errorf("%sREADER_ORIGIN must use a different hostname than %sPUBLIC_ORIGIN (cookies are not port-scoped)", prefix, prefix))
+	}
+	return errs
 }

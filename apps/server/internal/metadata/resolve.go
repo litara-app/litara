@@ -24,9 +24,11 @@ const (
 	SourceSidecar  = "sidecar"
 	SourceEmbedded = "embedded"
 	SourceProvider = "provider"
+	// SourceFilename is the computed lowest fallback (never stored).
+	SourceFilename = "filename"
 )
 
-var rank = map[string]int{SourceUser: 0, SourceSidecar: 1, SourceEmbedded: 2, SourceProvider: 3}
+var rank = map[string]int{SourceUser: 0, SourceSidecar: 1, SourceEmbedded: 2, SourceProvider: 3, SourceFilename: 4}
 
 // SubjectKind returns which row owns a field.
 func SubjectKind(field string) string {

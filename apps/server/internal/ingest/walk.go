@@ -24,6 +24,9 @@ var mediaTypes = map[string]string{
 	".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".m4b": "audio/mp4", ".aac": "audio/aac",
 	".flac": "audio/flac", ".ogg": "audio/ogg", ".opus": "audio/opus", ".wav": "audio/wav",
 	".epub": "application/epub+zip", ".pdf": "application/pdf", ".cbz": "application/vnd.comicbook+zip",
+	".fb2": "application/x-fictionbook+xml", ".mobi": "application/x-mobipocket-ebook",
+	".azw": "application/vnd.amazon.ebook", ".azw3": "application/vnd.amazon.ebook",
+	".cbr": "application/vnd.comicbook-rar", ".cb7": "application/x-cb7",
 }
 
 // sidecarExts are associated, not cataloged as media (ADR-0055).

@@ -29,6 +29,8 @@ type Deps struct {
 	Prober  Prober
 	Workers WorkersRunning
 	Version string
+	// Web, when set, serves the built web app for paths no API route claims.
+	Web http.Handler
 }
 
 type healthOutput struct {
@@ -120,6 +122,9 @@ func New(d Deps) http.Handler {
 	})
 	if d.API != nil {
 		RegisterAPI(mux, *d.API)
+	}
+	if d.Web != nil {
+		mux.Handle("/", d.Web)
 	}
 	return mux
 }

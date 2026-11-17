@@ -53,6 +53,15 @@ func (q *Queries) CloseReviewByKey(ctx context.Context, arg CloseReviewByKeyPara
 	return err
 }
 
+const confirmEditionLink = `-- name: ConfirmEditionLink :exec
+UPDATE editions SET link_state = 'confirmed' WHERE id = $1
+`
+
+func (q *Queries) ConfirmEditionLink(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, confirmEditionLink, id)
+	return err
+}
+
 const confirmRecordingLink = `-- name: ConfirmRecordingLink :exec
 UPDATE recordings SET link_state = 'confirmed' WHERE id = $1
 `
@@ -120,7 +129,7 @@ func (q *Queries) DeleteCandidatesNotIn(ctx context.Context, arg DeleteCandidate
 }
 
 const deleteTitleIfUnused = `-- name: DeleteTitleIfUnused :exec
-DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM recordings r WHERE r.title_id = t.id)
+DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id)
 `
 
 func (q *Queries) DeleteTitleIfUnused(ctx context.Context, id uuid.UUID) error {
@@ -154,8 +163,30 @@ func (q *Queries) FinishScanRun(ctx context.Context, arg FinishScanRunParams) er
 	return err
 }
 
+const getEditionByFileID = `-- name: GetEditionByFileID :one
+SELECT id, title_id, library_id, file_id, revision, label, language, format, link_state, created_at FROM editions WHERE file_id = $1
+`
+
+func (q *Queries) GetEditionByFileID(ctx context.Context, fileID uuid.UUID) (Edition, error) {
+	row := q.db.QueryRow(ctx, getEditionByFileID, fileID)
+	var i Edition
+	err := row.Scan(
+		&i.ID,
+		&i.TitleID,
+		&i.LibraryID,
+		&i.FileID,
+		&i.Revision,
+		&i.Label,
+		&i.Language,
+		&i.Format,
+		&i.LinkState,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getRecordingByGroupKey = `-- name: GetRecordingByGroupKey :one
-SELECT id, title_id, library_id, narrators, layout_revision, thumbnail_locator, thumbnail_mime, cover_locator, cover_mime, seed_key, created_at, group_key, link_state FROM recordings WHERE library_id = $1 AND group_key = $2
+SELECT id, title_id, library_id, narrators, layout_revision, thumbnail_locator, thumbnail_mime, cover_locator, cover_mime, seed_key, created_at, tombstoned_at, successor_ids, group_key, link_state FROM recordings WHERE library_id = $1 AND group_key = $2 AND tombstoned_at IS NULL
 `
 
 type GetRecordingByGroupKeyParams struct {
@@ -178,6 +209,8 @@ func (q *Queries) GetRecordingByGroupKey(ctx context.Context, arg GetRecordingBy
 		&i.CoverMime,
 		&i.SeedKey,
 		&i.CreatedAt,
+		&i.TombstonedAt,
+		&i.SuccessorIds,
 		&i.GroupKey,
 		&i.LinkState,
 	)
@@ -544,7 +577,7 @@ func (q *Queries) ListDueVerification(ctx context.Context, now time.Time) ([]uui
 }
 
 const listLibraryRecordings = `-- name: ListLibraryRecordings :many
-SELECT id, title_id, group_key, link_state FROM recordings WHERE library_id = $1 ORDER BY created_at, id
+SELECT id, title_id, group_key, link_state FROM active_recordings WHERE library_id = $1 ORDER BY created_at, id
 `
 
 type ListLibraryRecordingsRow struct {
@@ -580,7 +613,7 @@ func (q *Queries) ListLibraryRecordings(ctx context.Context, libraryID uuid.UUID
 }
 
 const listLibraryTitlesByKey = `-- name: ListLibraryTitlesByKey :many
-SELECT DISTINCT t.id, t.identifier FROM titles t JOIN recordings r ON r.title_id = t.id
+SELECT DISTINCT t.id, t.identifier FROM titles t JOIN active_recordings r ON r.title_id = t.id
 WHERE r.library_id = $1 AND t.group_key = $2
 `
 

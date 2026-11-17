@@ -32,8 +32,8 @@ Use RFC 9457 application/problem+json errors with stable code, type, status, det
 | 401 | Missing/expired access, invalid credentials, revoked/expired session; token_expired, session_revoked, refresh_reuse, refresh_retry_expired |
 | 403 | Authenticated but no grant/admin authority; library_access_denied, admin_required, csrf_failed |
 | 404 | Unknown recording/file/version/artwork/session in the caller's permitted scope; not_found |
-| 409 | position_conflict, completion_conflict (durable conflictId), operation_id_reused, recording_incomplete |
-| 412 | layout_changed, content_changed; preserve candidate, return currentLayoutRevision and conflictId for sync writes |
+| 409 | position_conflict, completion_conflict (durable conflictId), operation_id_reused, recording_incomplete, recording_repaired (a reviewed repair replaced the recording; additive `successorRecordingIds` lists the successors the caller may access) |
+| 412 | layout_changed, content_changed; preserve candidate, return currentLayoutRevision and conflictId for sync writes; recording_repaired for writes to a repaired source recording (durable conflictId keeps the attempt as a candidate; additive `successorRecordingIds`) |
 | 416 | Unsatisfiable media range, Content-Range: bytes */size |
 | 422 | Invalid fields/offsets: invalid_position, validation_failed; never silently clamp |
 | 429 | Request throttled: rate_limited; include Retry-After |

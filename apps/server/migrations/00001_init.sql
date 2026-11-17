@@ -120,7 +120,11 @@ CREATE TABLE recordings (
     cover_locator     text,
     cover_mime        text,
     seed_key          text UNIQUE,
-    created_at        timestamptz NOT NULL DEFAULT now()
+    created_at        timestamptz NOT NULL DEFAULT now(),
+    -- A repaired recording keeps its ID as a non-playable tombstone with ordered
+    -- successor references (ADR-0070). Its state, history and conflicts stay.
+    tombstoned_at     timestamptz,
+    successor_ids     uuid[] NOT NULL DEFAULT '{}'
 );
 CREATE INDEX recordings_library_idx ON recordings (library_id);
 
@@ -233,7 +237,7 @@ CREATE TABLE conflicts (
     user_id               uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     recording_id          uuid NOT NULL REFERENCES recordings (id) ON DELETE CASCADE,
     kind                  text NOT NULL CHECK (kind IN ('position', 'completion')),
-    reason                text NOT NULL CHECK (reason IN ('stale_revision', 'layout_changed', 'content_changed', 'completion_changed')),
+    reason                text NOT NULL CHECK (reason IN ('stale_revision', 'layout_changed', 'content_changed', 'completion_changed', 'recording_repaired', 'repair_source')),
     operation_id          uuid NOT NULL,
     -- Position conflicts: the attempted PositionWrite position + device context.
     -- Completion conflicts: the attempted CompletionWrite event.
@@ -466,7 +470,225 @@ CREATE TABLE import_items (
     UNIQUE (plan_id, target_rel)
 );
 
+-- T005 editions (ADR-0065): each distinct ebook/comic file owns one edition. The file
+-- ID is the stable identity across moves and same-path replacements. Library
+-- access is derived from the edition's library; no recording is ever faked.
+CREATE TABLE editions (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    title_id    uuid NOT NULL REFERENCES titles (id),
+    library_id  uuid NOT NULL REFERENCES libraries (id),
+    file_id     uuid NOT NULL UNIQUE REFERENCES media_files (id),
+    revision    bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    label       text NOT NULL DEFAULT '',
+    language    text,
+    format      text NOT NULL CHECK (format IN ('epub', 'kepub', 'mobi', 'azw', 'azw3', 'fb2', 'pdf', 'cbz', 'cbr', 'cb7')),
+    -- provisional links are conservative guesses that await review (ADR-0061).
+    link_state  text NOT NULL DEFAULT 'provisional' CHECK (link_state IN ('confirmed', 'provisional')),
+    created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX editions_title_idx ON editions (title_id);
+CREATE INDEX editions_library_idx ON editions (library_id);
+
+-- T005 personal reading state for editions (ADR-0065). Revisions start at 0 (absent row).
+CREATE TABLE edition_position_state (
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    revision        bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    file_id         uuid,
+    content_version uuid,
+    locator         jsonb,
+    captured_at     timestamptz,
+    received_at     timestamptz,
+    device_name     text,
+    PRIMARY KEY (user_id, edition_id)
+);
+
+-- Latest per-device candidate evidence; kept when the canonical position advances.
+CREATE TABLE edition_position_evidence (
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    session_id      uuid NOT NULL,
+    file_id         uuid NOT NULL,
+    content_version uuid NOT NULL,
+    locator         jsonb NOT NULL,
+    captured_at     timestamptz NOT NULL,
+    received_at     timestamptz NOT NULL,
+    device_name     text NOT NULL,
+    PRIMARY KEY (user_id, edition_id, session_id)
+);
+
+CREATE TABLE edition_completion_state (
+    user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    edition_id uuid NOT NULL REFERENCES editions (id),
+    revision   bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    finished   boolean NOT NULL DEFAULT false,
+    changed_at timestamptz,
+    PRIMARY KEY (user_id, edition_id)
+);
+
+-- Immutable per-edition title history; recording history stays in completion_history.
+CREATE TABLE edition_history (
+    seq             bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    title_id        uuid NOT NULL REFERENCES titles (id),
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    file_id         uuid NOT NULL,
+    content_version uuid NOT NULL,
+    event           text NOT NULL CHECK (event IN ('manual_finish', 'manual_unfinish')),
+    operation_id    uuid NOT NULL,
+    captured_at     timestamptz NOT NULL,
+    received_at     timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (user_id, operation_id)
+);
+CREATE INDEX edition_history_title_idx ON edition_history (user_id, title_id, seq);
+
+-- One receipt namespace per authenticated user across every T005 personal mutation kind.
+-- Never pruned automatically. Fingerprint covers method, resource and semantic request.
+CREATE TABLE t005_receipts (
+    user_id      uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    operation_id uuid NOT NULL,
+    fingerprint  bytea NOT NULL,
+    status       integer NOT NULL,
+    body         jsonb NOT NULL,
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, operation_id)
+);
+
+CREATE TABLE t005_conflicts (
+    id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id               uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    resource_kind         text NOT NULL CHECK (resource_kind IN ('position', 'completion', 'annotation', 'shelf', 'membership', 'shelf-order')),
+    resource_id           uuid NOT NULL,
+    edition_id            uuid REFERENCES editions (id),
+    reason                text NOT NULL CHECK (reason IN ('stale_revision', 'content_changed', 'locator_incompatible', 'deleted', 'access_changed')),
+    operation_id          uuid NOT NULL,
+    candidate             jsonb NOT NULL,
+    base_revision         bigint NOT NULL,
+    current_revision      bigint NOT NULL,
+    created_at            timestamptz NOT NULL DEFAULT now(),
+    resolved_at           timestamptz,
+    resolved_operation_id uuid,
+    resolved_revision     bigint
+);
+CREATE INDEX t005_conflicts_user_idx ON t005_conflicts (user_id, resource_id, created_at);
+
+-- T005 private annotations (ADR-0066). Client-generated UUID; kind immutable; deleting keeps
+-- a tombstone. Content columns stay as private evidence after deletion; the wire hides them.
+CREATE TABLE annotations (
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    id              uuid NOT NULL,
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    revision        bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
+    kind            text NOT NULL CHECK (kind IN ('highlight', 'note', 'bookmark')),
+    deleted         boolean NOT NULL DEFAULT false,
+    file_id         uuid NOT NULL,
+    content_version uuid NOT NULL,
+    locator         jsonb NOT NULL,
+    selection       jsonb,
+    text            text NOT NULL DEFAULT '',
+    quote           text NOT NULL DEFAULT '',
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, id)
+);
+CREATE INDEX annotations_edition_idx ON annotations (user_id, edition_id, id);
+
+-- T005 manual and smart shelves (ADR-0066). Kind is immutable; non-owners never edit.
+CREATE TABLE shelves (
+    id         uuid PRIMARY KEY,
+    owner_id   uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    revision   bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
+    kind       text NOT NULL CHECK (kind IN ('manual', 'smart')),
+    visibility text NOT NULL CHECK (visibility IN ('private', 'shared')),
+    name       text NOT NULL,
+    filter     jsonb,
+    deleted    boolean NOT NULL DEFAULT false,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK ((kind = 'manual') = (filter IS NULL))
+);
+CREATE INDEX shelves_owner_idx ON shelves (owner_id, id);
+
+-- Manual membership: unique per shelf/title with a stable total order. Smart shelves
+-- never materialize membership.
+CREATE TABLE shelf_titles (
+    shelf_id uuid NOT NULL REFERENCES shelves (id),
+    title_id uuid NOT NULL REFERENCES titles (id),
+    position bigint NOT NULL,
+    PRIMARY KEY (shelf_id, title_id)
+);
+CREATE INDEX shelf_titles_order_idx ON shelf_titles (shelf_id, position, title_id);
+
+-- T005 per-edition metadata sources (ADR-0065). Protected user edits/clears outrank
+-- sidecar, embedded and provider values; the file name is a computed lowest fallback.
+CREATE TABLE edition_metadata_values (
+    edition_id      uuid NOT NULL REFERENCES editions (id),
+    field           text NOT NULL CHECK (field IN ('title', 'authors', 'series_name', 'series_index', 'language', 'tags')),
+    source          text NOT NULL CHECK (source IN ('user', 'sidecar', 'embedded', 'provider')),
+    value           jsonb,
+    protected_clear boolean NOT NULL DEFAULT false,
+    updated_at      timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (edition_id, field, source),
+    CHECK (source = 'user' OR NOT protected_clear)
+);
+
+-- T005 comic page extraction (ADR-0067): one durable job and manifest per file
+-- version and extraction profile. Cache files live outside the library roots;
+-- paths are derived from the row ID and never exposed.
+CREATE TABLE comic_extractions (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    file_id          uuid NOT NULL REFERENCES media_files (id),
+    content_version  uuid NOT NULL,
+    profile          text NOT NULL,
+    status           text NOT NULL CHECK (status IN ('processing', 'ready', 'incomplete', 'unsupported')),
+    manifest_version uuid NOT NULL DEFAULT gen_random_uuid(),
+    pages            jsonb NOT NULL DEFAULT '[]',
+    issues           jsonb NOT NULL DEFAULT '[]',
+    cache_bytes      bigint NOT NULL DEFAULT 0 CHECK (cache_bytes >= 0),
+    reserved_bytes   bigint NOT NULL DEFAULT 0 CHECK (reserved_bytes >= 0),
+    created_at       timestamptz NOT NULL DEFAULT now(),
+    updated_at       timestamptz NOT NULL DEFAULT now(),
+    last_used_at     timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (file_id, content_version, profile)
+);
+
+-- Active recordings: every catalog, count, scan and authorization query reads this
+-- view so a tombstoned source can never be listed, served or matched again.
+CREATE VIEW active_recordings AS SELECT * FROM recordings WHERE tombstoned_at IS NULL;
+
+-- T005 reviewed recording repair plans (ADR-0070). Sources and outputs are the
+-- immutable reviewed layout; the plan revision gates approve/execute/cancel.
+CREATE TABLE repair_plans (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id   uuid NOT NULL REFERENCES users (id),
+    library_id uuid NOT NULL REFERENCES libraries (id),
+    title_id   uuid NOT NULL REFERENCES titles (id),
+    kind       text NOT NULL CHECK (kind IN ('merge', 'split')),
+    state      text NOT NULL CHECK (state IN ('planned', 'approved', 'applied', 'cancelled', 'stale')),
+    revision   bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    sources    jsonb NOT NULL,
+    outputs    jsonb NOT NULL,
+    result     jsonb NOT NULL DEFAULT '[]',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- +goose Down
+DROP TABLE repair_plans;
+DROP VIEW active_recordings;
+DROP TABLE comic_extractions;
+DROP TABLE edition_metadata_values;
+DROP TABLE shelf_titles;
+DROP TABLE shelves;
+DROP TABLE annotations;
+DROP TABLE t005_conflicts;
+DROP TABLE t005_receipts;
+DROP TABLE edition_history;
+DROP TABLE edition_completion_state;
+DROP TABLE edition_position_evidence;
+DROP TABLE edition_position_state;
+DROP TABLE editions;
 DROP TABLE import_items;
 DROP TABLE import_plans;
 DROP TABLE provider_lookups;

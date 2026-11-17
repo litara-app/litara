@@ -35,8 +35,32 @@ type Problem struct {
 	Current               *wire.PositionState   `json:"current,omitempty"`
 	CurrentCompletion     *wire.CompletionState `json:"currentCompletion,omitempty"`
 	CurrentLayoutRevision string                `json:"currentLayoutRevision,omitempty" format:"uuid"`
+	// SuccessorRecordingIDs is present only on recording_repaired errors (T003 Problem, additive).
+	SuccessorRecordingIDs []wire.UUIDStr `json:"successorRecordingIds,omitempty" maxItems:"100"`
 
 	headers http.Header
+	// t005 carries the T005 conflict members currentRevision and currentContentVersion.
+	// They are written by MarshalJSON so the generated T003 Problem schema does not grow
+	// them; T005Problem documents them.
+	t005 map[string]any
+}
+
+// MarshalJSON appends the T005 members after the shared fields.
+func (p Problem) MarshalJSON() ([]byte, error) {
+	type plain Problem
+	b, err := json.Marshal(plain(p))
+	if err != nil || len(p.t005) == 0 {
+		return b, err
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	for k, v := range p.t005 {
+		raw, _ := json.Marshal(v)
+		m[k] = raw
+	}
+	return json.Marshal(m)
 }
 
 func (p *Problem) Error() string             { return fmt.Sprintf("%d %s", p.Status, p.Code) }
@@ -158,6 +182,15 @@ func (a *API) toProblem(ctx context.Context, err error) *Problem {
 				_ = json.Unmarshal(raw, &p.CurrentCompletion)
 			case "currentLayoutRevision":
 				_ = json.Unmarshal(raw, &p.CurrentLayoutRevision)
+			case "successorRecordingIds":
+				_ = json.Unmarshal(raw, &p.SuccessorRecordingIDs)
+			case "currentRevision", "currentContentVersion":
+				if p.t005 == nil {
+					p.t005 = map[string]any{}
+				}
+				var v any
+				_ = json.Unmarshal(raw, &v)
+				p.t005[k] = v
 			}
 		}
 		if ae.RetryAfterSeconds > 0 {
@@ -178,3 +211,20 @@ func (a *API) toProblem(ctx context.Context, err error) *Problem {
 
 // fail is the single handler exit for errors.
 func (a *API) fail(ctx context.Context, err error) error { return a.toProblem(ctx, err) }
+
+// T005Problem documents the T005 error body in the generated OpenAPI. At
+// runtime every error is a Problem; the T005 conflict fields (currentRevision,
+// currentContentVersion, successorRecordingIds) are added to Problem when the
+// personal-state and repair routes that emit them are implemented.
+type T005Problem struct {
+	Type                  string   `json:"type" format:"uri-reference"`
+	Title                 string   `json:"title" maxLength:"1024"`
+	Status                int      `json:"status" minimum:"400" maximum:"599"`
+	Detail                string   `json:"detail" maxLength:"8192"`
+	Code                  string   `json:"code" maxLength:"128"`
+	RequestID             string   `json:"requestId" format:"uuid"`
+	ConflictID            string   `json:"conflictId,omitempty" format:"uuid"`
+	CurrentRevision       string   `json:"currentRevision,omitempty" pattern:"^(0|[1-9][0-9]*)$"`
+	CurrentContentVersion string   `json:"currentContentVersion,omitempty" format:"uuid"`
+	SuccessorRecordingIDs []wire.UUIDStr `json:"successorRecordingIds,omitempty" maxItems:"100"`
+}

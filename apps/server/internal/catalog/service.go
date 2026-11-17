@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -161,6 +162,9 @@ func (s *Service) Snapshot(ctx context.Context, userID, recordingID uuid.UUID) (
 	if err != nil {
 		return wire.Recording{}, err
 	}
+	if rec.TombstonedAt != nil {
+		return wire.Recording{}, Repaired(http.StatusConflict, rec.SuccessorIds)
+	}
 	files, err := s.q.ListRecordingFiles(ctx, []uuid.UUID{recordingID})
 	if err != nil {
 		return wire.Recording{}, unavailable(err)
@@ -287,6 +291,9 @@ func (s *Service) Artwork(ctx context.Context, userID, recordingID uuid.UUID, ki
 	if err != nil {
 		return ArtworkTarget{}, err
 	}
+	if rec.TombstonedAt != nil {
+		return ArtworkTarget{}, Repaired(http.StatusConflict, rec.SuccessorIds)
+	}
 	loc, mime := rec.ThumbnailLocator, rec.ThumbnailMime
 	if kind == "cover" {
 		loc, mime = rec.CoverLocator, rec.CoverMime
@@ -356,7 +363,11 @@ func (s *Service) ResolveFile(ctx context.Context, userID, fileID, version uuid.
 	if err != nil {
 		return FileTarget{}, unavailable(err)
 	}
-	if len(recs) == 0 {
+	eds, err := s.q.ListFileEditions(ctx, sqlcgen.ListFileEditionsParams{FileID: fileID, UserID: userID})
+	if err != nil {
+		return FileTarget{}, unavailable(err)
+	}
+	if len(recs) == 0 && len(eds) == 0 {
 		return FileTarget{}, apperr.ErrNotFound
 	}
 	var granted []uuid.UUID
@@ -365,7 +376,14 @@ func (s *Service) ResolveFile(ctx context.Context, userID, fileID, version uuid.
 			granted = append(granted, r.RecordingID)
 		}
 	}
-	if len(granted) == 0 {
+	// An ebook/comic file is served through a granted edition membership; no
+	// recording is involved (ADR-0065). Recording readiness applies only when
+	// the grant comes from recordings.
+	editionGranted := false
+	for _, e := range eds {
+		editionGranted = editionGranted || e.Granted
+	}
+	if len(granted) == 0 && !editionGranted {
 		return FileTarget{}, apperr.ErrAccessDenied
 	}
 	fv, err := s.q.GetFileVersion(ctx, sqlcgen.GetFileVersionParams{ContentVersion: version, FileID: fileID})
@@ -387,7 +405,7 @@ func (s *Service) ResolveFile(ctx context.Context, userID, fileID, version uuid.
 		byRec[f.RecordingID] = append(byRec[f.RecordingID], f)
 	}
 	for _, rid := range granted {
-		if !Evaluate(byRec[rid]).Ready {
+		if !editionGranted && !Evaluate(byRec[rid]).Ready {
 			return FileTarget{}, apperr.ErrIncomplete
 		}
 	}
@@ -395,4 +413,16 @@ func (s *Service) ResolveFile(ctx context.Context, userID, fileID, version uuid.
 		return FileTarget{}, apperr.ErrIncomplete
 	}
 	return FileTarget{Locator: fv.Locator, MIME: fv.MimeType, Size: *fv.SizeBytes, ETag: fmt.Sprintf("%q", fv.ContentVersion.String())}, nil
+}
+
+// Repaired is the typed error for a recording that a reviewed repair replaced
+// (ADR-0070). Successor IDs are visible only to callers who passed the grant
+// check, which every caller of this function has (the successors share the
+// source library).
+func Repaired(status int, successors []uuid.UUID) *apperr.Error {
+	ids := make([]string, 0, len(successors))
+	for _, id := range successors {
+		ids = append(ids, id.String())
+	}
+	return apperr.New(status, "recording_repaired", "This recording was replaced by a reviewed repair; use its successors.").With("successorRecordingIds", ids)
 }

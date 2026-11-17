@@ -36,7 +36,7 @@ const getFileLibrary = `-- name: GetFileLibrary :one
 SELECT x.library_id::uuid FROM (
     SELECT o.library_id FROM file_observations o WHERE o.file_id = $1
     UNION
-    SELECT r.library_id FROM recording_files rf JOIN recordings r ON r.id = rf.recording_id WHERE rf.file_id = $1
+    SELECT r.library_id FROM recording_files rf JOIN active_recordings r ON r.id = rf.recording_id WHERE rf.file_id = $1
 ) x LIMIT 1
 `
 
@@ -70,7 +70,7 @@ func (q *Queries) GetProviderLookup(ctx context.Context, arg GetProviderLookupPa
 }
 
 const getRecordingRow = `-- name: GetRecordingRow :one
-SELECT id, title_id, library_id, narrators FROM recordings WHERE id = $1
+SELECT id, title_id, library_id, narrators FROM active_recordings WHERE id = $1
 `
 
 type GetRecordingRowRow struct {

@@ -343,6 +343,9 @@ func (s *Scanner) reconcile(ctx context.Context, run sqlcgen.ScanRun) (Outcome, 
 		if _, err := s.Group(ctx, run.LibraryID); err != nil {
 			return out, fmt.Errorf("group: %w", err)
 		}
+		if err := s.SyncEditions(ctx, run.LibraryID); err != nil {
+			return out, fmt.Errorf("editions: %w", err)
+		}
 		if err := s.Associate(ctx, run.LibraryID, listing); err != nil {
 			return out, fmt.Errorf("associate: %w", err)
 		}
@@ -363,6 +366,10 @@ func keys(m map[string]bool) []string {
 }
 
 func (s *Scanner) inspectFile(ctx context.Context, e Entry) (completeness string, result []byte, failure *string, durationMs *int64) {
+	if !strings.HasPrefix(e.Mime, "audio/") {
+		// Ebook/comic containers are parsed by Go readers, never by ffprobe.
+		return "complete", nil, nil, nil
+	}
 	if s.Inspector == nil {
 		f := "no inspector configured"
 		return "failed", nil, &f, nil

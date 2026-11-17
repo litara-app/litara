@@ -2935,7 +2935,9 @@
               "stale_revision",
               "layout_changed",
               "content_changed",
-              "completion_changed"
+              "completion_changed",
+              "recording_repaired",
+              "repair_source"
             ]
           },
           "candidate": {
@@ -3669,6 +3671,16 @@
           "currentLayoutRevision": {
             "type": "string",
             "format": "uuid"
+          },
+          "successorRecordingIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 0,
+            "maxItems": 100,
+            "description": "Present only on recording_repaired errors (409 snapshot/read, 412 write): the successor recordings of a reviewed repair that the caller may access."
           }
         },
         "additionalProperties": true
