@@ -115,7 +115,7 @@ func (s *Scanner) insertEdition(ctx context.Context, q *sqlcgen.Queries, lib, fi
 				ids = append(ids, t.ID.String())
 			}
 			if err := s.review(ctx, lib, "grouping", "edition-title:"+fileID.String(), map[string]any{
-				"reason": "same title and authors as an existing title without a shared identifier",
+				"reason":   "same title and authors as an existing title without a shared identifier",
 				"newTitle": titleID.String(), "existingTitles": ids}); err != nil {
 				return err
 			}
