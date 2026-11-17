@@ -47,6 +47,8 @@
 
 ## T007 implementation checkpoint
 
+- User-selected Android build runtime/toolchain is now JDK 25 (2026-11-17); app Java/Kotlin bytecode stays at 17. Follow `apps/android/BUILDING.md` and `research/t007/jdk25-upgrade.md` rather than historical JDK 21 baseline instructions. The coordinator's isolated toolchain-upgrade commit must be integrated by the existing T007 owner before Android work resumes. Dormant Android workflow configuration uses 25; Actions remains disabled.
+
 - T001–T006 are integrated into main through PR #86 at `8de06b96c704bbf2a6067dc4df61a25401390393`. The T007 assignment supersedes earlier scope scheduling: use the exact coordinator-supplied committed `codex/t007-readiness` tip, `handoffs/T007-assignment.md`, `contracts/t007/` and `research/t007/`. No worker is launched by these files.
 - User-selected T007 scope includes preserved Android ebook/PDF/comic reader adaptation, integration fixes, qualified metadata writers and release evidence. One owner has the brief's explicit Android/server/web/contracts/local packaging write scope. Existing T003–T006 policies/wire contracts remain authoritative; preserve AGPL Android versus MIT web/server, Cast proxy, both Android flavors and separate web reader origin.
 - Android uses emulators first; user-assisted NAS/KOReader/accessibility checks follow local work; actual Chromecast/network debugging is last. Physical phone/head-unit resources are not confirmed, and emulator/fake results cannot close physical gates. Actual renderer evidence is required for locator compatibility; do not relabel incompatible native locators with a web profile.

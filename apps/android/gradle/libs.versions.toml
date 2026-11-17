@@ -1,8 +1,8 @@
 [versions]
 # Build tooling
-agp = "8.9.1"
-kotlin = "2.0.21"
-ksp = "2.0.21-1.0.28"
+agp = "8.13.2"
+kotlin = "2.3.21"
+ksp = "2.3.9"
 playPublisher = "3.13.0"
 
 # AndroidX core / lifecycle / activity
@@ -16,7 +16,7 @@ composeBom = "2024.12.01"
 navigationCompose = "2.8.5"
 
 # DI
-hilt = "2.53.1"
+hilt = "2.58"
 hiltNavigationCompose = "1.2.0"
 
 # Networking
@@ -32,7 +32,7 @@ playServicesCast = "21.5.0"
 androidxMediarouter = "1.7.0"
 
 # Persistence
-room = "2.6.1"
+room = "2.8.5"
 datastore = "1.1.1"
 securityCrypto = "1.1.0-alpha06"
 documentfile = "1.1.0"
