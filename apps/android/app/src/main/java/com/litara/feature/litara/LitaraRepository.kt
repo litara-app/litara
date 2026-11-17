@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.litara.core.litara.AccountScope
 import com.litara.core.litara.AtomicFile
+import com.litara.core.litara.EditionProgressSync
+import com.litara.core.litara.LEdition
+import com.litara.core.litara.LReaderSnapshot
 import com.litara.core.litara.CompletionSync
 import com.litara.core.litara.FinishOutcome
 import com.litara.core.litara.LAnchor
@@ -336,4 +339,37 @@ class LitaraRepository @Inject constructor(
     }
 
     fun hasPendingCompletion(recordingId: String): Boolean = File(recDir(token(), recordingId), "pending-completion.json").exists()
+    // ---- ebooks and comics (T005 editions) -----------------------------------------------------
+
+    /** Engine profiles the preserved native reader is proven to read and write. Empty until evidence exists (G02). */
+    val nativeCompatibleProfiles: Set<String> = emptySet()
+
+    suspend fun editions(): List<LEdition> = requireClient().listAllEditions()
+
+    suspend fun readerSnapshot(editionId: String): LReaderSnapshot = requireClient().readerSnapshot(editionId)
+
+    private fun edDir(t: ScopeToken, editionId: String) = File(dir(t), "ed/$editionId").apply { mkdirs() }
+
+    /**
+     * The exact file version of an edition on this device, downloaded once per (file, content version) into the
+     * active account's directory. A new version is a new file; an older complete copy is never overwritten or
+     * silently reused for different bytes.
+     */
+    suspend fun editionFile(snap: LReaderSnapshot): File {
+        val t = token()
+        val f = snap.edition.file
+        val path = f.contentPath ?: throw IllegalStateException("This edition has no readable content.")
+        val ext = f.format.filter { it.isLetterOrDigit() }.ifEmpty { "bin" }
+        val dest = File(edDir(t, snap.edition.id), "${f.id}-${f.contentVersion}.$ext")
+        val file = LFile(f.id, f.contentVersion, 0, dest.name, f.mimeType, f.sizeBytes, null, f.availability == "available", path)
+        RangeDownloader(requireClient()).download(file, dest)
+        offline.publish(t) { } // the scope must still be the one the task started under
+        return dest
+    }
+
+    fun editionProgress(snap: LReaderSnapshot): EditionProgressSync {
+        val t = token()
+        return EditionProgressSync(requireClient(), snap.edition.id, snap.edition.file.id, snap.edition.file.contentVersion,
+            snap.engineProfile, nativeCompatibleProfiles, edDir(t, snap.edition.id))
+    }
 }

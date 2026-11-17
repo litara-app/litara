@@ -54,7 +54,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ReaderScreen(
     onBack: () -> Unit,
-    vm: ReaderViewModel = hiltViewModel(),
+    vm: ReaderHost = hiltViewModel<ReaderViewModel>(),
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val controller = remember { ReaderController() }

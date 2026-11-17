@@ -531,6 +531,15 @@
     <string name="litara_completion_natural_end">reached the end of the recording</string>
     <string name="litara_keep_server_state">Keep server state</string>
     <string name="litara_tab_library">Library</string>
+    <string name="litara_tab_books">Books</string>
+    <string name="litara_no_books">No ebooks or comics yet.</string>
+    <string name="litara_book_unsupported">%1$s is not available in this app yet.</string>
+    <string name="litara_book_not_readable">This book cannot be opened (%1$s).</string>
+    <string name="litara_reader_local_only">Your reading position is kept on this device only. Syncing positions with the web reader is not enabled for this renderer yet.</string>
+    <string name="litara_reader_annotations_unavailable">Highlights, notes and bookmarks are not available for Litara books yet.</string>
+    <string name="litara_reader_conflict">Another device saved a different position. This device\'s position was kept; resolve it in the web app.</string>
+    <string name="litara_reader_content_changed">This book\'s file changed. Your saved position was kept and was not applied to the new version.</string>
+    <string name="litara_reader_access_ended">Your access ended. Reading progress is kept on this device and locked to your account.</string>
     <string name="litara_tab_downloads">Downloads</string>
     <string name="litara_tab_account">Account</string>
     <string name="litara_no_recordings">No recordings available to you yet.</string>

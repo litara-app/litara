@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.LocalLibrary
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -63,6 +64,7 @@ import com.litara.ui.LocalImageUrls
 /** Test tags for the Litara shell. */
 object ShellTags {
     const val TAB_LIBRARY = "shell-tab-library"
+    const val TAB_BOOKS = "shell-tab-books"
     const val TAB_DOWNLOADS = "shell-tab-downloads"
     const val TAB_ACCOUNT = "shell-tab-account"
     const val PLAY = "shell-play"
@@ -71,12 +73,14 @@ object ShellTags {
     const val SIGN_OUT = "shell-sign-out"
     const val DETAIL_TITLE = "shell-detail-title"
     const val EMPTY_DOWNLOADS = "shell-empty-downloads"
+    fun book(id: String) = "shell-book-$id"
     fun recording(id: String) = "shell-rec-$id"
     fun download(id: String) = "shell-dl-$id"
 }
 
 private const val ROUTE_MAIN = "main"
 private const val ROUTE_PLAYER = "player"
+private const val ROUTE_READER = "reader/{editionId}"
 
 /**
  * The phone app for a signed-in Litara account: Library, Downloads and Account over recording detail.
@@ -92,14 +96,17 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
             ShellMain(vm, onListen = { handle ->
                 player.loadAndPlay(handle)
                 nav.navigate(ROUTE_PLAYER)
-            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) })
+            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onReadBook = { id -> nav.navigate("reader/$id") })
+        }
+        composable(ROUTE_READER) {
+            com.litara.feature.reader.ReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraReaderViewModel>())
         }
         composable(ROUTE_PLAYER) { PlayerScreen(onBack = dropUnlessResumed { nav.popBackStack() }) }
     }
 }
 
 @Composable
-private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit) {
+private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onReadBook: (String) -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     BackHandler(enabled = ui.detail != null) { vm.closeDetail() }
@@ -110,9 +117,11 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
                 NavigationBar {
                     NavigationBarItem(tab == 0, { tab = 0; vm.closeDetail() }, { Icon(Icons.Outlined.LocalLibrary, null) },
                         label = { Text(stringResource(R.string.litara_tab_library)) }, modifier = Modifier.testTag(ShellTags.TAB_LIBRARY))
-                    NavigationBarItem(tab == 1, { tab = 1; vm.closeDetail() }, { Icon(Icons.Outlined.Download, null) },
+                    NavigationBarItem(tab == 1, { tab = 1; vm.closeDetail() }, { Icon(Icons.Outlined.MenuBook, null) },
+                        label = { Text(stringResource(R.string.litara_tab_books)) }, modifier = Modifier.testTag(ShellTags.TAB_BOOKS))
+                    NavigationBarItem(tab == 2, { tab = 2; vm.closeDetail() }, { Icon(Icons.Outlined.Download, null) },
                         label = { Text(stringResource(R.string.litara_tab_downloads)) }, modifier = Modifier.testTag(ShellTags.TAB_DOWNLOADS))
-                    NavigationBarItem(tab == 2, { tab = 2; vm.closeDetail() }, { Icon(Icons.Outlined.AccountCircle, null) },
+                    NavigationBarItem(tab == 3, { tab = 3; vm.closeDetail() }, { Icon(Icons.Outlined.AccountCircle, null) },
                         label = { Text(stringResource(R.string.litara_tab_account)) }, modifier = Modifier.testTag(ShellTags.TAB_ACCOUNT))
                 }
             }
@@ -125,7 +134,8 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
             when {
                 ui.detail != null -> ShellDetail(vm, ui, onListen)
                 tab == 0 -> ShellLibrary(vm, ui)
-                tab == 1 -> ShellDownloads(vm, ui)
+                tab == 1 -> ShellBooks(onReadBook)
+                tab == 2 -> ShellDownloads(vm, ui)
                 else -> ShellAccount(vm, ui)
             }
         }
@@ -173,6 +183,37 @@ private fun ShellLibrary(vm: LitaraShellViewModel, ui: ShellUi) {
                     Text(listOfNotNull(r.durationMs?.let { stringResource(R.string.litara_duration_min, (it / 60000).toInt()) },
                         r.readiness.takeIf { it != "ready" }, stringResource(R.string.litara_downloaded).takeIf { row.downloaded }).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            HorizontalDivider()
+        }
+    }
+}
+
+@Composable
+private fun ShellBooks(onRead: (String) -> Unit, vm: LitaraBooksViewModel = hiltViewModel()) {
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.litara_tab_books), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        TextButton({ vm.refresh() }) { Text(stringResource(R.string.litara_refresh)) }
+    }
+    if (ui.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+    ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(LitaraTags.ERROR)) }
+    if (ui.editions.isEmpty() && !ui.loading && ui.error == null) {
+        Text(stringResource(R.string.litara_no_books), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    LazyColumn {
+        items(ui.editions, key = { it.id }) { e ->
+            val open = openability(e)
+            Row(Modifier.fillMaxWidth().clickable(enabled = open is BookOpen.Yes) { onRead(e.id) }.padding(vertical = 8.dp).testTag(ShellTags.book(e.id)),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(e.label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    val detail = when (open) {
+                        BookOpen.Yes -> e.file.format.uppercase()
+                        is BookOpen.No -> stringResource(R.string.litara_book_unsupported, open.reason)
+                    }
+                    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             HorizontalDivider()
