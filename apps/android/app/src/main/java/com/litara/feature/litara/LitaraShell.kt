@@ -199,18 +199,19 @@ private fun ShellBooks(onRead: (String) -> Unit, vm: LitaraBooksViewModel = hilt
     }
     if (ui.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
     ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(LitaraTags.ERROR)) }
-    if (ui.editions.isEmpty() && !ui.loading && ui.error == null) {
+    if (ui.books.isEmpty() && !ui.loading && ui.error == null) {
         Text(stringResource(R.string.litara_no_books), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     LazyColumn {
-        items(ui.editions, key = { it.id }) { e ->
+        items(ui.books, key = { it.edition.id }) { row ->
+            val e = row.edition
             val open = openability(e)
             Row(Modifier.fillMaxWidth().clickable(enabled = open is BookOpen.Yes) { onRead(e.id) }.padding(vertical = 8.dp).testTag(ShellTags.book(e.id)),
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(e.label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(row.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     val detail = when (open) {
-                        BookOpen.Yes -> e.file.format.uppercase()
+                        BookOpen.Yes -> (row.authors + e.file.format.uppercase()).joinToString(" · ")
                         is BookOpen.No -> stringResource(R.string.litara_book_unsupported, open.reason)
                     }
                     Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

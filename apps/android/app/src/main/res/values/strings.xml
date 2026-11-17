@@ -550,5 +550,5 @@
     <string name="litara_account_server">Server: %1$s</string>
     <string name="litara_account_note">Downloads stay on this device for this account and are locked when access ends.</string>
     <string name="litara_chapters">Chapters</string>
-    <string name="litara_audio_only">Litara serves audiobooks only in this release; ebook reading arrives with a later server version.</string>
+    <string name="litara_audio_only">Audiobooks and EPUB-family books are available. PDF and comics are not available in this app yet, and highlights, notes and server position sync for books are not enabled yet.</string>
 </resources>

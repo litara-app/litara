@@ -346,6 +346,8 @@ class LitaraRepository @Inject constructor(
 
     suspend fun editions(): List<LEdition> = requireClient().listAllEditions()
 
+    suspend fun titles(): List<com.litara.core.litara.LTitleSummary> = requireClient().listAllTitles()
+
     suspend fun readerSnapshot(editionId: String): LReaderSnapshot = requireClient().readerSnapshot(editionId)
 
     private fun edDir(t: ScopeToken, editionId: String) = File(dir(t), "ed/$editionId").apply { mkdirs() }

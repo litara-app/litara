@@ -14,7 +14,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class BooksUi(val loading: Boolean = true, val editions: List<LEdition> = emptyList(), val error: String? = null)
+/** An edition with the display title/authors of the title it belongs to (the edition's own label is only its format). */
+data class BookRow(val edition: LEdition, val title: String, val authors: List<String>)
+
+data class BooksUi(val loading: Boolean = true, val books: List<BookRow> = emptyList(), val error: String? = null)
 
 /** Whether this app can open [e] today, and if not why. Capability states from the server are never upgraded. */
 sealed interface BookOpen {
@@ -41,8 +44,12 @@ class LitaraBooksViewModel @Inject constructor(private val repo: LitaraRepositor
         _ui.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             try {
-                val all = repo.editions().sortedBy { it.label.lowercase() }
-                _ui.value = BooksUi(loading = false, editions = all)
+                val byTitle = repo.titles().associateBy { it.id }
+                val rows = repo.editions().map { e ->
+                    val t = byTitle[e.titleId]
+                    BookRow(e, t?.title?.ifBlank { null } ?: e.label, t?.authors.orEmpty())
+                }.sortedBy { it.title.lowercase() }
+                _ui.value = BooksUi(loading = false, books = rows)
             } catch (e: SessionEndedException) {
                 repo.refreshSignedIn()
                 _ui.update { it.copy(loading = false, error = e.code) }

@@ -158,6 +158,19 @@ class LitaraClient(
         return getJson("/titles$qs")
     }
 
+    /** Every title the account may see (display titles and authors for editions), following the effective page size and total. */
+    suspend fun listAllTitles(pageSize: Int = 200, maxPages: Int = 500): List<LTitleSummary> {
+        val all = ArrayList<LTitleSummary>()
+        var page = 0
+        while (page < maxPages) {
+            val r = listTitles(page = page, size = pageSize)
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
     suspend fun listEditions(page: Int = 0, size: Int = 50, titleId: String? = null): LEditions {
         val qs = buildString {
             append("?page=$page&size=$size")
