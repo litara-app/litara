@@ -31,3 +31,9 @@
 - Avoid running old release workflows or hooks as part of the rebuild. Old deployment configuration is archived.
 - Preserve secrets, signing keys, local books, and user data without adding them to Git. Do not restore pre-existing deletions unless requested.
 - Verify changes with checks appropriate to their impact. State explicitly when runtime behavior or hardware behavior has not been tested.
+
+## T005 implementation checkpoint
+
+- T001–T004 are integrated into main. T005 preparation is governed by accepted ADR-0065–0070, contracts/t005/ and handoffs/T005-assignment.md. Use the exact committed checkpoint supplied by the coordinator; do not reassign T003/T004 or start from their historical snapshots.
+- T005 includes server/edition/reading/annotation/shelf work, shared and smart shelves, the new web app and reviewed recording repair. One owner holds the explicit brief scope; T006/server changes must wait or receive a written nonoverlapping scope. Android reader adaptation is separate.
+- GitHub Actions remains disabled under ADR-0064 until explicit user release-readiness approval. Local development verification is permitted; do not publish, sign releases, create release tags or activate CI. ADR-0063 requires verified legacy personal-state migration before 2.0.0 ships; T005 does not implement that importer.

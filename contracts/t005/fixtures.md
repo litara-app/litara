@@ -1,0 +1,11 @@
+# Fixture generation and evidence
+
+Use only newly authored content or fixtures with explicit compatible provenance. Public contract IDs are synthetic. Do not import local books, account databases or signing material.
+
+`python scripts/web/generate_reader_fixtures.py .tmp/t005-fixtures` creates eight tiny synthetic inputs plus a SHA-256/size/provenance manifest. It refuses a nonempty output directory. These cover EPUB, a separate-language EPUB, a generated KEPUB-shaped EPUB, scripted/network-hostile EPUB, selectable two-page cropped/rotated PDF, FB2, numeric-order CBZ and path-traversal CBZ. Creation does not prove that an engine can read them or that generated KEPUB spans cover all Kobo-specific behavior. Fixture media stays ignored/uncommitted; only generator and contracts are checked in.
+
+The implementation owner must extend the generated corpus before claiming broad format coverage: valid MOBI/AZW/AZW3, CBR and CB7 (including solid archives), fixed-layout EPUB, malformed/encrypted inputs and near-limit cases. Use pinned redistributable upstream parser fixtures with file-level license/source/hash evidence, or synthetic generators/test-only tooling with provenance. Do not add a production helper executable through a test fixture decision. If a suitable fixture is unavailable or a variant unsupported, record the exact capability failure; do not call recognition full support. Representative broad-format evidence is required by ADR-0025; knowingly incomplete coverage must not be concealed in the handoff.
+
+Audio uses T003's generated multi-file media and exact Range/HEAD fixtures, extended to browser codec/profile evidence. Large hostile cases must be generated lazily or with streaming so the test itself does not exhaust the machine. Test ceilings near the boundary and with configurable lower limits; do not commit multi-gigabyte artifacts. No real external network request should be needed to exercise malicious-link/script fixtures; use a controlled interception/sentinel in browser tests.
+
+For each observed result record fixture hash, engine profile/build pin, browser/platform version, action (open/read/select/highlight/resume/seek), expected result, actual result and logs/screenshots where useful. A skipped variant or physical-device test remains unverified, never Passed.

@@ -1,10 +1,13 @@
 # ADR-0003: Start with fresh application data and client contracts
 
-Status: Accepted
+Status: Superseded
 Date: 2026-11-12
 Decision owner: Repository owner
+Superseded by: [ADR-0063](0063-optional-legacy-data-import.md)
 
 ## Context
+
+On 2026-11-14, ADR-0063 superseded the exemption from providing migration for the initial release. The original decision and rationale below are retained; the fresh-database and new-client-contract direction continues under ADR-0063.
 
 Preserving Litara's database or old clients would constrain identifiers, schemas, passwords, reading state, and API behavior. The user explicitly selected: Start fresh; keep the old stack only as a reference.
 

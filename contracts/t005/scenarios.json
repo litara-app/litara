@@ -1,0 +1,489 @@
+{
+  "version": 1,
+  "status": "assignment-acceptance-not-completed-tests",
+  "scenarios": [
+    {
+      "id": "scan-editions",
+      "adrs": [
+        "0065"
+      ],
+      "setup": "Scan generated EPUB, translation EPUB, PDF, FB2 and comics twice after the stability window",
+      "expect": "Distinct editions/files; strong title evidence links only compatible works; no title-text-only collapse",
+      "verification": "real-api-browser",
+      "operations": [
+        "listEditions",
+        "getTitle",
+        "getReaderSnapshot"
+      ]
+    },
+    {
+      "id": "edition-move",
+      "adrs": [
+        "0065"
+      ],
+      "setup": "Move a uniquely fingerprinted ebook within its library",
+      "expect": "Same edition/file/version and usable saved locator",
+      "verification": "real-api",
+      "operations": [
+        "getEdition",
+        "getReadingPosition"
+      ]
+    },
+    {
+      "id": "edition-replacement",
+      "adrs": [
+        "0065"
+      ],
+      "setup": "Replace a scanned ebook at the same path, then replay an old location",
+      "expect": "Same edition/file, new version; 412 with durable candidate, no old locator applied",
+      "verification": "real-api-browser",
+      "operations": [
+        "writeReadingPosition",
+        "resolvePersonalConflict"
+      ]
+    },
+    {
+      "id": "ebook-file-auth",
+      "adrs": [
+        "0013"
+      ],
+      "setup": "Reader A has ebook-only library A; reader B and admin lack that grant",
+      "expect": "A can GET/HEAD/range exact ebook bytes; other callers denied before bytes; no recording row required",
+      "verification": "real-api-browser",
+      "operations": [
+        "getReaderSnapshot",
+        "getFileContent",
+        "headFileContent"
+      ]
+    },
+    {
+      "id": "cfi-reflow",
+      "adrs": [
+        "0027"
+      ],
+      "setup": "Generate a real CFI from each reflowable engine; reload with different font and viewport",
+      "expect": "Resume same text within the exact version; unsupported locator profiles explicitly disabled",
+      "verification": "real-browser",
+      "operations": [
+        "writeReadingPosition"
+      ]
+    },
+    {
+      "id": "pdf-coordinates",
+      "adrs": [
+        "0065"
+      ],
+      "setup": "Select text on rotated/cropped PDF; change zoom, rotation and reload",
+      "expect": "Unrotated crop-normalized position/highlight round trips without pixel drift",
+      "verification": "real-browser",
+      "operations": [
+        "putAnnotation",
+        "writeReadingPosition"
+      ]
+    },
+    {
+      "id": "comic-order",
+      "adrs": [
+        "0067"
+      ],
+      "setup": "Pages named 2.png, 10.png, nested paths and numeric/case ties",
+      "expect": "Stable documented numeric ordering and entry identities; no overwritten duplicate path",
+      "verification": "real-api-browser",
+      "operations": [
+        "getComicPages"
+      ]
+    },
+    {
+      "id": "backward-save",
+      "adrs": [
+        "0015"
+      ],
+      "setup": "Read forward then deliberately save an earlier exact location at current revision",
+      "expect": "Earlier location accepted; percentage/clock never chooses winner",
+      "verification": "real-api-browser",
+      "operations": [
+        "writeReadingPosition"
+      ]
+    },
+    {
+      "id": "position-conflict",
+      "adrs": [
+        "0065"
+      ],
+      "setup": "Two sessions write from the same revision, then resolve while a third writes",
+      "expect": "409 preserves candidate; resume asks; racing resolution creates another explicit conflict",
+      "verification": "real-api-browser",
+      "operations": [
+        "writeReadingPosition",
+        "resolvePersonalConflict"
+      ]
+    },
+    {
+      "id": "operation-replay",
+      "adrs": [
+        "0065"
+      ],
+      "setup": "Lose successful response and retry identical operation; then reuse ID with changed payload",
+      "expect": "Identical status/body and no duplicate state/history; changed request rejected",
+      "verification": "real-api",
+      "operations": [
+        "writeReadingPosition",
+        "writeReadingCompletion",
+        "putAnnotation",
+        "putShelf"
+      ]
+    },
+    {
+      "id": "manual-ebook-finish",
+      "adrs": [
+        "0065"
+      ],
+      "setup": "Navigate to last page then explicitly finish one edition with a sibling edition present",
+      "expect": "No automatic finish; explicit finish updates only that edition and ebook history",
+      "verification": "real-api-browser",
+      "operations": [
+        "writeReadingCompletion",
+        "getReadingHistory"
+      ]
+    },
+    {
+      "id": "annotation-private",
+      "adrs": [
+        "0066"
+      ],
+      "setup": "Reader B/admin attempts A highlight read/write; shared shelf references same title",
+      "expect": "No private note or quote leaks through shelf, filters, conflicts or admin counts",
+      "verification": "real-api-browser",
+      "operations": [
+        "listAnnotations",
+        "listPersonalConflicts",
+        "getShelfTitles"
+      ]
+    },
+    {
+      "id": "annotation-delete-race",
+      "adrs": [
+        "0066"
+      ],
+      "setup": "Edit/delete concurrently, then replay old edit after deletion and reload",
+      "expect": "Tombstone retained; stale candidate recoverable; no resurrection; duplicate delete idempotent",
+      "verification": "real-api-browser",
+      "operations": [
+        "putAnnotation",
+        "deleteAnnotation",
+        "resolvePersonalConflict"
+      ]
+    },
+    {
+      "id": "annotation-format-matrix",
+      "adrs": [
+        "0066"
+      ],
+      "setup": "Select text in reflowable/PDF and create image-comic page note/bookmark",
+      "expect": "Verified highlights persist; image comic text highlight unavailable with explicit reason",
+      "verification": "real-browser",
+      "operations": [
+        "putAnnotation",
+        "getReaderSnapshot"
+      ]
+    },
+    {
+      "id": "shared-shelf-permissions",
+      "adrs": [
+        "0066"
+      ],
+      "setup": "Owner shares manual shelf across two libraries; viewer has one grant; viewer tries editing",
+      "expect": "Only owner edits; viewer sees permitted titles/counts only, never hidden UUIDs or private owner state",
+      "verification": "real-api-browser",
+      "operations": [
+        "getShelf",
+        "getShelfTitles",
+        "putShelf",
+        "addShelfTitle"
+      ]
+    },
+    {
+      "id": "smart-viewer-state",
+      "adrs": [
+        "0066"
+      ],
+      "setup": "Owner and viewer differ in completion; shared smart filter asks unfinished fiction",
+      "expect": "Each sees own allowed matches; public catalog filters and own state only",
+      "verification": "real-api-browser",
+      "operations": [
+        "putShelf",
+        "getShelfTitles"
+      ]
+    },
+    {
+      "id": "smart-invalid-tree",
+      "adrs": [
+        "0066"
+      ],
+      "setup": "Submit SQL-like field, overly deep/wide filters, wrong operator/type or 513-char value",
+      "expect": "422; no query code executes and no unbounded evaluation",
+      "verification": "real-api",
+      "operations": [
+        "putShelf"
+      ]
+    },
+    {
+      "id": "shelf-concurrency",
+      "adrs": [
+        "0066"
+      ],
+      "setup": "Two tabs reorder/add/remove at one shelf revision, with inaccessible members retained",
+      "expect": "One succeeds and one durable 409; hidden membership not exposed/deleted; retry never duplicates",
+      "verification": "real-api-browser",
+      "operations": [
+        "orderShelfTitles",
+        "addShelfTitle",
+        "removeShelfTitle"
+      ]
+    },
+    {
+      "id": "shelf-delete-retry",
+      "adrs": [
+        "0066"
+      ],
+      "setup": "Delete shared shelf, then replay stale owner writes or fetch as non-owner",
+      "expect": "Owner retains tombstone/conflict; non-owner sees 404; no recreation by stale retry",
+      "verification": "real-api-browser",
+      "operations": [
+        "deleteShelf",
+        "putShelf"
+      ]
+    },
+    {
+      "id": "reader-scripting",
+      "adrs": [
+        "0067"
+      ],
+      "setup": "Open synthetic book with inline/external/blob scripts, SVG events and hostile links",
+      "expect": "No script execution, parent/API/session access or unexpected network/navigation under actual CSP",
+      "verification": "real-browser",
+      "operations": [
+        "getReaderSnapshot"
+      ]
+    },
+    {
+      "id": "reader-bridge-forgery",
+      "adrs": [
+        "0067"
+      ],
+      "setup": "Send messages from another frame, prior book channel or oversized range/annotation payload",
+      "expect": "Ignored/rejected; no arbitrary URL fetch or mutation; logout closes reader and channel",
+      "verification": "real-browser",
+      "operations": [
+        "getReaderSnapshot"
+      ]
+    },
+    {
+      "id": "reader-assets-csp",
+      "adrs": [
+        "0067"
+      ],
+      "setup": "Run pristine Foliate and direct PDF.js/worker under actual production reader headers",
+      "expect": "Selected formats work without CSP relaxation, CDN, credentials or opaque-origin module errors",
+      "verification": "real-browser",
+      "operations": [
+        "getReaderSnapshot"
+      ]
+    },
+    {
+      "id": "archive-traversal",
+      "adrs": [
+        "0067"
+      ],
+      "setup": "Feed traversal/absolute paths, links, duplicate normalized names and nested archives",
+      "expect": "Rejected before page publication; only private cache affected; originals unchanged",
+      "verification": "real-api",
+      "operations": [
+        "prepareComicPages",
+        "getComicPages"
+      ]
+    },
+    {
+      "id": "archive-resource-limits",
+      "adrs": [
+        "0067"
+      ],
+      "setup": "Exceed each accepted compressed/expanded/ratio/count/pixel/time/concurrency ceiling",
+      "expect": "Bounded streaming abort with typed reason; no partial ready manifest or uncontrolled memory/disk",
+      "verification": "real-api",
+      "operations": [
+        "prepareComicPages"
+      ]
+    },
+    {
+      "id": "archive-restart-cache",
+      "adrs": [
+        "0067"
+      ],
+      "setup": "Interrupt extraction and restart; fill cache while two active extraction reservations exist",
+      "expect": "Durable jobs recover or fail cleanly; inactive cache evicted, active readers protected, budget respected",
+      "verification": "real-api",
+      "operations": [
+        "prepareComicPages",
+        "getComicPages"
+      ]
+    },
+    {
+      "id": "grant-revocation",
+      "adrs": [
+        "0068"
+      ],
+      "setup": "Revoke grant while a reader, comic extraction and pending writes are active",
+      "expect": "Further requests denied; protected view cleared on detection, pending data locked and not sent",
+      "verification": "real-api-browser",
+      "operations": [
+        "getReaderSnapshot",
+        "getComicPage"
+      ]
+    },
+    {
+      "id": "offline-retry-account",
+      "adrs": [
+        "0068"
+      ],
+      "setup": "Drop network, edit note, reload, log out, switch account, return and sign in",
+      "expect": "Original pending op durable and locked by server/user; no false saved indicator or cross-user replay",
+      "verification": "real-browser",
+      "operations": [
+        "putAnnotation",
+        "writeReadingPosition"
+      ]
+    },
+    {
+      "id": "web-cookie-csrf",
+      "adrs": [
+        "0037"
+      ],
+      "setup": "Browser login/restore/logout and mutation with missing/wrong CSRF; bearer regression",
+      "expect": "Cookie remains HttpOnly, existing transport semantics preserved, wrong CSRF rejected",
+      "verification": "real-api-browser",
+      "operations": [
+        "webLogin",
+        "webSession",
+        "webLogout",
+        "putShelf"
+      ]
+    },
+    {
+      "id": "audio-web-flow",
+      "adrs": [
+        "0040"
+      ],
+      "setup": "Play generated three-file recording, seek cross-file chapter, pause/reload/conflict/finish",
+      "expect": "Exact file/version resume and T003 natural-end completion; no percentage fallback",
+      "verification": "real-api-browser",
+      "operations": [
+        "getRecordingSnapshot",
+        "writePosition",
+        "writeCompletion"
+      ]
+    },
+    {
+      "id": "repair-merge",
+      "adrs": [
+        "0070"
+      ],
+      "setup": "Merge two disjoint recordings with distinct per-user positions and finished states",
+      "expect": "New successor unfinished/no canonical resume; source IDs/states/history retained and candidates explicit",
+      "verification": "real-api-browser",
+      "operations": [
+        "planRecordingRepair",
+        "executeRecordingRepair"
+      ]
+    },
+    {
+      "id": "repair-split",
+      "adrs": [
+        "0070"
+      ],
+      "setup": "Split one recording with progress in different files into complete ordered partitions",
+      "expect": "New successor identities; candidates only where anchored file belongs; no automatic finish",
+      "verification": "real-api-browser",
+      "operations": [
+        "planRecordingRepair",
+        "executeRecordingRepair"
+      ]
+    },
+    {
+      "id": "repair-stale-plan",
+      "adrs": [
+        "0070"
+      ],
+      "setup": "Approve then replace a source file/layout; execute twice or race two plans",
+      "expect": "412 on obsolete plan; transaction atomic; replay applied plan returns same successor IDs",
+      "verification": "real-api",
+      "operations": [
+        "approveRecordingRepair",
+        "executeRecordingRepair"
+      ]
+    },
+    {
+      "id": "repair-tombstone",
+      "adrs": [
+        "0070"
+      ],
+      "setup": "Old client GET snapshot and writes progress after repair",
+      "expect": "409 snapshot and 412 write with authorized successor hints; candidate preserved; unrelated recordings unaffected",
+      "verification": "real-api",
+      "operations": [
+        "getRecordingSnapshot",
+        "writePosition"
+      ]
+    },
+    {
+      "id": "metadata-import-management",
+      "adrs": [
+        "0069"
+      ],
+      "setup": "Use existing T004 protected edits, clears, reviews, copy-only import and writer status",
+      "expect": "Real preview/approval and error UI; backups remain off by default; no fake enabled in-file writer",
+      "verification": "real-api-browser",
+      "operations": []
+    },
+    {
+      "id": "same-origin-fallback",
+      "adrs": [
+        "0069"
+      ],
+      "setup": "Load nested SPA route, unknown API/reader asset and range media URL",
+      "expect": "SPA loads navigation only; API/assets/media never receive index HTML; development proxy retains CSRF",
+      "verification": "real-http",
+      "operations": []
+    },
+    {
+      "id": "accessibility-responsive",
+      "adrs": [
+        "0010"
+      ],
+      "setup": "Keyboard-only and narrow touch viewport through catalog/reader/audio/shelf/conflict workflows",
+      "expect": "Focus/labels/dialogs/controls usable; loading/error/empty/incomplete states visible",
+      "verification": "real-browser",
+      "operations": []
+    },
+    {
+      "id": "format-corpus",
+      "adrs": [
+        "0025"
+      ],
+      "setup": "Exercise all accepted ebook/comic/audio families, fixed layout, encrypted/damaged and large variants",
+      "expect": "Capability matrix states observed recognition/read/play/highlight/resume results and limits per browser",
+      "verification": "real-api-browser",
+      "operations": []
+    },
+    {
+      "id": "release-hold",
+      "adrs": [
+        "0064"
+      ],
+      "setup": "Review scripts and GitHub Actions setting before handoff",
+      "expect": "No CI reactivation, publication, tags, signing or legacy migration implementation",
+      "verification": "inspection",
+      "operations": []
+    }
+  ]
+}

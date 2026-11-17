@@ -6,7 +6,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | --- | --- | --- |
 | [0001](0001-use-repository-adrs.md) | Enforce repository ADRs and archive the old stack | Accepted |
 | [0002](0002-use-go-backend.md) | Build the backend in Go | Accepted |
-| [0003](0003-start-fresh.md) | Start fresh without old-data/API compatibility | Accepted |
+| [0003](0003-start-fresh.md) | Original fresh-start migration exemption; replaced by 0063 | Superseded |
 | [0004](0004-support-existing-and-managed-libraries.md) | Scan existing folders; offer managed imports | Accepted |
 | [0005](0005-preserve-native-android-media.md) | Start from native Android; preserve Cast and Auto | Accepted |
 | [0006](0006-model-titles-editions-and-files.md) | Separate titles, editions/recordings, and files | Accepted |
@@ -96,6 +96,24 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0060](0060-provider-priority-and-identifier-match-review.md) | Configure provider priority and review uncertain metadata matches | Accepted |
 
 | [0061](0061-audio-ordering-and-provisional-title-links.md) | Order audio from consistent evidence and review uncertain title links | Accepted |
+
+| [0062](0062-target-litara-2-release.md) | Target 2.0.0 for the completed rebuild release | Accepted |
+
+| [0063](0063-optional-legacy-data-import.md) | Require a personal-state migration path before 2.0.0 ships | Accepted |
+
+| [0064](0064-pause-github-actions-until-release-readiness.md) | Pause GitHub Actions until explicit release readiness | Accepted |
+
+| [0065](0065-ebook-editions-and-reading-state.md) | File-anchored ebook editions and revisioned reading state | Accepted |
+
+| [0066](0066-private-annotations-and-shelves.md) | Private annotations and private/shared manual/smart shelves | Accepted |
+
+| [0067](0067-isolated-web-readers-and-bounded-comic-extraction.md) | Isolated web readers and bounded comic extraction | Accepted |
+
+| [0068](0068-web-offline-and-t005-client-scope.md) | Online web flows with recoverable pending writes | Accepted |
+
+| [0069](0069-web-tooling-serving-and-t005-gap-ownership.md) | Same-origin web build and end-to-end T005 ownership | Accepted |
+
+| [0070](0070-recording-repair-successors-and-retained-state.md) | Recording repair successors with retained source state | Accepted |
 
 ## Workflow
 
