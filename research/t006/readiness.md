@@ -40,3 +40,9 @@ On 2026-11-16 in the preparation worktree: `python scripts/contracts/check_t006.
 The small OPDS fixture checks are envelope/link/XML smoke checks; full published-schema/client conformance remains implementation acceptance. Digest vectors have deterministic preparation checks, but independent upstream agreement, sparse-large-file behavior and real device behavior remain implementation verification. The agent must report those results honestly.
 
 The coordinator records the immutable committed source hash and clean-export verification below/in TASKS.md after freezing this package. A later register-only evidence commit may follow that source checkpoint; the worker should use the final coordinator-supplied branch tip, which includes the verified source.
+
+## Immutable source and clean-export verification
+
+Verified source checkpoint: `8136c2fff98446f16107fd4b5e74426f8acc92b3` on codex/t006-readiness, based on integrated main c65738a. Exported that committed tree to an independent new directory with Git archive. T006/T003/T005 static checkers, all 76 ADR/index checks, and existing generated API parity passed using only that committed source. The third-party Python validator dependencies were supplied separately; their installed distribution versions were checked against every pin in scripts/contracts/requirements.txt. The first clean-export attempt correctly failed because the optional local validator package was absent; supplying the verified third-party dependency environment resolved it without changing source.
+
+This following evidence/register commit does not change application or protocol behavior. Supply the final preparation branch tip to the worker so it includes this evidence and the verified source. State: Ready, Unassigned. No implementation agent was started and no T006 runtime/client/SMTP acceptance is claimed.

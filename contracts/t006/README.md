@@ -80,3 +80,16 @@ Per-device credentials and explicit handoff review add friction but preserve ADR
 ## Preparation versus completion
 
 Static checks establish schema/example/reference consistency, collision/auth declarations, deterministic digest vectors and complete operation-to-scenario inventory. They cannot establish OPDS conformance, SMTP correctness, cryptographic operation, KOReader interoperability, browser behavior or hardware success. The implementation owner supplies actual parser/client/sink/restart/API/browser results and a clean-commit handoff. T007 retains real devices, broad corpus/codec coverage, NAS/TLS/hardware/Android integration and release/migration gates. Actions stays disabled and no real email is sent during implementation.
+
+## Reproducing preparation checks
+
+Use Python 3 with the existing pinned `scripts/contracts/requirements.txt` packages in a disposable environment. For example on Windows from the repository root:
+
+```powershell
+python -m venv .tmp/t006-validator
+.tmp/t006-validator/Scripts/python -m pip install -r scripts/contracts/requirements.txt
+.tmp/t006-validator/Scripts/python scripts/contracts/check_t006.py
+pwsh -NoProfile -File scripts/Validate-Adrs.ps1
+```
+
+Use the same environment for check.py/check_t005.py/compare.py. compare.py additionally needs the repository's selected Go toolchain/module dependencies. Dependency caches are not committed source; an exported checkout must supply those dependencies explicitly. The legacy optional `.tmp/t003-validation` path remains supported by the existing checkers; no hidden source files are required.
