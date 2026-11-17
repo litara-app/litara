@@ -1,6 +1,6 @@
 # T007 preparation and immutable checkpoint
 
-Prepared: 2026-11-17. Status: local preparation checks passed; immutable clean-export verification follows. No worker assigned.
+Prepared: 2026-11-17. Status: **Ready and Unassigned** after local and immutable clean-export verification. No worker assigned or launched.
 
 ## Baseline and evidence sources
 
@@ -38,4 +38,8 @@ Local preparation checks passed on 2026-11-17:
 
 The first existing-contract run correctly failed because `openapi_spec_validator` was absent from the default Python environment. Rerun supplied only the existing third-party package directory `G:/Programming/ebooker/.tmp/t003-validation`; all 18 installed package versions were checked against every pin in `scripts/contracts/requirements.txt`. No uncommitted project source was supplied through that path. A new worker should install the pinned requirements in its own environment; the absolute local cache is not a project dependency.
 
-Immutable source commit and independent clean-export results are recorded in the following coordinator evidence commit. The final branch-tip hash is supplied separately after source is frozen; do not start implementation from an unspecified moving ref.
+**Verified immutable source commit: `7ea3d929c663d8c50a9445559ffb68b3a29bf644`**, branch `codex/t007-readiness`, parent merged main `8de06b96c704bbf2a6067dc4df61a25401390393`.
+
+Exported that exact Git commit with `git archive` to a new independent `.tmp/t007-source-check` directory. From that directory the T007 integrity checker, all existing T003/T005/T006 static contract checks and all 76 ADR/index checks passed. All 18 supplied third-party validator package versions again matched the pinned requirements. No project source was read from the coordinator's uncommitted working tree. The ADR validator repeated its environment drive-initialization warning and completed successfully.
+
+The following coordinator evidence-only commit records those results and marks readiness; it changes no assignment behavior, runtime source, schema, existing wire contract or scenario. Supply that **final branch-tip commit hash** to the worker; it includes the verified source plus this evidence. Record it as the worker base and do not silently follow later ref movement. No worker was started, and every runtime result remains Pending.
