@@ -26,6 +26,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
 	"github.com/deranjer/ebooker/apps/server/internal/integrations"
+	"github.com/deranjer/ebooker/apps/server/internal/koreader"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
@@ -73,6 +74,8 @@ type Env struct {
 	Writeback *writeback.Service
 	// T006
 	Integrations *integrations.Service
+	KOReader     *koreader.Service
+	Indexer      *koreader.Indexer
 	Queue        *Queue
 	Password     string
 	Base         string
@@ -134,8 +137,10 @@ func New(t *testing.T, opts ...Options) *Env {
 		FingerprintKey: integrations.DeriveFingerprintKey(kb)})
 	e.Reading = reading.New(pool, cat, clock.Now)
 	e.Reading.EnableComics(reading.ComicOptions{MediaRoot: o.Cfg.MediaRoot, CacheDir: t.TempDir(), Limits: o.ComicLimits, CacheBudget: o.ComicBudget, Enqueuer: e.Queue})
+	e.KOReader = koreader.New(pool, cat, clock.Now)
+	e.Indexer = &koreader.Indexer{Pool: pool, MediaRoot: o.Cfg.MediaRoot}
 	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: e.Reading, Library: library.New(pool), Config: o.Cfg,
-		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback, Integrations: e.Integrations}})
+		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback, Integrations: e.Integrations, KOReader: e.KOReader}})
 	e.Handler = h
 	srv.Config.Handler = h
 	srv.Start()

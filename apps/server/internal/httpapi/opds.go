@@ -66,7 +66,9 @@ func (a *API) opdsAuth(h opdsFunc) http.HandlerFunc {
 	}
 }
 
-func (a *API) links() opds.Links { return opds.Links{Origin: strings.TrimRight(a.Config.PublicOrigin, "/")} }
+func (a *API) links() opds.Links {
+	return opds.Links{Origin: strings.TrimRight(a.Config.PublicOrigin, "/")}
+}
 
 func (a *API) registerOPDS(mux *http.ServeMux) {
 	mux.HandleFunc("GET /opds/v1", a.opdsAuth(a.opdsRoot(1)))

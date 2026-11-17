@@ -47,3 +47,83 @@ type T006CredentialCreate struct {
 type T006CredentialRevoke struct {
 	OperationID string `json:"operationId" format:"uuid"`
 }
+
+type T006Mutation struct {
+	OperationID  string `json:"operationId" format:"uuid"`
+	BaseRevision string `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
+}
+
+type T006DigestBindingWrite struct {
+	OperationID    string `json:"operationId" format:"uuid"`
+	BaseRevision   string `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
+	CredentialID   string `json:"credentialId" format:"uuid"`
+	Document       string `json:"document" pattern:"^[0-9a-f]{32}$"`
+	FileID         string `json:"fileId" format:"uuid"`
+	ContentVersion string `json:"contentVersion" format:"uuid"`
+}
+
+type T006DigestBinding struct {
+	ID             string `json:"id" format:"uuid"`
+	Revision       string `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
+	CredentialID   string `json:"credentialId" format:"uuid"`
+	Document       string `json:"document" pattern:"^[0-9a-f]{32}$"`
+	FileID         string `json:"fileId" format:"uuid"`
+	ContentVersion string `json:"contentVersion" format:"uuid"`
+	Deleted        bool   `json:"deleted"`
+}
+
+type T006DigestBindingList struct {
+	Items []T006DigestBinding `json:"items"`
+	Page  int                 `json:"page" minimum:"0"`
+	Size  int                 `json:"size" minimum:"1" maximum:"200"`
+	Total int64               `json:"total" minimum:"0"`
+}
+
+type T006KoPositionData struct {
+	Document   string  `json:"document" pattern:"^[0-9a-f]{32}$"`
+	Progress   string  `json:"progress" minLength:"1" maxLength:"8192"`
+	Percentage float64 `json:"percentage" minimum:"0" maximum:"1"`
+	Device     string  `json:"device" minLength:"1" maxLength:"256"`
+	DeviceID   *string `json:"deviceId" minLength:"1" maxLength:"256" nullable:"true"`
+	Timestamp  int64   `json:"timestamp" minimum:"0"`
+}
+
+type T006KoPosition struct {
+	Revision       string                       `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
+	FileID         string                       `json:"fileId" format:"uuid"`
+	ContentVersion string                       `json:"contentVersion" format:"uuid"`
+	Source         string                       `json:"source" enum:"koreader"`
+	Position       Nullable[T006KoPositionData] `json:"position"`
+}
+
+type T006KoCandidate struct {
+	Progress   string  `json:"progress" minLength:"1" maxLength:"8192"`
+	Percentage float64 `json:"percentage" minimum:"0" maximum:"1"`
+	Device     string  `json:"device" minLength:"1" maxLength:"256"`
+	DeviceID   *string `json:"deviceId" minLength:"1" maxLength:"256" nullable:"true"`
+}
+
+type T006KoConflict struct {
+	ID              string          `json:"id" format:"uuid"`
+	Revision        string          `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
+	FileID          string          `json:"fileId" format:"uuid"`
+	ContentVersion  string          `json:"contentVersion" format:"uuid"`
+	CredentialID    string          `json:"credentialId" format:"uuid"`
+	Reason          string          `json:"reason" enum:"baseline_required,stale_revision,content_changed,unresolved_candidate"`
+	Candidate       T006KoCandidate `json:"candidate"`
+	CurrentRevision string          `json:"currentRevision" pattern:"^(0|[1-9][0-9]*)$"`
+	Resolved        bool            `json:"resolved"`
+}
+
+type T006KoConflictList struct {
+	Items []T006KoConflict `json:"items"`
+	Page  int              `json:"page" minimum:"0"`
+	Size  int              `json:"size" minimum:"1" maximum:"200"`
+	Total int64            `json:"total" minimum:"0"`
+}
+
+type T006KoResolve struct {
+	OperationID  string `json:"operationId" format:"uuid"`
+	BaseRevision string `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
+	Action       string `json:"action" enum:"keep_server,use_candidate"`
+}

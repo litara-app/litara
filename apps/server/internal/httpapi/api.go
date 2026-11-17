@@ -21,6 +21,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/deranjer/ebooker/apps/server/internal/integrations"
 	"github.com/deranjer/ebooker/apps/server/internal/jobs"
+	"github.com/deranjer/ebooker/apps/server/internal/koreader"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
@@ -66,6 +67,7 @@ type APIDeps struct {
 	Writeback *writeback.Service
 	// T006 services (nil leaves the T006 management routes unmounted).
 	Integrations *integrations.Service
+	KOReader     *koreader.Service
 	Delivery     DeliveryProbe
 	Config       APIConfig
 	Log          *slog.Logger
@@ -121,6 +123,7 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerRepair(api)
 	a.registerMedia(api)
 	a.registerIntegrations(api)
+	a.registerKOReaderManagement(api)
 	return api
 }
 

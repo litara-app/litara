@@ -29,6 +29,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
 	"github.com/deranjer/ebooker/apps/server/internal/integrations"
 	"github.com/deranjer/ebooker/apps/server/internal/jobs"
+	"github.com/deranjer/ebooker/apps/server/internal/koreader"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
@@ -91,6 +92,7 @@ func run() error {
 	scanner := &ingest.Scanner{Pool: pool, Inspector: scanInsp, Log: log}
 	imp := &importer.Service{Pool: pool, Inspector: scanInsp}
 	wopts.Scanner, wopts.Importer, wopts.ScanWorkers = scanner, imp, cfg.ScanWorkers
+	wopts.KOReaderDigests = &koreader.Indexer{Pool: pool, MediaRoot: cfg.MediaRoot, Log: log}
 	client, err := app.NewWorkerClient(pool, insp, wopts, log)
 	if err != nil {
 		return err
@@ -179,7 +181,7 @@ func run() error {
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
 		Handler: httpapi.New(httpapi.Deps{Web: appHandler(cfg), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
 			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Reading: rd, Library: library.New(pool), Config: apiCfg, Log: log,
-				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Integrations: integ}}),
+				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Integrations: integ, KOReader: koreader.New(pool, cat, nil)}}),
 	}
 	errc := make(chan error, 2)
 	go func() {

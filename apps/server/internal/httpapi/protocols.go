@@ -27,6 +27,9 @@ func RegisterProtocols(mux *http.ServeMux, d APIDeps) {
 	}
 	a := &API{APIDeps: d, log: log, base: d.Config.APIBase()}
 	a.registerOPDS(mux)
+	if d.KOReader != nil {
+		a.registerKOReaderWire(mux)
+	}
 }
 
 // protoError is the contract's protocol refusal body ({code, detail}). It never

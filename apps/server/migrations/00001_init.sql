@@ -730,7 +730,106 @@ JOIN active_recordings r ON r.id = rf.recording_id
 JOIN titles t ON t.id = r.title_id
 JOIN file_versions fv ON fv.file_id = rf.file_id AND fv.current AND fv.available AND fv.size_bytes IS NOT NULL;
 
+-- T006 KOReader (ADR-0075/0076): a position source separate from web/Android
+-- state and completion. Everything is keyed to an exact file version so bytes
+-- are never given a position saved for other bytes.
+CREATE TABLE koreader_digests (
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    digest          text NOT NULL CHECK (digest ~ '^[0-9a-f]{32}$'),
+    computed_at     timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (file_id, content_version)
+);
+CREATE INDEX koreader_digests_digest_idx ON koreader_digests (digest);
+
+CREATE TABLE koreader_bindings (
+    id              uuid PRIMARY KEY,
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    credential_id   uuid NOT NULL REFERENCES integration_credentials (id),
+    document        text NOT NULL CHECK (document ~ '^[0-9a-f]{32}$'),
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    revision        bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    deleted         boolean NOT NULL DEFAULT false,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX koreader_bindings_active ON koreader_bindings (credential_id, document) WHERE NOT deleted;
+CREATE INDEX koreader_bindings_user_idx ON koreader_bindings (user_id, id);
+
+-- Canonical KOReader position per owner and exact file version. Revision 0 = no position.
+CREATE TABLE koreader_sources (
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    revision        bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    document        text,
+    progress        text,
+    percentage      double precision,
+    device          text,
+    device_id       text,
+    accepted_ts     bigint,
+    PRIMARY KEY (user_id, file_id, content_version)
+);
+
+-- Per-device adopted baseline. revision is what the device last provably saw or
+-- wrote; adoptable is set only by an explicit owner resolution and is consumed
+-- by the device's next read if the source still has that revision.
+CREATE TABLE koreader_baselines (
+    credential_id   uuid NOT NULL REFERENCES integration_credentials (id),
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    revision        bigint,
+    adoptable       bigint,
+    PRIMARY KEY (credential_id, file_id, content_version)
+);
+
+CREATE TABLE koreader_conflicts (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    credential_id   uuid NOT NULL REFERENCES integration_credentials (id),
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    reason          text NOT NULL CHECK (reason IN ('baseline_required', 'stale_revision', 'content_changed', 'unresolved_candidate')),
+    fingerprint     bytea NOT NULL,
+    document        text NOT NULL,
+    progress        text NOT NULL,
+    percentage      double precision NOT NULL,
+    device          text NOT NULL,
+    device_id       text,
+    revision        bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    created_source_revision bigint NOT NULL,
+    resolved_at     timestamptz,
+    resolution      text CHECK (resolution IN ('keep_server', 'use_candidate')),
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (credential_id, file_id, content_version, fingerprint)
+);
+CREATE INDEX koreader_conflicts_user_idx ON koreader_conflicts (user_id, created_at, id);
+
+-- Immutable per-payload outcomes. A repeat of an accepted payload replays only
+-- while that result is still canonical; a repeat of a refused payload always
+-- replays its recorded failure. Never pruned automatically.
+CREATE TABLE koreader_receipts (
+    credential_id   uuid NOT NULL REFERENCES integration_credentials (id),
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    fingerprint     bytea NOT NULL,
+    accepted        boolean NOT NULL,
+    wire_status     integer NOT NULL,
+    wire_code       integer,
+    source_revision bigint,
+    accepted_ts     bigint,
+    conflict_id     uuid REFERENCES koreader_conflicts (id),
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (credential_id, file_id, content_version, fingerprint)
+);
+
 -- +goose Down
+DROP TABLE koreader_receipts;
+DROP TABLE koreader_conflicts;
+DROP TABLE koreader_baselines;
+DROP TABLE koreader_sources;
+DROP TABLE koreader_bindings;
+DROP TABLE koreader_digests;
 DROP VIEW opds_publication_rows;
 DROP TABLE integration_credentials;
 DROP TABLE integration_settings;

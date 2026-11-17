@@ -89,7 +89,9 @@ if _t5.exists():
 # The root-mounted OPDS/KOReader wire operations (protocols.openapi.json) are not
 # Huma routes; they are verified by wire tests, not by this comparison.
 IMPLEMENTED_T006 = {'getIntegrationSettings', 'setIntegrationSettings', 'listIntegrationCredentials',
-                    'createIntegrationCredential', 'revokeIntegrationCredential'}
+                    'createIntegrationCredential', 'revokeIntegrationCredential',
+                    'getKoReaderPosition', 'listKoReaderBindings', 'putKoReaderBinding', 'deleteKoReaderBinding',
+                    'listKoReaderConflicts', 'resolveKoReaderConflict', 'reapplyKoReaderConflict'}
 PENDING_T006 = []
 PENDING_T006_SCHEMAS = []
 _t6 = ROOT / 'contracts' / 't006' / 'openapi.json'

@@ -110,5 +110,3 @@ func (a *API) registerReading(api huma.API) {
 			return &bodyOut[wire.T005Resolved]{Body: r}, nil
 		})
 }
-
-

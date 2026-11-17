@@ -307,6 +307,80 @@ type IntegrationSetting struct {
 	UpdatedAt            time.Time `json:"updated_at"`
 }
 
+type KoreaderBaseline struct {
+	CredentialID   uuid.UUID `json:"credential_id"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Revision       *int64    `json:"revision"`
+	Adoptable      *int64    `json:"adoptable"`
+}
+
+type KoreaderBinding struct {
+	ID             uuid.UUID `json:"id"`
+	UserID         uuid.UUID `json:"user_id"`
+	CredentialID   uuid.UUID `json:"credential_id"`
+	Document       string    `json:"document"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Revision       int64     `json:"revision"`
+	Deleted        bool      `json:"deleted"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type KoreaderConflict struct {
+	ID                    uuid.UUID  `json:"id"`
+	UserID                uuid.UUID  `json:"user_id"`
+	CredentialID          uuid.UUID  `json:"credential_id"`
+	FileID                uuid.UUID  `json:"file_id"`
+	ContentVersion        uuid.UUID  `json:"content_version"`
+	Reason                string     `json:"reason"`
+	Fingerprint           []byte     `json:"fingerprint"`
+	Document              string     `json:"document"`
+	Progress              string     `json:"progress"`
+	Percentage            float64    `json:"percentage"`
+	Device                string     `json:"device"`
+	DeviceID              *string    `json:"device_id"`
+	Revision              int64      `json:"revision"`
+	CreatedSourceRevision int64      `json:"created_source_revision"`
+	ResolvedAt            *time.Time `json:"resolved_at"`
+	Resolution            *string    `json:"resolution"`
+	CreatedAt             time.Time  `json:"created_at"`
+}
+
+type KoreaderDigest struct {
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Digest         string    `json:"digest"`
+	ComputedAt     time.Time `json:"computed_at"`
+}
+
+type KoreaderReceipt struct {
+	CredentialID   uuid.UUID     `json:"credential_id"`
+	FileID         uuid.UUID     `json:"file_id"`
+	ContentVersion uuid.UUID     `json:"content_version"`
+	Fingerprint    []byte        `json:"fingerprint"`
+	Accepted       bool          `json:"accepted"`
+	WireStatus     int32         `json:"wire_status"`
+	WireCode       *int32        `json:"wire_code"`
+	SourceRevision *int64        `json:"source_revision"`
+	AcceptedTs     *int64        `json:"accepted_ts"`
+	ConflictID     uuid.NullUUID `json:"conflict_id"`
+	CreatedAt      time.Time     `json:"created_at"`
+}
+
+type KoreaderSource struct {
+	UserID         uuid.UUID `json:"user_id"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Revision       int64     `json:"revision"`
+	Document       *string   `json:"document"`
+	Progress       *string   `json:"progress"`
+	Percentage     *float64  `json:"percentage"`
+	Device         *string   `json:"device"`
+	DeviceID       *string   `json:"device_id"`
+	AcceptedTs     *int64    `json:"accepted_ts"`
+}
+
 type Library struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
