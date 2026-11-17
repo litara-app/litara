@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openEpubEdition, openTitle } from "./support";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -12,14 +13,6 @@ async function signIn(page: Page, user: string) {
   await expect(page.getByTestId("whoami")).toBeVisible();
 }
 
-
-/** The library is paged, so open a title through search rather than hoping it is on the first page. */
-async function openTitle(page: Page, title: string) {
-  await page.goto("/");
-  await page.getByLabel("Search").fill(title);
-  await expect(page.getByTestId("title-card").filter({ hasNotText: title })).toHaveCount(0, { timeout: 15_000 }); // only matches remain: the list has settled
-  await page.getByText(title, { exact: true }).first().click();
-}
 
 test.describe.configure({ mode: "serial" });
 
@@ -64,7 +57,7 @@ test("library health, scan request and the review list", async ({ page }) => {
 test("edition metadata shows provenance, accepts a protected edit and restores", async ({ page }) => {
   await signIn(page, "fixture-admin");
   await openTitle(page, "The Browser Novel");
-  await page.getByText(/EPUB/).first().click();
+  await openEpubEdition(page);
   const admin = page.getByTestId("edition-admin");
   await expect(admin).toBeVisible();
   const titleRow = admin.getByTestId("metadata-table").getByRole("row", { name: /^title/ });
@@ -223,7 +216,7 @@ test("a protected clear is shown as deliberately empty, survives a rescan, and c
   test.setTimeout(120_000);
   await signIn(page, "fixture-admin");
   await openTitle(page, "The Replaceable");
-  await page.getByText(/EPUB/).first().click();
+  await openEpubEdition(page);
   const editionUrl = page.url();
   const admin = page.getByTestId("edition-admin");
   await expect(admin).toBeVisible();

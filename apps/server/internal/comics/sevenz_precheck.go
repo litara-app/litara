@@ -21,6 +21,9 @@ const (
 	sevenMaxNesting  = 2
 	sevenMaxCoders   = 32
 	sevenMaxStreamIn = 64
+	// maxCodersPerFile bounds all coders in an archive to this many per permitted entry; real
+	// archives use one to three (compressor plus filters) per folder.
+	maxCodersPerFile = 4
 )
 
 var errSevenHeader = errors.New("7z: header cannot be validated")
@@ -91,6 +94,7 @@ type sevenFolder struct {
 }
 
 type sevenStreams struct {
+	coders    int // coders across every folder
 	packPos   uint64
 	packSizes []uint64
 	folders   []sevenFolder
@@ -137,6 +141,10 @@ func (r *sevenReader) streamsInfo(maxFiles int) (*sevenStreams, error) {
 			if err != nil {
 				return nil, err
 			}
+			// The library allocates every pack stream; real archives have about one per folder.
+			if n > maxFiles {
+				return nil, errSevenLimit
+			}
 			for {
 				pid, err := r.byte()
 				if err != nil {
@@ -170,6 +178,12 @@ func (r *sevenReader) streamsInfo(maxFiles int) (*sevenStreams, error) {
 			if err != nil {
 				return nil, err
 			}
+			// The library allocates per folder before validating anything, and a folder costs only
+			// a few header bytes, so header size alone is no bound. An entry needs at most one
+			// folder, so more folders than the entry ceiling cannot be legitimate.
+			if nf > maxFiles {
+				return nil, errSevenLimit
+			}
 			if ext, err := r.byte(); err != nil || ext != 0 {
 				return nil, errSevenHeader
 			}
@@ -178,6 +192,10 @@ func (r *sevenReader) streamsInfo(maxFiles int) (*sevenStreams, error) {
 				f, nOut, err := r.folder()
 				if err != nil {
 					return nil, err
+				}
+				s.coders += f.nCoders
+				if s.coders > maxCodersPerFile*maxFiles {
+					return nil, errSevenLimit
 				}
 				s.folders = append(s.folders, f)
 				outs[i] = nOut
@@ -418,6 +436,9 @@ func precheckSevenZip(path string, maxFiles int) *Error {
 		}
 		r := &sevenReader{b: header[1:]}
 		si, err := r.streamsInfo(maxFiles)
+		if errors.Is(err, errSevenLimit) {
+			return reject(CodeLimit, "the archive declares more streams than the ceiling")
+		}
 		if err != nil || len(si.folders) != 1 || len(si.packSizes) != 1 || len(si.folders[0].outSizes) != 1 {
 			return reject(CodeUnsupported, "the 7z header is not understood")
 		}

@@ -2,7 +2,7 @@ import { ActionIcon, Alert, Badge, Button, Drawer, Group, Modal, SegmentedContro
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { api, ApiError, get } from "../api/client";
+import { api, ApiError, assertSameSession, get, sessionEpoch } from "../api/client";
 import type { Annotation, AnnotationData, Edition, Locator, Page, ReaderSnapshot } from "../api/types";
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
 import { Busy } from "../ui/common";
@@ -24,13 +24,17 @@ function loadStyle(): Style {
 
 /** Cookie-authenticated page fetch; blobs let pages be preloaded despite the no-store cache policy. */
 async function fetchPage(path: string): Promise<string> {
+  const since = sessionEpoch();
   const res = await fetch(path, { credentials: "same-origin", cache: "no-store" });
+  assertSameSession(since);
   if (!res.ok) {
     let problem: Record<string, unknown> = {};
     try { problem = await res.json(); } catch { /* not JSON */ }
     throw new ApiError(res.status, problem);
   }
-  return URL.createObjectURL(await res.blob());
+  const blob = await res.blob();
+  assertSameSession(since);
+  return URL.createObjectURL(blob);
 }
 
 function useManifest(e: Edition) {

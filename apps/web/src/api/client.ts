@@ -14,6 +14,22 @@ export class ApiError extends Error {
 let csrf = "";
 export function setCsrf(token: string) { csrf = token; }
 
+/**
+ * Generation of the browser session. It advances on every sign-in, sign-out and
+ * expiry, so a response requested under an earlier session is recognised and
+ * discarded instead of reaching the account that signed in since.
+ */
+let epoch = 0;
+export const sessionEpoch = () => epoch;
+export function advanceSessionEpoch() { epoch += 1; }
+
+/** A response that belongs to an earlier session; callers must not use it. */
+export class StaleSessionError extends Error {
+  constructor() { super("The signed-in account changed while this request was in flight."); this.name = "StaleSessionError"; }
+}
+/** Throws when the session changed since `since` was read. */
+export function assertSameSession(since: number) { if (since !== epoch) throw new StaleSessionError(); }
+
 export const API = "/api/v1";
 
 export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -22,13 +38,16 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
     headers["X-CSRF-Token"] = csrf;
     if (body !== undefined) headers["Content-Type"] = "application/json";
   }
+  const since = epoch;
   const res = await fetch(API + path, {
     method, headers, credentials: "same-origin", cache: "no-store",
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  assertSameSession(since);
   if (res.status === 204) return undefined as T;
   let data: unknown = null;
   try { data = await res.json(); } catch { /* non-JSON error body */ }
+  assertSameSession(since);
   if (!res.ok) throw new ApiError(res.status, (data as ProblemBody) ?? {});
   return data as T;
 }

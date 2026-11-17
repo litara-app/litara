@@ -216,3 +216,45 @@ func WriteSevenZip(path string, entries []SevenEntry, o SevenOpts) error {
 	out.Write(tail)
 	return os.WriteFile(path, out.Bytes(), 0o600)
 }
+
+// WriteSevenZipFolderBomb writes a tiny 7z whose header declares nFolders copy folders (about
+// three header bytes each) and the same number of pack streams, with no files. It is well formed
+// as far as the header goes, so only a ceiling on folders/streams refuses it before the library
+// allocates per folder.
+func WriteSevenZipFolderBomb(path string, nFolders int) error {
+	var h bytes.Buffer
+	h.WriteByte(0x01) // Header
+	h.WriteByte(0x04) // MainStreamsInfo
+	h.WriteByte(0x06) // PackInfo
+	h.Write(num(0))
+	h.Write(num(uint64(nFolders)))
+	h.WriteByte(0x09)
+	for i := 0; i < nFolders; i++ {
+		h.Write(num(1))
+	}
+	h.WriteByte(0x00)
+	h.WriteByte(0x07) // UnPackInfo
+	h.WriteByte(0x0B)
+	h.Write(num(uint64(nFolders)))
+	h.WriteByte(0x00)
+	for i := 0; i < nFolders; i++ {
+		h.Write([]byte{0x01, 0x01, 0x00}) // one coder, flag = 1-byte id, copy
+	}
+	h.WriteByte(0x0C)
+	for i := 0; i < nFolders; i++ {
+		h.Write(num(1))
+	}
+	h.WriteByte(0x00)
+	h.WriteByte(0x00) // end of streams info
+	h.WriteByte(0x00) // end of header
+	tail := h.Bytes()
+	var out, start bytes.Buffer
+	_ = binary.Write(&start, binary.LittleEndian, uint64(0))
+	_ = binary.Write(&start, binary.LittleEndian, uint64(len(tail)))
+	_ = binary.Write(&start, binary.LittleEndian, crc32.ChecksumIEEE(tail))
+	out.Write([]byte{'7', 'z', 0xBC, 0xAF, 0x27, 0x1C, 0, 4})
+	_ = binary.Write(&out, binary.LittleEndian, crc32.ChecksumIEEE(start.Bytes()))
+	out.Write(start.Bytes())
+	out.Write(tail)
+	return os.WriteFile(path, out.Bytes(), 0o600)
+}

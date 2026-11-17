@@ -325,3 +325,34 @@ func TestSevenZipTruncationsNeverPanicOrAllocateWildly(t *testing.T) {
 		_, _, _ = extract(t, p, DefaultLimits())
 	}
 }
+
+func TestSevenZipFolderAndStreamClaimsAreBoundedBeforeAllocation(t *testing.T) {
+	// A folder costs about three header bytes but the library allocates far more for each, so the
+	// header size alone does not bound memory; the entry ceiling must also bound folders and streams.
+	for _, n := range []int{DefaultLimits().MaxEntries + 1, 2_000_000} {
+		p := tmp(t, "folders.cb7")
+		if err := archivetest.WriteSevenZipFolderBomb(p, n); err != nil {
+			t.Fatal(err)
+		}
+		fi, _ := os.Stat(p)
+		_, dst, err := extract(t, p, DefaultLimits())
+		if code(err) != CodeLimit {
+			t.Fatalf("%d folders (file %d bytes): got %v, want a limit refusal", n, fi.Size(), err)
+		}
+		if _, serr := os.Stat(dst); serr == nil {
+			t.Fatal("a refused archive left published output")
+		}
+	}
+}
+
+func TestSevenZipFolderCeilingFollowsConfiguredEntryLimit(t *testing.T) {
+	p := tmp(t, "few.cb7")
+	if err := archivetest.WriteSevenZipFolderBomb(p, 50); err != nil {
+		t.Fatal(err)
+	}
+	lim := DefaultLimits()
+	lim.MaxEntries = 10
+	if _, _, err := extract(t, p, lim); code(err) != CodeLimit {
+		t.Fatalf("got %v, want a limit refusal at a lowered ceiling", err)
+	}
+}

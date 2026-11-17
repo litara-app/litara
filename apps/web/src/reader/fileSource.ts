@@ -1,3 +1,4 @@
+import { assertSameSession, sessionEpoch } from "../api/client";
 import type { ByteSource } from "./host";
 
 /**
@@ -9,6 +10,7 @@ export function remoteSource(contentPath: string, size: number): ByteSource {
   return {
     size,
     async read(start, end) {
+      const since = sessionEpoch();
       const res = await fetch(contentPath, {
         credentials: "same-origin",
         cache: "no-store",
@@ -18,6 +20,7 @@ export function remoteSource(contentPath: string, size: number): ByteSource {
         throw new Error(`file read failed (${res.status})`);
       }
       const buf = await res.arrayBuffer();
+      assertSameSession(since);
       // A 200 for a full-file request is acceptable; otherwise honor the requested window only.
       return buf.byteLength === end - start ? buf : buf.slice(start, end);
     },

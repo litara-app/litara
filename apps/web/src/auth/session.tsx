@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
-import { api, ApiError, setCsrf } from "../api/client";
+import { advanceSessionEpoch, api, ApiError, setCsrf } from "../api/client";
 import type { BrowserSession, User } from "../api/types";
 
 interface Auth {
@@ -33,14 +33,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["session"], queryFn: loadSession, retry: false, staleTime: Infinity });
   // Remove everything except the session query that the provider itself observes.
-  const dropData = () => qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "session" });
+  // Requests still in flight were made for the previous account: invalidate their epoch and cancel them.
+  const dropData = () => {
+    advanceSessionEpoch();
+    const other = (q: { queryKey: readonly unknown[] }) => q.queryKey[0] !== "session";
+    void qc.cancelQueries({ predicate: other });
+    qc.removeQueries({ predicate: other });
+  };
   const value: Auth = {
     user: q.data?.user ?? null,
     loading: q.isPending,
     async login(username, password) {
       const s = await api<BrowserSession>("POST", "/auth/web/login", { username, password, deviceName: "Web browser" });
-      setCsrf(s.csrfToken);
       dropData(); // never show another account's cached data
+      setCsrf(s.csrfToken);
+      await qc.cancelQueries({ queryKey: ["session"] }); // an older session read must not overwrite this one
       qc.setQueryData(["session"], s);
     },
     expire() {
