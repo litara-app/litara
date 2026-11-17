@@ -114,6 +114,39 @@ type Conflict struct {
 	ResolvedOperationID uuid.NullUUID `json:"resolved_operation_id"`
 }
 
+type Delivery struct {
+	ID                uuid.UUID     `json:"id"`
+	UserID            uuid.UUID     `json:"user_id"`
+	FileID            uuid.UUID     `json:"file_id"`
+	ContentVersion    uuid.UUID     `json:"content_version"`
+	RecipientID       uuid.UUID     `json:"recipient_id"`
+	RecipientRevision int64         `json:"recipient_revision"`
+	RecipientName     string        `json:"recipient_name"`
+	RecipientAddress  string        `json:"recipient_address"`
+	Transport         string        `json:"transport"`
+	TransportRevision int64         `json:"transport_revision"`
+	State             string        `json:"state"`
+	Attempts          int32         `json:"attempts"`
+	AttemptOpen       bool          `json:"attempt_open"`
+	Revision          int64         `json:"revision"`
+	Code              *string       `json:"code"`
+	ResendOf          uuid.NullUUID `json:"resend_of"`
+	NextAttemptAt     time.Time     `json:"next_attempt_at"`
+	LeaseUntil        *time.Time    `json:"lease_until"`
+	CreatedAt         time.Time     `json:"created_at"`
+	UpdatedAt         time.Time     `json:"updated_at"`
+}
+
+type DeliveryRecipient struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Revision  int64     `json:"revision"`
+	Deleted   bool      `json:"deleted"`
+	Name      string    `json:"name"`
+	Address   string    `json:"address"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Edition struct {
 	ID        uuid.UUID `json:"id"`
 	TitleID   uuid.UUID `json:"title_id"`
@@ -284,6 +317,103 @@ type InspectionResult struct {
 	ToolVersion  *string   `json:"tool_version"`
 }
 
+type IntegrationCredential struct {
+	ID         uuid.UUID  `json:"id"`
+	UserID     uuid.UUID  `json:"user_id"`
+	Kind       string     `json:"kind"`
+	Username   string     `json:"username"`
+	Label      string     `json:"label"`
+	Verifier   string     `json:"verifier"`
+	CreatedAt  time.Time  `json:"created_at"`
+	RevokedAt  *time.Time `json:"revoked_at"`
+	LastUsedAt *time.Time `json:"last_used_at"`
+}
+
+type IntegrationSetting struct {
+	Singleton            bool      `json:"singleton"`
+	Revision             int64     `json:"revision"`
+	OpdsEnabled          bool      `json:"opds_enabled"`
+	EmailEnabled         bool      `json:"email_enabled"`
+	KoreaderEnabled      bool      `json:"koreader_enabled"`
+	MaxAttachmentBytes   int64     `json:"max_attachment_bytes"`
+	MaxDeliveriesPerHour int32     `json:"max_deliveries_per_hour"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+type KoreaderBaseline struct {
+	CredentialID   uuid.UUID `json:"credential_id"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Revision       *int64    `json:"revision"`
+	Adoptable      *int64    `json:"adoptable"`
+}
+
+type KoreaderBinding struct {
+	ID             uuid.UUID `json:"id"`
+	UserID         uuid.UUID `json:"user_id"`
+	CredentialID   uuid.UUID `json:"credential_id"`
+	Document       string    `json:"document"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Revision       int64     `json:"revision"`
+	Deleted        bool      `json:"deleted"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type KoreaderConflict struct {
+	ID                    uuid.UUID  `json:"id"`
+	UserID                uuid.UUID  `json:"user_id"`
+	CredentialID          uuid.UUID  `json:"credential_id"`
+	FileID                uuid.UUID  `json:"file_id"`
+	ContentVersion        uuid.UUID  `json:"content_version"`
+	Reason                string     `json:"reason"`
+	Fingerprint           []byte     `json:"fingerprint"`
+	Document              string     `json:"document"`
+	Progress              string     `json:"progress"`
+	Percentage            float64    `json:"percentage"`
+	Device                string     `json:"device"`
+	DeviceID              *string    `json:"device_id"`
+	Revision              int64      `json:"revision"`
+	CreatedSourceRevision int64      `json:"created_source_revision"`
+	ResolvedAt            *time.Time `json:"resolved_at"`
+	Resolution            *string    `json:"resolution"`
+	CreatedAt             time.Time  `json:"created_at"`
+}
+
+type KoreaderDigest struct {
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Digest         string    `json:"digest"`
+	ComputedAt     time.Time `json:"computed_at"`
+}
+
+type KoreaderReceipt struct {
+	CredentialID   uuid.UUID     `json:"credential_id"`
+	FileID         uuid.UUID     `json:"file_id"`
+	ContentVersion uuid.UUID     `json:"content_version"`
+	Fingerprint    []byte        `json:"fingerprint"`
+	Accepted       bool          `json:"accepted"`
+	WireStatus     int32         `json:"wire_status"`
+	WireCode       *int32        `json:"wire_code"`
+	SourceRevision *int64        `json:"source_revision"`
+	AcceptedTs     *int64        `json:"accepted_ts"`
+	ConflictID     uuid.NullUUID `json:"conflict_id"`
+	CreatedAt      time.Time     `json:"created_at"`
+}
+
+type KoreaderSource struct {
+	UserID         uuid.UUID `json:"user_id"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Revision       int64     `json:"revision"`
+	Document       *string   `json:"document"`
+	Progress       *string   `json:"progress"`
+	Percentage     *float64  `json:"percentage"`
+	Device         *string   `json:"device"`
+	DeviceID       *string   `json:"device_id"`
+	AcceptedTs     *int64    `json:"accepted_ts"`
+}
+
 type Library struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
@@ -332,6 +462,29 @@ type MoveCandidate struct {
 	MatchKind   string        `json:"match_kind"`
 	ReviewItem  uuid.NullUUID `json:"review_item"`
 	CreatedAt   time.Time     `json:"created_at"`
+}
+
+type OpdsPublicationRow struct {
+	PublicationID  uuid.UUID     `json:"publication_id"`
+	MediaKind      string        `json:"media_kind"`
+	LibraryID      uuid.UUID     `json:"library_id"`
+	TitleID        uuid.UUID     `json:"title_id"`
+	Title          string        `json:"title"`
+	Authors        []string      `json:"authors"`
+	SeriesName     *string       `json:"series_name"`
+	SeriesIndex    *float64      `json:"series_index"`
+	Language       *string       `json:"language"`
+	Label          string        `json:"label"`
+	Narrators      []string      `json:"narrators"`
+	FileID         uuid.UUID     `json:"file_id"`
+	ContentVersion uuid.UUID     `json:"content_version"`
+	Filename       string        `json:"filename"`
+	MimeType       string        `json:"mime_type"`
+	SizeBytes      *int64        `json:"size_bytes"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	RecordingID    uuid.NullUUID `json:"recording_id"`
+	FileOrder      int32         `json:"file_order"`
+	FileCount      int32         `json:"file_count"`
 }
 
 type OperationReceipt struct {
@@ -500,6 +653,23 @@ type ShelfTitle struct {
 	ShelfID  uuid.UUID `json:"shelf_id"`
 	TitleID  uuid.UUID `json:"title_id"`
 	Position int64     `json:"position"`
+}
+
+type SmtpConfig struct {
+	ID          uuid.UUID     `json:"id"`
+	OwnerKind   string        `json:"owner_kind"`
+	UserID      uuid.NullUUID `json:"user_id"`
+	Revision    int64         `json:"revision"`
+	Enabled     bool          `json:"enabled"`
+	Host        string        `json:"host"`
+	Port        int32         `json:"port"`
+	TlsMode     string        `json:"tls_mode"`
+	Username    string        `json:"username"`
+	FromAddress string        `json:"from_address"`
+	KeyID       *string       `json:"key_id"`
+	Nonce       []byte        `json:"nonce"`
+	Ciphertext  []byte        `json:"ciphertext"`
+	UpdatedAt   time.Time     `json:"updated_at"`
 }
 
 type T005Conflict struct {

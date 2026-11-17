@@ -48,8 +48,8 @@ func TestMixedFormatScanKeepsWorksDistinct(t *testing.T) {
 	const isbn = "978-0-306-40615-7"
 	epubIn(t, filepath.Join(root, "A", "english.epub"), "Same Words", "Ann Author", isbn, "en")
 	epubIn(t, filepath.Join(root, "A", "english-again.epub"), "Same Words", "Ann Author", isbn, "en") // a true second copy
-	epubIn(t, filepath.Join(root, "B", "french.epub"), "Mêmes Mots", "Ann Author", isbn, "fr")       // a translation: same ISBN, other title
-	epubIn(t, filepath.Join(root, "C", "other.epub"), "Same Words", "Bob Other", "", "en")           // same text, other author, no identifier
+	epubIn(t, filepath.Join(root, "B", "french.epub"), "Mêmes Mots", "Ann Author", isbn, "fr")        // a translation: same ISBN, other title
+	epubIn(t, filepath.Join(root, "C", "other.epub"), "Same Words", "Bob Other", "", "en")            // same text, other author, no identifier
 	_ = os.MkdirAll(filepath.Join(root, "D"), 0o755)
 	_ = os.WriteFile(filepath.Join(root, "D", "Same Words.pdf"), []byte("%PDF-1.4 minimal"), 0o644)
 	_ = os.MkdirAll(filepath.Join(root, "E"), 0o755)

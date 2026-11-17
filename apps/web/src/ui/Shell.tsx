@@ -14,6 +14,7 @@ export function Shell() {
   const items = [
     { to: "/", label: "Library" },
     { to: "/shelves", label: "Shelves" },
+    { to: "/settings", label: "Settings" },
     ...(user?.isAdmin ? [{ to: "/admin", label: "Administration" }] : []),
   ];
   const libraryActive = loc.pathname === "/" || loc.pathname.startsWith("/titles") || loc.pathname.startsWith("/editions");

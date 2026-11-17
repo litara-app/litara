@@ -1,0 +1,326 @@
+[
+  {
+    "name": "opds-credential-create",
+    "document": "openapi.json",
+    "schema": "T006CredentialCreate",
+    "valid": true,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "kind": "opds",
+      "label": "Fixture reader",
+      "password": "synthetic_only_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  },
+  {
+    "name": "reject-short-main-password",
+    "document": "openapi.json",
+    "schema": "T006CredentialCreate",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "kind": "opds",
+      "label": "Fixture reader",
+      "password": "password"
+    }
+  },
+  {
+    "name": "reject-body-user-authority",
+    "document": "openapi.json",
+    "schema": "T006CredentialCreate",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "kind": "opds",
+      "label": "Fixture reader",
+      "password": "synthetic_only_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "ownerId": "00000000-0000-0000-0000-000000000002"
+    }
+  },
+  {
+    "name": "reject-multi-scope-credential",
+    "document": "openapi.json",
+    "schema": "T006CredentialCreate",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "kind": "all",
+      "label": "Fixture reader",
+      "password": "synthetic_only_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  },
+  {
+    "name": "owned-recipient",
+    "document": "openapi.json",
+    "schema": "T006RecipientWrite",
+    "valid": true,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "baseRevision": "0",
+      "data": {
+        "name": "Fixture device",
+        "address": "reader@example.invalid"
+      }
+    }
+  },
+  {
+    "name": "reject-recipient-address",
+    "document": "openapi.json",
+    "schema": "T006RecipientWrite",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "baseRevision": "0",
+      "data": {
+        "name": "bad",
+        "address": "not-an-email"
+      }
+    }
+  },
+  {
+    "name": "local-sink-smtp",
+    "document": "openapi.json",
+    "schema": "T006SmtpWrite",
+    "valid": true,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "baseRevision": "0",
+      "enabled": true,
+      "host": "localhost",
+      "port": 1025,
+      "tlsMode": "local_test_plain",
+      "username": "",
+      "fromAddress": "sender@example.invalid",
+      "secretAction": "clear",
+      "password": null
+    }
+  },
+  {
+    "name": "reject-unknown-tls-mode",
+    "document": "openapi.json",
+    "schema": "T006SmtpWrite",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "baseRevision": "0",
+      "enabled": true,
+      "host": "localhost",
+      "port": 1025,
+      "tlsMode": "ignore_certificate",
+      "username": "",
+      "fromAddress": "sender@example.invalid",
+      "secretAction": "clear",
+      "password": null
+    }
+  },
+  {
+    "name": "reject-negative-revision",
+    "document": "openapi.json",
+    "schema": "T006SmtpWrite",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "baseRevision": "-1",
+      "enabled": true,
+      "host": "localhost",
+      "port": 1025,
+      "tlsMode": "local_test_plain",
+      "username": "",
+      "fromAddress": "sender@example.invalid",
+      "secretAction": "clear",
+      "password": null
+    }
+  },
+  {
+    "name": "explicit-original-send",
+    "document": "openapi.json",
+    "schema": "T006DeliveryCreate",
+    "valid": true,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "fileId": "00000000-0000-0000-0000-000000000002",
+      "contentVersion": "00000000-0000-0000-0000-000000000003",
+      "recipientId": "00000000-0000-0000-0000-000000000004",
+      "recipientRevision": "1",
+      "transport": "server",
+      "transportRevision": "1",
+      "resendOf": null,
+      "acknowledgePossibleDuplicate": false
+    }
+  },
+  {
+    "name": "reject-path-as-file",
+    "document": "openapi.json",
+    "schema": "T006DeliveryCreate",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "fileId": "../../private",
+      "contentVersion": "00000000-0000-0000-0000-000000000003",
+      "recipientId": "00000000-0000-0000-0000-000000000004",
+      "recipientRevision": "1",
+      "transport": "server",
+      "transportRevision": "1",
+      "resendOf": null,
+      "acknowledgePossibleDuplicate": false
+    }
+  },
+  {
+    "name": "reject-freeform-recipient",
+    "document": "openapi.json",
+    "schema": "T006DeliveryCreate",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "fileId": "00000000-0000-0000-0000-000000000002",
+      "contentVersion": "00000000-0000-0000-0000-000000000003",
+      "recipientId": "00000000-0000-0000-0000-000000000004",
+      "recipientRevision": "1",
+      "transport": "server",
+      "transportRevision": "1",
+      "resendOf": null,
+      "acknowledgePossibleDuplicate": false,
+      "to": "someone@example.invalid"
+    }
+  },
+  {
+    "name": "koreader-wire-put",
+    "document": "protocols.openapi.json",
+    "schema": "T006KoWirePut",
+    "valid": true,
+    "value": {
+      "document": "00000000000000000000000000000000",
+      "progress": "/body/DocFragment[1]/body/p[4]/text().12",
+      "percentage": 0.42,
+      "device": "Fixture KOReader",
+      "device_id": "fixture-device-a"
+    }
+  },
+  {
+    "name": "reject-koreader-overflow",
+    "document": "protocols.openapi.json",
+    "schema": "T006KoWirePut",
+    "valid": false,
+    "value": {
+      "document": "00000000000000000000000000000000",
+      "progress": "/body/DocFragment[1]/body/p[4]/text().12",
+      "percentage": 1.1,
+      "device": "Fixture KOReader",
+      "device_id": "fixture-device-a"
+    }
+  },
+  {
+    "name": "reject-koreader-path-digest",
+    "document": "protocols.openapi.json",
+    "schema": "T006KoWirePut",
+    "valid": false,
+    "value": {
+      "document": "../book.epub",
+      "progress": "/body/DocFragment[1]/body/p[4]/text().12",
+      "percentage": 0.42,
+      "device": "Fixture KOReader",
+      "device_id": "fixture-device-a"
+    }
+  },
+  {
+    "name": "empty-koreader-source",
+    "document": "protocols.openapi.json",
+    "schema": "T006KoWireGet",
+    "valid": true,
+    "value": {}
+  },
+  {
+    "name": "koreader-source",
+    "document": "protocols.openapi.json",
+    "schema": "T006KoWireGet",
+    "valid": true,
+    "value": {
+      "document": "00000000000000000000000000000000",
+      "progress": "/body/DocFragment[1]/body/p[4]/text().12",
+      "percentage": 0.42,
+      "device": "Fixture KOReader",
+      "device_id": "fixture-device-a",
+      "timestamp": 1794873600
+    }
+  },
+  {
+    "name": "conflict-protocol-error",
+    "document": "protocols.openapi.json",
+    "schema": "T006KoWireError",
+    "valid": true,
+    "value": {
+      "code": 2007,
+      "message": "Position retained for review in Litara."
+    }
+  },
+  {
+    "name": "resolve-candidate",
+    "document": "openapi.json",
+    "schema": "T006KoResolve",
+    "valid": true,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "baseRevision": "0",
+      "action": "use_candidate"
+    }
+  },
+  {
+    "name": "reject-clock-resolution",
+    "document": "openapi.json",
+    "schema": "T006KoResolve",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "baseRevision": "0",
+      "action": "highest_percentage"
+    }
+  },
+  {
+    "name": "reject-missing-replacement-secret",
+    "document": "openapi.json",
+    "schema": "T006SmtpWrite",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "baseRevision": "0",
+      "enabled": true,
+      "host": "localhost",
+      "port": 1025,
+      "tlsMode": "local_test_plain",
+      "username": "",
+      "fromAddress": "sender@example.invalid",
+      "secretAction": "replace",
+      "password": null
+    }
+  },
+  {
+    "name": "reject-unacknowledged-resend",
+    "document": "openapi.json",
+    "schema": "T006DeliveryCreate",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "fileId": "00000000-0000-0000-0000-000000000002",
+      "contentVersion": "00000000-0000-0000-0000-000000000003",
+      "recipientId": "00000000-0000-0000-0000-000000000004",
+      "recipientRevision": "1",
+      "transport": "server",
+      "transportRevision": "1",
+      "resendOf": "00000000-0000-0000-0000-000000000009",
+      "acknowledgePossibleDuplicate": false
+    }
+  },
+  {
+    "name": "reject-recipient-header-injection",
+    "document": "openapi.json",
+    "schema": "T006RecipientWrite",
+    "valid": false,
+    "value": {
+      "operationId": "00000000-0000-0000-0000-000000000064",
+      "baseRevision": "0",
+      "data": {
+        "name": "Reader",
+        "address": "reader@example.invalid\r\nBcc: other@example.invalid"
+      }
+    }
+  }
+]

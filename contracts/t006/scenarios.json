@@ -1,0 +1,664 @@
+{
+  "scenarios": [
+    {
+      "id": "integration-settings",
+      "title": "Integration enablement and limits",
+      "operations": [
+        "getIntegrationSettings",
+        "setIntegrationSettings"
+      ],
+      "setup": "Integration services disabled at initial setup.",
+      "expect": "Admin enables services and configures bounded limits; non-admin changes fail; disabled protocols fail closed.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "credential-lifecycle",
+      "title": "Scoped credentials and revocation",
+      "operations": [
+        "listIntegrationCredentials",
+        "createIntegrationCredential",
+        "revokeIntegrationCredential"
+      ],
+      "setup": "Create separate OPDS and per-device KOReader credentials.",
+      "expect": "One-time UI password display; only own metadata listed; revoke is idempotent; revoked credentials fail on every path.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "credential-transport",
+      "title": "Credential authority boundaries",
+      "operations": [
+        "opdsV1Root",
+        "koReaderAuthorize"
+      ],
+      "setup": "Try main password, OPDS secret as bearer, KOReader key as OPDS and vice versa.",
+      "expect": "Only designated transport and scope accepted; HTTPS required outside explicit dev mode; no secrets in URLs/logs.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "credential-account-disable",
+      "title": "Account disablement",
+      "operations": [
+        "opdsV2Root",
+        "koReaderAuthorize",
+        "createDelivery"
+      ],
+      "setup": "Disable credential owner before reads and queued delivery execution.",
+      "expect": "All paths reject disabled account; no new SMTP submission or private state disclosure.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "opds-v1-conformance",
+      "title": "Atom root and acquisition feeds",
+      "operations": [
+        "opdsV1Root",
+        "opdsV1Publications",
+        "opdsV1Publication",
+        "opdsOpenSearch"
+      ],
+      "setup": "Synthetic titles with XML metacharacters, non-ASCII text and multiple formats.",
+      "expect": "Namespace-aware parser validates required Atom/OPDS fields, correct media types, self/start/search/acquisition links and safe escaping.",
+      "verification": "real-protocol-parser",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "opds-v2-conformance",
+      "title": "JSON root and acquisition feeds",
+      "operations": [
+        "opdsV2Root",
+        "opdsV2Publications",
+        "opdsV2Publication"
+      ],
+      "setup": "Use the same catalog as Atom.",
+      "expect": "Pinned upstream schema and semantic checks pass; metadata and original acquisition identities agree across versions.",
+      "verification": "real-protocol-parser",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "opds-grants",
+      "title": "Catalog and artwork authorization",
+      "operations": [
+        "opdsV1Publications",
+        "opdsV2Publications",
+        "opdsGetArtwork",
+        "opdsHeadArtwork"
+      ],
+      "setup": "Two libraries; caller granted one; shared title spans both.",
+      "expect": "Lists/totals/detail/cover never expose inaccessible names/IDs/paths; unknown or ungranted lookup has no metadata body.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "opds-search-pagination",
+      "title": "Search and deterministic pages",
+      "operations": [
+        "opdsV1Publications",
+        "opdsV2Publications"
+      ],
+      "setup": "More than 50 synthetic publications with duplicate labels and search punctuation.",
+      "expect": "Literal normalized search; deterministic UUID tiebreak; page=0/size=50 default, cap=200; filtered counts and next links correct.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "opds-original-range",
+      "title": "Exact original acquisition",
+      "operations": [
+        "opdsGetOriginal",
+        "opdsHeadOriginal"
+      ],
+      "setup": "Acquire ebook/comic/audio originals with Range/HEAD/If-Match.",
+      "expect": "Bytes/hash/MIME/length match; 206/416/ETag/412 correct; no cookies or token query required; revoked grant denied.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "opds-audio",
+      "title": "Individual audio file publications",
+      "operations": [
+        "opdsV1Publication",
+        "opdsV2Publication"
+      ],
+      "setup": "A three-file recording with explicit file sequence.",
+      "expect": "Each publication downloads that original file; recording/order context is accurate; no whole-recording package or streaming guarantee invented.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "opds-replacement",
+      "title": "Replacement and missing content",
+      "operations": [
+        "opdsGetOriginal",
+        "opdsV2Publications"
+      ],
+      "setup": "Replace bytes after feed read, then make share unavailable.",
+      "expect": "Old version fails 412; missing/unavailable bytes are explicit; no new credentials or silent replacement acquisition.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "opds-real-client",
+      "title": "Pinned external OPDS client",
+      "operations": [
+        "opdsV1Root",
+        "opdsGetOriginal"
+      ],
+      "setup": "Configure a real pinned OPDS client/emulator with synthetic app credential.",
+      "expect": "Browse, search and download work with Basic auth on all linked resources; record client version and hardware limits.",
+      "verification": "real-client-or-emulator",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "smtp-config-ownership",
+      "title": "Server and personal SMTP settings",
+      "operations": [
+        "getServerSmtp",
+        "setServerSmtp",
+        "getPersonalSmtp",
+        "setPersonalSmtp",
+        "listDeliveryTransports"
+      ],
+      "setup": "Two accounts and separate local sink transports.",
+      "expect": "Only admin edits server; each user owns personal; choices explicit; no silent fallback or server secret disclosure.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "smtp-secret-key",
+      "title": "Encrypted secrets and unavailable keys",
+      "operations": [
+        "setPersonalSmtp",
+        "getPersonalSmtp"
+      ],
+      "setup": "Save a synthetic password, inspect persisted record, remove/wrong-key restart.",
+      "expect": "No plaintext password or suffix in read/log; authenticated encryption; unavailable key blocks sends without destroying settings.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "smtp-tls-test",
+      "title": "TLS and connection tests",
+      "operations": [
+        "testServerSmtp",
+        "testPersonalSmtp"
+      ],
+      "setup": "Local SMTP fixtures for TLS success, untrusted certificate and required STARTTLS absence.",
+      "expect": "Connection tests send no mail; validate certificates; never downgrade TLS; plaintext only explicit local test mode.",
+      "verification": "real-local-smtp",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "recipient-lifecycle",
+      "title": "Private saved recipients",
+      "operations": [
+        "listDeliveryRecipients",
+        "putDeliveryRecipient",
+        "deleteDeliveryRecipient"
+      ],
+      "setup": "Two accounts, concurrent recipient edits and delete replay.",
+      "expect": "Owner-only CRUD; server revisions/receipts; tombstones; stale revision 409; CRLF/header injection refused.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "send-intent",
+      "title": "Explicit immutable send",
+      "operations": [
+        "createDelivery",
+        "getDelivery",
+        "listDeliveries"
+      ],
+      "setup": "User picks exact original file/version, saved recipient and transport revision.",
+      "expect": "202 persisted delivery+receipt+job atomically; file/recipient/transport snapshots explicit; history only visible to owner.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "mail-originals",
+      "title": "Original attachments and MIME",
+      "operations": [
+        "createDelivery",
+        "getDelivery"
+      ],
+      "setup": "Send one EPUB, comic and original audio to local sink.",
+      "expect": "One attachment per message, exact byte hash, safe filename/MIME/headers and no conversion.",
+      "verification": "real-local-smtp",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "mail-operation-replay",
+      "title": "Repeated delivery requests",
+      "operations": [
+        "createDelivery"
+      ],
+      "setup": "Repeat same operation concurrently and after response loss.",
+      "expect": "One delivery/job; identical replay returns original status/body; changed payload with same operation is 409.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "mail-recheck",
+      "title": "Execution-time authorization and versions",
+      "operations": [
+        "createDelivery",
+        "getDelivery"
+      ],
+      "setup": "Revoke grant/disable account/change file, recipient or selected SMTP revision while queued.",
+      "expect": "No SMTP submission to stale or changed destination; terminal typed failure; no fallback.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "mail-safe-retry",
+      "title": "Known pre-acceptance retries",
+      "operations": [
+        "getDelivery"
+      ],
+      "setup": "Sink gives temporary connection/recipient rejection before DATA submission.",
+      "expect": "Bounded retry ledger; delays/attempt limits obey contract; no tight loop or extra accepted message.",
+      "verification": "real-local-smtp",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "mail-permanent-failure",
+      "title": "Permanent SMTP refusal",
+      "operations": [
+        "getDelivery"
+      ],
+      "setup": "Sink refuses recipient permanently.",
+      "expect": "Failed state with sanitized reason; no automatic retry; no inbox-delivery claim.",
+      "verification": "real-local-smtp",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "mail-unknown",
+      "title": "Lost SMTP acknowledgement",
+      "operations": [
+        "getDelivery"
+      ],
+      "setup": "Sink accepts message but final acknowledgement is lost.",
+      "expect": "outcome_unknown; one submission; restart/redelivery never automatically sends a second message.",
+      "verification": "real-local-smtp-fault-injection",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "mail-restart",
+      "title": "Worker crash at send boundary",
+      "operations": [
+        "getDelivery"
+      ],
+      "setup": "Crash after durable submission marker, before or after final SMTP response.",
+      "expect": "Ambiguous sending attempt recovers as outcome_unknown; known accepted persisted result stays accepted; no duplicate send.",
+      "verification": "real-local-smtp-fault-injection",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "mail-cancel-resend",
+      "title": "Cancellation and explicit resend",
+      "operations": [
+        "cancelDelivery",
+        "createDelivery"
+      ],
+      "setup": "Cancel queued request and request resend of uncertain outcome.",
+      "expect": "Cancel only before submission; resend requires new operation and duplicate acknowledgement; old result stays unchanged.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "mail-limits",
+      "title": "Attachment and per-user rate bounds",
+      "operations": [
+        "createDelivery",
+        "getIntegrationSettings"
+      ],
+      "setup": "Large attachment, invalid input and concurrent per-user rate requests.",
+      "expect": "Default 25 MiB raw attachment ceiling, configurable up to 100 MiB, 10 requests/user/hour default; reject before network/large allocation.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-wire-auth",
+      "title": "Stock protocol envelopes",
+      "operations": [
+        "koReaderHealth",
+        "koReaderRegistrationDisabled",
+        "koReaderAuthorize"
+      ],
+      "setup": "Exercise pinned client auth and disabled registration with synthetic credentials.",
+      "expect": "Correct header names/envelopes/statuses; no account creation/deletion or body/secret logging.",
+      "verification": "real-protocol-client",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-digest",
+      "title": "Binary partial digest vectors",
+      "operations": [
+        "putKoReaderBinding"
+      ],
+      "setup": "Small, boundary and sparse large synthetic files plus filename mode mismatch.",
+      "expect": "Independent upstream/client hash agreement; filename mode unsupported; hash is lookup hint, not identity.",
+      "verification": "upstream-vector-comparison",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-binding",
+      "title": "Digest ambiguity and explicit binding",
+      "operations": [
+        "listKoReaderBindings",
+        "putKoReaderBinding",
+        "deleteKoReaderBinding"
+      ],
+      "setup": "Identical and deliberately colliding partial digests span two editions/libraries.",
+      "expect": "No first-match choice; owner binds exact granted file/version; denied/unknown binding refuses without disclosing candidates.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-source-isolation",
+      "title": "Separate progress source",
+      "operations": [
+        "getKoReaderPosition",
+        "koReaderGetProgress",
+        "koReaderPutProgress"
+      ],
+      "setup": "Read a cataloged file in web and KOReader.",
+      "expect": "KOReader raw progress remains separate; web/Android canonical location, completion and title history remain unchanged.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-backward",
+      "title": "Intentional backward progress",
+      "operations": [
+        "koReaderGetProgress",
+        "koReaderPutProgress"
+      ],
+      "setup": "Device A reads baseline then moves backward without a competing device.",
+      "expect": "Server revision advances; smaller percentage accepted; clocks/percentage never decide arbitration.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-competing-devices",
+      "title": "Concurrent device candidates",
+      "operations": [
+        "koReaderGetProgress",
+        "koReaderPutProgress",
+        "listKoReaderConflicts"
+      ],
+      "setup": "A and B read; A writes; B uploads a different position.",
+      "expect": "B is retained as private candidate; canonical unchanged; 409 is explicit; B GET does not silently rebase a stale upload.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-retry",
+      "title": "Protocol response loss and replay",
+      "operations": [
+        "koReaderPutProgress"
+      ],
+      "setup": "Repeat identical payload after lost success/conflict response and restart.",
+      "expect": "Replay saved success/timestamp only while that result remains canonical; otherwise retain one deduplicated candidate. Repeated refusals return the same failure/candidate; no duplicate canonical updates, conflicts or resurrection.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-resolve",
+      "title": "Owner conflict resolution and retry",
+      "operations": [
+        "resolveKoReaderConflict",
+        "listKoReaderConflicts",
+        "reapplyKoReaderConflict"
+      ],
+      "setup": "Resolve candidate with keep_server/use_candidate, retry and race another resolve.",
+      "expect": "Owner+grant/current revision required; stale resolution retained; old automatic wire replay cannot undo decision; web/Android untouched. A deliberate reapply of an already resolved valid candidate is a new revisioned owner operation; its old candidate/receipt remain unchanged.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-replacement",
+      "title": "Moves, replacements and revoked grants",
+      "operations": [
+        "koReaderGetProgress",
+        "koReaderPutProgress",
+        "getKoReaderPosition"
+      ],
+      "setup": "Move file, replace bytes with matching partial digest, revoke grant.",
+      "expect": "Move preserves identity; replacement binding invalidated; version mismatch retained/refused; inaccessible state never returned.",
+      "verification": "real-api",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "ko-real-client",
+      "title": "Pinned unmodified KOReader",
+      "operations": [
+        "koReaderAuthorize",
+        "koReaderGetProgress",
+        "koReaderPutProgress"
+      ],
+      "setup": "Use two installations or faithful pinned client request recordings plus at least one real client/emulator.",
+      "expect": "Auth, read/backward/write, conflict failure and settings recovery observed; no assertion of echoed native revisions.",
+      "verification": "real-client-or-emulator",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "web-settings-flows",
+      "title": "Settings, send and conflict UI",
+      "operations": [
+        "createIntegrationCredential",
+        "setPersonalSmtp",
+        "putDeliveryRecipient",
+        "createDelivery",
+        "resolveKoReaderConflict"
+      ],
+      "setup": "Real web/API/PostgreSQL and local SMTP; two browser accounts.",
+      "expect": "Settings accessible; secrets shown only at creation; explicit send states/uncertain warning; conflict actions and account-switch cleanup verified.",
+      "verification": "real-api-browser",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    },
+    {
+      "id": "release-regression",
+      "title": "Existing behavior and release hold",
+      "operations": [
+        "getIntegrationSettings"
+      ],
+      "setup": "Run T003/T005 contract/server regressions and reader isolation locally.",
+      "expect": "No changed existing success schemas; no Android/archive/.github changes, CI activation, tags, releases, deployments, real recipients or secret access.",
+      "verification": "inspection-and-local-regression",
+      "adrs": [
+        "0073",
+        "0074",
+        "0075",
+        "0076"
+      ]
+    }
+  ]
+}

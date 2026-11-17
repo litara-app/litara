@@ -5,6 +5,7 @@ import { ListenPage } from "./audio/ListenPage";
 import { AdminLayout } from "./admin/AdminLayout";
 import { LibrariesPage, LibraryAdminPage } from "./admin/LibrariesPage";
 import { RepairPage, RepairPlanPage } from "./admin/RepairPage";
+import { IntegrationsPage } from "./admin/IntegrationsPage";
 import { UsersPage } from "./admin/UsersPage";
 import { EditionPage } from "./pages/EditionPage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -13,6 +14,10 @@ import { ShelfPage } from "./pages/ShelfPage";
 import { ShelvesPage } from "./pages/ShelvesPage";
 import { TitlePage } from "./pages/TitlePage";
 import { PendingPage } from "./pending/PendingPage";
+import { CredentialsPage } from "./settings/CredentialsPage";
+import { EmailPage } from "./settings/EmailPage";
+import { KoReaderPage } from "./settings/KoReaderPage";
+import { SettingsLayout } from "./settings/SettingsLayout";
 import { ReaderPage } from "./reader/ReaderPage";
 import { Busy } from "./ui/common";
 import { AccessGuard } from "./ui/AccessGuard";
@@ -50,10 +55,16 @@ export function App() {
           <Route path="pending" element={<PendingPage />} />
           <Route path="shelves" element={<ShelvesPage />} />
           <Route path="shelves/:shelfId" element={<ShelfPage />} />
+          <Route path="settings" element={<SettingsLayout />}>
+            <Route index element={<CredentialsPage />} />
+            <Route path="email" element={<EmailPage />} />
+            <Route path="koreader" element={<KoReaderPage />} />
+          </Route>
           <Route path="admin" element={<AdminLayout />}>
             <Route index element={<UsersPage />} />
             <Route path="libraries" element={<LibrariesPage />} />
             <Route path="libraries/:libraryId" element={<LibraryAdminPage />} />
+            <Route path="integrations" element={<IntegrationsPage />} />
             <Route path="repairs" element={<RepairPage />} />
             <Route path="repairs/:planId" element={<RepairPlanPage />} />
           </Route>

@@ -37,10 +37,10 @@ export default defineConfig({
   // Administration scenarios change shared state permanently (a repair applies once),
   // so they run once, in Chromium, after the reader scenarios.
   projects: [
-    { name: "chromium", testIgnore: /admin\.spec|devproxy\.spec/, use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", testIgnore: /admin\.spec|devproxy\.spec/, use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", testIgnore: /admin\.spec|devproxy\.spec/, use: { ...devices["Desktop Safari"] } },
+    { name: "chromium", testIgnore: /admin\.spec|integrations\.spec|devproxy\.spec/, use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", testIgnore: /admin\.spec|integrations\.spec|devproxy\.spec/, use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", testIgnore: /admin\.spec|integrations\.spec|devproxy\.spec/, use: { ...devices["Desktop Safari"] } },
     { name: "devproxy", testMatch: /devproxy\.spec/, use: { ...devices["Desktop Chrome"], baseURL: "http://127.0.0.1:5174" } },
-    { name: "admin", testMatch: /admin\.spec/, dependencies: ["chromium", "firefox", "webkit"], use: { ...devices["Desktop Chrome"] } },
+    { name: "admin", testMatch: /admin\.spec|integrations\.spec/, dependencies: ["chromium", "firefox", "webkit"], use: { ...devices["Desktop Chrome"] } },
   ],
 });

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/">
+  <id>urn:uuid:00000000-0000-0000-0000-000000000001</id>
+  <title>Fixture &amp; Library</title><updated>2026-11-16T00:00:00Z</updated>
+  <author><name>Litara</name></author>
+  <link rel="self" href="https://litara.example.invalid/opds/v1/publications" type="application/atom+xml;profile=opds-catalog;kind=acquisition" />
+  <link rel="start" href="https://litara.example.invalid/opds/v1" type="application/atom+xml;profile=opds-catalog;kind=navigation" />
+  <entry>
+    <id>urn:uuid:00000000-0000-0000-0000-000000000010</id><title>A &amp; B &lt;Fixture&gt;</title><updated>2026-11-16T00:00:00Z</updated>
+    <author><name>Fixture Author</name></author><dc:language>en</dc:language>
+    <link rel="http://opds-spec.org/acquisition" href="https://litara.example.invalid/opds/files/00000000-0000-0000-0000-000000000020/versions/00000000-0000-0000-0000-000000000030/content" type="application/epub+zip" length="1024" />
+  </entry>
+</feed>

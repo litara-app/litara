@@ -217,14 +217,14 @@ func (a *API) fail(ctx context.Context, err error) error { return a.toProblem(ct
 // currentContentVersion, successorRecordingIds) are added to Problem when the
 // personal-state and repair routes that emit them are implemented.
 type T005Problem struct {
-	Type                  string   `json:"type" format:"uri-reference"`
-	Title                 string   `json:"title" maxLength:"1024"`
-	Status                int      `json:"status" minimum:"400" maximum:"599"`
-	Detail                string   `json:"detail" maxLength:"8192"`
-	Code                  string   `json:"code" maxLength:"128"`
-	RequestID             string   `json:"requestId" format:"uuid"`
-	ConflictID            string   `json:"conflictId,omitempty" format:"uuid"`
-	CurrentRevision       string   `json:"currentRevision,omitempty" pattern:"^(0|[1-9][0-9]*)$"`
-	CurrentContentVersion string   `json:"currentContentVersion,omitempty" format:"uuid"`
+	Type                  string         `json:"type" format:"uri-reference"`
+	Title                 string         `json:"title" maxLength:"1024"`
+	Status                int            `json:"status" minimum:"400" maximum:"599"`
+	Detail                string         `json:"detail" maxLength:"8192"`
+	Code                  string         `json:"code" maxLength:"128"`
+	RequestID             string         `json:"requestId" format:"uuid"`
+	ConflictID            string         `json:"conflictId,omitempty" format:"uuid"`
+	CurrentRevision       string         `json:"currentRevision,omitempty" pattern:"^(0|[1-9][0-9]*)$"`
+	CurrentContentVersion string         `json:"currentContentVersion,omitempty" format:"uuid"`
 	SuccessorRecordingIDs []wire.UUIDStr `json:"successorRecordingIds,omitempty" maxItems:"100"`
 }

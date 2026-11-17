@@ -674,7 +674,233 @@ CREATE TABLE repair_plans (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- T006 integrations (ADR-0073..0076). The settings singleton starts with every
+-- integration disabled; revisions start at zero. Protocol credentials are
+-- separate from login sessions: only a slow verifier of the presented secret is
+-- stored (for koreader the verifier covers the transmitted MD5 x-auth-key).
+CREATE TABLE integration_settings (
+    singleton                  boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+    revision                   bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    opds_enabled               boolean NOT NULL DEFAULT false,
+    email_enabled              boolean NOT NULL DEFAULT false,
+    koreader_enabled           boolean NOT NULL DEFAULT false,
+    max_attachment_bytes       bigint NOT NULL DEFAULT 26214400 CHECK (max_attachment_bytes BETWEEN 1 AND 104857600),
+    max_deliveries_per_hour    integer NOT NULL DEFAULT 10 CHECK (max_deliveries_per_hour BETWEEN 1 AND 100),
+    updated_at                 timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO integration_settings (singleton) VALUES (true);
+
+CREATE TABLE integration_credentials (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    kind         text NOT NULL CHECK (kind IN ('opds', 'koreader')),
+    username     text NOT NULL UNIQUE,
+    label        text NOT NULL,
+    verifier     text NOT NULL,
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    revoked_at   timestamptz,
+    last_used_at timestamptz
+);
+CREATE INDEX integration_credentials_user_idx ON integration_credentials (user_id, created_at, id);
+
+-- T006 OPDS publications (ADR-0073): one row per downloadable original. An
+-- ebook/comic publication is the edition (its ID is the stable publication ID);
+-- an audio publication is one file of an active recording (its file ID is the
+-- publication ID). Only current, available files with known size appear, so no
+-- advertised link names absent bytes. Grants are joined by the queries.
+CREATE VIEW opds_publication_rows AS
+SELECT e.id AS publication_id,
+       CASE WHEN e.format IN ('cbz', 'cbr', 'cb7') THEN 'comic' ELSE 'ebook' END::text AS media_kind,
+       e.library_id, t.id AS title_id, t.title, t.authors, t.series_name, t.series_index,
+       e.language, e.label, '{}'::text[] AS narrators,
+       e.file_id, fv.content_version, fv.filename, fv.mime_type, fv.size_bytes, fv.created_at AS updated_at,
+       NULL::uuid AS recording_id, 0::int AS file_order, 1::int AS file_count
+FROM editions e
+JOIN titles t ON t.id = e.title_id
+JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current AND fv.available AND fv.size_bytes IS NOT NULL
+UNION ALL
+SELECT rf.file_id AS publication_id, 'audio'::text AS media_kind,
+       r.library_id, t.id AS title_id, t.title, t.authors, t.series_name, t.series_index,
+       NULL::text AS language, ''::text AS label, r.narrators,
+       rf.file_id, fv.content_version, fv.filename, fv.mime_type, fv.size_bytes, fv.created_at AS updated_at,
+       r.id AS recording_id, (rf.sequence + 1)::int AS file_order,
+       (SELECT count(*)::int FROM recording_files c WHERE c.recording_id = r.id) AS file_count
+FROM recording_files rf
+JOIN active_recordings r ON r.id = rf.recording_id
+JOIN titles t ON t.id = r.title_id
+JOIN file_versions fv ON fv.file_id = rf.file_id AND fv.current AND fv.available AND fv.size_bytes IS NOT NULL;
+
+-- T006 KOReader (ADR-0075/0076): a position source separate from web/Android
+-- state and completion. Everything is keyed to an exact file version so bytes
+-- are never given a position saved for other bytes.
+CREATE TABLE koreader_digests (
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    digest          text NOT NULL CHECK (digest ~ '^[0-9a-f]{32}$'),
+    computed_at     timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (file_id, content_version)
+);
+CREATE INDEX koreader_digests_digest_idx ON koreader_digests (digest);
+
+CREATE TABLE koreader_bindings (
+    id              uuid PRIMARY KEY,
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    credential_id   uuid NOT NULL REFERENCES integration_credentials (id),
+    document        text NOT NULL CHECK (document ~ '^[0-9a-f]{32}$'),
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    revision        bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    deleted         boolean NOT NULL DEFAULT false,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX koreader_bindings_active ON koreader_bindings (credential_id, document) WHERE NOT deleted;
+CREATE INDEX koreader_bindings_user_idx ON koreader_bindings (user_id, id);
+
+-- Canonical KOReader position per owner and exact file version. Revision 0 = no position.
+CREATE TABLE koreader_sources (
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    revision        bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    document        text,
+    progress        text,
+    percentage      double precision,
+    device          text,
+    device_id       text,
+    accepted_ts     bigint,
+    PRIMARY KEY (user_id, file_id, content_version)
+);
+
+-- Per-device adopted baseline. revision is what the device last provably saw or
+-- wrote; adoptable is set only by an explicit owner resolution and is consumed
+-- by the device's next read if the source still has that revision.
+CREATE TABLE koreader_baselines (
+    credential_id   uuid NOT NULL REFERENCES integration_credentials (id),
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    revision        bigint,
+    adoptable       bigint,
+    PRIMARY KEY (credential_id, file_id, content_version)
+);
+
+CREATE TABLE koreader_conflicts (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    credential_id   uuid NOT NULL REFERENCES integration_credentials (id),
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    reason          text NOT NULL CHECK (reason IN ('baseline_required', 'stale_revision', 'content_changed', 'unresolved_candidate')),
+    fingerprint     bytea NOT NULL,
+    document        text NOT NULL,
+    progress        text NOT NULL,
+    percentage      double precision NOT NULL,
+    device          text NOT NULL,
+    device_id       text,
+    revision        bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    created_source_revision bigint NOT NULL,
+    resolved_at     timestamptz,
+    resolution      text CHECK (resolution IN ('keep_server', 'use_candidate')),
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (credential_id, file_id, content_version, fingerprint)
+);
+CREATE INDEX koreader_conflicts_user_idx ON koreader_conflicts (user_id, created_at, id);
+
+-- Immutable per-payload outcomes. A repeat of an accepted payload replays only
+-- while that result is still canonical; a repeat of a refused payload always
+-- replays its recorded failure. Never pruned automatically.
+CREATE TABLE koreader_receipts (
+    credential_id   uuid NOT NULL REFERENCES integration_credentials (id),
+    file_id         uuid NOT NULL REFERENCES media_files (id),
+    content_version uuid NOT NULL REFERENCES file_versions (content_version),
+    fingerprint     bytea NOT NULL,
+    accepted        boolean NOT NULL,
+    wire_status     integer NOT NULL,
+    wire_code       integer,
+    source_revision bigint,
+    accepted_ts     bigint,
+    conflict_id     uuid REFERENCES koreader_conflicts (id),
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (credential_id, file_id, content_version, fingerprint)
+);
+
+-- T006 email delivery (ADR-0074). SMTP passwords are recoverable secrets, so they
+-- are stored only as AES-256-GCM ciphertext under an operator-supplied key ring
+-- (key ID + nonce + ciphertext); nothing here derives from a login secret.
+CREATE TABLE smtp_configs (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_kind   text NOT NULL CHECK (owner_kind IN ('server', 'personal')),
+    user_id      uuid REFERENCES users (id) ON DELETE CASCADE,
+    revision     bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    enabled      boolean NOT NULL DEFAULT false,
+    host         text NOT NULL DEFAULT '',
+    port         integer NOT NULL DEFAULT 587 CHECK (port BETWEEN 1 AND 65535),
+    tls_mode     text NOT NULL DEFAULT 'starttls' CHECK (tls_mode IN ('starttls', 'implicit', 'local_test_plain')),
+    username     text NOT NULL DEFAULT '',
+    from_address text NOT NULL DEFAULT '',
+    key_id       text,
+    nonce        bytea,
+    ciphertext   bytea,
+    updated_at   timestamptz NOT NULL DEFAULT now(),
+    CHECK ((owner_kind = 'server' AND user_id IS NULL) OR (owner_kind = 'personal' AND user_id IS NOT NULL)),
+    CHECK ((ciphertext IS NULL) = (nonce IS NULL) AND (ciphertext IS NULL) = (key_id IS NULL))
+);
+CREATE UNIQUE INDEX smtp_configs_server_one ON smtp_configs (owner_kind) WHERE owner_kind = 'server';
+CREATE UNIQUE INDEX smtp_configs_personal_one ON smtp_configs (user_id) WHERE owner_kind = 'personal';
+CREATE UNIQUE INDEX smtp_configs_nonce_unique ON smtp_configs (key_id, nonce) WHERE nonce IS NOT NULL;
+
+CREATE TABLE delivery_recipients (
+    id         uuid PRIMARY KEY,
+    user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    revision   bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    deleted    boolean NOT NULL DEFAULT false,
+    name       text NOT NULL,
+    address    text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX delivery_recipients_user_idx ON delivery_recipients (user_id, created_at, id);
+
+-- One row per explicit send intent. Recipient and transport identity are
+-- snapshotted by revision; passwords and file bytes are never stored here.
+-- attempt_open is the durable submission boundary: set after the server accepts
+-- DATA and before the message terminator can be sent.
+CREATE TABLE deliveries (
+    id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id            uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    file_id            uuid NOT NULL REFERENCES media_files (id),
+    content_version    uuid NOT NULL REFERENCES file_versions (content_version),
+    recipient_id       uuid NOT NULL REFERENCES delivery_recipients (id),
+    recipient_revision bigint NOT NULL,
+    recipient_name     text NOT NULL,
+    recipient_address  text NOT NULL,
+    transport          text NOT NULL CHECK (transport IN ('server', 'personal')),
+    transport_revision bigint NOT NULL,
+    state              text NOT NULL CHECK (state IN ('queued', 'sending', 'retry_wait', 'accepted', 'failed', 'outcome_unknown', 'cancelled')),
+    attempts           integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    attempt_open       boolean NOT NULL DEFAULT false,
+    revision           bigint NOT NULL DEFAULT 0,
+    code               text,
+    resend_of          uuid REFERENCES deliveries (id),
+    next_attempt_at    timestamptz NOT NULL DEFAULT now(),
+    -- A live attempt holds a lease; only an expired lease means the worker crashed.
+    lease_until        timestamptz,
+    created_at         timestamptz NOT NULL DEFAULT now(),
+    updated_at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX deliveries_user_idx ON deliveries (user_id, created_at, id);
+
 -- +goose Down
+DROP TABLE deliveries;
+DROP TABLE delivery_recipients;
+DROP TABLE smtp_configs;
+DROP TABLE koreader_receipts;
+DROP TABLE koreader_conflicts;
+DROP TABLE koreader_baselines;
+DROP TABLE koreader_sources;
+DROP TABLE koreader_bindings;
+DROP TABLE koreader_digests;
+DROP VIEW opds_publication_rows;
+DROP TABLE integration_credentials;
+DROP TABLE integration_settings;
 DROP TABLE repair_plans;
 DROP VIEW active_recordings;
 DROP TABLE comic_extractions;

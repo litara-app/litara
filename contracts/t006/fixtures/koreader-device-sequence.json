@@ -1,0 +1,64 @@
+{
+  "scope": "owner A / exact file version V / separate KOReader source",
+  "steps": [
+    {
+      "event": "device-a-read-empty",
+      "canonicalRevision": "0",
+      "baselineA": "0"
+    },
+    {
+      "event": "device-a-backward-put-new-payload",
+      "status": 200,
+      "canonicalRevision": "1"
+    },
+    {
+      "event": "device-b-read",
+      "canonicalRevision": "1",
+      "baselineB": null
+    },
+    {
+      "event": "device-b-put-new-payload",
+      "status": 409,
+      "canonicalRevision": "1",
+      "candidate": "B1"
+    },
+    {
+      "event": "device-b-read-again",
+      "canonicalRevision": "1",
+      "baselineB": null
+    },
+    {
+      "event": "device-b-retry-B1",
+      "status": 409,
+      "canonicalRevision": "1",
+      "candidate": "B1"
+    },
+    {
+      "event": "owner-keep-server-B1",
+      "status": 200,
+      "canonicalRevision": "1"
+    },
+    {
+      "event": "device-b-read-after-explicit-resolution",
+      "canonicalRevision": "1",
+      "baselineB": "1"
+    },
+    {
+      "event": "device-b-retry-B1-after-resolution",
+      "status": 409,
+      "canonicalRevision": "1",
+      "candidate": "B1"
+    },
+    {
+      "event": "device-b-different-payload",
+      "status": 200,
+      "canonicalRevision": "2"
+    }
+  ],
+  "assertUnchanged": [
+    "web reading position",
+    "Android position",
+    "completion",
+    "title history"
+  ]
+}

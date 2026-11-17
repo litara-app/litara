@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router";
 import { api, get } from "../api/client";
 import type { AudioPositionState, AudioRecording } from "../api/types";
 import { usePendingState } from "../pending/PendingProvider";
+import { SendFile } from "../settings/SendFile";
 import { Busy, ErrorBox } from "../ui/common";
 import { fmt, startOffsets, totalMs } from "./timeline";
 import { useAudioPlayer } from "./useAudioPlayer";
@@ -183,6 +184,23 @@ function Player({ recording: r, initial }: { recording: AudioRecording; initial:
           ))}
         </Stack>
       )}
+      <SendAudioFile recording={r} />
+    </Stack>
+  );
+}
+
+/** Email one original audio file. Each file is its own request; there is no whole-recording package. */
+export function SendAudioFile({ recording: r }: { recording: AudioRecording }) {
+  const [fileId, setFileId] = useState<string | null>(null);
+  const file = r.files.find((f) => f.id === fileId);
+  const files = r.files.filter((f) => f.available);
+  if (files.length === 0) return null;
+  return (
+    <Stack gap="xs" data-testid="audio-send">
+      <Title order={4}>Email an original file</Title>
+      <Select label="File" placeholder="Choose one file" value={fileId} onChange={setFileId} description="Each file is sent separately and unchanged."
+        data={files.map((f) => ({ value: f.id, label: `File ${f.sequence + 1} of ${r.files.length}: ${f.filename}` }))} />
+      {file && <SendFile key={file.id + file.contentVersion} target={{ fileId: file.id, contentVersion: file.contentVersion, sizeBytes: file.sizeBytes, label: file.filename }} />}
     </Stack>
   );
 }

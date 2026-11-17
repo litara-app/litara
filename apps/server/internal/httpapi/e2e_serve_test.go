@@ -187,6 +187,7 @@ func TestE2EServe(t *testing.T) {
 		}
 	}
 	scanTwice(t, e, admin, d.Library.ID)
+	setupIntegrationsForBrowser(t, e, admin, filepath.Join(root, "Eve Tester", "novel.epub"), d.Library.ID)
 
 	serve := func(addr string, h http.Handler) {
 		ln, err := net.Listen("tcp", addr)
@@ -221,6 +222,7 @@ func TestE2EServe(t *testing.T) {
 			case <-stop:
 				return
 			case <-time.After(200 * time.Millisecond):
+				e.ProcessSettledDeliveries(context.Background(), settle)
 				now := time.Now()
 				for _, id := range e.Queue.DrainScans() {
 					seen[job{"scan", id}] = now

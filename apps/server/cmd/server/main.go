@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -23,11 +24,14 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/config"
 	"github.com/deranjer/ebooker/apps/server/internal/db"
+	"github.com/deranjer/ebooker/apps/server/internal/delivery"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
 	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/integrations"
 	"github.com/deranjer/ebooker/apps/server/internal/jobs"
+	"github.com/deranjer/ebooker/apps/server/internal/koreader"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
@@ -82,7 +86,7 @@ func run() error {
 	// Library roots are validated by the scanner itself, so its inspector is not
 	// restricted to the legacy single media root.
 	scanInsp := inspect.New(inspect.Config{ProbePath: cfg.FFprobePath, Timeout: cfg.InspectTimeout, MaxOutputBytes: cfg.MaxProbeOutput})
-	apiCfg := httpapi.APIConfig{PublicPrefix: cfg.PublicPrefix, AllowedOrigins: cfg.AllowedOrigins, DevInsecureHTTP: cfg.DevInsecureHTTP, MediaRoot: cfg.MediaRoot}
+	apiCfg := httpapi.APIConfig{PublicPrefix: cfg.PublicPrefix, AllowedOrigins: cfg.AllowedOrigins, DevInsecureHTTP: cfg.DevInsecureHTTP, MediaRoot: cfg.MediaRoot, PublicOrigin: cfg.PublicOrigin}
 	cat := catalog.New(pool, apiCfg.APIBase())
 	rd := reading.New(pool, cat, nil)
 	wopts := app.WorkerOptionsFrom(cfg)
@@ -90,6 +94,17 @@ func run() error {
 	scanner := &ingest.Scanner{Pool: pool, Inspector: scanInsp, Log: log}
 	imp := &importer.Service{Pool: pool, Inspector: scanInsp}
 	wopts.Scanner, wopts.Importer, wopts.ScanWorkers = scanner, imp, cfg.ScanWorkers
+	wopts.KOReaderDigests = &koreader.Indexer{Pool: pool, MediaRoot: cfg.MediaRoot, Log: log}
+	smtpKeys, err := delivery.ParseKeyRing(cfg.SMTPKeys, cfg.SMTPActiveKey)
+	if err != nil {
+		return fmt.Errorf("LITARA_SMTP_KEYS: %w", err)
+	}
+	if cfg.SMTPAllowLocalTest {
+		log.Warn("LITARA_SMTP_ALLOW_LOCAL_TEST=1: plaintext SMTP to loopback is allowed; development use only")
+	}
+	deliverySched := &jobs.RiverDeliveryScheduler{}
+	gate := &deliveryGate{ready: make(chan struct{})}
+	wopts.Delivery = gate
 	client, err := app.NewWorkerClient(pool, insp, wopts, log)
 	if err != nil {
 		return err
@@ -158,6 +173,13 @@ func run() error {
 	}
 	acc := accounts.New(accounts.Options{Pool: pool, SecretKey: key,
 		Argon: accounts.ArgonParams{MemoryKiB: cfg.ArgonMemoryKiB, Time: cfg.ArgonTime, Threads: cfg.ArgonThreads}})
+	argon := accounts.ArgonParams{MemoryKiB: cfg.ArgonMemoryKiB, Time: cfg.ArgonTime, Threads: cfg.ArgonThreads}
+	integ := integrations.New(integrations.Options{Pool: pool, Argon: argon, FingerprintKey: integrations.DeriveFingerprintKey(key)})
+	deliverySvc := delivery.New(delivery.Options{Pool: pool, Keys: smtpKeys, Net: delivery.NetPolicy{AllowLocalTest: cfg.SMTPAllowLocalTest},
+		Catalog: cat, Integrations: integ, Sched: deliverySched, MediaRoot: cfg.MediaRoot})
+	deliverySched.Client = client
+	gate.svc = deliverySvc
+	close(gate.ready)
 	go func() { // clear protected refresh responses once their 60-second recovery window ends
 		t := time.NewTicker(10 * time.Second)
 		defer t.Stop()
@@ -176,7 +198,7 @@ func run() error {
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
 		Handler: httpapi.New(httpapi.Deps{Web: appHandler(cfg), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
 			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Reading: rd, Library: library.New(pool), Config: apiCfg, Log: log,
-				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb}}),
+				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Integrations: integ, Delivery: deliverySvc, KOReader: koreader.New(pool, cat, nil)}}),
 	}
 	errc := make(chan error, 2)
 	go func() {
@@ -240,4 +262,32 @@ func readerServer(cfg *config.Config) *http.Server {
 
 func webOrigins(cfg *config.Config) webui.Origins {
 	return webui.Origins{App: cfg.PublicOrigin, Reader: cfg.ReaderOrigin}
+}
+
+// deliveryGate lets the worker client start before the delivery service exists:
+// a job that fires early waits until the service is ready (or shutdown).
+type deliveryGate struct {
+	ready chan struct{}
+	svc   *delivery.Service
+}
+
+// Recover lets the periodic recovery sweep run through the gate (the worker wiring looks for this method).
+func (g *deliveryGate) Recover(ctx context.Context, limit int) (int, error) {
+	select {
+	case <-g.ready:
+		return g.svc.Recover(ctx, limit)
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
+}
+
+var _ jobs.DeliveryRecoverer = (*deliveryGate)(nil)
+
+func (g *deliveryGate) Process(ctx context.Context, id uuid.UUID) error {
+	select {
+	case <-g.ready:
+		return g.svc.Process(ctx, id)
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

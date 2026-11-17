@@ -43,6 +43,10 @@ type WorkerOptions struct {
 	ScanWorkers int
 	// Extractor enables durable comic page extraction. Nil leaves it off.
 	Extractor jobs.Extractor
+	// KOReaderDigests enables the bounded KOReader digest indexing sweep. Nil leaves it off.
+	KOReaderDigests jobs.DigestIndexer
+	// Delivery enables the email submission queue. Nil leaves it off.
+	Delivery jobs.DeliveryProcessor
 }
 
 func WorkerOptionsFrom(cfg *config.Config) WorkerOptions {
@@ -81,6 +85,19 @@ func NewWorkerClient(pool *pgxpool.Pool, insp jobs.Inspector, opts WorkerOptions
 		}
 		periodic = append(periodic, jobs.ScanPeriodic())
 		defer func() { pe.client = client }()
+	}
+	if opts.KOReaderDigests != nil {
+		queues[jobs.QueueKOReader] = river.QueueConfig{MaxWorkers: 1}
+		river.AddWorker(workers, &jobs.KODigestWorker{Indexer: opts.KOReaderDigests, Logger: log})
+		periodic = append(periodic, jobs.KODigestPeriodic())
+	}
+	if opts.Delivery != nil {
+		queues[jobs.QueueDelivery] = river.QueueConfig{MaxWorkers: 2}
+		river.AddWorker(workers, &jobs.DeliveryWorker{Processor: opts.Delivery, Logger: log})
+		if rec, ok := opts.Delivery.(jobs.DeliveryRecoverer); ok {
+			river.AddWorker(workers, &jobs.DeliveryRecoverWorker{Recoverer: rec, Logger: log})
+			periodic = append(periodic, jobs.DeliveryRecoverPeriodic())
+		}
 	}
 	cfg := &river.Config{
 		Logger:                      log,

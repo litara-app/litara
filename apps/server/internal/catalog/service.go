@@ -346,12 +346,26 @@ type FileTarget struct {
 	MIME    string
 	Size    int64
 	ETag    string
+	// Filename is the stored original file name (used for download headers).
+	Filename string
 }
 
 // ResolveFile authorizes access to one file version. Order: unknown file 404;
 // no granted recording 403; unknown version 404; superseded version 412
 // content_changed; incomplete current recording 409.
 func (s *Service) ResolveFile(ctx context.Context, userID, fileID, version uuid.UUID) (FileTarget, error) {
+	return s.resolveFile(ctx, userID, fileID, version, true)
+}
+
+// ResolveOriginal authorizes acquisition of one original file version without
+// the playback-readiness gate (ADR-0073): an incomplete or unsupported audio
+// recording still has downloadable original bytes. Every other check, including
+// grants, the current-version rule and known size, is identical to ResolveFile.
+func (s *Service) ResolveOriginal(ctx context.Context, userID, fileID, version uuid.UUID) (FileTarget, error) {
+	return s.resolveFile(ctx, userID, fileID, version, false)
+}
+
+func (s *Service) resolveFile(ctx context.Context, userID, fileID, version uuid.UUID, requireReady bool) (FileTarget, error) {
 	exists, err := s.q.FileExists(ctx, fileID)
 	if err != nil {
 		return FileTarget{}, unavailable(err)
@@ -405,14 +419,14 @@ func (s *Service) ResolveFile(ctx context.Context, userID, fileID, version uuid.
 		byRec[f.RecordingID] = append(byRec[f.RecordingID], f)
 	}
 	for _, rid := range granted {
-		if !editionGranted && !Evaluate(byRec[rid]).Ready {
+		if requireReady && !editionGranted && !Evaluate(byRec[rid]).Ready {
 			return FileTarget{}, apperr.ErrIncomplete
 		}
 	}
 	if fv.SizeBytes == nil {
 		return FileTarget{}, apperr.ErrIncomplete
 	}
-	return FileTarget{Locator: fv.Locator, MIME: fv.MimeType, Size: *fv.SizeBytes, ETag: fmt.Sprintf("%q", fv.ContentVersion.String())}, nil
+	return FileTarget{Locator: fv.Locator, MIME: fv.MimeType, Size: *fv.SizeBytes, ETag: fmt.Sprintf("%q", fv.ContentVersion.String()), Filename: fv.Filename}, nil
 }
 
 // Repaired is the typed error for a recording that a reviewed repair replaced

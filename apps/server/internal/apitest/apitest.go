@@ -5,6 +5,8 @@ package apitest
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -21,15 +23,19 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/comics"
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
+	"github.com/deranjer/ebooker/apps/server/internal/delivery"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
 	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/integrations"
+	"github.com/deranjer/ebooker/apps/server/internal/koreader"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
 	"github.com/deranjer/ebooker/apps/server/internal/reading"
 	"github.com/deranjer/ebooker/apps/server/internal/seed"
+	"github.com/deranjer/ebooker/apps/server/internal/smtptest"
 	"github.com/deranjer/ebooker/apps/server/internal/testutil"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 	"github.com/deranjer/ebooker/apps/server/internal/writeback"
@@ -70,10 +76,17 @@ type Env struct {
 	Scanner   *ingest.Scanner
 	Importer  *importer.Service
 	Writeback *writeback.Service
-	Queue     *Queue
-	Password  string
-	Base      string
-	Cfg       httpapi.APIConfig
+	// T006
+	Integrations *integrations.Service
+	KOReader     *koreader.Service
+	Delivery     *delivery.Service
+	DQ           *DeliveryQueue
+	CA           *smtptest.CA
+	Indexer      *koreader.Indexer
+	Queue        *Queue
+	Password     string
+	Base         string
+	Cfg          httpapi.APIConfig
 }
 
 // Options tune the environment.
@@ -86,6 +99,8 @@ type Options struct {
 	// Comic extraction tuning for tests (zero values use the ADR defaults).
 	ComicLimits comics.Limits
 	ComicBudget int64
+	// DeliveryHooks injects failures into the send path (tests only).
+	DeliveryHooks delivery.SendHooks
 }
 
 // New starts the environment; everything is closed at test cleanup.
@@ -101,6 +116,11 @@ func New(t *testing.T, opts ...Options) *Env {
 	key, _ := accounts.GenerateKey()
 	kb, _ := accounts.ParseKey(key)
 	o.Cfg.MediaRoot = t.TempDir()
+	// The listener is bound first so absolute OPDS links name the real test origin.
+	srv := httptest.NewUnstartedServer(nil)
+	if o.Cfg.PublicOrigin == "" {
+		o.Cfg.PublicOrigin = "http://" + srv.Listener.Addr().String()
+	}
 	acc := accounts.New(accounts.Options{Pool: pool, Clock: clock.Now, SecretKey: kb, Argon: accounts.ArgonParams{MemoryKiB: 8, Time: 1, Threads: 1}})
 	base := o.Cfg.APIBase()
 	cat := catalog.New(pool, base)
@@ -122,12 +142,26 @@ func New(t *testing.T, opts ...Options) *Env {
 	meta := metadata.New(pool)
 	e.Writeback = &writeback.Service{Pool: pool, Inspector: t4insp, Scanner: e.Scanner, Metadata: meta, Writers: map[string]writeback.Writer{}, Now: clock.Now}
 	e.Queue = &Queue{}
+	e.Integrations = integrations.New(integrations.Options{Pool: pool, Clock: clock.Now, Argon: accounts.ArgonParams{MemoryKiB: 8, Time: 1, Threads: 1},
+		FingerprintKey: integrations.DeriveFingerprintKey(kb)})
 	e.Reading = reading.New(pool, cat, clock.Now)
 	e.Reading.EnableComics(reading.ComicOptions{MediaRoot: o.Cfg.MediaRoot, CacheDir: t.TempDir(), Limits: o.ComicLimits, CacheBudget: o.ComicBudget, Enqueuer: e.Queue})
+	e.KOReader = koreader.New(pool, cat, clock.Now)
+	e.CA = smtptest.NewCA(t)
+	e.DQ = &DeliveryQueue{}
+	rawKey := make([]byte, 32)
+	_, _ = rand.Read(rawKey)
+	ring, _ := delivery.ParseKeyRing("test-key:"+base64.StdEncoding.EncodeToString(rawKey), "test-key")
+	e.Delivery = delivery.New(delivery.Options{Pool: pool, Keys: ring, Net: delivery.NetPolicy{AllowLocalTest: true, RootCAs: e.CA.Pool,
+		ConnectTimeout: 3 * time.Second, SendTimeout: 10 * time.Second}, Catalog: cat, Integrations: e.Integrations, Sched: e.DQ,
+		MediaRoot: o.Cfg.MediaRoot, Clock: clock.Now, Hooks: o.DeliveryHooks})
+	e.Indexer = &koreader.Indexer{Pool: pool, MediaRoot: o.Cfg.MediaRoot}
 	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: e.Reading, Library: library.New(pool), Config: o.Cfg,
-		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback}})
+		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback, Integrations: e.Integrations, KOReader: e.KOReader, Delivery: e.Delivery}})
 	e.Handler = h
-	e.Server = httptest.NewServer(h)
+	srv.Config.Handler = h
+	srv.Start()
+	e.Server = srv
 	t.Cleanup(e.Server.Close)
 	return e
 }
@@ -179,6 +213,30 @@ func (e *Env) Do(method, path, token string, body any, hdr ...string) Response {
 	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	for i := 0; i+1 < len(hdr); i += 2 {
+		req.Header.Set(hdr[i], hdr[i+1])
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		e.T.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	return Response{resp, b}
+}
+
+// Proto sends a request to a root-mounted protocol route (OPDS, KOReader): the
+// path is used as given, with no /api/v1 prefix. Headers are key/value pairs.
+func (e *Env) Proto(method, path string, body []byte, hdr ...string) Response {
+	e.T.Helper()
+	var rd io.Reader
+	if body != nil {
+		rd = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, e.Server.URL+path, rd)
+	if err != nil {
+		e.T.Fatal(err)
 	}
 	for i := 0; i+1 < len(hdr); i += 2 {
 		req.Header.Set(hdr[i], hdr[i+1])
@@ -304,5 +362,92 @@ func (e *Env) RunQueued() {
 		if err := e.Importer.Execute(context.Background(), id); err != nil {
 			e.T.Fatalf("import %s: %v", id, err)
 		}
+	}
+}
+
+// DeliveryQueue records scheduled delivery jobs so tests drive the worker
+// deterministically with the controllable clock instead of waiting on River.
+type DeliveryQueue struct {
+	mu    sync.Mutex
+	items []scheduled
+}
+
+type scheduled struct {
+	ID    uuid.UUID
+	At    time.Time
+	Added time.Time // wall clock, so a pump can wait for the enqueuing request to commit
+}
+
+func (q *DeliveryQueue) Schedule(_ context.Context, _ pgx.Tx, id uuid.UUID, at time.Time) error {
+	q.mu.Lock()
+	q.items = append(q.items, scheduled{ID: id, At: at, Added: time.Now()})
+	q.mu.Unlock()
+	return nil
+}
+
+// Len returns how many jobs are scheduled and not yet run.
+func (q *DeliveryQueue) Len() int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return len(q.items)
+}
+
+// Count returns how many jobs were scheduled for id.
+func (q *DeliveryQueue) Count(id uuid.UUID) int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	n := 0
+	for _, it := range q.items {
+		if it.ID == id {
+			n++
+		}
+	}
+	return n
+}
+
+// RunDeliveries runs every scheduled job that is due at the test clock once and
+// returns how many ran. Jobs scheduled while running are kept for a later call.
+func (e *Env) RunDeliveries() int {
+	e.T.Helper()
+	q := e.DQ
+	q.mu.Lock()
+	var due, later []scheduled
+	for _, it := range q.items {
+		if !it.At.After(e.Clock.Now()) {
+			due = append(due, it)
+		} else {
+			later = append(later, it)
+		}
+	}
+	q.items = later
+	q.mu.Unlock()
+	for _, it := range due {
+		if err := e.Delivery.Process(context.Background(), it.ID); err != nil {
+			e.T.Fatalf("process delivery %s: %v", it.ID, err)
+		}
+	}
+	return len(due)
+}
+
+// ProcessSettledDeliveries runs due delivery jobs that were scheduled at least
+// settle ago (wall clock). The job is recorded before the enqueuing request's
+// transaction commits, so a pump must give the request time to finish. Errors are
+// ignored: this is for long-running servers used by browser tests, which assert on
+// the visible state instead.
+func (e *Env) ProcessSettledDeliveries(ctx context.Context, settle time.Duration) {
+	q := e.DQ
+	q.mu.Lock()
+	var due, keep []scheduled
+	for _, it := range q.items {
+		if !it.At.After(e.Clock.Now()) && time.Since(it.Added) >= settle {
+			due = append(due, it)
+		} else {
+			keep = append(keep, it)
+		}
+	}
+	q.items = keep
+	q.mu.Unlock()
+	for _, it := range due {
+		_ = e.Delivery.Process(ctx, it.ID)
 	}
 }
