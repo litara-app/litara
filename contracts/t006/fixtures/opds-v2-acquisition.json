@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "title": "Fixture & Library",
+    "numberOfItems": 1,
+    "itemsPerPage": 50,
+    "currentPage": 1
+  },
+  "links": [
+    {
+      "rel": "self",
+      "href": "https://litara.example.invalid/opds/v2/publications",
+      "type": "application/opds+json"
+    },
+    {
+      "rel": "start",
+      "href": "https://litara.example.invalid/opds/v2",
+      "type": "application/opds+json"
+    }
+  ],
+  "publications": [
+    {
+      "metadata": {
+        "identifier": "urn:uuid:00000000-0000-0000-0000-000000000010",
+        "title": "A & B <Fixture>",
+        "author": [
+          {
+            "name": "Fixture Author"
+          }
+        ],
+        "language": "en",
+        "modified": "2026-11-16T00:00:00Z"
+      },
+      "links": [
+        {
+          "rel": "self",
+          "href": "https://litara.example.invalid/opds/v2/publications/00000000-0000-0000-0000-000000000010",
+          "type": "application/opds-publication+json"
+        },
+        {
+          "rel": "http://opds-spec.org/acquisition",
+          "href": "https://litara.example.invalid/opds/files/00000000-0000-0000-0000-000000000020/versions/00000000-0000-0000-0000-000000000030/content",
+          "type": "application/epub+zip",
+          "properties": {
+            "numberOfItems": 1
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -37,3 +37,10 @@
 - T001–T004 are integrated into main. T005 preparation is governed by accepted ADR-0065–0070, contracts/t005/ and handoffs/T005-assignment.md. Use the exact committed checkpoint supplied by the coordinator; do not reassign T003/T004 or start from their historical snapshots.
 - T005 includes server/edition/reading/annotation/shelf work, shared and smart shelves, the new web app and reviewed recording repair. One owner holds the explicit brief scope; T006/server changes must wait or receive a written nonoverlapping scope. Android reader adaptation is separate.
 - GitHub Actions remains disabled under ADR-0064 until explicit user release-readiness approval. Local development verification is permitted; do not publish, sign releases, create release tags or activate CI. ADR-0063 requires verified legacy personal-state migration before 2.0.0 ships; T005 does not implement that importer.
+
+## T006 implementation checkpoint
+
+- T005 merged in PR #85 at c65738a. T006 is governed by accepted ADR-0073-0076, contracts/t006/ (management and root-mounted protocol contracts), and handoffs/T006-assignment.md. Use the coordinator's immutable preparation checkpoint in TASKS.md. No worker is assigned by these instructions.
+- One T006 owner holds the named backend/schema/contracts/web settings scope; T007 may not overlap. OPDS credentials and KOReader wire keys do not gain general API authority. Preserve library/account isolation on all acquisition/sync/delivery paths.
+- Mail acceptance uses local test infrastructure and synthetic recipients only. Ambiguous SMTP submission never retries automatically. KOReader state remains separate from web/Android and completion, with conservative per-device baselines and retained candidates; never infer a revision from GET alone or silently replace it with last-write-wins.
+- Release/CI/migration holds in ADR-0063/0064 remain unchanged. Read the actual brief and scenario matrix before implementation; static preparation is not runtime/client success.

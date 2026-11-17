@@ -1,0 +1,4340 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Litara T006 management assignment contract",
+    "version": "0.1.0-development",
+    "description": "Preparation contract under ADR-0073-0076. No route is implemented by this preparation."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "paths": {
+    "/integrations/settings": {
+      "get": {
+        "operationId": "getIntegrationSettings",
+        "summary": "getIntegrationSettings",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006IntegrationSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/integrations/settings": {
+      "put": {
+        "operationId": "setIntegrationSettings",
+        "summary": "setIntegrationSettings",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "administrator; no private user state",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006IntegrationSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006IntegrationSettingsWrite"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integration-credentials": {
+      "get": {
+        "operationId": "listIntegrationCredentials",
+        "summary": "listIntegrationCredentials",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006CredentialList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createIntegrationCredential",
+        "summary": "createIntegrationCredential",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Credential"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006CredentialCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integration-credentials/{credentialId}/revoke": {
+      "post": {
+        "operationId": "revokeIntegrationCredential",
+        "summary": "revokeIntegrationCredential",
+        "parameters": [
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Credential"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006CredentialRevoke"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delivery/smtp": {
+      "get": {
+        "operationId": "getPersonalSmtp",
+        "summary": "getPersonalSmtp",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private transport only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006SmtpReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setPersonalSmtp",
+        "summary": "setPersonalSmtp",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private transport only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006SmtpReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006SmtpWrite"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delivery/smtp/test": {
+      "post": {
+        "operationId": "testPersonalSmtp",
+        "summary": "testPersonalSmtp",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private transport only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006ConnectionTest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006Mutation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/delivery/smtp": {
+      "get": {
+        "operationId": "getServerSmtp",
+        "summary": "getServerSmtp",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "administrator; no private user state",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006SmtpReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setServerSmtp",
+        "summary": "setServerSmtp",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "administrator; no private user state",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006SmtpReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006SmtpWrite"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/delivery/smtp/test": {
+      "post": {
+        "operationId": "testServerSmtp",
+        "summary": "testServerSmtp",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "administrator; no private user state",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006ConnectionTest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006Mutation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delivery/transports": {
+      "get": {
+        "operationId": "listDeliveryTransports",
+        "summary": "listDeliveryTransports",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006TransportList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delivery/recipients": {
+      "get": {
+        "operationId": "listDeliveryRecipients",
+        "summary": "listDeliveryRecipients",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006RecipientList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delivery/recipients/{recipientId}": {
+      "put": {
+        "operationId": "putDeliveryRecipient",
+        "summary": "putDeliveryRecipient",
+        "parameters": [
+          {
+            "name": "recipientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Recipient"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006RecipientWrite"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDeliveryRecipient",
+        "summary": "deleteDeliveryRecipient",
+        "parameters": [
+          {
+            "name": "recipientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Recipient"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006Mutation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deliveries": {
+      "get": {
+        "operationId": "listDeliveries",
+        "summary": "listDeliveries",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006DeliveryList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDelivery",
+        "summary": "createDelivery",
+        "parameters": [],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "authenticated owner AND current owning-library grant",
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Delivery"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006DeliveryCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deliveries/{deliveryId}": {
+      "get": {
+        "operationId": "getDelivery",
+        "summary": "getDelivery",
+        "parameters": [
+          {
+            "name": "deliveryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Delivery"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deliveries/{deliveryId}/cancel": {
+      "post": {
+        "operationId": "cancelDelivery",
+        "summary": "cancelDelivery",
+        "parameters": [
+          {
+            "name": "deliveryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Delivery"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006Mutation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/koreader/bindings": {
+      "get": {
+        "operationId": "listKoReaderBindings",
+        "summary": "listKoReaderBindings",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006DigestBindingList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/koreader/bindings/{bindingId}": {
+      "put": {
+        "operationId": "putKoReaderBinding",
+        "summary": "putKoReaderBinding",
+        "parameters": [
+          {
+            "name": "bindingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "credential owner AND current owning-library grant",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006DigestBinding"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006DigestBindingWrite"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteKoReaderBinding",
+        "summary": "deleteKoReaderBinding",
+        "parameters": [
+          {
+            "name": "bindingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006DigestBinding"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006Mutation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/editions/{editionId}/koreader-position": {
+      "get": {
+        "operationId": "getKoReaderPosition",
+        "summary": "getKoReaderPosition",
+        "parameters": [
+          {
+            "name": "editionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated owner AND current owning-library grant",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006KoPosition"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/koreader/conflicts": {
+      "get": {
+        "operationId": "listKoReaderConflicts",
+        "summary": "listKoReaderConflicts",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": []
+          }
+        ],
+        "x-litara-authorization": "authenticated account; own private resources only",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006KoConflictList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/koreader/conflicts/{conflictId}/resolve": {
+      "post": {
+        "operationId": "resolveKoReaderConflict",
+        "summary": "resolveKoReaderConflict",
+        "parameters": [
+          {
+            "name": "conflictId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "candidate owner AND current owning-library grant",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006KoPosition"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006KoResolve"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/koreader/conflicts/{conflictId}/reapply": {
+      "post": {
+        "operationId": "reapplyKoReaderConflict",
+        "summary": "Deliberately reapply a previously resolved retained place as a new owner action",
+        "parameters": [
+          {
+            "name": "conflictId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "x-litara-authorization": "candidate owner AND current owning-library grant",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006KoPosition"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed 401 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed 403 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed 404 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed 409 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed 412 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed 422 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed 429 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed 503 failure; see semantic contract",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T006Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T006Mutation"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "T006Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 8192
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currentRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "conflictId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "T006Mutation": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision"
+        ],
+        "additionalProperties": false
+      },
+      "T006RevisionResult": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "revision",
+          "deleted"
+        ],
+        "additionalProperties": false
+      },
+      "T006IntegrationSettings": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "opdsEnabled": {
+            "type": "boolean"
+          },
+          "emailEnabled": {
+            "type": "boolean"
+          },
+          "koreaderEnabled": {
+            "type": "boolean"
+          },
+          "maxAttachmentBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 104857600
+          },
+          "maxDeliveriesPerUserPerHour": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "serverSmtpAvailable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "revision",
+          "opdsEnabled",
+          "emailEnabled",
+          "koreaderEnabled",
+          "maxAttachmentBytes",
+          "maxDeliveriesPerUserPerHour",
+          "serverSmtpAvailable"
+        ],
+        "additionalProperties": false
+      },
+      "T006IntegrationSettingsWrite": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "opdsEnabled": {
+            "type": "boolean"
+          },
+          "emailEnabled": {
+            "type": "boolean"
+          },
+          "koreaderEnabled": {
+            "type": "boolean"
+          },
+          "maxAttachmentBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 104857600
+          },
+          "maxDeliveriesPerUserPerHour": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "opdsEnabled",
+          "emailEnabled",
+          "koreaderEnabled",
+          "maxAttachmentBytes",
+          "maxDeliveriesPerUserPerHour"
+        ],
+        "additionalProperties": false
+      },
+      "T006Credential": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "opds",
+              "koreader"
+            ]
+          },
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "username",
+          "label",
+          "createdAt",
+          "revoked",
+          "lastUsedAt"
+        ],
+        "additionalProperties": false
+      },
+      "T006CredentialList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/T006Credential"
+            },
+            "maxItems": 50
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "T006CredentialCreate": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "opds",
+              "koreader"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "password": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "operationId",
+          "kind",
+          "label",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "T006CredentialRevoke": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "operationId"
+        ],
+        "additionalProperties": false
+      },
+      "T006SmtpReport": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "host": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 253
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "tlsMode": {
+            "type": "string",
+            "enum": [
+              "starttls",
+              "implicit",
+              "local_test_plain"
+            ]
+          },
+          "username": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 320
+          },
+          "fromAddress": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 320
+          },
+          "hasPassword": {
+            "type": "boolean"
+          },
+          "keyAvailable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "revision",
+          "configured",
+          "enabled",
+          "host",
+          "port",
+          "tlsMode",
+          "username",
+          "fromAddress",
+          "hasPassword",
+          "keyAvailable"
+        ],
+        "additionalProperties": false
+      },
+      "T006SmtpWrite": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "host": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253,
+            "pattern": "^[^\\r\\n]*$"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "tlsMode": {
+            "type": "string",
+            "enum": [
+              "starttls",
+              "implicit",
+              "local_test_plain"
+            ]
+          },
+          "username": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 320,
+            "pattern": "^[^\\r\\n]*$"
+          },
+          "fromAddress": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 320,
+            "pattern": "^[^\\r\\n]*$"
+          },
+          "secretAction": {
+            "type": "string",
+            "enum": [
+              "keep",
+              "replace",
+              "clear"
+            ]
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "enabled",
+          "host",
+          "port",
+          "tlsMode",
+          "username",
+          "fromAddress",
+          "secretAction",
+          "password"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "secretAction": {
+                  "const": "replace"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "password": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "password": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "T006ConnectionTest": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1024
+          }
+        },
+        "required": [
+          "success",
+          "code",
+          "detail"
+        ],
+        "additionalProperties": false
+      },
+      "T006RecipientData": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[^\\r\\n]*$"
+          },
+          "address": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 320,
+            "pattern": "^[^\\r\\n]*$"
+          }
+        },
+        "required": [
+          "name",
+          "address"
+        ],
+        "additionalProperties": false
+      },
+      "T006RecipientWrite": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "data": {
+            "$ref": "#/components/schemas/T006RecipientData"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "T006Recipient": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/T006RecipientData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "deleted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "T006RecipientList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/T006Recipient"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "T006TransportList": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "object",
+            "properties": {
+              "available": {
+                "type": "boolean"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            },
+            "required": [
+              "available",
+              "revision"
+            ],
+            "additionalProperties": false
+          },
+          "personal": {
+            "type": "object",
+            "properties": {
+              "available": {
+                "type": "boolean"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            },
+            "required": [
+              "available",
+              "revision"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "server",
+          "personal"
+        ],
+        "additionalProperties": false
+      },
+      "T006DeliveryCreate": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentVersion": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipientRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "server",
+              "personal"
+            ]
+          },
+          "transportRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "resendOf": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "acknowledgePossibleDuplicate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "operationId",
+          "fileId",
+          "contentVersion",
+          "recipientId",
+          "recipientRevision",
+          "transport",
+          "transportRevision",
+          "resendOf",
+          "acknowledgePossibleDuplicate"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "resendOf": {
+                  "type": "string"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "acknowledgePossibleDuplicate": {
+                  "const": true
+                }
+              }
+            }
+          }
+        ]
+      },
+      "T006Delivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentVersion": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipientName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "recipientAddress": {
+            "type": "string",
+            "format": "email"
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "server",
+              "personal"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sending",
+              "retry_wait",
+              "accepted",
+              "failed",
+              "outcome_unknown",
+              "cancelled"
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resendOf": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "fileId",
+          "contentVersion",
+          "recipientId",
+          "recipientName",
+          "recipientAddress",
+          "transport",
+          "state",
+          "attempts",
+          "createdAt",
+          "updatedAt",
+          "code",
+          "resendOf"
+        ],
+        "additionalProperties": false
+      },
+      "T006DeliveryList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/T006Delivery"
+            },
+            "maxItems": 200
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "T006DigestBindingWrite": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "credentialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "document": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentVersion": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "credentialId",
+          "document",
+          "fileId",
+          "contentVersion"
+        ],
+        "additionalProperties": false
+      },
+      "T006DigestBinding": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "credentialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "document": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentVersion": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "credentialId",
+          "document",
+          "fileId",
+          "contentVersion",
+          "deleted"
+        ],
+        "additionalProperties": false
+      },
+      "T006DigestBindingList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/T006DigestBinding"
+            },
+            "maxItems": 200
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "T006KoPosition": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentVersion": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "koreader"
+            ]
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "document": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{32}$"
+                  },
+                  "progress": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "percentage": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "device": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "deviceId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "timestamp": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "document",
+                  "progress",
+                  "percentage",
+                  "device",
+                  "deviceId",
+                  "timestamp"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "revision",
+          "fileId",
+          "contentVersion",
+          "source",
+          "position"
+        ],
+        "additionalProperties": false
+      },
+      "T006KoConflict": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentVersion": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "credentialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "baseline_required",
+              "stale_revision",
+              "content_changed",
+              "unresolved_candidate"
+            ]
+          },
+          "candidate": {
+            "type": "object",
+            "properties": {
+              "progress": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
+              },
+              "percentage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "device": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "deviceId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "progress",
+              "percentage",
+              "device",
+              "deviceId"
+            ],
+            "additionalProperties": false
+          },
+          "currentRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "resolved": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "fileId",
+          "contentVersion",
+          "credentialId",
+          "reason",
+          "candidate",
+          "currentRevision",
+          "resolved"
+        ],
+        "additionalProperties": false
+      },
+      "T006KoConflictList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/T006KoConflict"
+            },
+            "maxItems": 200
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "T006KoResolve": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "keep_server",
+              "use_candidate"
+            ]
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque"
+      },
+      "browserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "litara_session"
+      },
+      "csrf": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token"
+      }
+    }
+  }
+}

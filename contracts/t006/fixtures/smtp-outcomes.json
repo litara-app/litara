@@ -1,0 +1,40 @@
+{
+  "syntheticRecipientsOnly": true,
+  "cases": [
+    {
+      "id": "connection-4xx",
+      "submitted": false,
+      "acknowledged": false,
+      "recoveredAfterCrash": false,
+      "expect": "retry_wait"
+    },
+    {
+      "id": "permanent-5xx",
+      "submitted": false,
+      "acknowledged": false,
+      "recoveredAfterCrash": false,
+      "expect": "failed"
+    },
+    {
+      "id": "ack-received-and-persisted",
+      "submitted": true,
+      "acknowledged": true,
+      "recoveredAfterCrash": false,
+      "expect": "accepted"
+    },
+    {
+      "id": "ack-lost",
+      "submitted": true,
+      "acknowledged": false,
+      "recoveredAfterCrash": false,
+      "expect": "outcome_unknown"
+    },
+    {
+      "id": "crash-after-boundary",
+      "submitted": true,
+      "acknowledged": false,
+      "recoveredAfterCrash": true,
+      "expect": "outcome_unknown"
+    }
+  ]
+}

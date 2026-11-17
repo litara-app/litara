@@ -1,0 +1,60 @@
+{
+  "algorithm": "KOReader binary partial MD5; compatibility hint only",
+  "vectors": [
+    {
+      "size": 0,
+      "generator": "byte[i] = i % 251",
+      "expectedPartialMd5": "d41d8cd98f00b204e9800998ecf8427e",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "size": 1,
+      "generator": "byte[i] = i % 251",
+      "expectedPartialMd5": "93b885adfe0da089cdf634904fd59f71",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+    },
+    {
+      "size": 1023,
+      "generator": "byte[i] = i % 251",
+      "expectedPartialMd5": "7437d7a881387db7c41cf6930ab5e35d",
+      "sha256": "1c5e88a585b61754df6137d66632a7348557a88358afc401b0a0a4fc427104a9"
+    },
+    {
+      "size": 1024,
+      "generator": "byte[i] = i % 251",
+      "expectedPartialMd5": "9ee0a0e0c0bc0f1ff29d663d1fdf0743",
+      "sha256": "2bce1ba628720664be4b9fdd77aae0678e5f0f3f02fc6ff641ec879094f6a404"
+    },
+    {
+      "size": 1025,
+      "generator": "byte[i] = i % 251",
+      "expectedPartialMd5": "3f3789452b88cb32b8cbfbafe715e29a",
+      "sha256": "bc0b6b10b89b9487a12fda2a8cc13194e7091c217aabf8b92846274026f4bcd0"
+    },
+    {
+      "size": 4096,
+      "generator": "byte[i] = i % 251",
+      "expectedPartialMd5": "1544ef7a46131a30cf328f55979db73d",
+      "sha256": "d67c656e01756650d77717b0839985a056ec28ffe174601d690fc407a2ceffca"
+    },
+    {
+      "size": 4097,
+      "generator": "byte[i] = i % 251",
+      "expectedPartialMd5": "1979738fc31ef42b2e5ab4d9c7199ea2",
+      "sha256": "a16560d668b843fb3be99ace41dbd18471f342bd3255a1d21204b35e43f74436"
+    },
+    {
+      "size": 16385,
+      "generator": "byte[i] = i % 251",
+      "expectedPartialMd5": "48576978865f60dd1929ce69bc941b13",
+      "sha256": "ba4f9b37402df1e3ad948a794ab43a9ed887d63e3a389c208ca4314fdd5add58"
+    },
+    {
+      "size": 65537,
+      "generator": "byte[i] = i % 251",
+      "expectedPartialMd5": "83e94e2e703c3d4a4d4dab909dbfd1b1",
+      "sha256": "237356e18b503616912abb8ffaed3a72591e397d4ac294c4637917d48a3f529d"
+    }
+  ],
+  "provenance": "Recomputed from the read-only archived documented algorithm. Implementation acceptance must cross-check independently with pinned upstream Lua/client output; these are preparation vectors, not that evidence."
+}

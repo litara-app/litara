@@ -9,7 +9,9 @@ Coordination owner: the user and the ADR/integration chat
 
 **T003 and T004 are merged into `main`.** T003 merged in [PR #81](https://github.com/litara-app/litara/pull/81) at `deed67c8eef320e33cdc13da995e802c50f9662a`; T004 merged in [PR #82](https://github.com/litara-app/litara/pull/82) at `2abef2ed46d770bd21d714d299739144de619bce`, initially on the rebuild integration branch. [PR #83](https://github.com/litara-app/litara/pull/83) integrated that branch into `main` at `dae3f3e66cf125fbb428e1d010f7f6b44b3bb591` on 2026-11-14. The user requested this integration. Existing handoff verification evidence is retained; this merge is not fresh runtime/hardware verification. T004's named gaps remain open rather than being declared complete.
 
-**T005 is implemented and coordinator-approved for PR review; integration pending.** The implementation is on `codex/t005-web-reading`; [the handoff](handoffs/T005.md) records the 2026-11-16 review, resolved blockers and fresh checks. All 38 contract operations are implemented; scenario coverage is 36 covered and two partial, retained for T007 (real-device/screen-reader accessibility and broader real-world files). T005 is not merged or declared production-ready. T006/T007 remain unassigned; avoid overlapping server/schema ownership until integration. The dated preparation/review sections below are historical; this overview and register supersede their obsolete assignment/readiness statements.
+**T005 is reviewed, merged and Done for its scoped implementation.** [PR #85](https://github.com/litara-app/litara/pull/85) merged into main at `c65738a` on 2026-11-16. Its [handoff](handoffs/T005.md) records the coordinator review and verification. All 38 operations are implemented; 36 covered scenarios and two T007 partials remain the declared boundary, not production/hardware acceptance.
+
+**T006 is Ready for one full-stack implementation owner; unassigned.** Accepted ADR-0073-0076, [assignment](handoffs/T006-assignment.md), [management and protocol contracts](contracts/t006/README.md), fixtures/scenarios and [readiness evidence](research/t006/readiness.md) are prepared on `codex/t006-readiness`. Use the immutable checkpoint in the preparation section below. OPDS 1.2/2.0, original ebook/comic/individual-audio delivery, both SMTP ownership modes, and separate-source per-device KOReader conflicts are included. No implementation worker has been launched. T007 remains unassigned and may not overlap this owner's server/schema scope. The dated preparation/review sections below are historical; this overview/register supersede their obsolete readiness statements.
 
 **Release hold:** 2.0.0 requires a verified personal-state migration path (ADR-0062/0063). GitHub Actions is disabled repository-wide under ADR-0064; do not re-enable CI or publish builds without the user's explicit release-readiness decision. Local development verification remains allowed.
 
@@ -17,7 +19,7 @@ Prefer substantial end-to-end packages over small tickets. Each package may cont
 
 The authoritative working repository is `G:\Programming\ebooker`. `E:\Programming\ebooker` was a separate audit folder, not this Git repository. External reference clones/logs under `E:\Programming\_reference\` are optional local resources, not portable project dependencies.
 
-**T005 assignment checkout:** use the exact coordinator-supplied tip of `codex/t005-readiness`, containing the accepted release/T005 decisions, full execution brief and checked contract/fixtures. The committed source checkpoint is recorded below after preparation verification; the final register-only commit may follow it. Do not use the older main-only source or rely on uncommitted coordinator files. Do not start new work from the old T003 assignment snapshot, restore historical deletions, or commit another worker's changes. The historical T003 source snapshot was `943e2cd51fb7a59a32b9da1ef9c96a136a019d8f`; it is retained as provenance, not the next assignment base.
+**T006 assignment checkout:** start from the exact committed `codex/t006-readiness` checkpoint recorded below, based on merged main `c65738a`. The agent must receive the accepted ADRs, both protocol/management contracts, fixtures and full assignment through Git. Suggested worker branch: `codex/t006-delivery`. The old T003/T005 preparation checkpoints are historical provenance, not this task's source. Do not restore historical deletions or commit another owner's local work.
 
 ## Assignment and ownership rules
 
@@ -38,11 +40,17 @@ The authoritative working repository is `G:\Programming\ebooker`. `E:\Programmin
 | T002 | Native Android baseline, media preservation, and adaptation seams | Done: reviewed and merged, PR #80 | Closed; do not repeat import | Future adapter/account-isolation work belongs to T003; physical hardware gates remain |
 | T003 | Shared client contract, accounts, and end-to-end recording playback API | Merged: PR #81, integrated to main by #83 | Closed implementation assignment | Handoff evidence retained; physical hardware and release gates remain |
 | T004 | Catalog, library ingestion, metadata, and NAS recovery | Merged with named gaps: PR #82, integrated to main by #83 | Closed merged assignment; follow-ups need explicit ownership | See handoff: ebook entities, merge/split, writers, provider/NAS verification remain incomplete |
-| T005 | Redesigned web library and complete reading/listening flows | Coordinator-approved for PR; integration pending | Implementation: Claude Code; coordinator review: Codex | codex/t005-web-reading; handoffs/T005.md; two T007 partials and release gates retained |
-| T006 | OPDS, email delivery, and basic KOReader integration | Not ready: upstream contracts and protocol decisions needed | Unassigned | T003/T004 plus delivery/auth/revision policies |
+| T005 | Redesigned web library and complete reading/listening flows | Done: reviewed and merged, PR #85 at c65738a | Closed implementation assignment | handoffs/T005.md; two T007 partials and release gates retained |
+| T006 | OPDS, email delivery, and basic KOReader integration | Ready: ADR-0073-0076, contracts/fixtures and complete brief | Unassigned; user selects one owner | Exact codex/t006-readiness checkpoint; exclusive web/server/schema scope; T007 waits |
 | T007 | Cross-client integration, hardware acceptance, and release readiness | Not ready: earlier packages and test resources needed | Unassigned | Integrated T003–T006, hardware/operators and release decisions |
 
-These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T004 have been integrated. T005 is implemented and approved for PR review; T006–T007 still need execution-ready briefs/checkpoints before assignment. A roadmap description does not authorize a worker to pick one up opportunistically.
+These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T005 have been integrated. T006 is prepared for one owner; T007 still needs its own execution-ready brief/checkpoint and test resources. A roadmap description does not authorize a worker to pick one up opportunistically.
+
+## T006 preparation verification - 2026-11-16
+
+Base: integrated main `c65738a` (T005 PR #85). User choices in this chat are recorded as Accepted ADR-0073-0076. The assignment grants one owner the necessary backend/schema/protocol/contract and web settings scope. No agent is assigned or launched.
+
+Preparation inventory: 26 management operations plus 16 wire-protocol operations; 35 task-prefixed schemas; 23 positive/negative examples; 38 acceptance scenarios; nine deterministic digest vectors and synthetic OPDS/SMTP/KOReader sequence fixtures. Static checks validate schemas/examples, normalized route/schema/operation collision freedom, transport/CSRF declarations, accepted ADR links, all-operation scenario references and deterministic vectors. Runtime/client/SMTP/hardware success remains the implementation owner's acceptance work. See research/t006/readiness.md for verification and the immutable source checkpoint after export validation.
 
 ## T005 preparation verification — 2026-11-14
 
@@ -97,7 +105,7 @@ No further T003 product-policy decision is intentionally left open for this seed
 
 T004 needs file move/content-version matching, grouping/merge/split confidence, import approval/copy-or-move/naming/collisions, CUE association under the accepted ADR-0042 source-validation rule, metadata protection/provider rules and NAS recovery semantics. Coordinate shared schema/API boundaries with T003 before parallel implementation. Existing-folder indexing must preserve paths and bytes; managed importing remains opt-in (ADR-0004/0006/0007/0014/0018/0029).
 
-T005 depends on the approved/implemented catalog/auth/media contracts, file/reader locations and annotations, plus a scoped web brief. T006 depends on catalog/auth/progress and explicit OPDS, SMTP/recipient, KOReader credential/revision boundaries. T007 requires working earlier flows and named hardware/operators; retained fake/emulator tests do not close physical Cast/Auto/NAS gates. None is independently implementation-ready today.
+Historical dependency note: T005 is now merged and T006 decisions/contracts/brief are prepared as recorded above. T007 still requires working earlier flows and named hardware/operators; retained fake/emulator tests do not close physical Cast/Auto/NAS gates.
 
 ### Follow-ups retained after closing T001/T002
 
@@ -220,9 +228,9 @@ The reader/location, annotation/shelf, extraction/isolation, tooling/serving and
 
 ## T006 — OPDS, email, and basic KOReader delivery
 
-Planned outcome: interoperable catalog/acquisition feeds, email delivery with user/library controls, and the accepted basic KOReader capability backed by the real catalog/auth/progress model. Include protocol fixtures, failure/retry handling, settings flows where owned, and permissions on every delivery path.
+**Ready preparation, 2026-11-16:** [assignment](handoffs/T006-assignment.md), [contract](contracts/t006/README.md), [readiness](research/t006/readiness.md). Accepted ADR-0073-0076. OPDS 1.2 and 2.0 use revocable app credentials; acquisition/email covers ebook/comic originals and individual original audio files. Server SMTP plus optional personal SMTP and owner-managed saved recipients are included. Explicit sends use durable status, safe pre-acceptance retry and manual review for uncertain submission; no real people are emailed during implementation. Basic KOReader stays separate from web/Android positions/completion, uses per-device credentials and preserves competing candidates.
 
-Decision gates: exact OPDS scope, SMTP ownership/recipient policies, protocol credentials, basic KOReader boundaries and interaction with revisions, and the public contract. Use test mail infrastructure; do not send mail to real people during implementation. Do not broaden this into Kobo/advanced annotation conversion or external reading-service synchronization without a decision.
+One full-stack owner receives the explicit server/schema/contracts/web brief. No format conversion, multi-file audiobook bundle, streaming manifest, advanced location conversion, account self-registration, annotation sync, external reading service integration, Android adaptation or release work is assigned. Preserve the conservative stock-protocol limitation: KOReader does not echo Litara revisions/operations, and a GET cannot silently rebase an old upload. Real client/sink/restart/browser verification is required by the scenario matrix; preparation checks alone are not completion.
 
 ## T007 — Integration, hardware acceptance, and release readiness
 

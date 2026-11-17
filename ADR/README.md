@@ -116,6 +116,10 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0070](0070-recording-repair-successors-and-retained-state.md) | Recording repair successors with retained source state | Accepted |
 | [0071](0071-separate-reader-origin.md) | Serve the web reader from a separate origin | Accepted |
 | [0072](0072-cbr-cb7-extraction-libraries.md) | CBR and CB7 extraction libraries | Accepted |
+| [0073](0073-t006-opds-acquisition-and-credentials.md) | T006 OPDS acquisition and app credentials | Accepted |
+| [0074](0074-t006-smtp-ownership-and-delivery-recovery.md) | T006 SMTP ownership and recoverable delivery | Accepted |
+| [0075](0075-t006-koreader-separate-source-and-identity.md) | T006 isolated KOReader positions and file identity | Accepted |
+| [0076](0076-t006-koreader-device-revisions-and-conflicts.md) | T006 KOReader device credentials and retained conflicts | Accepted |
 
 ## Workflow
 
