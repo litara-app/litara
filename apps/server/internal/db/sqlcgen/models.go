@@ -284,6 +284,29 @@ type InspectionResult struct {
 	ToolVersion  *string   `json:"tool_version"`
 }
 
+type IntegrationCredential struct {
+	ID         uuid.UUID  `json:"id"`
+	UserID     uuid.UUID  `json:"user_id"`
+	Kind       string     `json:"kind"`
+	Username   string     `json:"username"`
+	Label      string     `json:"label"`
+	Verifier   string     `json:"verifier"`
+	CreatedAt  time.Time  `json:"created_at"`
+	RevokedAt  *time.Time `json:"revoked_at"`
+	LastUsedAt *time.Time `json:"last_used_at"`
+}
+
+type IntegrationSetting struct {
+	Singleton            bool      `json:"singleton"`
+	Revision             int64     `json:"revision"`
+	OpdsEnabled          bool      `json:"opds_enabled"`
+	EmailEnabled         bool      `json:"email_enabled"`
+	KoreaderEnabled      bool      `json:"koreader_enabled"`
+	MaxAttachmentBytes   int64     `json:"max_attachment_bytes"`
+	MaxDeliveriesPerHour int32     `json:"max_deliveries_per_hour"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
 type Library struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`

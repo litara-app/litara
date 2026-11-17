@@ -674,7 +674,38 @@ CREATE TABLE repair_plans (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- T006 integrations (ADR-0073..0076). The settings singleton starts with every
+-- integration disabled; revisions start at zero. Protocol credentials are
+-- separate from login sessions: only a slow verifier of the presented secret is
+-- stored (for koreader the verifier covers the transmitted MD5 x-auth-key).
+CREATE TABLE integration_settings (
+    singleton                  boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+    revision                   bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    opds_enabled               boolean NOT NULL DEFAULT false,
+    email_enabled              boolean NOT NULL DEFAULT false,
+    koreader_enabled           boolean NOT NULL DEFAULT false,
+    max_attachment_bytes       bigint NOT NULL DEFAULT 26214400 CHECK (max_attachment_bytes BETWEEN 1 AND 104857600),
+    max_deliveries_per_hour    integer NOT NULL DEFAULT 10 CHECK (max_deliveries_per_hour BETWEEN 1 AND 100),
+    updated_at                 timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO integration_settings (singleton) VALUES (true);
+
+CREATE TABLE integration_credentials (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    kind         text NOT NULL CHECK (kind IN ('opds', 'koreader')),
+    username     text NOT NULL UNIQUE,
+    label        text NOT NULL,
+    verifier     text NOT NULL,
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    revoked_at   timestamptz,
+    last_used_at timestamptz
+);
+CREATE INDEX integration_credentials_user_idx ON integration_credentials (user_id, created_at, id);
+
 -- +goose Down
+DROP TABLE integration_credentials;
+DROP TABLE integration_settings;
 DROP TABLE repair_plans;
 DROP VIEW active_recordings;
 DROP TABLE comic_extractions;

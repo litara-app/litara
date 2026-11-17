@@ -82,6 +82,54 @@ if _t5.exists():
         CONTRACT['components']['schemas'][_n] = _x['components']['schemas'][_n]
     PENDING_T005_SCHEMAS = sorted(set(_x['components']['schemas']) - _seen)
 
+# T006 management additions (integrations, SMTP delivery, KOReader management).
+# Merged as implemented; every other operation is reported PENDING and its
+# schemas are compared only once an implemented operation reaches them. Never
+# drop a route from the contract to make this pass: add it to IMPLEMENTED_T006.
+# The root-mounted OPDS/KOReader wire operations (protocols.openapi.json) are not
+# Huma routes; they are verified by wire tests, not by this comparison.
+IMPLEMENTED_T006 = {'getIntegrationSettings', 'setIntegrationSettings', 'listIntegrationCredentials',
+                    'createIntegrationCredential', 'revokeIntegrationCredential'}
+PENDING_T006 = []
+PENDING_T006_SCHEMAS = []
+_t6 = ROOT / 'contracts' / 't006' / 'openapi.json'
+if _t6.exists():
+    _y = json.loads(_t6.read_text(encoding='utf-8'))
+    _y_paths = {}
+    for _p, _item in _y['paths'].items():
+        for _m, _o in _item.items():
+            if _o['operationId'] in IMPLEMENTED_T006:
+                _y_paths.setdefault(_p, {})[_m] = _o
+            else:
+                PENDING_T006.append(_o['operationId'])
+    _seen6, _stack6 = set(), []
+
+    def _walk6(node):
+        if isinstance(node, dict):
+            for _k, _v in node.items():
+                if _k == '$ref':
+                    _n = _v.rsplit('/', 1)[-1]
+                    if _n not in _seen6:
+                        _seen6.add(_n)
+                        _stack6.append(_n)
+                else:
+                    _walk6(_v)
+        elif isinstance(node, list):
+            for _v in node:
+                _walk6(_v)
+
+    _walk6(_y_paths)
+    while _stack6:
+        _walk6(_y['components']['schemas'][_stack6.pop()])
+    for _p, _item in _y_paths.items():
+        assert _p not in CONTRACT['paths'] or not set(_item) & set(CONTRACT['paths'][_p]), f'T006 contract overlaps at {_p}'
+        CONTRACT['paths'].setdefault(_p, {}).update(_item)
+    for _n in sorted(_seen6):
+        if _n in CONTRACT['components']['schemas']:
+            raise SystemExit(f'T006 schema {_n} collides with an earlier contract')
+        CONTRACT['components']['schemas'][_n] = _y['components']['schemas'][_n]
+    PENDING_T006_SCHEMAS = sorted(set(_y['components']['schemas']) - _seen6)
+
 if len(sys.argv) > 1:
     GENERATED = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 else:
@@ -290,6 +338,8 @@ for name, scheme in CONTRACT['components']['securitySchemes'].items():
 
 print(f'T005 pending (not yet implemented, not compared): {len(PENDING_T005)} operations {PENDING_T005}')
 print(f'T005 schemas reachable only from pending operations: {len(PENDING_T005_SCHEMAS)}')
+print(f'T006 implemented: {len(IMPLEMENTED_T006)} operations; pending (not yet compared): {len(PENDING_T006)} {PENDING_T006}')
+print(f'T006 schemas reachable only from pending operations: {len(PENDING_T006_SCHEMAS)}')
 print(f'compared {len(want_ops)} operations and {len(CONTRACT["components"]["schemas"])} schemas')
 for k, v in DEVIATIONS.items():
     print(f'  intentional deviation {k}: {v}')

@@ -19,6 +19,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
+	"github.com/deranjer/ebooker/apps/server/internal/integrations"
 	"github.com/deranjer/ebooker/apps/server/internal/jobs"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
@@ -60,8 +61,11 @@ type APIDeps struct {
 	Enricher  *metadata.Enricher
 	Importer  *importer.Service
 	Writeback *writeback.Service
-	Config    APIConfig
-	Log       *slog.Logger
+	// T006 services (nil leaves the T006 management routes unmounted).
+	Integrations *integrations.Service
+	Delivery     DeliveryProbe
+	Config       APIConfig
+	Log          *slog.Logger
 }
 
 // API holds handler state.
@@ -95,6 +99,7 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	api := humago.NewWithPrefix(mux, "/api/v1", cfg)
 	reg := api.OpenAPI().Components.Schemas
 	reg.Map()["T005Problem"] = reg.Schema(reflect.TypeFor[T005Problem](), false, "T005Problem")
+	reg.Map()["T006Problem"] = reg.Schema(reflect.TypeFor[T006Problem](), false, "T006Problem")
 	api.UseMiddleware(a.middleware(api))
 
 	a.registerDiscovery(api)
@@ -112,6 +117,7 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerComics(api)
 	a.registerRepair(api)
 	a.registerMedia(api)
+	a.registerIntegrations(api)
 	return api
 }
 
@@ -280,3 +286,9 @@ func (p pageQuery) normalized() (page, size int) {
 }
 
 func now() time.Time { return time.Now().UTC() }
+
+// DeliveryProbe reports whether the administrator-managed SMTP transport is
+// configured and usable. The delivery service implements it.
+type DeliveryProbe interface {
+	ServerAvailable(ctx context.Context) bool
+}

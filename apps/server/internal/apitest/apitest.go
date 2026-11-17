@@ -25,6 +25,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/integrations"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
@@ -70,10 +71,12 @@ type Env struct {
 	Scanner   *ingest.Scanner
 	Importer  *importer.Service
 	Writeback *writeback.Service
-	Queue     *Queue
-	Password  string
-	Base      string
-	Cfg       httpapi.APIConfig
+	// T006
+	Integrations *integrations.Service
+	Queue        *Queue
+	Password     string
+	Base         string
+	Cfg          httpapi.APIConfig
 }
 
 // Options tune the environment.
@@ -122,10 +125,12 @@ func New(t *testing.T, opts ...Options) *Env {
 	meta := metadata.New(pool)
 	e.Writeback = &writeback.Service{Pool: pool, Inspector: t4insp, Scanner: e.Scanner, Metadata: meta, Writers: map[string]writeback.Writer{}, Now: clock.Now}
 	e.Queue = &Queue{}
+	e.Integrations = integrations.New(integrations.Options{Pool: pool, Clock: clock.Now, Argon: accounts.ArgonParams{MemoryKiB: 8, Time: 1, Threads: 1},
+		FingerprintKey: integrations.DeriveFingerprintKey(kb)})
 	e.Reading = reading.New(pool, cat, clock.Now)
 	e.Reading.EnableComics(reading.ComicOptions{MediaRoot: o.Cfg.MediaRoot, CacheDir: t.TempDir(), Limits: o.ComicLimits, CacheBudget: o.ComicBudget, Enqueuer: e.Queue})
 	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: e.Reading, Library: library.New(pool), Config: o.Cfg,
-		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback}})
+		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback, Integrations: e.Integrations}})
 	e.Handler = h
 	e.Server = httptest.NewServer(h)
 	t.Cleanup(e.Server.Close)

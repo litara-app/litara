@@ -27,6 +27,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/integrations"
 	"github.com/deranjer/ebooker/apps/server/internal/jobs"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
@@ -158,6 +159,8 @@ func run() error {
 	}
 	acc := accounts.New(accounts.Options{Pool: pool, SecretKey: key,
 		Argon: accounts.ArgonParams{MemoryKiB: cfg.ArgonMemoryKiB, Time: cfg.ArgonTime, Threads: cfg.ArgonThreads}})
+	argon := accounts.ArgonParams{MemoryKiB: cfg.ArgonMemoryKiB, Time: cfg.ArgonTime, Threads: cfg.ArgonThreads}
+	integ := integrations.New(integrations.Options{Pool: pool, Argon: argon, FingerprintKey: integrations.DeriveFingerprintKey(key)})
 	go func() { // clear protected refresh responses once their 60-second recovery window ends
 		t := time.NewTicker(10 * time.Second)
 		defer t.Stop()
@@ -176,7 +179,7 @@ func run() error {
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
 		Handler: httpapi.New(httpapi.Deps{Web: appHandler(cfg), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
 			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Reading: rd, Library: library.New(pool), Config: apiCfg, Log: log,
-				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb}}),
+				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Integrations: integ}}),
 	}
 	errc := make(chan error, 2)
 	go func() {
