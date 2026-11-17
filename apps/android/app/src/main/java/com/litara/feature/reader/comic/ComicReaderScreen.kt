@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.litara.ui.LocalImageUrls
 import kotlinx.coroutines.launch
 
 private const val MAX_ZOOM = 4f
@@ -63,7 +62,7 @@ private const val MAX_ZOOM = 4f
 @Composable
 fun ComicReaderScreen(
     onBack: () -> Unit,
-    vm: ComicReaderViewModel = hiltViewModel(),
+    vm: ComicHost = hiltViewModel<ComicReaderViewModel>(),
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val rtl by vm.rtl.collectAsStateWithLifecycle()
@@ -116,7 +115,7 @@ fun ComicReaderScreen(
 private fun androidx.compose.foundation.layout.BoxScope.ComicPages(
     ui: ComicReaderViewModel.UiState,
     rtl: Boolean,
-    vm: ComicReaderViewModel,
+    vm: ComicHost,
     onToggleChrome: () -> Unit,
 ) {
     val pagerState = rememberPagerState(initialPage = ui.initialPage, pageCount = { ui.pageCount })
@@ -138,7 +137,7 @@ private fun androidx.compose.foundation.layout.BoxScope.ComicPages(
         key = { it },
     ) { page ->
         ZoomablePage(
-            fileId = ui.fileId,
+            model = vm.pageModel(page),
             page = page,
             active = page == pagerState.currentPage,
             onZoomChanged = { if (page == pagerState.currentPage) zoomed = it },
@@ -188,13 +187,12 @@ private fun androidx.compose.foundation.layout.BoxScope.ComicPages(
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun ZoomablePage(
-    fileId: Int,
+    model: Any?,
     page: Int,
     active: Boolean,
     onZoomChanged: (Boolean) -> Unit,
     onTap: (Float) -> Unit,
 ) {
-    val imageUrls = LocalImageUrls.current
     // The gesture block below is keyed on Unit and never restarts, so read these through State to
     // always see the latest lambdas (e.g. after the reading direction flips).
     val currentOnTap by rememberUpdatedState(onTap)
@@ -246,7 +244,7 @@ private fun ZoomablePage(
         contentAlignment = Alignment.Center,
     ) {
         AsyncImage(
-            model = imageUrls.comicPage(fileId, page),
+            model = model,
             contentDescription = stringResource(R.string.page, page + 1),
             contentScale = ContentScale.Fit,
             modifier = Modifier

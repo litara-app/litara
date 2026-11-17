@@ -34,7 +34,7 @@ val FOLIATE_FORMATS = setOf("epub", "kepub", "mobi", "azw", "azw3", "fb2")
 /**
  * Reads one Litara ebook edition (route argument `editionId`) in the preserved Foliate reader. The file is
  * exactly the snapshot's file/version; position is stored locally for those bytes and only sent to the server
- * where [LitaraRepository.nativeCompatibleProfiles] allows it. Highlights, notes and bookmarks are not wired
+ * where [LitaraRepository.nativeLocatorPolicy] allows it. Highlights, notes and bookmarks are not wired
  * yet and say so instead of silently using BookOrbit endpoints.
  */
 @HiltViewModel

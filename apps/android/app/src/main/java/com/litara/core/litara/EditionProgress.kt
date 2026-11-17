@@ -9,9 +9,38 @@ import java.io.File
 import java.time.Instant
 import java.util.UUID
 
-/** What happened to one ebook position report. */
+/** The wire `kind` of a locator (T005 locator version 1). */
+val LLocator.kindName: String
+    get() = when (this) {
+        is LLocator.FoliateCfi -> "foliate-cfi"
+        is LLocator.PdfPage -> "pdf-page"
+        is LLocator.ComicPage -> "comic-page"
+    }
+
+/**
+ * Which locators this native client may exchange with the server's canonical position, decided on evidence
+ * (contracts/t005/README.md: ancestry or syntax is not compatibility evidence).
+ *
+ * - [compatibleProfiles]: engine profiles the native renderer is PROVEN to produce and consume. Empty today.
+ * - [canonicalKinds]: locator kinds whose value is defined by server data both clients read, not by a renderer.
+ *   A comic page locator is `{pageIndex, entryId, manifestVersion}` copied from the server's page manifest;
+ *   the web reader builds exactly the same shape from the same manifest (`apps/web/src/reader/ComicReader.tsx`),
+ *   so no renderer interpretation is involved. Foliate CFIs and PDF coordinates are renderer-defined and stay out.
+ *
+ * Anything not allowed stays on the device for the exact file version and is never sent, applied or relabeled.
+ */
+class LocatorPolicy(val compatibleProfiles: Set<String> = emptySet(), val canonicalKinds: Set<String> = emptySet()) {
+    fun allows(engineProfile: String, locator: LLocator): Boolean =
+        engineProfile in compatibleProfiles || locator.kindName in canonicalKinds
+
+    fun allows(engineProfile: String, kind: String): Boolean = engineProfile in compatibleProfiles || kind in canonicalKinds
+
+    companion object { val NONE = LocatorPolicy() }
+}
+
+/** What happened to one ebook/comic/PDF position report. */
 sealed interface EditionReportOutcome {
-    /** Stored on this device only: the native renderer is not proven compatible with the snapshot's engine profile. */
+    /** Stored on this device only: the locator is not proven compatible, so it is never sent. */
     data class LocalOnly(val engineProfile: String) : EditionReportOutcome
 
     data object Accepted : EditionReportOutcome
@@ -28,16 +57,27 @@ sealed interface EditionReportOutcome {
     data class AccessEnded(val code: String) : EditionReportOutcome
 }
 
-/** A reading location stored on this device for exactly one file version. Never applied to other bytes. */
+/**
+ * A reading location stored on this device for exactly one file version. Never applied to other bytes.
+ * [cfi]/[fraction] keep the first (EPUB) format readable; [locator] carries any kind (PDF page, comic page).
+ */
 @Serializable
-data class LocalEditionPosition(val fileId: String, val contentVersion: String, val cfi: String, val fraction: Double, val savedAt: String)
+data class LocalEditionPosition(
+    val fileId: String,
+    val contentVersion: String,
+    val cfi: String = "",
+    val fraction: Double = 0.0,
+    val savedAt: String,
+    val locator: LLocator? = null,
+) {
+    /** The stored locator, reading older CFI-only records as Foliate CFIs. */
+    val anchor: LLocator? get() = locator ?: cfi.takeIf { it.isNotEmpty() }?.let { LLocator.FoliateCfi(it) }
+}
 
 /**
- * Revision-aware ebook position reporting for one edition (T005, ADR-0065). Every location is first stored
- * locally for the exact file/version; it is sent to the server only when [compatibleProfiles] contains the
- * snapshot's engine profile. The preserved native Foliate build is not yet proven to produce or consume
- * locators of the web profile (contracts/t005/README.md: ancestry is not compatibility evidence), so by
- * default nothing native is ever stored under that profile. The one pending write survives restarts.
+ * Revision-aware position reporting for one edition (T005, ADR-0065). Every location is first stored
+ * locally for the exact file/version; it is sent to the server only when [policy] allows that locator for the
+ * snapshot's engine profile. The one pending write survives restarts and is retried with its original operation id.
  */
 class EditionProgressSync(
     private val client: LitaraClient,
@@ -45,7 +85,7 @@ class EditionProgressSync(
     private val fileId: String,
     private val contentVersion: String,
     private val engineProfile: String,
-    private val compatibleProfiles: Set<String>,
+    private val policy: LocatorPolicy,
     private val dir: File,
 ) {
     private val gate = Mutex()
@@ -57,8 +97,6 @@ class EditionProgressSync(
     var unresolvedConflicts: Long = 0
         private set
 
-    val canonical: Boolean get() = engineProfile in compatibleProfiles
-
     private fun adopt(s: LEditionPositionState) { revision = s.revision; unresolvedConflicts = s.unresolvedConflictCount }
 
     /** The device-local location for exactly this file version, or null (a position for other bytes is never returned). */
@@ -67,23 +105,33 @@ class EditionProgressSync(
             ?.let { runCatching { LitaraJson.decodeFromString<LocalEditionPosition>(it.readText()) }.getOrNull() }
             ?.takeIf { it.fileId == fileId && it.contentVersion == contentVersion }
 
-    /** The server's saved CFI for exactly these bytes, but only when this renderer is allowed to read that profile. */
-    suspend fun serverCfi(): String? = gate.withLock {
-        if (!canonical) return null
+    /**
+     * The server's saved locator for exactly these bytes, but only if the policy lets this renderer read it.
+     * A refused locator is not applied and not overwritten by a read.
+     */
+    suspend fun serverLocator(readerKinds: Set<String>): LLocator? = gate.withLock {
+        // A reader whose locator kinds are all refused by the policy never even asks for the server position.
+        if (readerKinds.none { policy.allows(engineProfile, it) }) return null
         val state = try { client.editionPosition(editionId) } catch (_: TransientException) { return null }
         adopt(state)
         val a = state.position?.anchor ?: return null
-        val loc = a.locator as? LLocator.FoliateCfi ?: return null
         if (a.fileId != fileId || a.contentVersion != contentVersion) return null
-        loc.cfi
+        a.locator.takeIf { policy.allows(engineProfile, it) }
     }
 
-    suspend fun report(cfi: String, fraction: Double): EditionReportOutcome = gate.withLock {
+    /** The server's saved CFI for exactly these bytes, when this renderer may read that profile. */
+    suspend fun serverCfi(): String? = (serverLocator(setOf("foliate-cfi")) as? LLocator.FoliateCfi)?.cfi
+
+    suspend fun report(cfi: String, fraction: Double): EditionReportOutcome = report(LLocator.FoliateCfi(cfi), fraction)
+
+    suspend fun report(locator: LLocator, fraction: Double?): EditionReportOutcome = gate.withLock {
         val now = Instant.now().toString()
-        AtomicFile.write(localFile, LitaraJson.encodeToString(LocalEditionPosition(fileId, contentVersion, cfi, fraction, now)))
-        if (!canonical) return@withLock EditionReportOutcome.LocalOnly(engineProfile)
+        val cfi = (locator as? LLocator.FoliateCfi)?.cfi.orEmpty()
+        AtomicFile.write(localFile, LitaraJson.encodeToString(
+            LocalEditionPosition(fileId, contentVersion, cfi, fraction ?: 0.0, now, locator.takeUnless { it is LLocator.FoliateCfi })))
+        if (!policy.allows(engineProfile, locator)) return@withLock EditionReportOutcome.LocalOnly(engineProfile)
         flushPendingLocked()?.let { if (it !is EditionReportOutcome.Accepted) return@withLock it }
-        send(LEditionPositionWrite(UUID.randomUUID().toString(), revision, LEditionAnchor(fileId, contentVersion, LLocator.FoliateCfi(cfi)), now))
+        send(LEditionPositionWrite(UUID.randomUUID().toString(), revision, LEditionAnchor(fileId, contentVersion, locator), now))
     }
 
     /** Retries the saved write with its original operation id. Null when nothing was pending. */

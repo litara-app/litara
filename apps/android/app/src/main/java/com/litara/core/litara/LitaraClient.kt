@@ -203,6 +203,14 @@ class LitaraClient(
     suspend fun writeEditionCompletion(editionId: String, w: LEditionCompletionWrite): LCompletion =
         sendJson("PUT", "/editions/$editionId/completion", LitaraJson.encodeToString(w))
 
+    /** The current extraction state of a comic file version; read-only and never starts a job. */
+    suspend fun comicManifest(fileId: String, contentVersion: String): LPageManifest =
+        getJson("/files/$fileId/versions/$contentVersion/pages")
+
+    /** Asks the server to extract the pages (idempotent per file version); returns the manifest state. */
+    suspend fun prepareComicPages(fileId: String, contentVersion: String, r: LExtraction): LPageManifest =
+        postJson("/files/$fileId/versions/$contentVersion/pages", LitaraJson.encodeToString(r))
+
     suspend fun listPersonalConflicts(page: Int = 0, size: Int = 50, resourceId: String? = null, includeResolved: Boolean = false): LPersonalConflicts {
         val qs = buildString {
             append("?page=$page&size=$size&includeResolved=$includeResolved")

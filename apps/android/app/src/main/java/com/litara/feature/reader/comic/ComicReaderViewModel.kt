@@ -34,7 +34,8 @@ class ComicReaderViewModel @Inject constructor(
     private val progress: ReaderProgressRepository,
     private val sessions: ReadingSessionTracker,
     private val settings: AppSettingsStore,
-) : ViewModel() {
+    private val imageUrls: com.litara.core.network.ImageUrls,
+) : ViewModel(), ComicHost {
 
     val bookId: Int = savedStateHandle.get<Int>("id") ?: 0
 
@@ -49,9 +50,9 @@ class ComicReaderViewModel @Inject constructor(
     )
 
     private val _ui = MutableStateFlow(UiState())
-    val ui = _ui.asStateFlow()
+    override val ui = _ui.asStateFlow()
 
-    val rtl: StateFlow<Boolean> = settings.comicRtl
+    override val rtl: StateFlow<Boolean> = settings.comicRtl
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private var lastSaved = 0L
@@ -61,7 +62,7 @@ class ComicReaderViewModel @Inject constructor(
         load()
     }
 
-    fun load() {
+    override fun load() {
         _ui.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             val book = runCatching { bookRepo.detail(bookId) }.getOrNull() ?: downloads.cachedBook(bookId)
@@ -90,7 +91,7 @@ class ComicReaderViewModel @Inject constructor(
         }
     }
 
-    fun onPageChanged(page: Int) {
+    override fun onPageChanged(page: Int) {
         val s = _ui.value
         if (s.pageCount <= 0 || page == s.currentPage) return
         _ui.update { it.copy(currentPage = page) }
@@ -99,11 +100,13 @@ class ComicReaderViewModel @Inject constructor(
         if (System.currentTimeMillis() - lastSaved >= PROGRESS_THROTTLE_MS) flush()
     }
 
-    fun setRtl(value: Boolean) {
+    override fun pageModel(index: Int): Any? = imageUrls.comicPage(_ui.value.fileId, index)
+
+    override fun setRtl(value: Boolean) {
         viewModelScope.launch { settings.setComicRtl(value) }
     }
 
-    fun flush() {
+    override fun flush() {
         val page = pendingPage ?: return
         val s = _ui.value
         if (s.fileId == 0 || s.pageCount <= 0) return

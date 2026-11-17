@@ -341,8 +341,38 @@ class LitaraRepository @Inject constructor(
     fun hasPendingCompletion(recordingId: String): Boolean = File(recDir(token(), recordingId), "pending-completion.json").exists()
     // ---- ebooks and comics (T005 editions) -----------------------------------------------------
 
-    /** Engine profiles the preserved native reader is proven to read and write. Empty until evidence exists (G02). */
-    val nativeCompatibleProfiles: Set<String> = emptySet()
+    /**
+     * What the native readers may exchange with the server's canonical positions (G02). No renderer-defined profile
+     * (Foliate CFI, PDF coordinates) is proven yet, so none is listed. Comic pages are identified by the server's own
+     * page manifest, which the web reader uses identically, so that locator kind is canonical for every format.
+     */
+    val nativeLocatorPolicy = com.litara.core.litara.LocatorPolicy(canonicalKinds = setOf("comic-page"))
+
+    /** The page manifest of a comic edition's exact file version, asking the server to extract it first if needed. */
+    suspend fun comicManifest(e: LEdition): com.litara.core.litara.LPageManifest {
+        val c = requireClient()
+        val f = e.file
+        val current = try { c.comicManifest(f.id, f.contentVersion) } catch (ex: LitaraHttpException) {
+            if (ex.status == 404 || ex.status == 409) null else throw ex
+        }
+        if (current != null && current.state != "processing" && current.pages.isNotEmpty()) return current
+        return c.prepareComicPages(f.id, f.contentVersion,
+            com.litara.core.litara.LExtraction(java.util.UUID.randomUUID().toString(), e.revision, f.contentVersion))
+    }
+
+    /** Re-reads the manifest (no job) until the server finishes extracting or [attempts] run out. */
+    suspend fun waitForManifest(e: LEdition, first: com.litara.core.litara.LPageManifest, attempts: Int = 40): com.litara.core.litara.LPageManifest {
+        var m = first
+        var n = 0
+        while (m.state == "processing" && n++ < attempts) {
+            kotlinx.coroutines.delay(500)
+            m = requireClient().comicManifest(e.file.id, e.file.contentVersion)
+        }
+        return m
+    }
+
+    fun comicPages(e: LEdition, manifest: com.litara.core.litara.LPageManifest): com.litara.core.litara.ComicPageStore =
+        com.litara.core.litara.ComicPageStore(requireClient(), File(edDir(token(), e.id), "pages"), manifest)
 
     suspend fun editions(): List<LEdition> = requireClient().listAllEditions()
 
@@ -390,6 +420,6 @@ class LitaraRepository @Inject constructor(
     fun editionProgress(snap: LReaderSnapshot): EditionProgressSync {
         val t = token()
         return EditionProgressSync(requireClient(), snap.edition.id, snap.edition.file.id, snap.edition.file.contentVersion,
-            snap.engineProfile, nativeCompatibleProfiles, edDir(t, snap.edition.id))
+            snap.engineProfile, nativeLocatorPolicy, edDir(t, snap.edition.id))
     }
 }

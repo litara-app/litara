@@ -180,3 +180,30 @@ data class LResolve(val operationId: String, val baseRevision: String, val choic
 
 @Serializable
 data class LResolved(val conflictId: String, val resourceKind: String, val resourceId: String, val revision: String, val resolvedAt: String)
+
+/** One page of a comic archive as the server extracted it. [entryId] is the stable identity used in locators. */
+@Serializable
+data class LPage(
+    val index: Int,
+    val entryId: String,
+    val mimeType: String,
+    val width: Int,
+    val height: Int,
+    /** Server-relative path of this exact page image. */
+    val contentPath: String,
+)
+
+/** GET/POST .../files/{fileId}/versions/{contentVersion}/pages. [state] is processing, ready, incomplete or unsupported. */
+@Serializable
+data class LPageManifest(
+    val fileId: String,
+    val contentVersion: String,
+    val manifestVersion: String,
+    val state: String,
+    val pages: List<LPage> = emptyList(),
+    val issues: List<LEditionIssue> = emptyList(),
+)
+
+/** Body of the user-triggered extraction request; [baseRevision] is the edition revision the caller saw. */
+@Serializable
+data class LExtraction(val operationId: String, val baseRevision: String, val contentVersion: String)
