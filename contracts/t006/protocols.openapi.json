@@ -284,6 +284,16 @@
               "maximum": 200,
               "default": 50
             }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 512
+            },
+            "description": "Compatibility search alias used when q is absent or empty; a nonempty q takes precedence."
           }
         ],
         "security": [
@@ -1009,6 +1019,16 @@
               "maximum": 200,
               "default": 50
             }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 512
+            },
+            "description": "Compatibility search alias used when q is absent or empty; a nonempty q takes precedence."
           }
         ],
         "security": [

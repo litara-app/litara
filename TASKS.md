@@ -1,6 +1,6 @@
 # Litara rebuild work packages
 
-Updated: 2026-11-16
+Updated: 2026-11-17
 Coordination owner: the user and the ADR/integration chat
 
 ## Start here
@@ -11,7 +11,7 @@ Coordination owner: the user and the ADR/integration chat
 
 **T005 is reviewed, merged and Done for its scoped implementation.** [PR #85](https://github.com/litara-app/litara/pull/85) merged into main at `c65738a` on 2026-11-16. Its [handoff](handoffs/T005.md) records the coordinator review and verification. All 38 operations are implemented; 36 covered scenarios and two T007 partials remain the declared boundary, not production/hardware acceptance.
 
-**T006 is Ready for one full-stack implementation owner; unassigned.** Accepted ADR-0073-0076, [assignment](handoffs/T006-assignment.md), [management and protocol contracts](contracts/t006/README.md), fixtures/scenarios and [readiness evidence](research/t006/readiness.md) are prepared on `codex/t006-readiness`. Use the immutable checkpoint in the preparation section below. OPDS 1.2/2.0, original ebook/comic/individual-audio delivery, both SMTP ownership modes, and separate-source per-device KOReader conflicts are included. No implementation worker has been launched. T007 remains unassigned and may not overlap this owner's server/schema scope. The dated preparation/review sections below are historical; this overview/register supersede their obsolete readiness statements.
+**T006 is implemented and coordinator-approved for PR; integration pending.** The implementation and fixes are on `codex/t006-delivery`, reviewed at `ada77fc`. The [handoff](handoffs/T006.md) records fresh clean-source checks and resolved findings. All 26 management operations and 16 protocol operations are implemented; the ledger reports 36 covered and two partial scenarios with explicit client/conformance limits. T007 remains unassigned; serialize overlapping server/schema work until integration. Historical preparation statements below are superseded by this overview/register.
 
 **Release hold:** 2.0.0 requires a verified personal-state migration path (ADR-0062/0063). GitHub Actions is disabled repository-wide under ADR-0064; do not re-enable CI or publish builds without the user's explicit release-readiness decision. Local development verification remains allowed.
 
@@ -41,10 +41,10 @@ The authoritative working repository is `G:\Programming\ebooker`. `E:\Programmin
 | T003 | Shared client contract, accounts, and end-to-end recording playback API | Merged: PR #81, integrated to main by #83 | Closed implementation assignment | Handoff evidence retained; physical hardware and release gates remain |
 | T004 | Catalog, library ingestion, metadata, and NAS recovery | Merged with named gaps: PR #82, integrated to main by #83 | Closed merged assignment; follow-ups need explicit ownership | See handoff: ebook entities, merge/split, writers, provider/NAS verification remain incomplete |
 | T005 | Redesigned web library and complete reading/listening flows | Done: reviewed and merged, PR #85 at c65738a | Closed implementation assignment | handoffs/T005.md; two T007 partials and release gates retained |
-| T006 | OPDS, email delivery, and basic KOReader integration | Ready: ADR-0073-0076, contracts/fixtures and complete brief | Unassigned; user selects one owner | Exact codex/t006-readiness checkpoint; exclusive web/server/schema scope; T007 waits |
+| T006 | OPDS, email delivery, and basic KOReader integration | Coordinator-approved for PR; integration pending | Implementation complete; coordinator review passed | codex/t006-delivery; handoffs/T006.md; named partials and release gates retained |
 | T007 | Cross-client integration, hardware acceptance, and release readiness | Not ready: earlier packages and test resources needed | Unassigned | Integrated T003–T006, hardware/operators and release decisions |
 
-These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T005 have been integrated. T006 is prepared for one owner; T007 still needs its own execution-ready brief/checkpoint and test resources. A roadmap description does not authorize a worker to pick one up opportunistically.
+These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T005 have been integrated. T006 is implemented and approved for PR; T007 still needs its own execution-ready brief/checkpoint and test resources. A roadmap description does not authorize a worker to pick one up opportunistically.
 
 ## T006 preparation verification - 2026-11-16
 
