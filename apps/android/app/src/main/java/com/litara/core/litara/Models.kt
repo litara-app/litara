@@ -202,4 +202,6 @@ data class Problem(
     val requestId: String = "",
     val conflictId: String? = null,
     val currentLayoutRevision: String? = null,
+    val currentRevision: String? = null,
+    val currentContentVersion: String? = null,
 )
