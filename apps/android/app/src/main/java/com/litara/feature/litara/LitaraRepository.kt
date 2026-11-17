@@ -369,6 +369,24 @@ class LitaraRepository @Inject constructor(
         return dest
     }
 
+    /** Manual finish/unfinish for [e]'s exact file version; the saved write lives with the account's edition data. */
+    fun editionCompletion(e: LEdition): com.litara.core.litara.EditionCompletionSync =
+        com.litara.core.litara.EditionCompletionSync(requireClient(), e.id, e.file.id, e.file.contentVersion,
+            File(edDir(token(), e.id), "pending-completion.json"))
+
+    /** Edition ids of the active account that still have an undelivered finish/unfinish write. */
+    fun editionsWithPendingCompletion(): List<String> {
+        val t = token()
+        return File(dir(t), "ed").listFiles { f -> f.isDirectory && File(f, "pending-completion.json").exists() }.orEmpty().map { it.name }
+    }
+
+    suspend fun personalConflicts(): List<com.litara.core.litara.LPersonalConflict> = requireClient().listAllPersonalConflicts()
+
+    /** [currentRevision] must be the resource's CURRENT revision (refetch on a stale answer); a new operation id per decision. */
+    suspend fun resolveConflict(c: com.litara.core.litara.LPersonalConflict, choice: String, currentRevision: String, contentVersion: String?) =
+        requireClient().resolvePersonalConflict(c.id,
+            com.litara.core.litara.LResolve(java.util.UUID.randomUUID().toString(), currentRevision, choice, contentVersion))
+
     fun editionProgress(snap: LReaderSnapshot): EditionProgressSync {
         val t = token()
         return EditionProgressSync(requireClient(), snap.edition.id, snap.edition.file.id, snap.edition.file.contentVersion,

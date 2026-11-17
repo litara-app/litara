@@ -149,3 +149,34 @@ data class LReaderSnapshot(
     val engineProfile: String,
     val pageManifestPath: String?,
 )
+
+/**
+ * A durable server-kept candidate for a personal write that could not be applied (stale revision, changed
+ * content, ...). [candidate] stays raw JSON: its shape depends on [resourceKind] and this client only
+ * interprets kinds it implements; others are shown as needing the web app.
+ */
+@Serializable
+data class LPersonalConflict(
+    val id: String,
+    /** position, completion, annotation, shelf, membership or shelf-order. */
+    val resourceKind: String,
+    val resourceId: String,
+    val editionId: String?,
+    /** stale_revision, content_changed, locator_incompatible, deleted or access_changed. */
+    val reason: String,
+    val baseRevision: String,
+    val currentRevision: String,
+    val candidate: kotlinx.serialization.json.JsonElement,
+    val createdAt: String,
+    val resolvedAt: String?,
+)
+
+@Serializable
+data class LPersonalConflicts(val items: List<LPersonalConflict>, val total: Long, val page: Long, val size: Long)
+
+/** [choice] is keep_server or use_candidate; [baseRevision] is the CURRENT resource revision, not the candidate's. */
+@Serializable
+data class LResolve(val operationId: String, val baseRevision: String, val choice: String, val contentVersion: String?)
+
+@Serializable
+data class LResolved(val conflictId: String, val resourceKind: String, val resourceId: String, val revision: String, val resolvedAt: String)

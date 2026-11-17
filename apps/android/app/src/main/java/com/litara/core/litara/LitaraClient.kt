@@ -203,6 +203,30 @@ class LitaraClient(
     suspend fun writeEditionCompletion(editionId: String, w: LEditionCompletionWrite): LCompletion =
         sendJson("PUT", "/editions/$editionId/completion", LitaraJson.encodeToString(w))
 
+    suspend fun listPersonalConflicts(page: Int = 0, size: Int = 50, resourceId: String? = null, includeResolved: Boolean = false): LPersonalConflicts {
+        val qs = buildString {
+            append("?page=$page&size=$size&includeResolved=$includeResolved")
+            if (resourceId != null) append("&resourceId=").append(java.net.URLEncoder.encode(resourceId, "UTF-8"))
+        }
+        return getJson("/personal-conflicts$qs")
+    }
+
+    /** Every unresolved conflict of the signed-in account, following the effective page size and total. */
+    suspend fun listAllPersonalConflicts(pageSize: Int = 200, maxPages: Int = 500): List<LPersonalConflict> {
+        val all = ArrayList<LPersonalConflict>()
+        var page = 0
+        while (page < maxPages) {
+            val r = listPersonalConflicts(page = page, size = pageSize)
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
+    suspend fun resolvePersonalConflict(conflictId: String, r: LResolve): LResolved =
+        postJson("/personal-conflicts/$conflictId/resolve", LitaraJson.encodeToString(r))
+
     // ---- plumbing ---------------------------------------------------------------
 
     private suspend inline fun <reified T> getJson(path: String, authenticated: Boolean = true): T =
