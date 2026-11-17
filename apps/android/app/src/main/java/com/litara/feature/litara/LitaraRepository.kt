@@ -417,6 +417,15 @@ class LitaraRepository @Inject constructor(
         requireClient().resolvePersonalConflict(c.id,
             com.litara.core.litara.LResolve(java.util.UUID.randomUUID().toString(), currentRevision, choice, contentVersion))
 
+    /** Private annotations for [snap]'s exact file version; local-first, synced only where [nativeLocatorPolicy] allows. */
+    fun editionAnnotations(snap: LReaderSnapshot): com.litara.core.litara.EditionAnnotationSync {
+        val t = token()
+        val f = snap.edition.file
+        val d = edDir(t, snap.edition.id)
+        return com.litara.core.litara.EditionAnnotationSync(requireClient(), snap.edition.id, f.id, f.contentVersion, snap.engineProfile,
+            nativeLocatorPolicy, com.litara.core.litara.AnnotationStore(d, f.id, f.contentVersion))
+    }
+
     fun editionProgress(snap: LReaderSnapshot): EditionProgressSync {
         val t = token()
         return EditionProgressSync(requireClient(), snap.edition.id, snap.edition.file.id, snap.edition.file.contentVersion,

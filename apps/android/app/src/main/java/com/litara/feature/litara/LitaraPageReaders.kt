@@ -64,6 +64,11 @@ class LitaraComicViewModel @Inject constructor(
     private var lastSent = 0L
     private var pendingPage: Int? = null
     private var flushJob: Job? = null
+    private var annotations: com.litara.core.litara.EditionAnnotationSync? = null
+    private val _bookmarked = MutableStateFlow(false)
+
+    override val supportsBookmarks: Boolean get() = true
+    override val bookmarkedPage: StateFlow<Boolean> = _bookmarked.asStateFlow()
 
     init { load() }
 
@@ -86,12 +91,14 @@ class LitaraComicViewModel @Inject constructor(
                 }
                 manifest = m
                 store = repo.comicPages(e, m)
+                annotations = repo.editionAnnotations(snap).also { it.refresh(setOf("comic-page")) }
                 val s = repo.editionProgress(snap).also { sync = it }
                 // Resume by page identity (entry id), never by a bare index: the page must exist in THIS manifest.
                 val saved = (s.serverLocator(setOf("comic-page")) ?: s.local()?.anchor) as? LLocator.ComicPage
                 val page = saved?.let { loc -> m.pages.indexOfFirst { it.entryId == loc.entryId }.takeIf { it >= 0 } } ?: 0
                 _ui.update { it.copy(loading = false, title = e.label, fileId = 1, pageCount = m.pages.size, initialPage = page, currentPage = page) }
                 s.flushPending()
+                refreshBookmarkState()
             } catch (ex: Exception) {
                 _ui.update { it.copy(loading = false, error = UiText.raw(ex.message ?: "Could not open this comic.")) }
             }
@@ -105,10 +112,34 @@ class LitaraComicViewModel @Inject constructor(
         val m = manifest ?: return
         if (page == _ui.value.currentPage || page !in m.pages.indices) return
         _ui.update { it.copy(currentPage = page) }
+        refreshBookmarkState()
         pendingPage = page
         if (System.currentTimeMillis() - lastSent >= PROGRESS_THROTTLE_MS) flush()
         flushJob?.cancel()
         flushJob = viewModelScope.launch { kotlinx.coroutines.delay(IDLE_FLUSH_MS); flush() }
+    }
+
+    /** The bookmark of the shown page, matched by the page's entry id (its identity), never by index alone. */
+    private fun bookmarkOfCurrentPage(): com.litara.core.litara.LocalAnnotation? {
+        val m = manifest ?: return null
+        val entry = m.pages.getOrNull(_ui.value.currentPage)?.entryId ?: return null
+        return annotations?.store?.visible()?.firstOrNull { it.kind == "bookmark" && (it.locator as? LLocator.ComicPage)?.entryId == entry }
+    }
+
+    private fun refreshBookmarkState() { _bookmarked.value = bookmarkOfCurrentPage() != null }
+
+    override fun toggleBookmark() {
+        val m = manifest ?: return
+        val a = annotations ?: return
+        val index = _ui.value.currentPage
+        val page = m.pages.getOrNull(index) ?: return
+        viewModelScope.launch {
+            val existing = bookmarkOfCurrentPage()
+            // A conflict or queued delivery is kept on the device/server; the Books tab shows pending conflicts.
+            if (existing != null) a.delete(existing.id)
+            else a.create("bookmark", LLocator.ComicPage(page.index, page.entryId, m.manifestVersion), null, "", "", "yellow", null)
+            refreshBookmarkState()
+        }
     }
 
     override fun setRtl(value: Boolean) { viewModelScope.launch { settings.setComicRtl(value) } }

@@ -535,8 +535,7 @@
     <string name="litara_no_books">No ebooks or comics yet.</string>
     <string name="litara_book_unsupported">%1$s is not available in this app yet.</string>
     <string name="litara_book_not_readable">This book cannot be opened (%1$s).</string>
-    <string name="litara_reader_local_only">Your reading position is kept on this device only. Syncing positions with the web reader is not enabled for this renderer yet.</string>
-    <string name="litara_reader_annotations_unavailable">Highlights, notes and bookmarks are not available for Litara books yet.</string>
+    <string name="litara_reader_local_only">Your reading position, highlights, notes and bookmarks for this book are kept on this device only. Syncing them with the web reader is not enabled for this renderer yet.</string>
     <string name="litara_reader_conflict">Another device saved a different position. This device\'s position was kept; resolve it in the web app.</string>
     <string name="litara_reader_content_changed">This book\'s file changed. Your saved position was kept and was not applied to the new version.</string>
     <string name="litara_reader_access_ended">Your access ended. Reading progress is kept on this device and locked to your account.</string>
@@ -554,6 +553,9 @@
     <string name="litara_note_conflict_saved">Another device changed this first. Your change was kept for you to decide.</string>
     <string name="litara_note_resolved">Done.</string>
     <string name="litara_note_resolve_stale">It changed again while you were deciding. Please review the latest state.</string>
+    <string name="litara_bookmark_add">Bookmark this page</string>
+    <string name="litara_bookmark_remove">Remove bookmark</string>
+    <string name="litara_note_annotation_conflict">Another device changed this bookmark first. Your change was kept for you to decide in the web app.</string>
     <string name="litara_tab_downloads">Downloads</string>
     <string name="litara_tab_account">Account</string>
     <string name="litara_no_recordings">No recordings available to you yet.</string>
@@ -564,5 +566,5 @@
     <string name="litara_account_server">Server: %1$s</string>
     <string name="litara_account_note">Downloads stay on this device for this account and are locked when access ends.</string>
     <string name="litara_chapters">Chapters</string>
-    <string name="litara_audio_only">Audiobooks, EPUB-family books, PDF and comics are available. Highlights, notes and bookmarks are not available yet. Reading positions sync with the server for comics; for EPUB-family books and PDF they stay on this device until the reader is proven compatible with the web reader.</string>
+    <string name="litara_audio_only">Audiobooks, EPUB-family books, PDF and comics are available. Comic positions and page bookmarks sync with the server. For EPUB-family books, positions, highlights, notes and bookmarks stay on this device, and PDF positions do too, until those readers are proven compatible with the web reader. The PDF reader has no highlights or notes yet.</string>
 </resources>

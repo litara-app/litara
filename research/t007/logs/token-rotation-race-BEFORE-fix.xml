@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.litara.core.litara.TokenRotationRaceTest" tests="3" skipped="0" failures="1" errors="0" timestamp="2026-11-17T22:34:53.385Z" hostname="DERANJER-PC" time="0.307">
+  <properties/>
+  <testcase name="a request sent with a token that was rotated while it was in flight is retried with the new one" classname="com.litara.core.litara.TokenRotationRaceTest" time="0.176">
+    <failure message="com.litara.core.litara.LitaraHttpException: HTTP 401 unauthenticated" type="com.litara.core.litara.LitaraHttpException">com.litara.core.litara.LitaraHttpException: HTTP 401 unauthenticated
+	at app//com.litara.core.litara.LitaraClient$call$2.invokeSuspend(LitaraClient.kt:274)
+	at app//kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at app//kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:101)
+	at app//kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:113)
+	at app//kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+	at app//kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:589)
+	at app//kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:823)
+	at app//kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:720)
+	at app//kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:707)
+</failure>
+  </testcase>
+  <testcase name="parallel callers after expiry all succeed" classname="com.litara.core.litara.TokenRotationRaceTest" time="0.126"/>
+  <testcase name="a genuinely unknown token with nothing newer still fails and is not retried" classname="com.litara.core.litara.TokenRotationRaceTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

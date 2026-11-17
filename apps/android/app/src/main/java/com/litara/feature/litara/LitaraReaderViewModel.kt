@@ -6,7 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.litara.R
 import com.litara.core.litara.EditionProgressSync
 import com.litara.core.litara.EditionReportOutcome
+import com.litara.core.litara.LLocator
 import com.litara.core.litara.LReaderSnapshot
+import com.litara.core.litara.LSelection
+import com.litara.core.model.BookAnnotation
+import com.litara.core.model.BookBookmark
+import com.litara.feature.reader.BookmarkNames
 import com.litara.core.storage.LocalRef
 import com.litara.feature.reader.InitialProgress
 import com.litara.feature.reader.ReaderHost
@@ -50,6 +55,8 @@ class LitaraReaderViewModel @Inject constructor(
     override val ui: StateFlow<ReaderViewModel.UiState> = _ui.asStateFlow()
 
     private var sync: EditionProgressSync? = null
+    private var annotations: com.litara.core.litara.EditionAnnotationSync? = null
+    private val idOf = HashMap<Int, String>()
     private var lastSent = 0L
     private var pending: Pair<String, Double>? = null
     private var currentCfi: String? = null
@@ -72,6 +79,8 @@ class LitaraReaderViewModel @Inject constructor(
                 }
                 val file = repo.editionFile(snap)
                 val s = repo.editionProgress(snap).also { sync = it }
+                annotations = repo.editionAnnotations(snap).also { it.refresh(setOf("foliate-cfi")) }
+                refreshAnnotationUi()
                 val start: Pair<String, Double?>? = s.serverCfi()?.let { it to null } ?: s.local()?.let { it.cfi to it.fraction }
                 _ui.update {
                     it.copy(
@@ -170,20 +179,78 @@ class LitaraReaderViewModel @Inject constructor(
         s.search?.let { s.copy(search = it.copy(running = false, done = true, total = total, capped = capped, progress = 1.0)) } ?: s
     }
 
-    // ---- annotations and bookmarks: not yet wired to the revisioned contracts ----
+    // ---- highlights, notes and bookmarks: device-local for Foliate CFIs (see LocatorPolicy / handoff F1) ----
 
-    private fun unavailable() = _ui.update { it.copy(toolbar = null, message = UiText.of(R.string.litara_reader_annotations_unavailable)) }
+    private fun intId(id: String): Int = id.hashCode().also { idOf[it] = id }
 
-    override fun loadBookmarks() {}
-    override fun addBookmark() = unavailable()
-    override fun deleteBookmark(id: Int) = unavailable()
-    override fun onSelection(text: String, cfi: String?, rect: ViewportRect?) {}
-    override fun onSelectionCleared() {}
-    override fun onAnnotationTap(cfi: String, rect: ViewportRect?) {}
+    private fun refreshAnnotationUi() {
+        val items = annotations?.store?.visible().orEmpty()
+        val marks = items.filter { it.kind != "bookmark" }.map { a ->
+            BookAnnotation(
+                id = intId(a.id), bookId = 0,
+                cfi = (a.selection as? LSelection.FoliateRange)?.cfi ?: (a.locator as? LLocator.FoliateCfi)?.cfi,
+                text = a.quote, color = a.color, style = "highlight", note = a.text.ifEmpty { null },
+                chapterTitle = a.chapterTitle, origin = "app",
+            )
+        }
+        val bms = items.filter { it.kind == "bookmark" }.map { BookBookmark(intId(it.id), 0, (it.locator as? LLocator.FoliateCfi)?.cfi, it.text, null) }
+        _ui.update { it.copy(annotations = marks, bookmarks = bms, toolbar = null) }
+    }
+
+    override fun loadBookmarks() = refreshAnnotationUi()
+
+    override fun addBookmark() {
+        val cfi = currentCfi ?: return
+        val st = _ui.value
+        val title = BookmarkNames.default(st.chapterTitle, st.percentage)
+        viewModelScope.launch {
+            annotations?.create("bookmark", LLocator.FoliateCfi(cfi), null, "", title, "yellow", st.chapterTitle)
+            refreshAnnotationUi()
+        }
+    }
+
+    override fun deleteBookmark(id: Int) = remove(id)
+
+    override fun onSelection(text: String, cfi: String?, rect: ViewportRect?) {
+        if (cfi == null) return
+        _ui.update { it.copy(toolbar = ReaderViewModel.ToolbarTarget(rect, selection = ReaderViewModel.PendingSelection(text, cfi))) }
+    }
+
+    override fun onSelectionCleared() {
+        // A selection going away dismisses the new-highlight toolbar, but not one opened on an existing highlight.
+        _ui.update { s -> if (s.toolbar?.annotationId == null) s.copy(toolbar = null) else s }
+    }
+
+    override fun onAnnotationTap(cfi: String, rect: ViewportRect?) {
+        val ann = _ui.value.annotations.firstOrNull { it.cfi == cfi } ?: return
+        _ui.update { it.copy(toolbar = ReaderViewModel.ToolbarTarget(rect, annotationId = ann.id)) }
+    }
+
     override fun dismissToolbar() = _ui.update { it.copy(toolbar = null) }
-    override fun highlight(color: String) = unavailable()
-    override fun saveNote(note: String) = unavailable()
-    override fun deleteAnnotation(id: Int) = unavailable()
+
+    override fun highlight(color: String) = save(color, null)
+    override fun saveNote(note: String) = save(null, note)
+
+    private fun save(color: String?, note: String?) {
+        val target = _ui.value.toolbar ?: return
+        val a = annotations ?: return
+        viewModelScope.launch {
+            val sel = target.selection
+            when {
+                target.annotationId != null -> idOf[target.annotationId]?.let { a.edit(it, text = note, color = color) }
+                sel != null -> a.create("highlight", LLocator.FoliateCfi(sel.cfi), LSelection.FoliateRange(sel.cfi), sel.text,
+                    note.orEmpty(), color ?: "yellow", _ui.value.chapterTitle)
+            }
+            refreshAnnotationUi()
+        }
+    }
+
+    override fun deleteAnnotation(id: Int) = remove(id)
+
+    private fun remove(id: Int) {
+        val aid = idOf[id] ?: return
+        viewModelScope.launch { annotations?.delete(aid); refreshAnnotationUi() }
+    }
 
     override fun consumeMessage() = _ui.update { it.copy(message = null) }
     override fun onError(message: String) = _ui.update { it.copy(error = UiText.raw(message)) }

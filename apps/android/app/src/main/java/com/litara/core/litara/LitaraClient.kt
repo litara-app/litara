@@ -302,6 +302,13 @@ class LitaraClient(
             val resp = raw(builder.header("Authorization", "Bearer $used").build())
             if (resp.code != 401 || attempt > 0) return resp
             val problem = problemOf(withContext(Dispatchers.IO) { resp.peekBody(64 * 1024).string() }, 401)
+            // A concurrent refresh rotates the access token away; a request that had already read the old one is then
+            // answered `unauthenticated` (the server no longer knows that token). Retry once with the current token.
+            if (problem.code == "unauthenticated" && creds.load()?.accessToken?.let { it != used } == true) {
+                resp.close()
+                attempt++
+                continue
+            }
             if (problem.code != "token_expired") {
                 if (problem.code == "session_revoked" || problem.code == "session_expired") {
                     resp.close()
