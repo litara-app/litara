@@ -127,3 +127,103 @@ type T006KoResolve struct {
 	BaseRevision string `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
 	Action       string `json:"action" enum:"keep_server,use_candidate"`
 }
+
+type T006SmtpReport struct {
+	Revision     string `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
+	Configured   bool   `json:"configured"`
+	Enabled      bool   `json:"enabled"`
+	Host         string `json:"host" minLength:"0" maxLength:"253"`
+	Port         int    `json:"port" minimum:"1" maximum:"65535"`
+	TLSMode      string `json:"tlsMode" enum:"starttls,implicit,local_test_plain"`
+	Username     string `json:"username" minLength:"0" maxLength:"320"`
+	FromAddress  string `json:"fromAddress" minLength:"0" maxLength:"320"`
+	HasPassword  bool   `json:"hasPassword"`
+	KeyAvailable bool   `json:"keyAvailable"`
+}
+
+type T006SmtpWrite struct {
+	OperationID  string  `json:"operationId" format:"uuid"`
+	BaseRevision string  `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
+	Enabled      bool    `json:"enabled"`
+	Host         string  `json:"host" pattern:"^[^\\r\\n]*$" minLength:"1" maxLength:"253"`
+	Port         int     `json:"port" minimum:"1" maximum:"65535"`
+	TLSMode      string  `json:"tlsMode" enum:"starttls,implicit,local_test_plain"`
+	Username     string  `json:"username" pattern:"^[^\\r\\n]*$" minLength:"0" maxLength:"320"`
+	FromAddress  string  `json:"fromAddress" format:"email" pattern:"^[^\\r\\n]*$" maxLength:"320"`
+	SecretAction string  `json:"secretAction" enum:"keep,replace,clear"`
+	Password     *string `json:"password" minLength:"1" maxLength:"4096" nullable:"true"`
+}
+
+type T006ConnectionTest struct {
+	Success bool   `json:"success"`
+	Code    string `json:"code" minLength:"1" maxLength:"128"`
+	Detail  string `json:"detail" minLength:"0" maxLength:"1024"`
+}
+
+type T006RecipientData struct {
+	Name    string `json:"name" pattern:"^[^\\r\\n]*$" minLength:"1" maxLength:"128"`
+	Address string `json:"address" format:"email" pattern:"^[^\\r\\n]*$" maxLength:"320"`
+}
+
+type T006RecipientWrite struct {
+	OperationID  string            `json:"operationId" format:"uuid"`
+	BaseRevision string            `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
+	Data         T006RecipientData `json:"data"`
+}
+
+type T006Recipient struct {
+	ID       string                      `json:"id" format:"uuid"`
+	Revision string                      `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
+	Deleted  bool                        `json:"deleted"`
+	Data     Nullable[T006RecipientData] `json:"data"`
+}
+
+type T006RecipientList struct {
+	Items []T006Recipient `json:"items"`
+}
+
+type T006TransportState struct {
+	Available bool   `json:"available"`
+	Revision  string `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
+}
+
+type T006TransportList struct {
+	Server   T006TransportState `json:"server"`
+	Personal T006TransportState `json:"personal"`
+}
+
+type T006DeliveryCreate struct {
+	OperationID                  string  `json:"operationId" format:"uuid"`
+	FileID                       string  `json:"fileId" format:"uuid"`
+	ContentVersion               string  `json:"contentVersion" format:"uuid"`
+	RecipientID                  string  `json:"recipientId" format:"uuid"`
+	RecipientRevision            string  `json:"recipientRevision" pattern:"^(0|[1-9][0-9]*)$"`
+	Transport                    string  `json:"transport" enum:"server,personal"`
+	TransportRevision            string  `json:"transportRevision" pattern:"^(0|[1-9][0-9]*)$"`
+	ResendOf                     *string `json:"resendOf" format:"uuid" nullable:"true"`
+	AcknowledgePossibleDuplicate bool    `json:"acknowledgePossibleDuplicate"`
+}
+
+type T006Delivery struct {
+	ID               string  `json:"id" format:"uuid"`
+	Revision         string  `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
+	FileID           string  `json:"fileId" format:"uuid"`
+	ContentVersion   string  `json:"contentVersion" format:"uuid"`
+	RecipientID      string  `json:"recipientId" format:"uuid"`
+	RecipientName    string  `json:"recipientName" minLength:"1" maxLength:"128"`
+	RecipientAddress string  `json:"recipientAddress" format:"email"`
+	Transport        string  `json:"transport" enum:"server,personal"`
+	State            string  `json:"state" enum:"queued,sending,retry_wait,accepted,failed,outcome_unknown,cancelled"`
+	Attempts         int     `json:"attempts" minimum:"0"`
+	CreatedAt        string  `json:"createdAt" format:"date-time"`
+	UpdatedAt        string  `json:"updatedAt" format:"date-time"`
+	Code             *string `json:"code" minLength:"1" maxLength:"128" nullable:"true"`
+	ResendOf         *string `json:"resendOf" format:"uuid" nullable:"true"`
+}
+
+type T006DeliveryList struct {
+	Items []T006Delivery `json:"items"`
+	Page  int            `json:"page" minimum:"0"`
+	Size  int            `json:"size" minimum:"1" maximum:"200"`
+	Total int64          `json:"total" minimum:"0"`
+}

@@ -45,6 +45,8 @@ type WorkerOptions struct {
 	Extractor jobs.Extractor
 	// KOReaderDigests enables the bounded KOReader digest indexing sweep. Nil leaves it off.
 	KOReaderDigests jobs.DigestIndexer
+	// Delivery enables the email submission queue. Nil leaves it off.
+	Delivery jobs.DeliveryProcessor
 }
 
 func WorkerOptionsFrom(cfg *config.Config) WorkerOptions {
@@ -88,6 +90,10 @@ func NewWorkerClient(pool *pgxpool.Pool, insp jobs.Inspector, opts WorkerOptions
 		queues[jobs.QueueKOReader] = river.QueueConfig{MaxWorkers: 1}
 		river.AddWorker(workers, &jobs.KODigestWorker{Indexer: opts.KOReaderDigests, Logger: log})
 		periodic = append(periodic, jobs.KODigestPeriodic())
+	}
+	if opts.Delivery != nil {
+		queues[jobs.QueueDelivery] = river.QueueConfig{MaxWorkers: 2}
+		river.AddWorker(workers, &jobs.DeliveryWorker{Processor: opts.Delivery, Logger: log})
 	}
 	cfg := &river.Config{
 		Logger:                      log,

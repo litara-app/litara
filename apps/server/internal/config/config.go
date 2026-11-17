@@ -63,6 +63,12 @@ type Config struct {
 	ReaderAddr   string
 	PublicOrigin string
 	ReaderOrigin string
+	// SMTPKeys is the operator key ring for stored SMTP passwords ("id:base64key,..."; each key 32 bytes)
+	// and SMTPActiveKey names the key that seals new secrets. Both are independent of every login secret.
+	SMTPKeys      string
+	SMTPActiveKey string
+	// SMTPAllowLocalTest enables plaintext SMTP to a loopback sink. Development and tests only.
+	SMTPAllowLocalTest bool
 }
 
 const prefix = "LITARA_"
@@ -141,6 +147,9 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		ReaderAddr:         get("READER_ADDR", ""),
 		PublicOrigin:       strings.TrimRight(get("PUBLIC_ORIGIN", ""), "/"),
 		ReaderOrigin:       strings.TrimRight(get("READER_ORIGIN", ""), "/"),
+		SMTPKeys:           get("SMTP_KEYS", ""),
+		SMTPActiveKey:      get("SMTP_ACTIVE_KEY", ""),
+		SMTPAllowLocalTest: get("SMTP_ALLOW_LOCAL_TEST", "") == "1",
 	}
 	for _, o := range strings.Split(get("ALLOWED_ORIGINS", ""), ",") {
 		if o = strings.TrimSpace(o); o != "" {

@@ -618,7 +618,7 @@ func TestKOReaderAmbiguityBindingAndReplacement(t *testing.T) {
 	ok := bind(k.credA1, doc, "0", target.File.ContentVersion)
 	var b wire.T006DigestBinding
 	ok.JSON(t, &b)
-	if ok.StatusCode != 200 || b.Revision != "0" || b.Deleted {
+	if ok.StatusCode != 200 || b.Revision != "1" || b.Deleted {
 		t.Fatalf("bind: %d %s", ok.StatusCode, ok.Body)
 	}
 	// Only the bound credential resolves; A2 (unbound) still sees the ambiguity.
@@ -670,10 +670,10 @@ func TestKOReaderAmbiguityBindingAndReplacement(t *testing.T) {
 		t.Fatalf("position leaked to replacement bytes: %+v", p)
 	}
 	// Deleting the binding tombstones it; the tombstone cannot be revived.
-	del := e.Do("DELETE", "/koreader/bindings/"+bid, k.userA, map[string]any{"operationId": uuid.NewString(), "baseRevision": "0"})
+	del := e.Do("DELETE", "/koreader/bindings/"+bid, k.userA, map[string]any{"operationId": uuid.NewString(), "baseRevision": "1"})
 	var d wire.T006DigestBinding
 	del.JSON(t, &d)
-	if del.StatusCode != 200 || !d.Deleted || d.Revision != "1" {
+	if del.StatusCode != 200 || !d.Deleted || d.Revision != "2" {
 		t.Fatalf("delete: %d %s", del.StatusCode, del.Body)
 	}
 	e.Do("GET", "/koreader/bindings", k.userA, nil).JSON(t, &list)

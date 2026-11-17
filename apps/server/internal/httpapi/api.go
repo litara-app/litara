@@ -17,6 +17,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/apperr"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
+	"github.com/deranjer/ebooker/apps/server/internal/delivery"
 	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/deranjer/ebooker/apps/server/internal/integrations"
@@ -68,7 +69,7 @@ type APIDeps struct {
 	// T006 services (nil leaves the T006 management routes unmounted).
 	Integrations *integrations.Service
 	KOReader     *koreader.Service
-	Delivery     DeliveryProbe
+	Delivery     *delivery.Service
 	Config       APIConfig
 	Log          *slog.Logger
 }
@@ -124,6 +125,7 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerMedia(api)
 	a.registerIntegrations(api)
 	a.registerKOReaderManagement(api)
+	a.registerDelivery(api)
 	return api
 }
 
@@ -292,9 +294,3 @@ func (p pageQuery) normalized() (page, size int) {
 }
 
 func now() time.Time { return time.Now().UTC() }
-
-// DeliveryProbe reports whether the administrator-managed SMTP transport is
-// configured and usable. The delivery service implements it.
-type DeliveryProbe interface {
-	ServerAvailable(ctx context.Context) bool
-}

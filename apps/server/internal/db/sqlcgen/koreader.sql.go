@@ -410,7 +410,7 @@ func (q *Queries) HasUnresolvedKoConflict(ctx context.Context, arg HasUnresolved
 }
 
 const insertBinding = `-- name: InsertBinding :one
-INSERT INTO koreader_bindings (id, user_id, credential_id, document, file_id, content_version) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, user_id, credential_id, document, file_id, content_version, revision, deleted, created_at
+INSERT INTO koreader_bindings (id, user_id, credential_id, document, file_id, content_version, revision) VALUES ($1, $2, $3, $4, $5, $6, 1) RETURNING id, user_id, credential_id, document, file_id, content_version, revision, deleted, created_at
 `
 
 type InsertBindingParams struct {

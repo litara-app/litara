@@ -823,7 +823,75 @@ CREATE TABLE koreader_receipts (
     PRIMARY KEY (credential_id, file_id, content_version, fingerprint)
 );
 
+-- T006 email delivery (ADR-0074). SMTP passwords are recoverable secrets, so they
+-- are stored only as AES-256-GCM ciphertext under an operator-supplied key ring
+-- (key ID + nonce + ciphertext); nothing here derives from a login secret.
+CREATE TABLE smtp_configs (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_kind   text NOT NULL CHECK (owner_kind IN ('server', 'personal')),
+    user_id      uuid REFERENCES users (id) ON DELETE CASCADE,
+    revision     bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    enabled      boolean NOT NULL DEFAULT false,
+    host         text NOT NULL DEFAULT '',
+    port         integer NOT NULL DEFAULT 587 CHECK (port BETWEEN 1 AND 65535),
+    tls_mode     text NOT NULL DEFAULT 'starttls' CHECK (tls_mode IN ('starttls', 'implicit', 'local_test_plain')),
+    username     text NOT NULL DEFAULT '',
+    from_address text NOT NULL DEFAULT '',
+    key_id       text,
+    nonce        bytea,
+    ciphertext   bytea,
+    updated_at   timestamptz NOT NULL DEFAULT now(),
+    CHECK ((owner_kind = 'server' AND user_id IS NULL) OR (owner_kind = 'personal' AND user_id IS NOT NULL)),
+    CHECK ((ciphertext IS NULL) = (nonce IS NULL) AND (ciphertext IS NULL) = (key_id IS NULL))
+);
+CREATE UNIQUE INDEX smtp_configs_server_one ON smtp_configs (owner_kind) WHERE owner_kind = 'server';
+CREATE UNIQUE INDEX smtp_configs_personal_one ON smtp_configs (user_id) WHERE owner_kind = 'personal';
+CREATE UNIQUE INDEX smtp_configs_nonce_unique ON smtp_configs (key_id, nonce) WHERE nonce IS NOT NULL;
+
+CREATE TABLE delivery_recipients (
+    id         uuid PRIMARY KEY,
+    user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    revision   bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    deleted    boolean NOT NULL DEFAULT false,
+    name       text NOT NULL,
+    address    text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX delivery_recipients_user_idx ON delivery_recipients (user_id, created_at, id);
+
+-- One row per explicit send intent. Recipient and transport identity are
+-- snapshotted by revision; passwords and file bytes are never stored here.
+-- attempt_open is the durable submission boundary: set after the server accepts
+-- DATA and before the message terminator can be sent.
+CREATE TABLE deliveries (
+    id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id            uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    file_id            uuid NOT NULL REFERENCES media_files (id),
+    content_version    uuid NOT NULL REFERENCES file_versions (content_version),
+    recipient_id       uuid NOT NULL REFERENCES delivery_recipients (id),
+    recipient_revision bigint NOT NULL,
+    recipient_name     text NOT NULL,
+    recipient_address  text NOT NULL,
+    transport          text NOT NULL CHECK (transport IN ('server', 'personal')),
+    transport_revision bigint NOT NULL,
+    state              text NOT NULL CHECK (state IN ('queued', 'sending', 'retry_wait', 'accepted', 'failed', 'outcome_unknown', 'cancelled')),
+    attempts           integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    attempt_open       boolean NOT NULL DEFAULT false,
+    revision           bigint NOT NULL DEFAULT 0,
+    code               text,
+    resend_of          uuid REFERENCES deliveries (id),
+    next_attempt_at    timestamptz NOT NULL DEFAULT now(),
+    -- A live attempt holds a lease; only an expired lease means the worker crashed.
+    lease_until        timestamptz,
+    created_at         timestamptz NOT NULL DEFAULT now(),
+    updated_at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX deliveries_user_idx ON deliveries (user_id, created_at, id);
+
 -- +goose Down
+DROP TABLE deliveries;
+DROP TABLE delivery_recipients;
+DROP TABLE smtp_configs;
 DROP TABLE koreader_receipts;
 DROP TABLE koreader_conflicts;
 DROP TABLE koreader_baselines;

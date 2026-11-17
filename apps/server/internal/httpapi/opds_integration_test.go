@@ -57,9 +57,9 @@ func basicAuth(user, pass string) string {
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))
 }
 
-func newOPDSEnv(t *testing.T) *opdsEnv {
+func newOPDSEnv(t *testing.T, opts ...apitest.Options) *opdsEnv {
 	t.Helper()
-	e := apitest.New(t)
+	e := apitest.New(t, opts...)
 	root, _ := filepath.Abs(filepath.Join(e.Cfg.MediaRoot, "opds"))
 	_ = os.MkdirAll(root, 0o755)
 	admin := e.Login(seed.AdminName, "cli").AccessToken

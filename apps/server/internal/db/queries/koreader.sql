@@ -43,7 +43,7 @@ SELECT * FROM koreader_bindings WHERE id = $1 AND user_id = $2 FOR UPDATE;
 SELECT * FROM koreader_bindings WHERE id = $1;
 
 -- name: InsertBinding :one
-INSERT INTO koreader_bindings (id, user_id, credential_id, document, file_id, content_version) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
+INSERT INTO koreader_bindings (id, user_id, credential_id, document, file_id, content_version, revision) VALUES ($1, $2, $3, $4, $5, $6, 1) RETURNING *;
 
 -- name: UpdateBinding :one
 UPDATE koreader_bindings SET credential_id = $2, document = $3, file_id = $4, content_version = $5, revision = revision + 1 WHERE id = $1 RETURNING *;

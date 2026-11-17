@@ -91,7 +91,10 @@ if _t5.exists():
 IMPLEMENTED_T006 = {'getIntegrationSettings', 'setIntegrationSettings', 'listIntegrationCredentials',
                     'createIntegrationCredential', 'revokeIntegrationCredential',
                     'getKoReaderPosition', 'listKoReaderBindings', 'putKoReaderBinding', 'deleteKoReaderBinding',
-                    'listKoReaderConflicts', 'resolveKoReaderConflict', 'reapplyKoReaderConflict'}
+                    'listKoReaderConflicts', 'resolveKoReaderConflict', 'reapplyKoReaderConflict',
+                    'getPersonalSmtp', 'setPersonalSmtp', 'testPersonalSmtp', 'getServerSmtp', 'setServerSmtp', 'testServerSmtp',
+                    'listDeliveryTransports', 'listDeliveryRecipients', 'putDeliveryRecipient', 'deleteDeliveryRecipient',
+                    'listDeliveries', 'createDelivery', 'getDelivery', 'cancelDelivery'}
 PENDING_T006 = []
 PENDING_T006_SCHEMAS = []
 _t6 = ROOT / 'contracts' / 't006' / 'openapi.json'

@@ -5,6 +5,8 @@ package apitest
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -21,6 +23,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/comics"
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
+	"github.com/deranjer/ebooker/apps/server/internal/delivery"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
 	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
@@ -32,6 +35,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
 	"github.com/deranjer/ebooker/apps/server/internal/reading"
 	"github.com/deranjer/ebooker/apps/server/internal/seed"
+	"github.com/deranjer/ebooker/apps/server/internal/smtptest"
 	"github.com/deranjer/ebooker/apps/server/internal/testutil"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 	"github.com/deranjer/ebooker/apps/server/internal/writeback"
@@ -75,6 +79,9 @@ type Env struct {
 	// T006
 	Integrations *integrations.Service
 	KOReader     *koreader.Service
+	Delivery     *delivery.Service
+	DQ           *DeliveryQueue
+	CA           *smtptest.CA
 	Indexer      *koreader.Indexer
 	Queue        *Queue
 	Password     string
@@ -92,6 +99,8 @@ type Options struct {
 	// Comic extraction tuning for tests (zero values use the ADR defaults).
 	ComicLimits comics.Limits
 	ComicBudget int64
+	// DeliveryHooks injects failures into the send path (tests only).
+	DeliveryHooks delivery.SendHooks
 }
 
 // New starts the environment; everything is closed at test cleanup.
@@ -138,9 +147,17 @@ func New(t *testing.T, opts ...Options) *Env {
 	e.Reading = reading.New(pool, cat, clock.Now)
 	e.Reading.EnableComics(reading.ComicOptions{MediaRoot: o.Cfg.MediaRoot, CacheDir: t.TempDir(), Limits: o.ComicLimits, CacheBudget: o.ComicBudget, Enqueuer: e.Queue})
 	e.KOReader = koreader.New(pool, cat, clock.Now)
+	e.CA = smtptest.NewCA(t)
+	e.DQ = &DeliveryQueue{}
+	rawKey := make([]byte, 32)
+	_, _ = rand.Read(rawKey)
+	ring, _ := delivery.ParseKeyRing("test-key:"+base64.StdEncoding.EncodeToString(rawKey), "test-key")
+	e.Delivery = delivery.New(delivery.Options{Pool: pool, Keys: ring, Net: delivery.NetPolicy{AllowLocalTest: true, RootCAs: e.CA.Pool,
+		ConnectTimeout: 3 * time.Second, SendTimeout: 10 * time.Second}, Catalog: cat, Integrations: e.Integrations, Sched: e.DQ,
+		MediaRoot: o.Cfg.MediaRoot, Clock: clock.Now, Hooks: o.DeliveryHooks})
 	e.Indexer = &koreader.Indexer{Pool: pool, MediaRoot: o.Cfg.MediaRoot}
 	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: e.Reading, Library: library.New(pool), Config: o.Cfg,
-		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback, Integrations: e.Integrations, KOReader: e.KOReader}})
+		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback, Integrations: e.Integrations, KOReader: e.KOReader, Delivery: e.Delivery}})
 	e.Handler = h
 	srv.Config.Handler = h
 	srv.Start()
@@ -346,4 +363,67 @@ func (e *Env) RunQueued() {
 			e.T.Fatalf("import %s: %v", id, err)
 		}
 	}
+}
+
+// DeliveryQueue records scheduled delivery jobs so tests drive the worker
+// deterministically with the controllable clock instead of waiting on River.
+type DeliveryQueue struct {
+	mu    sync.Mutex
+	items []scheduled
+}
+
+type scheduled struct {
+	ID uuid.UUID
+	At time.Time
+}
+
+func (q *DeliveryQueue) Schedule(_ context.Context, _ pgx.Tx, id uuid.UUID, at time.Time) error {
+	q.mu.Lock()
+	q.items = append(q.items, scheduled{id, at})
+	q.mu.Unlock()
+	return nil
+}
+
+// Len returns how many jobs are scheduled and not yet run.
+func (q *DeliveryQueue) Len() int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return len(q.items)
+}
+
+// Count returns how many jobs were scheduled for id.
+func (q *DeliveryQueue) Count(id uuid.UUID) int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	n := 0
+	for _, it := range q.items {
+		if it.ID == id {
+			n++
+		}
+	}
+	return n
+}
+
+// RunDeliveries runs every scheduled job that is due at the test clock once and
+// returns how many ran. Jobs scheduled while running are kept for a later call.
+func (e *Env) RunDeliveries() int {
+	e.T.Helper()
+	q := e.DQ
+	q.mu.Lock()
+	var due, later []scheduled
+	for _, it := range q.items {
+		if !it.At.After(e.Clock.Now()) {
+			due = append(due, it)
+		} else {
+			later = append(later, it)
+		}
+	}
+	q.items = later
+	q.mu.Unlock()
+	for _, it := range due {
+		if err := e.Delivery.Process(context.Background(), it.ID); err != nil {
+			e.T.Fatalf("process delivery %s: %v", it.ID, err)
+		}
+	}
+	return len(due)
 }

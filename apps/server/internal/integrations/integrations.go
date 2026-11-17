@@ -92,6 +92,9 @@ func DeriveFingerprintKey(serverSecret []byte) []byte {
 	return h[:]
 }
 
+// FingerprintKey is the key for receipt digests of supplied secret fields.
+func (s *Service) FingerprintKey() []byte { return s.fpKey }
+
 // Pool exposes the shared pool to sibling services.
 func (s *Service) Pool() *pgxpool.Pool { return s.pool }
 

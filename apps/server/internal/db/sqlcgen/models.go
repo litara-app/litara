@@ -114,6 +114,39 @@ type Conflict struct {
 	ResolvedOperationID uuid.NullUUID `json:"resolved_operation_id"`
 }
 
+type Delivery struct {
+	ID                uuid.UUID     `json:"id"`
+	UserID            uuid.UUID     `json:"user_id"`
+	FileID            uuid.UUID     `json:"file_id"`
+	ContentVersion    uuid.UUID     `json:"content_version"`
+	RecipientID       uuid.UUID     `json:"recipient_id"`
+	RecipientRevision int64         `json:"recipient_revision"`
+	RecipientName     string        `json:"recipient_name"`
+	RecipientAddress  string        `json:"recipient_address"`
+	Transport         string        `json:"transport"`
+	TransportRevision int64         `json:"transport_revision"`
+	State             string        `json:"state"`
+	Attempts          int32         `json:"attempts"`
+	AttemptOpen       bool          `json:"attempt_open"`
+	Revision          int64         `json:"revision"`
+	Code              *string       `json:"code"`
+	ResendOf          uuid.NullUUID `json:"resend_of"`
+	NextAttemptAt     time.Time     `json:"next_attempt_at"`
+	LeaseUntil        *time.Time    `json:"lease_until"`
+	CreatedAt         time.Time     `json:"created_at"`
+	UpdatedAt         time.Time     `json:"updated_at"`
+}
+
+type DeliveryRecipient struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Revision  int64     `json:"revision"`
+	Deleted   bool      `json:"deleted"`
+	Name      string    `json:"name"`
+	Address   string    `json:"address"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Edition struct {
 	ID        uuid.UUID `json:"id"`
 	TitleID   uuid.UUID `json:"title_id"`
@@ -620,6 +653,23 @@ type ShelfTitle struct {
 	ShelfID  uuid.UUID `json:"shelf_id"`
 	TitleID  uuid.UUID `json:"title_id"`
 	Position int64     `json:"position"`
+}
+
+type SmtpConfig struct {
+	ID          uuid.UUID     `json:"id"`
+	OwnerKind   string        `json:"owner_kind"`
+	UserID      uuid.NullUUID `json:"user_id"`
+	Revision    int64         `json:"revision"`
+	Enabled     bool          `json:"enabled"`
+	Host        string        `json:"host"`
+	Port        int32         `json:"port"`
+	TlsMode     string        `json:"tls_mode"`
+	Username    string        `json:"username"`
+	FromAddress string        `json:"from_address"`
+	KeyID       *string       `json:"key_id"`
+	Nonce       []byte        `json:"nonce"`
+	Ciphertext  []byte        `json:"ciphertext"`
+	UpdatedAt   time.Time     `json:"updated_at"`
 }
 
 type T005Conflict struct {
