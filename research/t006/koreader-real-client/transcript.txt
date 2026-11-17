@@ -1,0 +1,28 @@
+KOReader release: v2026.07.1 linux-x86_64 sha256:299aadb28147a25e9432ced1214ea444a4184393b5ae97cf42402c8a61b1a1b0
+
+== device one (read-write) ==
+DOC 83155df4d58e491f70562d52b5fb624b
+RESULT {"body":{"authorized":"OK"},"step":"authorize","ok":true}
+RESULT {"body":{},"step":"get_before","ok":true}
+RESULT {"body":{"timestamp":1794571320,"document":"83155df4d58e491f70562d52b5fb624b"},"step":"put","ok":true,"status":200}
+RESULT {"body":{"progress":"epubcfi(\/6\/2!\/4\/2)","percentage":0.25,"device_id":"Real KOReader One-id","document":"83155df4d58e491f70562d52b5fb624b","timestamp":1794571320,"device":"Real KOReader One"},"step":"get_after","ok":true}
+
+== device two (put without reading) ==
+DOC 83155df4d58e491f70562d52b5fb624b
+RESULT {"body":{"authorized":"OK"},"step":"authorize","ok":true}
+RESULT {"step":"put","ok":false}
+
+== wrong key ==
+DOC 83155df4d58e491f70562d52b5fb624b
+RESULT {"body":{"code":2001,"message":"Unauthorized"},"step":"authorize","ok":false}
+RESULT {"body":{"code":2001,"message":"Unauthorized"},"status":401,"step":"put","ok":false}
+
+== server-observed requests ==
+GET /1/users/auth -> 200 (auth headers present: user=true key=true)
+GET /1/syncs/progress/83155df4d58e491f70562d52b5fb624b -> 200 (auth headers present: user=true key=true)
+PUT /1/syncs/progress -> 200 (auth headers present: user=true key=true)
+GET /1/syncs/progress/83155df4d58e491f70562d52b5fb624b -> 200 (auth headers present: user=true key=true)
+GET /1/users/auth -> 200 (auth headers present: user=true key=true)
+PUT /1/syncs/progress -> 409 (auth headers present: user=true key=true)
+GET /1/users/auth -> 401 (auth headers present: user=true key=true)
+PUT /1/syncs/progress -> 401 (auth headers present: user=true key=true)

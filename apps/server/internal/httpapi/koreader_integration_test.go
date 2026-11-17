@@ -682,6 +682,59 @@ func TestKOReaderAmbiguityBindingAndReplacement(t *testing.T) {
 	}
 }
 
+// A file move keeps the stable file ID and content version, so the same digest keeps
+// resolving to the same saved position without a conflict (scenario 35).
+func TestKOReaderFileMoveKeepsPositionAndIdentity(t *testing.T) {
+	k := newKOEnv(t)
+	e := k.e
+	doc := k.docs["vol2"]
+	target := k.editions["vol2"]
+	if r := k.get(doc, k.credA1, k.pwA1); r.StatusCode != 200 {
+		t.Fatalf("read: %d %s", r.StatusCode, r.Body)
+	}
+	if r := k.do("PUT", "/1/syncs/progress", k.credA1, k.pwA1, koPut(doc, "before-move", 0.4, "d")); r.StatusCode != 200 {
+		t.Fatalf("put: %d %s", r.StatusCode, r.Body)
+	}
+	before := len(k.conflicts(t))
+
+	moved := filepath.Join(k.root, "Saga", "moved", "vol2-renamed.epub")
+	if err := os.MkdirAll(filepath.Dir(moved), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(k.epubPath, moved); err != nil {
+		t.Fatal(err)
+	}
+	scanTwice(t, e, k.admin, k.lib)
+	if _, err := e.Indexer.IndexPending(context.Background(), 100); err != nil {
+		t.Fatal(err)
+	}
+
+	var eds wire.T005Editions
+	e.Do("GET", "/editions?libraryId="+k.lib+"&size=200", k.userA, nil).JSON(t, &eds)
+	var after *wire.T005Edition
+	for i := range eds.Items {
+		if eds.Items[i].File.ID == target.File.ID {
+			after = &eds.Items[i]
+		}
+	}
+	if after == nil || after.File.ContentVersion != target.File.ContentVersion {
+		t.Fatalf("identity or version changed by a move: %+v", after)
+	}
+	r := k.get(doc, k.credA1, k.pwA1)
+	if r.StatusCode != 200 || !strings.Contains(string(r.Body), "before-move") {
+		t.Fatalf("position lost by a move: %d %s", r.StatusCode, r.Body)
+	}
+	if r := k.do("PUT", "/1/syncs/progress", k.credA1, k.pwA1, koPut(doc, "after-move", 0.5, "d")); r.StatusCode != 200 {
+		t.Fatalf("put after move: %d %s", r.StatusCode, r.Body)
+	}
+	if n := len(k.conflicts(t)); n != before {
+		t.Fatalf("a move must not create a conflict: %d -> %d", before, n)
+	}
+	if p := k.position(t, target.ID); p.ContentVersion != target.File.ContentVersion {
+		t.Fatalf("position version: %+v", p)
+	}
+}
+
 func TestKOReaderIndexingIsBoundedAndHonest(t *testing.T) {
 	e := apitest.New(t)
 	ctx := context.Background()
