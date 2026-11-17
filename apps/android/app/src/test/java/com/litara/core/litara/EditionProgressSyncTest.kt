@@ -32,7 +32,7 @@ class EditionProgressSyncTest {
     @After fun tearDown() = server.shutdown()
 
     private fun sync(version: String = "v1", compatible: Set<String> = setOf(web), dir: java.io.File = tmp.root) =
-        EditionProgressSync(client, "e1", "f1", version, web, LocatorPolicy(compatible), dir)
+        EditionProgressSync(client, "e1", "f1", version, web, "epub", LocatorPolicy(compatible), dir)
 
     private fun state(rev: String) = """{"revision":"$rev","position":null,"unresolvedConflictCount":0,"conflictsPath":"/api/v1/personal-conflicts"}"""
     private fun problem(status: Int, code: String, extra: String = "") =

@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>locator harness</title>
+<style>html,body{margin:0;height:100%;overflow:hidden}foliate-view{position:fixed;inset:0;display:block}</style>
+<script src="/api.js"></script>
+<script type="module">
+// Test harness (MIT). It only DRIVES a Foliate engine that is served to the page at test time from /web/ (the pinned pristine
+// engine of apps/web) or /android/ (the preserved Android engine); it copies none of that code. The probe API is in api.js.
+const engine = new URLSearchParams(location.search).get('engine');
+await import(`/${engine}/view.js`);
+
+let view = null;
+const probe = window.makeLocatorApi(() => view);
+
+window.api = {
+  ...probe,
+  engine,
+  async open(url, { fontPx = 16, flow = 'paginated' } = {}) {
+    view?.remove();
+    view = document.createElement('foliate-view');
+    document.body.append(view);
+    const blob = await (await fetch(url)).blob();
+    await view.open(new File([blob], url.split('/').pop(), { type: blob.type }));
+    view.renderer.setAttribute('flow', flow);
+    view.renderer.setStyles?.(`html { font-size: ${fontPx}px !important; }`);
+    const first = new Promise(r => view.addEventListener('relocate', e => r(e.detail), { once: true }));
+    await view.init({ showTextStart: false });
+    await first;
+    return { sections: view.book.sections.length, linear: view.book.sections.filter(s => s.linear !== 'no').length };
+  },
+};
+window.ready = true;
+</script>

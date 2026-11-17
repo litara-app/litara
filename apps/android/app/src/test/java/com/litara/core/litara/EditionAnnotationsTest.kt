@@ -35,9 +35,9 @@ class EditionAnnotationsTest {
 
     @After fun tearDown() = server.shutdown()
 
-    private fun sync(policy: LocatorPolicy, version: String = "v1", sub: String = "d", profile: String = "image-pages@profile-1"): EditionAnnotationSync {
+    private fun sync(policy: LocatorPolicy, version: String = "v1", sub: String = "d", profile: String = "image-pages@profile-1", format: String = "cbz"): EditionAnnotationSync {
         val dir = java.io.File(tmp.root, sub).apply { mkdirs() }
-        return EditionAnnotationSync(client, "e1", "f1", version, profile, policy, AnnotationStore(dir, "f1", version))
+        return EditionAnnotationSync(client, "e1", "f1", version, profile, format, policy, AnnotationStore(dir, "f1", version))
     }
 
     private fun serverCopy(id: String, rev: String, kind: String = "bookmark", version: String = "v1", loc: String = "{\"kind\":\"comic-page\",\"version\":1,\"pageIndex\":2,\"entryId\":\"entry-2\",\"manifestVersion\":\"m1\"}", text: String = "") =
@@ -47,7 +47,7 @@ class EditionAnnotationsTest {
     private fun body(r: RecordedRequest) = Json.parseToJsonElement(r.body.readUtf8()).jsonObject
 
     @Test fun `epub style highlights and notes stay on the device and never touch the network`() = runBlocking {
-        val s = sync(LocatorPolicy.NONE, profile = "foliate-js@78914aef/profile-1")
+        val s = sync(LocatorPolicy.NONE, profile = "foliate-js@78914aef/profile-1", format = "epub")
         val (a, out) = s.create("highlight", cfi, LSelection.FoliateRange("epubcfi(/6/4,/1:0,/1:5)"), "quote", "my note", "green", "Chapter 1")
         assertEquals(EditionReportOutcome.LocalOnly("foliate-js@78914aef/profile-1"), out)
         assertEquals(0, server.requestCount)
@@ -62,9 +62,9 @@ class EditionAnnotationsTest {
     }
 
     @Test fun `a version change shows none of the old annotations and keeps them`() = runBlocking {
-        val s1 = sync(LocatorPolicy.NONE, "v1", "same")
+        val s1 = sync(LocatorPolicy.NONE, "v1", "same", format = "epub")
         s1.create("bookmark", cfi, null, "", "", "yellow", null)
-        val s2 = sync(LocatorPolicy.NONE, "v2", "same")
+        val s2 = sync(LocatorPolicy.NONE, "v2", "same", format = "epub")
         assertTrue("never painted onto new bytes", s2.store.visible().isEmpty())
         assertEquals("the old record is still recoverable", 1, s1.store.visible().size)
     }

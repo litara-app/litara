@@ -341,12 +341,8 @@ class LitaraRepository @Inject constructor(
     fun hasPendingCompletion(recordingId: String): Boolean = File(recDir(token(), recordingId), "pending-completion.json").exists()
     // ---- ebooks and comics (T005 editions) -----------------------------------------------------
 
-    /**
-     * What the native readers may exchange with the server's canonical positions (G02). No renderer-defined profile
-     * (Foliate CFI, PDF coordinates) is proven yet, so none is listed. Comic pages are identified by the server's own
-     * page manifest, which the web reader uses identically, so that locator kind is canonical for every format.
-     */
-    val nativeLocatorPolicy = com.litara.core.litara.LocatorPolicy(canonicalKinds = setOf("comic-page"))
+    /** What the native readers may exchange with the server's canonical positions and annotations (G02); see [com.litara.core.litara.LocatorPolicy.NATIVE]. */
+    val nativeLocatorPolicy = com.litara.core.litara.LocatorPolicy.NATIVE
 
     /** The page manifest of a comic edition's exact file version, asking the server to extract it first if needed. */
     suspend fun comicManifest(e: LEdition): com.litara.core.litara.LPageManifest {
@@ -422,13 +418,13 @@ class LitaraRepository @Inject constructor(
         val t = token()
         val f = snap.edition.file
         val d = edDir(t, snap.edition.id)
-        return com.litara.core.litara.EditionAnnotationSync(requireClient(), snap.edition.id, f.id, f.contentVersion, snap.engineProfile,
+        return com.litara.core.litara.EditionAnnotationSync(requireClient(), snap.edition.id, f.id, f.contentVersion, snap.engineProfile, f.format,
             nativeLocatorPolicy, com.litara.core.litara.AnnotationStore(d, f.id, f.contentVersion))
     }
 
     fun editionProgress(snap: LReaderSnapshot): EditionProgressSync {
         val t = token()
         return EditionProgressSync(requireClient(), snap.edition.id, snap.edition.file.id, snap.edition.file.contentVersion,
-            snap.engineProfile, nativeLocatorPolicy, edDir(t, snap.edition.id))
+            snap.engineProfile, snap.edition.file.format, nativeLocatorPolicy, edDir(t, snap.edition.id))
     }
 }

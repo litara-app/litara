@@ -201,7 +201,9 @@ class LitaraPdfViewModel @Inject constructor(
                 val file = repo.editionFile(snap)
                 val core = PdfRenderCore.open(context, LocalRef.PlainFile(file))
                 val s = repo.editionProgress(snap).also { sync = it }
-                val saved = s.local()?.anchor as? LLocator.PdfPage
+                // Page granularity: only the page index of a server locator is used (its x/y are never applied or overwritten
+                // while the reader stays on that page). A device-only newer position wins when it has not been sent yet.
+                val saved = ((if (s.hasPending()) null else s.serverLocator(setOf("pdf-page"))) ?: s.local()?.anchor) as? LLocator.PdfPage
                 val page = (saved?.pageIndex ?: 0).coerceIn(0, (core.pageCount - 1).coerceAtLeast(0))
                 _ui.update { it.copy(loading = false, core = core, pageCount = core.pageCount, initialPage = page, currentPage = page) }
                 s.flushPending()

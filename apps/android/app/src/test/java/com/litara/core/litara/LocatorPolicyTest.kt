@@ -31,7 +31,8 @@ class LocatorPolicyTest {
 
     @After fun tearDown() = server.shutdown()
 
-    private fun sync(profile: String, sub: String) = EditionProgressSync(client, "e1", "f1", "v1", profile, policy, tmp.newFolder(sub))
+    private fun sync(profile: String, sub: String, format: String = "cbz") =
+        EditionProgressSync(client, "e1", "f1", "v1", profile, format, policy, tmp.newFolder(sub))
     private fun state(rev: String, position: String = "null") =
         "{\"revision\":\"$rev\",\"position\":$position,\"unresolvedConflictCount\":0,\"conflictsPath\":\"/api/v1/personal-conflicts\"}"
     private fun comic(index: Int) = LLocator.ComicPage(index, "entry-$index", "m1")
@@ -53,9 +54,9 @@ class LocatorPolicyTest {
     }
 
     @Test fun `pdf coordinates and foliate cfi stay on the device because no renderer profile is proven`() = runBlocking {
-        val pdf = sync("pdfjs-dist@6.5.438/profile-1", "pdf")
+        val pdf = sync("pdfjs-dist@6.5.438/profile-1", "pdf", "pdf")
         assertEquals(EditionReportOutcome.LocalOnly("pdfjs-dist@6.5.438/profile-1"), pdf.report(LLocator.PdfPage(3, 0.0, 0.0), 0.5))
-        val epub = sync("foliate-js@78914aef/profile-1", "epub")
+        val epub = sync("foliate-js@78914aef/profile-1", "epub", "epub")
         assertEquals(EditionReportOutcome.LocalOnly("foliate-js@78914aef/profile-1"), epub.report("epubcfi(/6/2)", 0.1))
         assertEquals("nothing was sent", 0, server.requestCount)
         assertEquals(LLocator.PdfPage(3, 0.0, 0.0), pdf.local()?.anchor)
@@ -80,7 +81,7 @@ class LocatorPolicyTest {
         val dir = tmp.newFolder("legacy")
         java.io.File(dir, "local-position.json").writeText(
             "{\"fileId\":\"f1\",\"contentVersion\":\"v1\",\"cfi\":\"epubcfi(/6/4)\",\"fraction\":0.5,\"savedAt\":\"2026-11-17T12:00:00Z\"}")
-        val s = EditionProgressSync(client, "e1", "f1", "v1", "p", LocatorPolicy.NONE, dir)
+        val s = EditionProgressSync(client, "e1", "f1", "v1", "p", "epub", LocatorPolicy.NONE, dir)
         assertTrue(s.local()?.anchor is LLocator.FoliateCfi)
         assertEquals("epubcfi(/6/4)", (s.local()?.anchor as LLocator.FoliateCfi).cfi)
     }

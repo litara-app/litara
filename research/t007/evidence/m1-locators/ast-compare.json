@@ -1,0 +1,186 @@
+{
+  "generated": "2026-11-17T23:16:25.683Z",
+  "files": {
+    "comic-book.js": {
+      "identical": false,
+      "topLevelStatements": [
+        1,
+        1
+      ],
+      "changedDeclarations": [
+        "makeComicBook"
+      ],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "epub.js": {
+      "identical": false,
+      "topLevelStatements": [
+        39,
+        39
+      ],
+      "changedDeclarations": [
+        "ONIX5",
+        "childGetter",
+        "getMetadata",
+        "parseNCX",
+        "Loader",
+        "EPUB"
+      ],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "epubcfi.js": {
+      "identical": false,
+      "topLevelStatements": [
+        34,
+        34
+      ],
+      "changedDeclarations": [
+        "nodeToParts"
+      ],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "fb2.js": {
+      "identical": false,
+      "topLevelStatements": [
+        16,
+        16
+      ],
+      "changedDeclarations": [
+        "STYLE",
+        "TABLE",
+        "POEM",
+        "SECTION",
+        "BODY",
+        "FB2Converter",
+        "makeFB2"
+      ],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "fixed-layout.js": {
+      "identical": true,
+      "topLevelStatements": [
+        4,
+        4
+      ],
+      "changedDeclarations": [],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "mobi.js": {
+      "identical": false,
+      "topLevelStatements": [
+        51,
+        51
+      ],
+      "changedDeclarations": [
+        "MOBI6"
+      ],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "overlayer.js": {
+      "identical": true,
+      "topLevelStatements": [
+        2,
+        2
+      ],
+      "changedDeclarations": [],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "paginator.js": {
+      "identical": false,
+      "topLevelStatements": [
+        21,
+        21
+      ],
+      "changedDeclarations": [
+        "View",
+        "Paginator"
+      ],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "progress.js": {
+      "identical": true,
+      "topLevelStatements": [
+        4,
+        4
+      ],
+      "changedDeclarations": [],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "search.js": {
+      "identical": true,
+      "topLevelStatements": [
+        7,
+        7
+      ],
+      "changedDeclarations": [],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "text-walker.js": {
+      "identical": false,
+      "topLevelStatements": [
+        5,
+        5
+      ],
+      "changedDeclarations": [
+        "textWalker"
+      ],
+      "missingInAndroid": [],
+      "addedInAndroid": []
+    },
+    "view.js": {
+      "identical": false,
+      "topLevelStatements": [
+        23,
+        46
+      ],
+      "changedDeclarations": [
+        "isFB2",
+        "makeBook",
+        "View"
+      ],
+      "missingInAndroid": [],
+      "addedInAndroid": [
+        "toPercent",
+        "getElementForNode",
+        "getRangePoint",
+        "getKoboSpanValue",
+        "getXPathStep",
+        "getXPathIndex",
+        "getXPathStepCount",
+        "getXPathSegment",
+        "isFoliateLayoutWrapper",
+        "isKoboSpanWrapper",
+        "isTransparentXPathWrapper",
+        "getEffectiveParent",
+        "appendEffectiveChild",
+        "getEffectiveChildren",
+        "getBodyXPath",
+        "getKoreaderTextTarget",
+        "getSectionPathBasename",
+        "isKepubifySyntheticSection",
+        "getKoreaderDocFragmentIndex",
+        "getKoreaderProgress",
+        "makeStreamingBook"
+      ]
+    }
+  },
+  "webOnly": [
+    "footnotes.js",
+    "uri-template.js"
+  ],
+  "androidOnly": [
+    "dict.js",
+    "streaming-loader.js",
+    "tts.js"
+  ]
+}

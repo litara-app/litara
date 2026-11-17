@@ -39,9 +39,8 @@ val FOLIATE_FORMATS = setOf("epub", "kepub", "mobi", "azw", "azw3", "fb2")
 
 /**
  * Reads one Litara ebook edition (route argument `editionId`) in the preserved Foliate reader. The file is
- * exactly the snapshot's file/version; position is stored locally for those bytes and only sent to the server
- * where [LitaraRepository.nativeLocatorPolicy] allows it. Highlights, notes and bookmarks are not wired
- * yet and say so instead of silently using BookOrbit endpoints.
+ * exactly the snapshot's file/version; position, highlights, notes and bookmarks are stored locally for those bytes and sent
+ * to the server where [LitaraRepository.nativeLocatorPolicy] allows it (EPUB and FB2).
  */
 @HiltViewModel
 class LitaraReaderViewModel @Inject constructor(
@@ -81,7 +80,9 @@ class LitaraReaderViewModel @Inject constructor(
                 val s = repo.editionProgress(snap).also { sync = it }
                 annotations = repo.editionAnnotations(snap).also { it.refresh(setOf("foliate-cfi")) }
                 refreshAnnotationUi()
-                val start: Pair<String, Double?>? = s.serverCfi()?.let { it to null } ?: s.local()?.let { it.cfi to it.fraction }
+                // A position this device saved but could not send yet is newer than the server's; otherwise the server's wins.
+                val start: Pair<String, Double?>? = (if (s.hasPending()) null else s.serverCfi())?.let { it to null }
+                    ?: s.local()?.takeIf { it.cfi.isNotEmpty() }?.let { it.cfi to it.fraction }
                 _ui.update {
                     it.copy(
                         loadingFile = false,

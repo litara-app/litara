@@ -5,6 +5,8 @@
   python scripts/t007/second_client.py finish   "Title"      # manual_finish using the CURRENT revision (a well-behaved second device)
   python scripts/t007/second_client.py unfinish "Title"
   python scripts/t007/second_client.py comic-page "Title" 4   # save a comic position (zero-based page) like the web reader
+  python scripts/t007/second_client.py position "Title"       # the saved reading position (locator kind and revision)
+  python scripts/t007/second_client.py cfi-position "Title" "epubcfi(...)"   # save a Foliate CFI position
   python scripts/t007/second_client.py annotations "Title"    # list annotations incl. tombstones
   python scripts/t007/second_client.py comic-bookmark "Title" 1 ["note text"]   # create a page bookmark/note
 
@@ -89,6 +91,28 @@ def main():
                      "capturedAt": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")}
                 r = call("PUT", f"/editions/{e['id']}/annotations/{aid}", tok, w)
                 print(f"{title}: created {w['data']['kind']} on page index {index} id {aid[:8]} revision {r['revision']}")
+                return
+        raise SystemExit("no such title")
+    elif cmd == "position":
+        for t, e in editions(tok):
+            if t == sys.argv[2]:
+                p = call("GET", f"/editions/{e['id']}/position", tok)
+                loc = p["position"]["anchor"]["locator"] if p["position"] else None
+                print(f"{t}: revision {p['revision']} device={p['position']['deviceName'] if p['position'] else None} locator={json.dumps(loc)}")
+                return
+        raise SystemExit("no such title")
+    elif cmd == "cfi-position":
+        # Save a Foliate CFI position the way the web reader does (the CFI comes from the web engine, see locators/web-cfi.mjs).
+        title, cfi = sys.argv[2], sys.argv[3]
+        for t, e in editions(tok):
+            if t == title:
+                pos = call("GET", f"/editions/{e['id']}/position", tok)
+                f = e["file"]
+                w = {"operationId": str(uuid.uuid4()), "baseRevision": pos["revision"],
+                     "anchor": {"fileId": f["id"], "contentVersion": f["contentVersion"], "locator": {"kind": "foliate-cfi", "version": 1, "cfi": cfi}},
+                     "capturedAt": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")}
+                r = call("PUT", f"/editions/{e['id']}/position", tok, w)
+                print(f"{title}: position revision {r['revision']} cfi {cfi}")
                 return
         raise SystemExit("no such title")
     elif cmd == "comic-page":

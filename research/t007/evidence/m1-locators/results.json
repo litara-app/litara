@@ -1,0 +1,194 @@
+{
+  "generated": "2026-11-17T23:29:01.731Z",
+  "fixtures": {
+    "stress.epub": {
+      "web->android": {
+        "sections": 6,
+        "pagesWalked": 36,
+        "E0_self_resolve": {
+          "total": 36,
+          "pass": 36,
+          "fail": 0,
+          "examples": []
+        },
+        "E1_resolve_same_text_after_layout_change": {
+          "total": 36,
+          "pass": 36,
+          "fail": 0,
+          "examples": []
+        },
+        "E2_target_on_shown_page_after_layout_change": {
+          "total": 36,
+          "pass": 36,
+          "fail": 0,
+          "examples": []
+        },
+        "E2b_round_trip_to_third_layout": {
+          "total": 36,
+          "pass": 36,
+          "fail": 0,
+          "examples": []
+        },
+        "E3_range_same_text_and_offsets": {
+          "total": 84,
+          "pass": 84,
+          "fail": 0,
+          "examples": []
+        },
+        "E4_range_cfi_strings_identical": {
+          "total": 84,
+          "pass": 84,
+          "fail": 0,
+          "examples": []
+        },
+        "E5_collapsed_point_resolves": {
+          "total": 84,
+          "pass": 84,
+          "fail": 0,
+          "examples": []
+        }
+      },
+      "android->web": {
+        "sections": 6,
+        "pagesWalked": 36,
+        "E0_self_resolve": {
+          "total": 36,
+          "pass": 36,
+          "fail": 0,
+          "examples": []
+        },
+        "E1_resolve_same_text_after_layout_change": {
+          "total": 36,
+          "pass": 36,
+          "fail": 0,
+          "examples": []
+        },
+        "E2_target_on_shown_page_after_layout_change": {
+          "total": 36,
+          "pass": 36,
+          "fail": 0,
+          "examples": []
+        },
+        "E2b_round_trip_to_third_layout": {
+          "total": 36,
+          "pass": 36,
+          "fail": 0,
+          "examples": []
+        },
+        "E3_range_same_text_and_offsets": {
+          "total": 84,
+          "pass": 84,
+          "fail": 0,
+          "examples": []
+        },
+        "E4_range_cfi_strings_identical": {
+          "total": 84,
+          "pass": 84,
+          "fail": 0,
+          "examples": []
+        },
+        "E5_collapsed_point_resolves": {
+          "total": 84,
+          "pass": 84,
+          "fail": 0,
+          "examples": []
+        }
+      }
+    },
+    "stress.fb2": {
+      "web->android": {
+        "sections": 3,
+        "pagesWalked": 12,
+        "E0_self_resolve": {
+          "total": 12,
+          "pass": 12,
+          "fail": 0,
+          "examples": []
+        },
+        "E1_resolve_same_text_after_layout_change": {
+          "total": 12,
+          "pass": 12,
+          "fail": 0,
+          "examples": []
+        },
+        "E2_target_on_shown_page_after_layout_change": {
+          "total": 12,
+          "pass": 12,
+          "fail": 0,
+          "examples": []
+        },
+        "E2b_round_trip_to_third_layout": {
+          "total": 12,
+          "pass": 12,
+          "fail": 0,
+          "examples": []
+        },
+        "E3_range_same_text_and_offsets": {
+          "total": 42,
+          "pass": 42,
+          "fail": 0,
+          "examples": []
+        },
+        "E4_range_cfi_strings_identical": {
+          "total": 42,
+          "pass": 42,
+          "fail": 0,
+          "examples": []
+        },
+        "E5_collapsed_point_resolves": {
+          "total": 42,
+          "pass": 42,
+          "fail": 0,
+          "examples": []
+        }
+      },
+      "android->web": {
+        "sections": 3,
+        "pagesWalked": 12,
+        "E0_self_resolve": {
+          "total": 12,
+          "pass": 12,
+          "fail": 0,
+          "examples": []
+        },
+        "E1_resolve_same_text_after_layout_change": {
+          "total": 12,
+          "pass": 12,
+          "fail": 0,
+          "examples": []
+        },
+        "E2_target_on_shown_page_after_layout_change": {
+          "total": 12,
+          "pass": 12,
+          "fail": 0,
+          "examples": []
+        },
+        "E2b_round_trip_to_third_layout": {
+          "total": 12,
+          "pass": 12,
+          "fail": 0,
+          "examples": []
+        },
+        "E3_range_same_text_and_offsets": {
+          "total": 42,
+          "pass": 42,
+          "fail": 0,
+          "examples": []
+        },
+        "E4_range_cfi_strings_identical": {
+          "total": 42,
+          "pass": 42,
+          "fail": 0,
+          "examples": []
+        },
+        "E5_collapsed_point_resolves": {
+          "total": 42,
+          "pass": 42,
+          "fail": 0,
+          "examples": []
+        }
+      }
+    }
+  },
+  "experiments": []
+}

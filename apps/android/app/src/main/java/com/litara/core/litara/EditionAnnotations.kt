@@ -76,9 +76,9 @@ class AnnotationStore(private val dir: File, private val fileId: String, private
  * Private annotations (T005, ADR-0065) with local-first persistence and policy-gated server sync.
  *
  * Every change is saved on the device first. It is sent only when [policy] allows its locator for this edition's engine
- * profile AND, for a text selection, the renderer's own selection ranges are proven compatible (a selection is renderer-defined
- * even when the page locator is not). So today comic page notes and bookmarks sync; EPUB/PDF highlights, notes and bookmarks
- * stay on the device. Writes are revision-aware: create with base "0" and a client UUID, edit/delete with the last known
+ * profile and file format AND, for a text selection, the selection kind too (a selection is renderer-defined even when the page
+ * locator is not). Today comic page notes and bookmarks sync, and so do EPUB/FB2 highlights, notes and bookmarks; nothing
+ * for formats without evidence does. Writes are revision-aware: create with base "0" and a client UUID, edit/delete with the last known
  * revision, saved with their operation id before sending, never stacked and never retried under another identity.
  */
 class EditionAnnotationSync(
@@ -87,13 +87,14 @@ class EditionAnnotationSync(
     private val fileId: String,
     private val contentVersion: String,
     private val engineProfile: String,
+    private val format: String,
     private val policy: LocatorPolicy,
     val store: AnnotationStore,
 ) {
     private val gate = Mutex()
 
     fun canSync(a: LocalAnnotation): Boolean =
-        policy.allows(engineProfile, a.locator) && (a.selection == null || engineProfile in policy.compatibleProfiles)
+        policy.allows(engineProfile, a.locator, format) && (a.selection == null || policy.allowsSelection(engineProfile, a.selection, format))
 
     private fun now() = Instant.now().toString()
 
@@ -136,8 +137,11 @@ class EditionAnnotationSync(
     /** Delivers saved operations, then (when the policy allows any of this reader's kinds) merges the server's annotations. */
     suspend fun refresh(readerKinds: Set<String>): EditionReportOutcome? = gate.withLock {
         var last: EditionReportOutcome? = null
+        // Annotations made while this kind was device-only become sendable once the policy allows them: queue each as a create.
+        store.all().filter { it.pending == null && !it.synced && !it.deleted && it.revision == "0" && it.conflict == null && canSync(it) }
+            .forEach { store.put(it.copy(pending = PendingAnnotationOp(UUID.randomUUID().toString(), "0", false, now()))) }
         store.all().filter { it.pending != null }.forEach { last = deliverLocked(it.id) }
-        if (readerKinds.none { policy.allows(engineProfile, it) }) return@withLock last
+        if (readerKinds.none { policy.allowsKind(engineProfile, it, format) }) return@withLock last
         val server = try { client.listAllAnnotations(editionId) } catch (_: TransientException) { return@withLock EditionReportOutcome.Queued }
         catch (e: SessionEndedException) { return@withLock EditionReportOutcome.AccessEnded(e.code) }
         for (s in server) {
@@ -149,7 +153,7 @@ class EditionAnnotationSync(
                 if (cur != null) store.put(cur.copy(deleted = true, revision = s.revision, synced = true, pending = null))
                 continue
             }
-            if (!policy.allows(engineProfile, d.anchor.locator) || (d.selection != null && engineProfile !in policy.compatibleProfiles)) continue
+            if (!policy.allows(engineProfile, d.anchor.locator, format) || (d.selection != null && !policy.allowsSelection(engineProfile, d.selection, format))) continue
             store.put(LocalAnnotation(s.id, d.kind, d.anchor.locator, d.selection, d.quote, d.text, cur?.color ?: "yellow", cur?.chapterTitle,
                 cur?.createdAt ?: s.updatedAt, s.updatedAt, false, s.revision, true, null, null))
         }

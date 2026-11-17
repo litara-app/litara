@@ -1,0 +1,1 @@
+Synthetic Tale: revision 6 device=Android sdk_gphone16k_x86_64 locator={"kind": "foliate-cfi", "version": 1, "cfi": "epubcfi(/6/16!/4,/16/1:153,/18/1:817)"}

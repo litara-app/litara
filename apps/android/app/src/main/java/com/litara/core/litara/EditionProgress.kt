@@ -17,25 +17,57 @@ val LLocator.kindName: String
         is LLocator.ComicPage -> "comic-page"
     }
 
+/** The wire `kind` of a selection (T005 selection kinds). */
+val LSelection.kindName: String
+    get() = when (this) {
+        is LSelection.FoliateRange -> "foliate-range"
+        is LSelection.PdfRectangles -> "pdf-rectangles"
+    }
+
 /**
  * Which locators this native client may exchange with the server's canonical position, decided on evidence
- * (contracts/t005/README.md: ancestry or syntax is not compatibility evidence).
+ * (contracts/t005/README.md: ancestry or syntax is not compatibility evidence). A locator or selection that is not allowed
+ * stays on the device for the exact file version and is never sent, applied or relabeled.
  *
- * - [compatibleProfiles]: engine profiles the native renderer is PROVEN to produce and consume. Empty today.
- * - [canonicalKinds]: locator kinds whose value is defined by server data both clients read, not by a renderer.
- *   A comic page locator is `{pageIndex, entryId, manifestVersion}` copied from the server's page manifest;
- *   the web reader builds exactly the same shape from the same manifest (`apps/web/src/reader/ComicReader.tsx`),
- *   so no renderer interpretation is involved. Foliate CFIs and PDF coordinates are renderer-defined and stay out.
- *
- * Anything not allowed stays on the device for the exact file version and is never sent, applied or relabeled.
+ * - [compatibleProfiles]: engine profiles proven for every locator kind and format. Empty: no blanket claim is made.
+ * - [canonicalKinds]: kinds whose value is defined by server data both clients read, not by a renderer. A comic page locator is
+ *   `{pageIndex, entryId, manifestVersion}` copied from the server's page manifest, and the web reader builds the same shape
+ *   from the same manifest (`apps/web/src/reader/ComicReader.tsx`).
+ * - [provenFormats]: kind to the file formats for which the native and web renderers were shown to agree on the same bytes
+ *   (see research/t007/evidence/m1-locators): both engines produced byte-identical CFI strings for the same ranges and resolved each
+ *   other's positions to the same text across viewport and font changes, in desktop Chromium and in the device WebView.
  */
-class LocatorPolicy(val compatibleProfiles: Set<String> = emptySet(), val canonicalKinds: Set<String> = emptySet()) {
-    fun allows(engineProfile: String, locator: LLocator): Boolean =
-        engineProfile in compatibleProfiles || locator.kindName in canonicalKinds
+class LocatorPolicy(
+    val compatibleProfiles: Set<String> = emptySet(),
+    val canonicalKinds: Set<String> = emptySet(),
+    val provenFormats: Map<String, Set<String>> = emptyMap(),
+) {
+    fun allowsKind(engineProfile: String, kind: String, format: String): Boolean =
+        engineProfile in compatibleProfiles || kind in canonicalKinds || provenFormats[kind]?.contains(format) == true
 
-    fun allows(engineProfile: String, kind: String): Boolean = engineProfile in compatibleProfiles || kind in canonicalKinds
+    fun allows(engineProfile: String, locator: LLocator, format: String): Boolean = allowsKind(engineProfile, locator.kindName, format)
 
-    companion object { val NONE = LocatorPolicy() }
+    fun allowsSelection(engineProfile: String, selection: LSelection, format: String): Boolean =
+        allowsKind(engineProfile, selection.kindName, format)
+
+    companion object {
+        val NONE = LocatorPolicy()
+
+        /**
+         * What the native readers are allowed to sync today. EPUB and FB2: Foliate CFIs and range selections (the engines
+         * agree; KEPUB, MOBI, AZW and AZW3 are NOT included: no fixtures, and the MOBI6 converter differs between the engines).
+         * PDF: page granularity only (native reports `x=0, y=0`; sub-page coordinates are not claimed) and no text rectangles.
+         * Comics: the manifest's own page identity, for every comic format.
+         */
+        val NATIVE = LocatorPolicy(
+            canonicalKinds = setOf("comic-page"),
+            provenFormats = mapOf(
+                "foliate-cfi" to setOf("epub", "fb2"),
+                "foliate-range" to setOf("epub", "fb2"),
+                "pdf-page" to setOf("pdf"),
+            ),
+        )
+    }
 }
 
 /** What happened to one ebook/comic/PDF position report. */
@@ -85,6 +117,7 @@ class EditionProgressSync(
     private val fileId: String,
     private val contentVersion: String,
     private val engineProfile: String,
+    private val format: String,
     private val policy: LocatorPolicy,
     private val dir: File,
 ) {
@@ -111,12 +144,12 @@ class EditionProgressSync(
      */
     suspend fun serverLocator(readerKinds: Set<String>): LLocator? = gate.withLock {
         // A reader whose locator kinds are all refused by the policy never even asks for the server position.
-        if (readerKinds.none { policy.allows(engineProfile, it) }) return null
+        if (readerKinds.none { policy.allowsKind(engineProfile, it, format) }) return null
         val state = try { client.editionPosition(editionId) } catch (_: TransientException) { return null }
         adopt(state)
         val a = state.position?.anchor ?: return null
         if (a.fileId != fileId || a.contentVersion != contentVersion) return null
-        a.locator.takeIf { policy.allows(engineProfile, it) }
+        a.locator.takeIf { policy.allows(engineProfile, it, format) }
     }
 
     /** The server's saved CFI for exactly these bytes, when this renderer may read that profile. */
@@ -129,7 +162,7 @@ class EditionProgressSync(
         val cfi = (locator as? LLocator.FoliateCfi)?.cfi.orEmpty()
         AtomicFile.write(localFile, LitaraJson.encodeToString(
             LocalEditionPosition(fileId, contentVersion, cfi, fraction ?: 0.0, now, locator.takeUnless { it is LLocator.FoliateCfi })))
-        if (!policy.allows(engineProfile, locator)) return@withLock EditionReportOutcome.LocalOnly(engineProfile)
+        if (!policy.allows(engineProfile, locator, format)) return@withLock EditionReportOutcome.LocalOnly(engineProfile)
         flushPendingLocked()?.let { if (it !is EditionReportOutcome.Accepted) return@withLock it }
         send(LEditionPositionWrite(UUID.randomUUID().toString(), revision, LEditionAnchor(fileId, contentVersion, locator), now))
     }
