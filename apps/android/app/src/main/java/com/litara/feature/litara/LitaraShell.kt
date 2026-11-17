@@ -88,6 +88,8 @@ object ShellTags {
 private const val ROUTE_MAIN = "main"
 private const val ROUTE_PLAYER = "player"
 private const val ROUTE_READER = "reader/{editionId}"
+private const val ROUTE_PDF = "pdf/{editionId}"
+private const val ROUTE_COMIC = "comic/{editionId}"
 
 /**
  * The phone app for a signed-in Litara account: Library, Downloads and Account over recording detail.
@@ -103,7 +105,19 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
             ShellMain(vm, onListen = { handle ->
                 player.loadAndPlay(handle)
                 nav.navigate(ROUTE_PLAYER)
-            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onReadBook = { id -> nav.navigate("reader/$id") })
+            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onReadBook = { id, format ->
+                nav.navigate(when {
+                    format == "pdf" -> "pdf/$id"
+                    format in COMIC_FORMATS -> "comic/$id"
+                    else -> "reader/$id"
+                })
+            })
+        }
+        composable(ROUTE_PDF) {
+            com.litara.feature.reader.pdf.PdfReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraPdfViewModel>())
+        }
+        composable(ROUTE_COMIC) {
+            com.litara.feature.reader.comic.ComicReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraComicViewModel>())
         }
         composable(ROUTE_READER) {
             com.litara.feature.reader.ReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraReaderViewModel>())
@@ -113,7 +127,7 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onReadBook: (String) -> Unit) {
+private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onReadBook: (String, String) -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     BackHandler(enabled = ui.detail != null) { vm.closeDetail() }
@@ -198,7 +212,7 @@ private fun ShellLibrary(vm: LitaraShellViewModel, ui: ShellUi) {
 }
 
 @Composable
-private fun ShellBooks(onRead: (String) -> Unit, vm: LitaraBooksViewModel = hiltViewModel()) {
+private fun ShellBooks(onRead: (String, String) -> Unit, vm: LitaraBooksViewModel = hiltViewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     var deciding by rememberSaveable { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -224,7 +238,7 @@ private fun ShellBooks(onRead: (String) -> Unit, vm: LitaraBooksViewModel = hilt
             val e = row.edition
             val open = openability(e)
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag(ShellTags.book(e.id)), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f).clickable(enabled = open is BookOpen.Yes) { onRead(e.id) }) {
+                Column(Modifier.weight(1f).clickable(enabled = open is BookOpen.Yes) { onRead(e.id, e.file.format) }) {
                     Text(row.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     val detail = when (open) {
                         BookOpen.Yes -> (row.authors + e.file.format.uppercase()).joinToString(" · ")

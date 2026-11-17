@@ -136,8 +136,9 @@ private fun androidx.compose.foundation.layout.BoxScope.ComicPages(
         beyondViewportPageCount = 1,
         key = { it },
     ) { page ->
+        val model by androidx.compose.runtime.produceState<Any?>(initialValue = null, page) { value = vm.loadPage(page) }
         ZoomablePage(
-            model = vm.pageModel(page),
+            model = model,
             page = page,
             active = page == pagerState.currentPage,
             onZoomChanged = { if (page == pagerState.currentPage) zoomed = it },

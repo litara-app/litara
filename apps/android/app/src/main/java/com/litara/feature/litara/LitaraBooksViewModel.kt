@@ -41,7 +41,7 @@ sealed interface BookOpen {
 }
 
 fun openability(e: LEdition): BookOpen = when {
-    e.file.format !in FOLIATE_FORMATS -> BookOpen.No(e.file.format.uppercase())
+    e.file.format !in FOLIATE_FORMATS && e.file.format != "pdf" && e.file.format !in COMIC_FORMATS -> BookOpen.No(e.file.format.uppercase())
     !e.capabilities.read.supported -> BookOpen.No(e.capabilities.read.issues.joinToString { it.code }.ifEmpty { e.capabilities.read.state })
     e.file.contentPath == null -> BookOpen.No(e.file.availability)
     else -> BookOpen.Yes

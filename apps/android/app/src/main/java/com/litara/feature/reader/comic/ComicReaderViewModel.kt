@@ -100,7 +100,7 @@ class ComicReaderViewModel @Inject constructor(
         if (System.currentTimeMillis() - lastSaved >= PROGRESS_THROTTLE_MS) flush()
     }
 
-    override fun pageModel(index: Int): Any? = imageUrls.comicPage(_ui.value.fileId, index)
+    override suspend fun loadPage(index: Int): Any? = imageUrls.comicPage(_ui.value.fileId, index)
 
     override fun setRtl(value: Boolean) {
         viewModelScope.launch { settings.setComicRtl(value) }

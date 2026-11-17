@@ -90,6 +90,58 @@ def make_epub(path: Path, title: str, author: str, uid: str, chapters: int = 8):
                        f'Chapter {i}</title></head><body><h1>Chapter {i}</h1>{body}</body></html>', compress_type=zipfile.ZIP_DEFLATED)
 
 
+def make_pdf(path: Path, title: str, pages: int = 6):
+    """A minimal valid PDF whose page n says PAGE n, so a reader's current page is visible in a screenshot."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    objs = []
+    kids = " ".join(f"{4 + 2 * i} 0 R" for i in range(pages))
+    objs.append("<< /Type /Catalog /Pages 2 0 R >>")
+    objs.append(f"<< /Type /Pages /Kids [{kids}] /Count {pages} >>")
+    objs.append("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    for i in range(pages):
+        stream = f"BT /F1 96 Tf 80 600 Td (PAGE {i + 1}) Tj ET BT /F1 18 Tf 80 540 Td ({title} - page {i + 1} of {pages}) Tj ET"
+        objs.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents {5 + 2 * i} 0 R >>")
+        objs.append(f"<< /Length {len(stream)} >>\nstream\n{stream}\nendstream")
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for n, body in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += f"{n} 0 obj\n{body}\nendobj\n".encode("latin-1")
+    xref = len(out)
+    out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
+    for o in offsets:
+        out += f"{o:010d} 00000 n \n".encode()
+    out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    path.write_bytes(bytes(out))
+
+
+def _png(width: int, height: int, rows) -> bytes:
+    import struct, zlib
+    raw = b"".join(b"\x00" + bytes(r) for r in rows)
+    def chunk(t, d):
+        c = struct.pack(">I", len(d)) + t + d
+        return c + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+
+
+def make_cbz(path: Path, pages: int = 5):
+    """A CBZ whose page n shows n white blocks on a per-page colour (countable in a screenshot)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    colours = [(200, 60, 60), (60, 160, 70), (60, 90, 200), (190, 150, 40), (130, 60, 170), (40, 150, 160)]
+    w, h = 400, 600
+    with zipfile.ZipFile(path, "w") as z:
+        for n in range(1, pages + 1):
+            c = colours[(n - 1) % len(colours)]
+            rows = []
+            for y in range(h):
+                row = []
+                for x in range(w):
+                    inblock = 60 <= y < 160 and any(40 + k * 60 <= x < 80 + k * 60 for k in range(n))
+                    row += (255, 255, 255) if inblock else c
+                rows.append(row)
+            z.writestr(f"{n:03d}.png", _png(w, h, rows), compress_type=zipfile.ZIP_STORED)
+
+
 def up():
     down(quiet=True)
     WORK.mkdir(parents=True, exist_ok=True)
@@ -100,6 +152,8 @@ def up():
     media.mkdir(parents=True)
     make_epub(media / "Synthetic Author" / "Synthetic Tale.epub", "Synthetic Tale", "Synthetic Author", "00000000-0000-4000-8000-0000000000a1")
     make_epub(media / "Synthetic Author" / "Second Tale.epub", "Second Tale", "Synthetic Author", "00000000-0000-4000-8000-0000000000a2", chapters=3)
+    make_pdf(media / "Synthetic Author" / "Synthetic Paper.pdf", "Synthetic Paper")
+    make_cbz(media / "Synthetic Author" / "Synthetic Comic.cbz")
     for name in ("server", "ctl"):
         run(["go", "build", "-o", str(WORK / "bin" / (name + EXE)), f"./cmd/{name}"], cwd=SERVER_DIR)
     psql(f"DROP DATABASE IF EXISTS {DB}")
@@ -132,7 +186,7 @@ def up():
     (WORK / "creds.json").write_text(json.dumps({"base": BASE, "admin": ["t007admin", admin_pw], "reader": ["t007reader", user_pw], "library": lib}))
     for _ in range(60):
         eds = api("GET", "/editions?size=50", tok)
-        if eds["total"] >= 2:
+        if eds["total"] >= 4:
             break
         time.sleep(1)
     print(f"stack up: {BASE} (emulator: http://10.0.2.2:{PORT}); {eds['total']} editions; credentials in .tmp/t007/creds.json")

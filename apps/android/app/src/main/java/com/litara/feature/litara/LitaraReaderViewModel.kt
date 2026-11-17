@@ -27,6 +27,7 @@ import javax.inject.Inject
 import kotlin.math.roundToInt
 
 private const val PROGRESS_THROTTLE_MS = 2_000L
+private const val IDLE_FLUSH_MS = 1_500L
 
 /** Formats the preserved Foliate engine renders. PDF and comic editions use other native readers (later slices). */
 val FOLIATE_FORMATS = setOf("epub", "kepub", "mobi", "azw", "azw3", "fb2")
@@ -53,6 +54,7 @@ class LitaraReaderViewModel @Inject constructor(
     private var pending: Pair<String, Double>? = null
     private var currentCfi: String? = null
     private var localOnlyNoted = false
+    private var flushJob: kotlinx.coroutines.Job? = null
 
     init { load() }
 
@@ -124,6 +126,8 @@ class LitaraReaderViewModel @Inject constructor(
         if (cfi != null && fraction != null) {
             pending = cfi to fraction
             if (System.currentTimeMillis() - lastSent >= PROGRESS_THROTTLE_MS) flush()
+            flushJob?.cancel()
+            flushJob = viewModelScope.launch { kotlinx.coroutines.delay(IDLE_FLUSH_MS); flush() }
         }
     }
 

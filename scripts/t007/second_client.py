@@ -4,6 +4,7 @@
   python scripts/t007/second_client.py state                 # editions with completion revision/finished + unresolved conflicts
   python scripts/t007/second_client.py finish   "Title"      # manual_finish using the CURRENT revision (a well-behaved second device)
   python scripts/t007/second_client.py unfinish "Title"
+  python scripts/t007/second_client.py comic-page "Title" 4   # save a comic position (zero-based page) like the web reader
 
 Credentials come from .tmp/t007/creds.json written by stack.py; they are never printed.
 """
@@ -57,6 +58,23 @@ def main():
                      "capturedAt": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")}
                 r = call("PUT", f"/editions/{e['id']}/completion", tok, w)
                 print(f"{title}: now revision {r['revision']} finished={r['finished']}")
+                return
+        raise SystemExit("no such title")
+    elif cmd == "comic-page":
+        # Save a comic position the way the web reader does: page identity copied from the server's page manifest.
+        title, index = sys.argv[2], int(sys.argv[3])
+        for t, e in editions(tok):
+            if t == title:
+                f = e["file"]
+                m = call("GET", f"/files/{f['id']}/versions/{f['contentVersion']}/pages", tok)
+                pos = call("GET", f"/editions/{e['id']}/position", tok)
+                page = m["pages"][index]
+                w = {"operationId": str(uuid.uuid4()), "baseRevision": pos["revision"],
+                     "anchor": {"fileId": f["id"], "contentVersion": f["contentVersion"],
+                                "locator": {"kind": "comic-page", "version": 1, "pageIndex": index, "entryId": page["entryId"], "manifestVersion": m["manifestVersion"]}},
+                     "capturedAt": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")}
+                r = call("PUT", f"/editions/{e['id']}/position", tok, w)
+                print(f"{title}: position revision {r['revision']} pageIndex {index} entry {page['entryId'][:12]}...")
                 return
         raise SystemExit("no such title")
     else:
