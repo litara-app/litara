@@ -207,3 +207,45 @@ data class LPageManifest(
 /** Body of the user-triggered extraction request; [baseRevision] is the edition revision the caller saw. */
 @Serializable
 data class LExtraction(val operationId: String, val baseRevision: String, val contentVersion: String)
+
+@Serializable
+data class LRectangle(val x: Double, val y: Double, val width: Double, val height: Double)
+
+/** The selected text range of a highlight (T005 selection); absent for page notes and bookmarks. */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+@JsonClassDiscriminator("kind")
+sealed interface LSelection {
+    @Serializable
+    @SerialName("foliate-range")
+    data class FoliateRange(val cfi: String, val version: Int = 1) : LSelection
+
+    @Serializable
+    @SerialName("pdf-rectangles")
+    data class PdfRectangles(val pageIndex: Int, val rectangles: List<LRectangle>, val version: Int = 1) : LSelection
+}
+
+/** [kind] is highlight, note or bookmark. [text] is the user's private text; [quote] is the selected book text (untrusted display data). */
+@Serializable
+data class LAnnotationData(val kind: String, val anchor: LEditionAnchor, val selection: LSelection?, val text: String, val quote: String)
+
+/** Create (base revision "0" with a never-used client UUID) or change one annotation; revision-checked and idempotent by [operationId]. */
+@Serializable
+data class LAnnotationWrite(val operationId: String, val baseRevision: String, val data: LAnnotationData, val capturedAt: String)
+
+@Serializable
+data class LAnnotationDelete(val operationId: String, val baseRevision: String, val capturedAt: String)
+
+/** A deleted annotation stays as a tombstone ([deleted] true, [data] null) so a stale edit can never recreate it. */
+@Serializable
+data class LAnnotation(
+    val id: String,
+    val editionId: String,
+    val revision: String,
+    val deleted: Boolean,
+    val data: LAnnotationData?,
+    val updatedAt: String,
+)
+
+@Serializable
+data class LAnnotations(val items: List<LAnnotation>, val total: Long, val page: Long, val size: Long)

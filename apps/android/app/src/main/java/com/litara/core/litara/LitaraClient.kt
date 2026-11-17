@@ -211,6 +211,25 @@ class LitaraClient(
     suspend fun prepareComicPages(fileId: String, contentVersion: String, r: LExtraction): LPageManifest =
         postJson("/files/$fileId/versions/$contentVersion/pages", LitaraJson.encodeToString(r))
 
+    /** Every annotation of the edition INCLUDING tombstones, following the effective page size and total. */
+    suspend fun listAllAnnotations(editionId: String, pageSize: Int = 200, maxPages: Int = 500): List<LAnnotation> {
+        val all = ArrayList<LAnnotation>()
+        var page = 0
+        while (page < maxPages) {
+            val r: LAnnotations = getJson("/editions/$editionId/annotations?page=$page&size=$pageSize&includeDeleted=true")
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
+    suspend fun putAnnotation(editionId: String, annotationId: String, w: LAnnotationWrite): LAnnotation =
+        sendJson("PUT", "/editions/$editionId/annotations/$annotationId", LitaraJson.encodeToString(w))
+
+    suspend fun deleteAnnotation(editionId: String, annotationId: String, d: LAnnotationDelete): LAnnotation =
+        sendJson("DELETE", "/editions/$editionId/annotations/$annotationId", LitaraJson.encodeToString(d))
+
     suspend fun listPersonalConflicts(page: Int = 0, size: Int = 50, resourceId: String? = null, includeResolved: Boolean = false): LPersonalConflicts {
         val qs = buildString {
             append("?page=$page&size=$size&includeResolved=$includeResolved")
