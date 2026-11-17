@@ -9,7 +9,7 @@ export function AdminLayout() {
   const loc = useLocation();
   const nav = useNavigate();
   if (!user?.isAdmin) return <Alert color="red" title="Administrators only">Your account is not an administrator.</Alert>;
-  const tab = loc.pathname.startsWith("/admin/libraries") ? "libraries" : loc.pathname.startsWith("/admin/repairs") ? "repairs" : "users";
+  const tab = loc.pathname.startsWith("/admin/libraries") ? "libraries" : loc.pathname.startsWith("/admin/repairs") ? "repairs" : loc.pathname.startsWith("/admin/integrations") ? "integrations" : "users";
   return (
     <Stack>
       <Title order={2}>Administration</Title>
@@ -18,6 +18,7 @@ export function AdminLayout() {
           <Tabs.Tab value="users">Users</Tabs.Tab>
           <Tabs.Tab value="libraries">Libraries</Tabs.Tab>
           <Tabs.Tab value="repairs">Recording repair</Tabs.Tab>
+          <Tabs.Tab value="integrations">Integrations</Tabs.Tab>
         </Tabs.List>
       </Tabs>
       <Outlet />

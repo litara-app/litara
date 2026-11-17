@@ -5,6 +5,8 @@ import { api, get } from "../api/client";
 import type { Edition } from "../api/types";
 import { EditionAdmin } from "../admin/EditionAdmin";
 import { useAuth } from "../auth/session";
+import { KoEditionCard } from "../settings/KoEditionCard";
+import { SendFile } from "../settings/SendFile";
 import { Busy, bytes, CapBadge, ErrorBox } from "../ui/common";
 
 export function EditionPage() {
@@ -59,6 +61,8 @@ export function EditionPage() {
         </Button>
       </Group>
       <ErrorBox error={finish.error} />
+      {e.file.availability === "available" && <SendFile target={{ fileId: e.file.id, contentVersion: e.file.contentVersion, sizeBytes: e.file.sizeBytes, label: e.label || e.file.format.toUpperCase() }} />}
+      <KoEditionCard editionId={e.id} fileId={e.file.id} contentVersion={e.file.contentVersion} />
       {user?.isAdmin && <EditionAdmin edition={e} />}
     </Stack>
   );

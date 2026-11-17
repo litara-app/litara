@@ -373,13 +373,14 @@ type DeliveryQueue struct {
 }
 
 type scheduled struct {
-	ID uuid.UUID
-	At time.Time
+	ID    uuid.UUID
+	At    time.Time
+	Added time.Time // wall clock, so a pump can wait for the enqueuing request to commit
 }
 
 func (q *DeliveryQueue) Schedule(_ context.Context, _ pgx.Tx, id uuid.UUID, at time.Time) error {
 	q.mu.Lock()
-	q.items = append(q.items, scheduled{id, at})
+	q.items = append(q.items, scheduled{ID: id, At: at, Added: time.Now()})
 	q.mu.Unlock()
 	return nil
 }
@@ -426,4 +427,27 @@ func (e *Env) RunDeliveries() int {
 		}
 	}
 	return len(due)
+}
+
+// ProcessSettledDeliveries runs due delivery jobs that were scheduled at least
+// settle ago (wall clock). The job is recorded before the enqueuing request's
+// transaction commits, so a pump must give the request time to finish. Errors are
+// ignored: this is for long-running servers used by browser tests, which assert on
+// the visible state instead.
+func (e *Env) ProcessSettledDeliveries(ctx context.Context, settle time.Duration) {
+	q := e.DQ
+	q.mu.Lock()
+	var due, keep []scheduled
+	for _, it := range q.items {
+		if !it.At.After(e.Clock.Now()) && time.Since(it.Added) >= settle {
+			due = append(due, it)
+		} else {
+			keep = append(keep, it)
+		}
+	}
+	q.items = keep
+	q.mu.Unlock()
+	for _, it := range due {
+		_ = e.Delivery.Process(ctx, it.ID)
+	}
 }

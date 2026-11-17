@@ -1,6 +1,6 @@
 # T006 acceptance ledger (38 scenarios)
 
-Last updated at the SMTP slice. Source of scenarios: `contracts/t006/scenarios.json`. "Covered" means an automated test against the real PostgreSQL-backed server passes; it does not claim third-party-client, hardware or inbox success. Test names are in `apps/server/internal/httpapi/`.
+Last updated at the web UI slice. Source of scenarios: `contracts/t006/scenarios.json`. "Covered" means an automated test against the real PostgreSQL-backed server passes; it does not claim third-party-client, hardware or inbox success. Test names are in `apps/server/internal/httpapi/`.
 
 | # | Scenario | State | Evidence / gap |
 | - | --- | --- | --- |
@@ -40,7 +40,7 @@ Last updated at the SMTP slice. Source of scenarios: `contracts/t006/scenarios.j
 | 34 | ko-resolve | Covered | keep_server, use_candidate, reapply, 4-way concurrent resolve (one winner), stale base, foreign 404, unresolved blocker. |
 | 35 | ko-replacement | Partial | Replacement, superseded binding 412, content_changed candidate pinned to old version, grant loss covered. A **file move** keeping the stable file ID is not separately tested. |
 | 36 | ko-real-client | **Not run** | No pinned unmodified KOReader was run; no captured real request sequence. |
-| 37 | web-settings-flows | **Not started** | No web work yet. |
-| 38 | release-regression | Partial | Full server suite (`go test ./...`) passed after slice 2; T003/T005 parity unchanged. Web build, reader-isolation and browser tests not rerun. |
+| 37 | web-settings-flows | Covered | 20 unit tests (one-time secret, write-only password, explicit selection, honest wording, retry operation reuse, cancel/resend acknowledgement, conflict resolve/reapply with the seen revision, admin settings) and 13 real-server browser tests: credential created, secret works for OPDS only, revoked; recipient saved; a file sent through the server transport to a local TLS sink and shown as accepted; another account sees nothing; retained KOReader candidate resolved; administrator settings; axe at desktop and phone widths. Browser spec runs in Chromium only. |
+| 38 | release-regression | Covered | Full server suite and `go vet` pass; web typecheck/build/unit pass; the whole real-server browser suite (205 tests, three browsers) and reader-isolation (27 tests, three browsers; run on spare ports, see handoff) pass; no change to Android, archive, `.github`, ADRs, TASKS.md, AGENTS.md, other contracts or deploy since the checkpoint; no CI, release or real mail. |
 
-Totals at this commit: Covered 31 (incl. 14 and 24 with simulation caveats, 28 limited), Partial 4 (3, 5, 35, 38), Not run 2 (12, 36), Not started 1 (37 web flows). 31 + 4 + 2 + 1 = 38.
+Totals at this commit: Covered 33 (incl. 14 and 24 with simulation caveats, 28 limited, 37 Chromium only), Partial 3 (3, 5, 35), Not run 2 (12, 36), Not started 0. 33 + 3 + 2 = 38.
