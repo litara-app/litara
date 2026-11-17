@@ -511,6 +511,13 @@ func (s *Service) settleLocked(ctx context.Context, q *sqlcgen.Queries, userID, 
 	if err != nil {
 		return 0, nil, nil, err
 	}
+	// Library access is required to read or settle retained state, whatever the action: a revoked grant freezes it.
+	if _, err := q.FileGrantedToUser(ctx, sqlcgen.FileGrantedToUserParams{UserID: userID, FileID: c.FileID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil, apperr.ErrAccessDenied, nil
+		}
+		return 0, nil, nil, err
+	}
 	resolved := c.ResolvedAt != nil
 	switch {
 	case action == "reapply" && !resolved:
@@ -684,6 +691,12 @@ func (s *Service) DeleteBinding(ctx context.Context, userID, id uuid.UUID, in wi
 			return 0, nil, apperr.ErrNotFound, nil
 		}
 		if err != nil {
+			return 0, nil, nil, err
+		}
+		if _, err := q.FileGrantedToUser(ctx, sqlcgen.FileGrantedToUserParams{UserID: userID, FileID: b.FileID}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return 0, nil, apperr.ErrAccessDenied, nil
+			}
 			return 0, nil, nil, err
 		}
 		if b.Deleted {

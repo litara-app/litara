@@ -41,7 +41,7 @@ func (q *Queries) BumpKoConflict(ctx context.Context, id uuid.UUID) (KoreaderCon
 }
 
 const countBindings = `-- name: CountBindings :one
-SELECT count(*) FROM koreader_bindings WHERE user_id = $1 AND NOT deleted
+SELECT count(*) FROM koreader_bindings b WHERE b.user_id = $1 AND NOT b.deleted AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.file_id = b.file_id)
 `
 
 func (q *Queries) CountBindings(ctx context.Context, userID uuid.UUID) (int64, error) {
@@ -52,7 +52,7 @@ func (q *Queries) CountBindings(ctx context.Context, userID uuid.UUID) (int64, e
 }
 
 const countKoConflicts = `-- name: CountKoConflicts :one
-SELECT count(*) FROM koreader_conflicts WHERE user_id = $1
+SELECT count(*) FROM koreader_conflicts c WHERE c.user_id = $1 AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.file_id = c.file_id)
 `
 
 func (q *Queries) CountKoConflicts(ctx context.Context, userID uuid.UUID) (int64, error) {
@@ -126,6 +126,28 @@ type FileCurrentGrantedParams struct {
 // Is this exact version current, available, edition-bound and granted to the user? Returns the edition.
 func (q *Queries) FileCurrentGranted(ctx context.Context, arg FileCurrentGrantedParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, fileCurrentGranted, arg.UserID, arg.FileID, arg.ContentVersion)
+	var edition_id uuid.UUID
+	err := row.Scan(&edition_id)
+	return edition_id, err
+}
+
+const fileGrantedToUser = `-- name: FileGrantedToUser :one
+SELECT e.id AS edition_id
+FROM editions e
+JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
+WHERE e.file_id = $2
+LIMIT 1
+`
+
+type FileGrantedToUserParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	FileID uuid.UUID `json:"file_id"`
+}
+
+// Does the user hold a library grant covering this file's edition (any version)? Management reads and settlements of
+// retained KOReader state require it, so revoking a library also hides and freezes its positions and candidates.
+func (q *Queries) FileGrantedToUser(ctx context.Context, arg FileGrantedToUserParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, fileGrantedToUser, arg.UserID, arg.FileID)
 	var edition_id uuid.UUID
 	err := row.Scan(&edition_id)
 	return edition_id, err
@@ -556,7 +578,7 @@ func (q *Queries) InsertKoReceipt(ctx context.Context, arg InsertKoReceiptParams
 }
 
 const listBindings = `-- name: ListBindings :many
-SELECT id, user_id, credential_id, document, file_id, content_version, revision, deleted, created_at FROM koreader_bindings WHERE user_id = $1 AND NOT deleted ORDER BY id LIMIT $2 OFFSET $3
+SELECT b.id, b.user_id, b.credential_id, b.document, b.file_id, b.content_version, b.revision, b.deleted, b.created_at FROM koreader_bindings b WHERE b.user_id = $1 AND NOT b.deleted AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.file_id = b.file_id) ORDER BY b.id LIMIT $2 OFFSET $3
 `
 
 type ListBindingsParams struct {
@@ -639,7 +661,7 @@ func (q *Queries) ListDigestCandidates(ctx context.Context, arg ListDigestCandid
 }
 
 const listKoConflicts = `-- name: ListKoConflicts :many
-SELECT id, user_id, credential_id, file_id, content_version, reason, fingerprint, document, progress, percentage, device, device_id, revision, created_source_revision, resolved_at, resolution, created_at FROM koreader_conflicts WHERE user_id = $1 ORDER BY created_at, id LIMIT $2 OFFSET $3
+SELECT c.id, c.user_id, c.credential_id, c.file_id, c.content_version, c.reason, c.fingerprint, c.document, c.progress, c.percentage, c.device, c.device_id, c.revision, c.created_source_revision, c.resolved_at, c.resolution, c.created_at FROM koreader_conflicts c WHERE c.user_id = $1 AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.file_id = c.file_id) ORDER BY c.created_at, c.id LIMIT $2 OFFSET $3
 `
 
 type ListKoConflictsParams struct {

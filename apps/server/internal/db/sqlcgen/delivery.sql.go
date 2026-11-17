@@ -477,6 +477,42 @@ func (q *Queries) ListDeliveries(ctx context.Context, arg ListDeliveriesParams) 
 	return items, nil
 }
 
+const listStuckDeliveries = `-- name: ListStuckDeliveries :many
+SELECT id FROM deliveries
+WHERE (state IN ('queued', 'retry_wait') AND next_attempt_at < $1)
+   OR (state = 'sending' AND lease_until IS NOT NULL AND lease_until < $2)
+ORDER BY updated_at, id
+LIMIT $3
+`
+
+type ListStuckDeliveriesParams struct {
+	DueBefore time.Time  `json:"due_before"`
+	Now       *time.Time `json:"now"`
+	Lim       int32      `json:"lim"`
+}
+
+// Deliveries whose durable job may have been lost (discarded, crashed, rescued): a due request nobody picked up, or an
+// attempt whose lease ended. The ledger, not the queue, decides what happens next (Process is idempotent).
+func (q *Queries) ListStuckDeliveries(ctx context.Context, arg ListStuckDeliveriesParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listStuckDeliveries, arg.DueBefore, arg.Now, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockPersonalSmtp = `-- name: LockPersonalSmtp :one
 SELECT id, owner_kind, user_id, revision, enabled, host, port, tls_mode, username, from_address, key_id, nonce, ciphertext, updated_at FROM smtp_configs WHERE owner_kind = 'personal' AND user_id = $1 FOR UPDATE
 `

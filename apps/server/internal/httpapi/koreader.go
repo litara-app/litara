@@ -97,7 +97,9 @@ func (a *API) registerKOReaderWire(mux *http.ServeMux) {
 		r.Body = http.MaxBytesReader(w, r.Body, koMaxBody)
 		var in struct {
 			koreader.PutIn
-			Metadata *struct {
+			// Shadows the embedded field so a missing (or null) percentage is rejected instead of saved as 0.
+			Percentage *float64 `json:"percentage"`
+			Metadata   *struct {
 				Filename string `json:"filename"`
 				Title    string `json:"title"`
 				Authors  string `json:"authors"`
@@ -107,6 +109,11 @@ func (a *API) registerKOReaderWire(mux *http.ServeMux) {
 			writeKoError(w, koreader.ErrInvalidFields)
 			return
 		}
+		if in.Percentage == nil {
+			writeKoError(w, koreader.ErrInvalidFields)
+			return
+		}
+		in.PutIn.Percentage = *in.Percentage
 		// Newer clients may send descriptive metadata: bounded, untrusted, never used to select a file.
 		if m := in.Metadata; m != nil && (len(m.Filename) > 1024 || len(m.Title) > 1024 || len(m.Authors) > 2048) {
 			writeKoError(w, koreader.ErrInvalidFields)

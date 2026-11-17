@@ -97,12 +97,25 @@ type Work func(tx pgx.Tx, q *sqlcgen.Queries) (status int, body []byte, durable 
 // original status and body; a different fingerprint is operation_id_reused.
 func (r *Runner) Run(ctx context.Context, userID, op uuid.UUID, fp []byte,
 	lock func(tx pgx.Tx, q *sqlcgen.Queries) error, w Work) (int, []byte, error) {
+	// Two identical requests can race to insert the same receipt. The loser's insert fails only after the winner
+	// commits, so one more pass finds that receipt: identical retries replay it, a different payload is reused.
+	for attempt := 0; ; attempt++ {
+		status, body, err, lost := r.run(ctx, userID, op, fp, lock, w)
+		if !lost || attempt >= 2 {
+			if lost {
+				return 0, nil, OperationReused()
+			}
+			return status, body, err
+		}
+	}
+}
+
+func (r *Runner) run(ctx context.Context, userID, op uuid.UUID, fp []byte,
+	lock func(tx pgx.Tx, q *sqlcgen.Queries) error, w Work) (status int, body []byte, err error, lost bool) {
 	var replay *sqlcgen.T005Receipt
-	var status int
-	var body []byte
 	var durable *apperr.Error
 
-	err := pgx.BeginFunc(ctx, r.Pool, func(tx pgx.Tx) error {
+	err = pgx.BeginFunc(ctx, r.Pool, func(tx pgx.Tx) error {
 		replay, status, body, durable = nil, 0, nil, nil
 		q := r.Q.WithTx(tx)
 		if lock != nil {
@@ -136,24 +149,24 @@ func (r *Runner) Run(ctx context.Context, userID, op uuid.UUID, fp []byte,
 	if err != nil {
 		var pe *pgconn.PgError
 		if errors.As(err, &pe) && pe.Code == "23505" && pe.ConstraintName == "t005_receipts_pkey" {
-			return 0, nil, OperationReused() // a concurrent request claimed this operation ID
+			return 0, nil, nil, true // a concurrent request claimed this operation ID
 		}
 		if _, ok := apperr.As(err); ok {
-			return 0, nil, err
+			return 0, nil, err, false
 		}
-		return 0, nil, fmt.Errorf("database: %w", err)
+		return 0, nil, fmt.Errorf("database: %w", err), false
 	}
 	if replay != nil {
 		if !bytes.Equal(replay.Fingerprint, fp) {
-			return 0, nil, OperationReused()
+			return 0, nil, OperationReused(), false
 		}
 		if replay.Status >= 400 {
-			return 0, nil, decodeProblem(replay.Body)
+			return 0, nil, decodeProblem(replay.Body), false
 		}
-		return int(replay.Status), replay.Body, nil
+		return int(replay.Status), replay.Body, nil, false
 	}
 	if durable != nil {
-		return 0, nil, durable
+		return 0, nil, durable, false
 	}
-	return status, body, nil
+	return status, body, nil, false
 }

@@ -83,3 +83,12 @@ WHERE id = $1 RETURNING *;
 
 -- name: MarkSubmissionBoundary :one
 UPDATE deliveries SET attempt_open = true, revision = revision + 1 WHERE id = $1 AND state = 'sending' RETURNING *;
+
+-- name: ListStuckDeliveries :many
+-- Deliveries whose durable job may have been lost (discarded, crashed, rescued): a due request nobody picked up, or an
+-- attempt whose lease ended. The ledger, not the queue, decides what happens next (Process is idempotent).
+SELECT id FROM deliveries
+WHERE (state IN ('queued', 'retry_wait') AND next_attempt_at < sqlc.arg(due_before))
+   OR (state = 'sending' AND lease_until IS NOT NULL AND lease_until < sqlc.arg(now))
+ORDER BY updated_at, id
+LIMIT sqlc.arg(lim);

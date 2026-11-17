@@ -52,10 +52,10 @@ UPDATE koreader_bindings SET credential_id = $2, document = $3, file_id = $4, co
 UPDATE koreader_bindings SET deleted = true, revision = revision + 1 WHERE id = $1 RETURNING *;
 
 -- name: ListBindings :many
-SELECT * FROM koreader_bindings WHERE user_id = $1 AND NOT deleted ORDER BY id LIMIT $2 OFFSET $3;
+SELECT b.* FROM koreader_bindings b WHERE b.user_id = $1 AND NOT b.deleted AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.file_id = b.file_id) ORDER BY b.id LIMIT $2 OFFSET $3;
 
 -- name: CountBindings :one
-SELECT count(*) FROM koreader_bindings WHERE user_id = $1 AND NOT deleted;
+SELECT count(*) FROM koreader_bindings b WHERE b.user_id = $1 AND NOT b.deleted AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.file_id = b.file_id);
 
 -- name: EnsureSource :exec
 INSERT INTO koreader_sources (user_id, file_id, content_version) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
@@ -105,10 +105,10 @@ RETURNING *;
 SELECT * FROM koreader_conflicts WHERE id = $1 AND user_id = $2 FOR UPDATE;
 
 -- name: ListKoConflicts :many
-SELECT * FROM koreader_conflicts WHERE user_id = $1 ORDER BY created_at, id LIMIT $2 OFFSET $3;
+SELECT c.* FROM koreader_conflicts c WHERE c.user_id = $1 AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.file_id = c.file_id) ORDER BY c.created_at, c.id LIMIT $2 OFFSET $3;
 
 -- name: CountKoConflicts :one
-SELECT count(*) FROM koreader_conflicts WHERE user_id = $1;
+SELECT count(*) FROM koreader_conflicts c WHERE c.user_id = $1 AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.file_id = c.file_id);
 
 -- name: ResolveKoConflict :one
 UPDATE koreader_conflicts SET resolved_at = COALESCE(resolved_at, now()), resolution = $2, revision = revision + 1 WHERE id = $1 RETURNING *;
@@ -126,3 +126,12 @@ SELECT content_version FROM file_versions WHERE file_id = $1 AND current;
 
 -- name: GetOwnKoConflict :one
 SELECT * FROM koreader_conflicts WHERE id = $1 AND user_id = $2;
+
+-- name: FileGrantedToUser :one
+-- Does the user hold a library grant covering this file's edition (any version)? Management reads and settlements of
+-- retained KOReader state require it, so revoking a library also hides and freezes its positions and candidates.
+SELECT e.id AS edition_id
+FROM editions e
+JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
+WHERE e.file_id = sqlc.arg(file_id)
+LIMIT 1;

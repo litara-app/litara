@@ -374,3 +374,25 @@ func (s *Service) retryable(ctx context.Context, d sqlcgen.Delivery, code string
 		return s.sched.Schedule(ctx, tx, d.ID, next)
 	})
 }
+
+// recoverGrace is how long a due request may wait for its own job before the sweep takes it over.
+const recoverGrace = time.Minute
+
+// Recover re-drives deliveries whose durable job was lost (a discarded or rescued job, a crash between the queued row
+// and its job, a failure before the claim). Process is idempotent and runs under the delivery row lock, so a live job
+// and the sweep cannot both submit: an expired "sending" lease becomes outcome_unknown, never a resubmission.
+func (s *Service) Recover(ctx context.Context, limit int) (int, error) {
+	now := s.now()
+	ids, err := s.q.ListStuckDeliveries(ctx, sqlcgen.ListStuckDeliveriesParams{DueBefore: now.Add(-recoverGrace), Now: &now, Lim: int32(limit)})
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, id := range ids {
+		if err := s.Process(ctx, id); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}

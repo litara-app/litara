@@ -94,6 +94,10 @@ func NewWorkerClient(pool *pgxpool.Pool, insp jobs.Inspector, opts WorkerOptions
 	if opts.Delivery != nil {
 		queues[jobs.QueueDelivery] = river.QueueConfig{MaxWorkers: 2}
 		river.AddWorker(workers, &jobs.DeliveryWorker{Processor: opts.Delivery, Logger: log})
+		if rec, ok := opts.Delivery.(jobs.DeliveryRecoverer); ok {
+			river.AddWorker(workers, &jobs.DeliveryRecoverWorker{Recoverer: rec, Logger: log})
+			periodic = append(periodic, jobs.DeliveryRecoverPeriodic())
+		}
 	}
 	cfg := &river.Config{
 		Logger:                      log,
