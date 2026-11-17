@@ -143,11 +143,9 @@ func TestOPDSUnmodifiedClient(t *testing.T) {
 		if sum.Pages < 2 || sum.Navigation < 1 {
 			t.Fatalf("%s: the client did not follow navigation: %+v\n%s", f.name, sum, out)
 		}
-		// Known boundary (recorded in research/t006/coverage.md): the Atom search filters ("Zebra" finds one book),
-		// but KOReader builds "?query=Zebra" from the OPDS 2.0 template "{?q,...}" and the server only reads "q",
-		// so the 2.0 search returns every book instead of the matches. This test therefore only proves that the
-		// client reaches a working search result page, not that 2.0 search is filtered. Do not read it as such.
-		if !sum.Searched || sum.SearchHits < 1 {
+		// KOReader builds "?query=Zebra" from the OPDS 2.0 template "{?q,...}"; the server accepts that alias, so
+		// search is filtered in both versions (one match, not every book).
+		if !sum.Searched || sum.SearchHits != 1 {
 			t.Fatalf("%s: search through the client found nothing: %+v\n%s", f.name, sum, out)
 		}
 		got := map[string]bool{}

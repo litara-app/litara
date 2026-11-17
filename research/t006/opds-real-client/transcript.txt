@@ -10,16 +10,16 @@ ffi.findlib: utf8proc [3]
 ffi.load: libs/libutf8proc.so.3
 ffi.findlib: blitbuffer
 ffi.load: libs/libblitbuffer.so
-SEARCH {"url":"http:\/\/host.docker.internal:55109\/opds\/v1\/publications?q=Zebra","hits":1}
-DOWNLOAD {"status":200,"bytes":958,"title":"A & B <Fixture> \"quoted\" é","type":"application\/epub+zip","sha256":"112225e7df6772ae59806a0eb3bd9427dd018bb325bdccc9afe40117cefae207","href":"http:\/\/host.docker.internal:55109\/opds\/files\/2b92bba3-5528-4d77-aebd-e60027f40f6c\/versions\/648cb93f-9a6c-4297-96d8-162caaa1f246\/content"}
-DOWNLOAD {"status":200,"bytes":180393,"title":"Generated Fixture Title (file 1 of 3)","type":"audio\/mpeg","sha256":"07446aea359e480e1fc8c41836664988d61143b74d1debce701f5e0d27063aca","href":"http:\/\/host.docker.internal:55109\/opds\/files\/5ad7ddc7-8ed0-5abb-bb7d-6cac1846e1c2\/versions\/2bdc03c6-f2a4-5e66-9a7c-edb3b5057363\/content"}
-DOWNLOAD {"status":200,"bytes":270437,"title":"Generated Fixture Title (file 2 of 3)","type":"audio\/mpeg","sha256":"b9eb7416e814993a83a3f3e49825524acbbe7d34ef8afafb26105e7d38a1f9c4","href":"http:\/\/host.docker.internal:55109\/opds\/files\/45ba3124-afc4-5880-bce7-bd25618097d3\/versions\/151711ea-78e4-5696-9c61-de0305b20c1f\/content"}
-DOWNLOAD {"status":200,"bytes":90427,"title":"Generated Fixture Title (file 3 of 3)","type":"audio\/mpeg","sha256":"7f89eaac82c06b90cf3d86534164e3d1c9b2bb6ddc4d8ce338ad362ad551ac3b","href":"http:\/\/host.docker.internal:55109\/opds\/files\/9a8276b7-59f1-5fc3-8e7b-b4ee76f2aedf\/versions\/0c5bd9ec-23aa-5837-94f6-5fdf1fa9d13b\/content"}
-DOWNLOAD {"status":200,"bytes":83111,"title":"Generated Fixture Title (file 1 of 1)","type":"audio\/mp4","sha256":"35dfbe524c811dddabd6fdfa294c0ae87665138f6a1e71bcd9ea875e065cc473","href":"http:\/\/host.docker.internal:55109\/opds\/files\/3c798939-41f4-54b0-bcfc-39ebc3a0d1ff\/versions\/fd561344-a813-5ca6-99a0-597174299a59\/content"}
-DOWNLOAD {"status":200,"bytes":30398,"title":"Incomplete Fixture Title (file 1 of 2)","type":"audio\/mpeg","sha256":"7025f4156c158bb6e7b989b3d10a2c34aa324014fcee25c456eeb524f8df807e","href":"http:\/\/host.docker.internal:55109\/opds\/files\/3084823a-2fa8-5219-817f-1b19a2b8eec0\/versions\/e3354f82-d84d-50dd-b8cc-30af5b2302d2\/content"}
-DOWNLOAD {"status":200,"bytes":525,"title":"issue1","type":"application\/vnd.comicbook+zip","sha256":"bae60b8160d4b289562395d3c6c4815c13061816d56f345e40633a48cc8cd41c","href":"http:\/\/host.docker.internal:55109\/opds\/files\/427178bf-0ec4-4c7d-ae1e-604c4f7517a8\/versions\/db9fc03d-2c2b-4b49-9cee-fa3b0183fc4f\/content"}
-DOWNLOAD {"status":200,"bytes":927,"title":"Zebra Tales","type":"application\/epub+zip","sha256":"a7b577af527220791a1554970ff8633669fb5f19a064b95dbe654f24bf6a471e","href":"http:\/\/host.docker.internal:55109\/opds\/files\/58a26e1d-e163-496c-93d6-a4b4c3a58869\/versions\/a2eb465e-a072-4585-8116-fdb6e1b8ab98\/content"}
-SUMMARY {"pages":4,"books":16,"searched":true,"navigation":3,"searchHits":1}
+SEARCH {"url":"http:\/\/host.docker.internal:55919\/opds\/v1\/publications?q=Zebra","hits":1}
+DOWNLOAD {"status":200,"title":"A & B <Fixture> \"quoted\" é","type":"application\/epub+zip","sha256":"7155af1fdf486c3698dd450214da8d29de4f278820d61862a1a66ced55c4aee4","bytes":958,"href":"http:\/\/host.docker.internal:55919\/opds\/files\/c9cafe95-9a45-4b2a-86f7-4fee4c083a8e\/versions\/b1bd80b8-0def-4b54-8770-ddc795930f02\/content"}
+DOWNLOAD {"status":200,"title":"Generated Fixture Title (file 1 of 3)","type":"audio\/mpeg","sha256":"07446aea359e480e1fc8c41836664988d61143b74d1debce701f5e0d27063aca","bytes":180393,"href":"http:\/\/host.docker.internal:55919\/opds\/files\/5ad7ddc7-8ed0-5abb-bb7d-6cac1846e1c2\/versions\/2bdc03c6-f2a4-5e66-9a7c-edb3b5057363\/content"}
+DOWNLOAD {"status":200,"title":"Generated Fixture Title (file 2 of 3)","type":"audio\/mpeg","sha256":"b9eb7416e814993a83a3f3e49825524acbbe7d34ef8afafb26105e7d38a1f9c4","bytes":270437,"href":"http:\/\/host.docker.internal:55919\/opds\/files\/45ba3124-afc4-5880-bce7-bd25618097d3\/versions\/151711ea-78e4-5696-9c61-de0305b20c1f\/content"}
+DOWNLOAD {"status":200,"title":"Generated Fixture Title (file 3 of 3)","type":"audio\/mpeg","sha256":"7f89eaac82c06b90cf3d86534164e3d1c9b2bb6ddc4d8ce338ad362ad551ac3b","bytes":90427,"href":"http:\/\/host.docker.internal:55919\/opds\/files\/9a8276b7-59f1-5fc3-8e7b-b4ee76f2aedf\/versions\/0c5bd9ec-23aa-5837-94f6-5fdf1fa9d13b\/content"}
+DOWNLOAD {"status":200,"title":"Generated Fixture Title (file 1 of 1)","type":"audio\/mp4","sha256":"35dfbe524c811dddabd6fdfa294c0ae87665138f6a1e71bcd9ea875e065cc473","bytes":83111,"href":"http:\/\/host.docker.internal:55919\/opds\/files\/3c798939-41f4-54b0-bcfc-39ebc3a0d1ff\/versions\/fd561344-a813-5ca6-99a0-597174299a59\/content"}
+DOWNLOAD {"status":200,"title":"Incomplete Fixture Title (file 1 of 2)","type":"audio\/mpeg","sha256":"7025f4156c158bb6e7b989b3d10a2c34aa324014fcee25c456eeb524f8df807e","bytes":30398,"href":"http:\/\/host.docker.internal:55919\/opds\/files\/3084823a-2fa8-5219-817f-1b19a2b8eec0\/versions\/e3354f82-d84d-50dd-b8cc-30af5b2302d2\/content"}
+DOWNLOAD {"status":200,"title":"issue1","type":"application\/vnd.comicbook+zip","sha256":"bae60b8160d4b289562395d3c6c4815c13061816d56f345e40633a48cc8cd41c","bytes":525,"href":"http:\/\/host.docker.internal:55919\/opds\/files\/eb62d193-f94f-430e-b9d9-6bf64aa778cc\/versions\/8e05c1f7-7b81-4219-96d2-bb0e88fd59fe\/content"}
+DOWNLOAD {"status":200,"title":"Zebra Tales","type":"application\/epub+zip","sha256":"efd5ef05235cfc46d0a037ce667cebef39a1efba94e1af5197b1ad1e029b40f9","bytes":927,"href":"http:\/\/host.docker.internal:55919\/opds\/files\/f7077a62-c0e6-4321-930d-07f0aebd1a68\/versions\/a7210fa2-6787-40d5-91a3-319513ee3de7\/content"}
+SUMMARY {"books":16,"searched":true,"navigation":3,"searchHits":1,"pages":4}
 
 server-observed requests:
 HEAD /opds/v1 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
@@ -38,18 +38,18 @@ HEAD /opds/v1/publications?libraryId=82a9e340-adf4-5e8d-8a43-319d11944b4b -> 200
 GET /opds/v1/publications?libraryId=82a9e340-adf4-5e8d-8a43-319d11944b4b -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
 HEAD /opds/v1/search.xml -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
 GET /opds/v1/search.xml -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
-HEAD /opds/v1/publications?libraryId=382fc451-43d7-45ee-8d53-f27deccf0a20 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
-GET /opds/v1/publications?libraryId=382fc451-43d7-45ee-8d53-f27deccf0a20 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
+HEAD /opds/v1/publications?libraryId=d8a137de-a8c1-4907-b84b-4f354a1d6aa5 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
+GET /opds/v1/publications?libraryId=d8a137de-a8c1-4907-b84b-4f354a1d6aa5 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
 HEAD /opds/v1/search.xml -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
 GET /opds/v1/search.xml -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
-GET /opds/files/2b92bba3-5528-4d77-aebd-e60027f40f6c/versions/648cb93f-9a6c-4297-96d8-162caaa1f246/content -> 200 (accept: )
+GET /opds/files/c9cafe95-9a45-4b2a-86f7-4fee4c083a8e/versions/b1bd80b8-0def-4b54-8770-ddc795930f02/content -> 200 (accept: )
 GET /opds/files/5ad7ddc7-8ed0-5abb-bb7d-6cac1846e1c2/versions/2bdc03c6-f2a4-5e66-9a7c-edb3b5057363/content -> 200 (accept: )
 GET /opds/files/45ba3124-afc4-5880-bce7-bd25618097d3/versions/151711ea-78e4-5696-9c61-de0305b20c1f/content -> 200 (accept: )
 GET /opds/files/9a8276b7-59f1-5fc3-8e7b-b4ee76f2aedf/versions/0c5bd9ec-23aa-5837-94f6-5fdf1fa9d13b/content -> 200 (accept: )
 GET /opds/files/3c798939-41f4-54b0-bcfc-39ebc3a0d1ff/versions/fd561344-a813-5ca6-99a0-597174299a59/content -> 200 (accept: )
 GET /opds/files/3084823a-2fa8-5219-817f-1b19a2b8eec0/versions/e3354f82-d84d-50dd-b8cc-30af5b2302d2/content -> 200 (accept: )
-GET /opds/files/427178bf-0ec4-4c7d-ae1e-604c4f7517a8/versions/db9fc03d-2c2b-4b49-9cee-fa3b0183fc4f/content -> 200 (accept: )
-GET /opds/files/58a26e1d-e163-496c-93d6-a4b4c3a58869/versions/a2eb465e-a072-4585-8116-fdb6e1b8ab98/content -> 200 (accept: )
+GET /opds/files/eb62d193-f94f-430e-b9d9-6bf64aa778cc/versions/8e05c1f7-7b81-4219-96d2-bb0e88fd59fe/content -> 200 (accept: )
+GET /opds/files/f7077a62-c0e6-4321-930d-07f0aebd1a68/versions/a7210fa2-6787-40d5-91a3-319513ee3de7/content -> 200 (accept: )
 
 == OPDS 2.0 ==
 has monolibtic? no (libs/libkoreader-monolibtic.so: cannot open shared object file: No such file or directory)
@@ -61,16 +61,16 @@ ffi.findlib: utf8proc [3]
 ffi.load: libs/libutf8proc.so.3
 ffi.findlib: blitbuffer
 ffi.load: libs/libblitbuffer.so
-SEARCH {"hits":8,"url":"http:\/\/host.docker.internal:55109\/opds\/v2\/publications?query=Zebra"}
-DOWNLOAD {"type":"application\/epub+zip","href":"http:\/\/host.docker.internal:55109\/opds\/files\/2b92bba3-5528-4d77-aebd-e60027f40f6c\/versions\/648cb93f-9a6c-4297-96d8-162caaa1f246\/content","sha256":"112225e7df6772ae59806a0eb3bd9427dd018bb325bdccc9afe40117cefae207","status":200,"bytes":958,"title":"A & B <Fixture> \"quoted\" é"}
-DOWNLOAD {"type":"audio\/mpeg","href":"http:\/\/host.docker.internal:55109\/opds\/files\/5ad7ddc7-8ed0-5abb-bb7d-6cac1846e1c2\/versions\/2bdc03c6-f2a4-5e66-9a7c-edb3b5057363\/content","sha256":"07446aea359e480e1fc8c41836664988d61143b74d1debce701f5e0d27063aca","status":200,"bytes":180393,"title":"Generated Fixture Title (file 1 of 3)"}
-DOWNLOAD {"type":"audio\/mpeg","href":"http:\/\/host.docker.internal:55109\/opds\/files\/45ba3124-afc4-5880-bce7-bd25618097d3\/versions\/151711ea-78e4-5696-9c61-de0305b20c1f\/content","sha256":"b9eb7416e814993a83a3f3e49825524acbbe7d34ef8afafb26105e7d38a1f9c4","status":200,"bytes":270437,"title":"Generated Fixture Title (file 2 of 3)"}
-DOWNLOAD {"type":"audio\/mpeg","href":"http:\/\/host.docker.internal:55109\/opds\/files\/9a8276b7-59f1-5fc3-8e7b-b4ee76f2aedf\/versions\/0c5bd9ec-23aa-5837-94f6-5fdf1fa9d13b\/content","sha256":"7f89eaac82c06b90cf3d86534164e3d1c9b2bb6ddc4d8ce338ad362ad551ac3b","status":200,"bytes":90427,"title":"Generated Fixture Title (file 3 of 3)"}
-DOWNLOAD {"type":"audio\/mp4","href":"http:\/\/host.docker.internal:55109\/opds\/files\/3c798939-41f4-54b0-bcfc-39ebc3a0d1ff\/versions\/fd561344-a813-5ca6-99a0-597174299a59\/content","sha256":"35dfbe524c811dddabd6fdfa294c0ae87665138f6a1e71bcd9ea875e065cc473","status":200,"bytes":83111,"title":"Generated Fixture Title (file 1 of 1)"}
-DOWNLOAD {"type":"audio\/mpeg","href":"http:\/\/host.docker.internal:55109\/opds\/files\/3084823a-2fa8-5219-817f-1b19a2b8eec0\/versions\/e3354f82-d84d-50dd-b8cc-30af5b2302d2\/content","sha256":"7025f4156c158bb6e7b989b3d10a2c34aa324014fcee25c456eeb524f8df807e","status":200,"bytes":30398,"title":"Incomplete Fixture Title (file 1 of 2)"}
-DOWNLOAD {"type":"application\/vnd.comicbook+zip","href":"http:\/\/host.docker.internal:55109\/opds\/files\/427178bf-0ec4-4c7d-ae1e-604c4f7517a8\/versions\/db9fc03d-2c2b-4b49-9cee-fa3b0183fc4f\/content","sha256":"bae60b8160d4b289562395d3c6c4815c13061816d56f345e40633a48cc8cd41c","status":200,"bytes":525,"title":"issue1"}
-DOWNLOAD {"type":"application\/epub+zip","href":"http:\/\/host.docker.internal:55109\/opds\/files\/58a26e1d-e163-496c-93d6-a4b4c3a58869\/versions\/a2eb465e-a072-4585-8116-fdb6e1b8ab98\/content","sha256":"a7b577af527220791a1554970ff8633669fb5f19a064b95dbe654f24bf6a471e","status":200,"bytes":927,"title":"Zebra Tales"}
-SUMMARY {"searched":true,"navigation":3,"searchHits":8,"pages":4,"books":16}
+SEARCH {"hits":1,"url":"http:\/\/host.docker.internal:55919\/opds\/v2\/publications?query=Zebra"}
+DOWNLOAD {"href":"http:\/\/host.docker.internal:55919\/opds\/files\/c9cafe95-9a45-4b2a-86f7-4fee4c083a8e\/versions\/b1bd80b8-0def-4b54-8770-ddc795930f02\/content","title":"A & B <Fixture> \"quoted\" é","bytes":958,"sha256":"7155af1fdf486c3698dd450214da8d29de4f278820d61862a1a66ced55c4aee4","status":200,"type":"application\/epub+zip"}
+DOWNLOAD {"href":"http:\/\/host.docker.internal:55919\/opds\/files\/5ad7ddc7-8ed0-5abb-bb7d-6cac1846e1c2\/versions\/2bdc03c6-f2a4-5e66-9a7c-edb3b5057363\/content","title":"Generated Fixture Title (file 1 of 3)","bytes":180393,"sha256":"07446aea359e480e1fc8c41836664988d61143b74d1debce701f5e0d27063aca","status":200,"type":"audio\/mpeg"}
+DOWNLOAD {"href":"http:\/\/host.docker.internal:55919\/opds\/files\/45ba3124-afc4-5880-bce7-bd25618097d3\/versions\/151711ea-78e4-5696-9c61-de0305b20c1f\/content","title":"Generated Fixture Title (file 2 of 3)","bytes":270437,"sha256":"b9eb7416e814993a83a3f3e49825524acbbe7d34ef8afafb26105e7d38a1f9c4","status":200,"type":"audio\/mpeg"}
+DOWNLOAD {"href":"http:\/\/host.docker.internal:55919\/opds\/files\/9a8276b7-59f1-5fc3-8e7b-b4ee76f2aedf\/versions\/0c5bd9ec-23aa-5837-94f6-5fdf1fa9d13b\/content","title":"Generated Fixture Title (file 3 of 3)","bytes":90427,"sha256":"7f89eaac82c06b90cf3d86534164e3d1c9b2bb6ddc4d8ce338ad362ad551ac3b","status":200,"type":"audio\/mpeg"}
+DOWNLOAD {"href":"http:\/\/host.docker.internal:55919\/opds\/files\/3c798939-41f4-54b0-bcfc-39ebc3a0d1ff\/versions\/fd561344-a813-5ca6-99a0-597174299a59\/content","title":"Generated Fixture Title (file 1 of 1)","bytes":83111,"sha256":"35dfbe524c811dddabd6fdfa294c0ae87665138f6a1e71bcd9ea875e065cc473","status":200,"type":"audio\/mp4"}
+DOWNLOAD {"href":"http:\/\/host.docker.internal:55919\/opds\/files\/3084823a-2fa8-5219-817f-1b19a2b8eec0\/versions\/e3354f82-d84d-50dd-b8cc-30af5b2302d2\/content","title":"Incomplete Fixture Title (file 1 of 2)","bytes":30398,"sha256":"7025f4156c158bb6e7b989b3d10a2c34aa324014fcee25c456eeb524f8df807e","status":200,"type":"audio\/mpeg"}
+DOWNLOAD {"href":"http:\/\/host.docker.internal:55919\/opds\/files\/eb62d193-f94f-430e-b9d9-6bf64aa778cc\/versions\/8e05c1f7-7b81-4219-96d2-bb0e88fd59fe\/content","title":"issue1","bytes":525,"sha256":"bae60b8160d4b289562395d3c6c4815c13061816d56f345e40633a48cc8cd41c","status":200,"type":"application\/vnd.comicbook+zip"}
+DOWNLOAD {"href":"http:\/\/host.docker.internal:55919\/opds\/files\/f7077a62-c0e6-4321-930d-07f0aebd1a68\/versions\/a7210fa2-6787-40d5-91a3-319513ee3de7\/content","title":"Zebra Tales","bytes":927,"sha256":"efd5ef05235cfc46d0a037ce667cebef39a1efba94e1af5197b1ad1e029b40f9","status":200,"type":"application\/epub+zip"}
+SUMMARY {"pages":4,"books":16,"searched":true,"navigation":3,"searchHits":1}
 
 server-observed requests:
 HEAD /opds/v2 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
@@ -81,14 +81,14 @@ HEAD /opds/v2/publications -> 200 (accept: application/opds+json, application/at
 GET /opds/v2/publications -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
 HEAD /opds/v2/publications?libraryId=82a9e340-adf4-5e8d-8a43-319d11944b4b -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
 GET /opds/v2/publications?libraryId=82a9e340-adf4-5e8d-8a43-319d11944b4b -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
-HEAD /opds/v2/publications?libraryId=382fc451-43d7-45ee-8d53-f27deccf0a20 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
-GET /opds/v2/publications?libraryId=382fc451-43d7-45ee-8d53-f27deccf0a20 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
-GET /opds/files/2b92bba3-5528-4d77-aebd-e60027f40f6c/versions/648cb93f-9a6c-4297-96d8-162caaa1f246/content -> 200 (accept: )
+HEAD /opds/v2/publications?libraryId=d8a137de-a8c1-4907-b84b-4f354a1d6aa5 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
+GET /opds/v2/publications?libraryId=d8a137de-a8c1-4907-b84b-4f354a1d6aa5 -> 200 (accept: application/opds+json, application/atom+xml;profile=opds-catalog, */*)
+GET /opds/files/c9cafe95-9a45-4b2a-86f7-4fee4c083a8e/versions/b1bd80b8-0def-4b54-8770-ddc795930f02/content -> 200 (accept: )
 GET /opds/files/5ad7ddc7-8ed0-5abb-bb7d-6cac1846e1c2/versions/2bdc03c6-f2a4-5e66-9a7c-edb3b5057363/content -> 200 (accept: )
 GET /opds/files/45ba3124-afc4-5880-bce7-bd25618097d3/versions/151711ea-78e4-5696-9c61-de0305b20c1f/content -> 200 (accept: )
 GET /opds/files/9a8276b7-59f1-5fc3-8e7b-b4ee76f2aedf/versions/0c5bd9ec-23aa-5837-94f6-5fdf1fa9d13b/content -> 200 (accept: )
 GET /opds/files/3c798939-41f4-54b0-bcfc-39ebc3a0d1ff/versions/fd561344-a813-5ca6-99a0-597174299a59/content -> 200 (accept: )
 GET /opds/files/3084823a-2fa8-5219-817f-1b19a2b8eec0/versions/e3354f82-d84d-50dd-b8cc-30af5b2302d2/content -> 200 (accept: )
-GET /opds/files/427178bf-0ec4-4c7d-ae1e-604c4f7517a8/versions/db9fc03d-2c2b-4b49-9cee-fa3b0183fc4f/content -> 200 (accept: )
-GET /opds/files/58a26e1d-e163-496c-93d6-a4b4c3a58869/versions/a2eb465e-a072-4585-8116-fdb6e1b8ab98/content -> 200 (accept: )
+GET /opds/files/eb62d193-f94f-430e-b9d9-6bf64aa778cc/versions/8e05c1f7-7b81-4219-96d2-bb0e88fd59fe/content -> 200 (accept: )
+GET /opds/files/f7077a62-c0e6-4321-930d-07f0aebd1a68/versions/a7210fa2-6787-40d5-91a3-319513ee3de7/content -> 200 (accept: )
 

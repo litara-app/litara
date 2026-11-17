@@ -525,6 +525,23 @@ func decodeJSONFeedPublication(t *testing.T, r apitest.Response) jPubT {
 	return p
 }
 
+// "query" is accepted as an alias for "q" on both feeds (KOReader sends it for OPDS 2.0 search); "q" wins when both are given.
+func TestOPDSSearchQueryAlias(t *testing.T) {
+	o := newOPDSEnv(t)
+	byQ := decodeAtom(t, o.asA("/opds/v1/publications?q=Zebra"))
+	byAlias := decodeAtom(t, o.asA("/opds/v1/publications?query=Zebra"))
+	if len(byQ.Entries) != 1 || len(byAlias.Entries) != 1 || byQ.Entries[0].ID != byAlias.Entries[0].ID {
+		t.Fatalf("alias must filter exactly like q: %d vs %d", len(byQ.Entries), len(byAlias.Entries))
+	}
+	f := decodeJSONFeed(t, o.asA("/opds/v2/publications?query=Zebra"))
+	if f.Metadata.NumberOfItems != 1 {
+		t.Fatalf("v2 alias must filter: %+v", f.Metadata)
+	}
+	if f := decodeJSONFeed(t, o.asA("/opds/v2/publications?q=Zebra&query=Saga")); f.Metadata.NumberOfItems != 1 {
+		t.Fatalf("q must win over query: %+v", f.Metadata)
+	}
+}
+
 func TestOPDSSearchPaginationAndFilters(t *testing.T) {
 	o := newOPDSEnv(t)
 	all := decodeAtom(t, o.asA("/opds/v1/publications?size=200"))

@@ -127,7 +127,13 @@ func parseListQuery(r *http.Request) (opds.Query, *string, error) {
 	v := r.URL.Query()
 	q := opds.Query{Size: 50}
 	var needle *string
-	if raw := v.Get("q"); raw != "" {
+	raw := v.Get("q")
+	if raw == "" {
+		// Compatibility alias: OPDS 2.0 clients (KOReader among them) build "?query=" for a search template that does not
+		// name it. "q" stays the advertised and documented parameter and wins when both are present.
+		raw = v.Get("query")
+	}
+	if raw != "" {
 		if len(raw) > 512*4 || len([]rune(raw)) > 512 {
 			return q, nil, apperr.Validation("q is too long")
 		}
