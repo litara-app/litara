@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -32,10 +33,16 @@ func main() {
 	listen := flag.String("listen", "127.0.0.1:18443", "HTTPS listen address")
 	app := flag.String("app", "", "host=backend for the application origin")
 	reader := flag.String("reader", "", "host=backend for the reader origin")
+	ips := flag.String("ip", "", "comma-separated IP addresses to add as certificate SANs (for clients that connect by address)")
+	def := flag.String("default", "", "host=backend used for any other Host header (for example an IP literal)")
 	flag.Parse()
 	routes := map[string]*httputil.ReverseProxy{}
 	var names []string
+	var fallback *httputil.ReverseProxy
 	for _, kv := range []string{*app, *reader} {
+		if kv == "" {
+			continue
+		}
 		host, backend, ok := strings.Cut(kv, "=")
 		if !ok {
 			log.Fatal("need host=backend")
@@ -46,6 +53,9 @@ func main() {
 		rp.Director = func(r *http.Request) { h := r.Host; d(r); r.Host = h; r.Header.Set("X-Forwarded-Proto", "https") }
 		routes[host] = rp
 		names = append(names, host)
+		if *def != "" && *def == kv {
+			fallback = rp
+		}
 	}
 	caKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	caTmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "T007 rehearsal CA"}, NotBefore: time.Now().Add(-time.Hour),
@@ -53,7 +63,13 @@ func main() {
 	caDER, _ := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caKey.PublicKey, caKey)
 	caCert, _ := x509.ParseCertificate(caDER)
 	leafKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	leafTmpl := &x509.Certificate{SerialNumber: big.NewInt(2), Subject: pkix.Name{CommonName: names[0]}, DNSNames: names, NotBefore: time.Now().Add(-time.Hour),
+	var ipAddrs []net.IP
+	for _, a := range strings.Split(*ips, ",") {
+		if ip := net.ParseIP(strings.TrimSpace(a)); ip != nil {
+			ipAddrs = append(ipAddrs, ip)
+		}
+	}
+	leafTmpl := &x509.Certificate{SerialNumber: big.NewInt(2), Subject: pkix.Name{CommonName: names[0]}, DNSNames: names, IPAddresses: ipAddrs, NotBefore: time.Now().Add(-time.Hour),
 		NotAfter: time.Now().Add(24 * time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
 	leafDER, _ := x509.CreateCertificate(rand.Reader, leafTmpl, caCert, &leafKey.PublicKey, caKey)
 	if err := os.WriteFile(filepath.Join(*out, "ca.pem"), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}), 0o644); err != nil {
@@ -64,6 +80,9 @@ func main() {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			host := strings.ToLower(strings.Split(r.Host, ":")[0])
 			rp, ok := routes[host]
+			if !ok && fallback != nil {
+				rp, ok = fallback, true
+			}
 			if !ok {
 				http.Error(w, "unknown host", http.StatusMisdirectedRequest)
 				return
