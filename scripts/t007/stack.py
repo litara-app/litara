@@ -38,8 +38,11 @@ def env_for(key, media):
     e.update({
         "LITARA_DATABASE_URL": DB_URL, "LITARA_SECRET_KEY": key, "LITARA_DEV_INSECURE_HTTP": "1",
         "LITARA_HTTP_ADDR": f"0.0.0.0:{PORT}", "LITARA_MEDIA_ROOT": str(media),
-        "LITARA_CACHE_DIR": str(WORK / "cache"),
+        "LITARA_CACHE_DIR": str(WORK / "cache"), "LITARA_SMTP_ALLOW_LOCAL_TEST": "1",
     })
+    sk = WORK / "smtp.key"
+    if sk.exists():  # the SMTP key ring is independent of the login secret key (ADR-0030 operator configuration)
+        e.update({"LITARA_SMTP_KEYS": "k1:" + sk.read_text().strip(), "LITARA_SMTP_ACTIVE_KEY": "k1"})
     return e
 
 
@@ -159,6 +162,8 @@ def up():
     psql(f"DROP DATABASE IF EXISTS {DB}")
     psql(f"CREATE DATABASE {DB}")
     key = subprocess.check_output([str(WORK / "bin" / ("ctl" + EXE)), "gen-key"], text=True).strip()
+    (WORK / "smtp.key").write_text(subprocess.check_output([str(WORK / "bin" / ("ctl" + EXE)), "gen-key"], text=True).strip())
+    (WORK / "secret.key").write_text(key)  # kept only so rehearsals can restart/restore with the same key; .tmp is git-ignored
     env = env_for(key, media)
     run([str(WORK / "bin" / ("ctl" + EXE)), "migrate", "up"], env=env, stdout=subprocess.DEVNULL)
     admin_pw, user_pw = secrets.token_urlsafe(18), secrets.token_urlsafe(18)

@@ -1,0 +1,96 @@
+{
+  "started": "2026-11-18T00:49:18.088127Z",
+  "backupInventory": {
+    "database dump (pg_dump -Fc)": 178176,
+    "roles/globals (pg_dumpall --globals-only)": 671,
+    "media root files": 4,
+    "secret key file and SMTP key ring": "present (values not recorded)",
+    "cache directory": "not backed up: regenerable (page/derived caches)"
+  },
+  "globalsRoles": [
+    "postgres"
+  ],
+  "missingSmtpKeyRing": {
+    "serverStarted": true,
+    "smtp": {
+      "revision": "1",
+      "configured": true,
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 2525,
+      "tlsMode": "local_test_plain",
+      "username": "rehearsal",
+      "fromAddress": "rehearsal@example.test",
+      "hasPassword": true,
+      "keyAvailable": false
+    },
+    "otherStateEqualToSource": true
+  },
+  "otherKeyId": {
+    "serverStarted": true,
+    "smtp": {
+      "revision": "1",
+      "configured": true,
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 2525,
+      "tlsMode": "local_test_plain",
+      "username": "rehearsal",
+      "fromAddress": "rehearsal@example.test",
+      "hasPassword": true,
+      "keyAvailable": false
+    },
+    "otherStateEqualToSource": true
+  },
+  "sameIdWrongKeyMaterial": {
+    "serverStarted": true,
+    "smtp": {
+      "revision": "1",
+      "configured": true,
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 2525,
+      "tlsMode": "local_test_plain",
+      "username": "rehearsal",
+      "fromAddress": "rehearsal@example.test",
+      "hasPassword": true,
+      "keyAvailable": true
+    },
+    "otherStateEqualToSource": true,
+    "connectionTest": {
+      "success": false,
+      "code": "configuration_unavailable",
+      "detail": "The stored configuration cannot be used (missing or wrong encryption key)."
+    }
+  },
+  "differentMediaPath": {
+    "result": "refused",
+    "detail": "GET /files/d61bbbc1-6497-4f36-b020-fb61dc76b50e/versions/7110c250-7dcd-4fa7-9e69-b2c629fa7a9b/content -> 503 {\"type\":\"urn:litara:problem:temporarily_unavailable\",\"title\":\"temporarily_unavailable\",\"sta"
+  },
+  "snapshotDifferences": [],
+  "correctKey": {
+    "smtp": {
+      "revision": "1",
+      "configured": true,
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 2525,
+      "tlsMode": "local_test_plain",
+      "username": "rehearsal",
+      "fromAddress": "rehearsal@example.test",
+      "hasPassword": true,
+      "keyAvailable": true
+    }
+  },
+  "rangeRead": {
+    "status": 206,
+    "bytes": 64,
+    "contentRange": "bytes 0-63/4443"
+  },
+  "restoredMediaEqualsSource": true,
+  "sourceMediaUnchanged": true,
+  "newLoginWorksAfterRestore": true,
+  "secretsAbsentFromOutput": true,
+  "finished": "2026-11-18T00:50:39.137967Z",
+  "result": "PASS"
+}
