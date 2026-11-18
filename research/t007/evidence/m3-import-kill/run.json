@@ -1,0 +1,30 @@
+{
+  "started": "2026-11-18T02:58:29.697239Z",
+  "files": 6,
+  "megabytesEach": 150,
+  "plannedItems": 6,
+  "itemStatesAtKill": [
+    "copying|1",
+    "planned|4",
+    "published|1"
+  ],
+  "planStateAtKill": "running",
+  "tempFilesAtKill": [
+    "Unknown Author\\Import Book 3\\.litara-import-de2ac0ba-832e-4c33-8ebe-cd632df5d8a3.tmp"
+  ],
+  "killTriggered": true,
+  "planStateAfterDeath": "running",
+  "secondsToFinishAfterRestart": 313.8,
+  "planStateAfterRestart": "completed",
+  "itemStatesFinal": [
+    "published|6"
+  ],
+  "targetFiles": 6,
+  "allTargetsMatchReviewedBytes": true,
+  "tempFilesAfterRestart": [],
+  "sourceUnchanged": true,
+  "editionsInManagedLibrary": "6",
+  "duplicateTitles": "0",
+  "result": "PASS",
+  "finished": "2026-11-18T03:05:35.439581Z"
+}

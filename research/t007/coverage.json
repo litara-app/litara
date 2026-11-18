@@ -110,11 +110,14 @@
     },
     {
       "id": "write-recovery",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-writeback-kill/run.json",
+        "research/t007/evidence/m3-import-kill/run.json"
+      ],
+      "command": "python scripts/t007/writeback_kill.py; python scripts/t007/import_kill.py",
       "environment": "",
-      "blocker": ""
+      "blocker": "No-overwrite publication race and filesystems without hard links (NAS) not tested; backup on/failure paths not exercised live."
     },
     {
       "id": "providers",
@@ -144,14 +147,17 @@
     },
     {
       "id": "process-restart",
-      "state": "partial",
+      "state": "passed",
       "evidencePaths": [
-        "research/t007/evidence/m3-kill-recovery/",
+        "research/t007/evidence/m3-kill-recovery/README.md",
+        "research/t007/evidence/m3-writeback-kill/run.json",
+        "research/t007/evidence/m3-import-kill/run.json",
+        "research/t007/evidence/m3-koreader-kill/run.json",
         "research/t007/evidence/m3-smtp-kill/run.json"
       ],
-      "command": "python scripts/t007/kill_recovery.py; python scripts/t007/smtp_kill.py",
+      "command": "python scripts/t007/{kill_recovery,smtp_kill,writeback_kill,import_kill,koreader_kill}.py",
       "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
-      "blocker": "Comic extraction and SMTP boundary done; import staging, KOReader state and write-back replacement kills open."
+      "blocker": "Single-host Windows, default rescue 5 min; no concurrent-load or container-supervisor kills."
     },
     {
       "id": "smtp-key-restart",

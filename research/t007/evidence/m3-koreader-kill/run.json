@@ -1,0 +1,62 @@
+{
+  "finished": "2026-11-18T03:08:21.575956Z",
+  "passed": 11,
+  "failed": 0,
+  "checks": [
+    {
+      "check": "device A reads the empty state",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "device A progress accepted",
+      "pass": true,
+      "detail": "(200, '{\"document\":\"9305af1b6e3aeda2d837861ba24e1130\",\"timestamp\":1794971297}\\n')"
+    },
+    {
+      "check": "device B without a baseline is refused with 2007",
+      "pass": true,
+      "detail": "(409, '{\"code\":2007,\"message\":\"Progress was retained for review in Litara\"}\\n')"
+    },
+    {
+      "check": "one retained candidate and canonical revision 1 before the kill",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "check": "canonical KOReader position identical after hard kill and restart",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "retained candidate list identical",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "web position and completion untouched",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "device B retry is still refused with 2007 (baseline not invented)",
+      "pass": true,
+      "detail": "(409, '{\"code\":2007,\"message\":\"Progress was retained for review in Litara\"}\\n')"
+    },
+    {
+      "check": "B's retry created no second candidate or revision",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "device A replay of the accepted payload is idempotent",
+      "pass": true,
+      "detail": "(200, '{\"document\":\"9305af1b6e3aeda2d837861ba24e1130\",\"timestamp\":1794971297}\\n')"
+    },
+    {
+      "check": "owner can still resolve the retained conflict",
+      "pass": true,
+      "detail": "{'revision': '1', 'fileId': 'dba980cd-a4c8-4e27-8731-fa182af6c346', 'contentVersion': '9b82158b-8600-44a3-b604-c3668eeb0f57', 'source': 'koreader', 'position': {'document': '9305af1b6e3aeda2d837861ba24e1130', 'progress': 'epubcfi(/6/8)', 'p"
+    }
+  ]
+}
