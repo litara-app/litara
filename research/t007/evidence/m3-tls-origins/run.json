@@ -1,0 +1,182 @@
+{
+  "finished": "2026-11-18T02:49:45.258368+00:00",
+  "passed": 35,
+  "failed": 0,
+  "checks": [
+    {
+      "check": "validated TLS handshake to app.litara.test",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "validated TLS handshake to reader.litara.test",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "handshake without the CA is refused",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "certificate for another host name is refused",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "plain HTTP to the TLS port gets no HTTP answer",
+      "pass": true,
+      "detail": "b'HTTP/1.0 400 Bad'"
+    },
+    {
+      "check": "app origin serves the SPA with CSP, nosniff, frame denial",
+      "pass": true,
+      "detail": "(200, \"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;\")"
+    },
+    {
+      "check": "app CSP allows framing only the reader origin",
+      "pass": true,
+      "detail": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self'; frame-src https://reader.litara.test:18443; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    },
+    {
+      "check": "app-config names the reader origin",
+      "pass": true,
+      "detail": "{'readerOrigin': 'https://reader.litara.test:18443'}"
+    },
+    {
+      "check": "app origin refuses /reader/ assets",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "reader origin root route does not serve the app",
+      "pass": true,
+      "detail": "404"
+    },
+    {
+      "check": "reader origin denies /api/v1/me",
+      "pass": true,
+      "detail": "404"
+    },
+    {
+      "check": "reader origin denies /api/v1/discovery",
+      "pass": true,
+      "detail": "404"
+    },
+    {
+      "check": "reader origin denies /library",
+      "pass": true,
+      "detail": "404"
+    },
+    {
+      "check": "reader origin denies /admin",
+      "pass": true,
+      "detail": "404"
+    },
+    {
+      "check": "reader origin denies /auth/web/login",
+      "pass": true,
+      "detail": "404"
+    },
+    {
+      "check": "reader assets carry a sandboxing CSP",
+      "pass": true,
+      "detail": "(404, \"sandbox allow-scripts allow-same-origin; default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; \")"
+    },
+    {
+      "check": "reader origin sends no CORS grant to a hostile origin",
+      "pass": true,
+      "detail": "None"
+    },
+    {
+      "check": "web login succeeds over TLS",
+      "pass": true,
+      "detail": "(200, b'{\"user\":{\"id\":\"228c07e6-2c7f-4d5b-bab9-9d70f4edf95a\",\"username\":\"t007reader\",\"displayName\":\"T007 Reader\",\"isAdmin\":false')"
+    },
+    {
+      "check": "every session cookie is Secure, HttpOnly (session) and SameSite",
+      "pass": true,
+      "detail": "['litara_session=e-pHP8wyup5lKgfAvwgtFcwTRwSIa0J-6BzZX5D2UC4; Path=/api/v1; Expires=Fri, 18 Dec 2026 02:49:31 GMT; Max-Age=2591999; HttpOnly; Secure; SameSite=Lax']"
+    },
+    {
+      "check": "cookie session reads /me",
+      "pass": true,
+      "detail": "(200, b'{\"id\":\"228c07e6-2c7f-4d5b-bab9-9d70f4edf95a\",\"username\":\"t007reader\",\"displayName\":\"T007 Reader\",\"is')"
+    },
+    {
+      "check": "state-changing cookie request without CSRF token is refused",
+      "pass": true,
+      "detail": "(403, b'{\"type\":\"urn:litara:problem:csrf_failed\",\"title\":\"csrf_failed\",\"status\":403,\"detail\":\"The browser request failed the origin or CSRF check.\",')"
+    },
+    {
+      "check": "state-changing cookie request from a hostile Origin is refused",
+      "pass": true,
+      "detail": "(403, b'{\"type\":\"urn:litara:problem:csrf_failed\",\"title\":\"csrf_failed\",\"status\":403,\"detail\":\"The browser request failed the origin or CSRF check.\",')"
+    },
+    {
+      "check": "API sends no CORS grant to a hostile origin",
+      "pass": true,
+      "detail": "None"
+    },
+    {
+      "check": "API has no cross-origin surface: even the app origin gets no CORS grant (same-origin use only)",
+      "pass": true,
+      "detail": "(405, None)"
+    },
+    {
+      "check": "native login over TLS",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "authenticated original Range read",
+      "pass": true,
+      "detail": "(206, 32)"
+    },
+    {
+      "check": "authenticated original HEAD reports size and range support",
+      "pass": true,
+      "detail": "(200, 'bytes', '4443')"
+    },
+    {
+      "check": "original without credentials is refused",
+      "pass": true,
+      "detail": "401"
+    },
+    {
+      "check": "refresh rotates the token pair",
+      "pass": true,
+      "detail": "200"
+    },
+    {
+      "check": "session is listed for the device",
+      "pass": true,
+      "detail": "[{'id': 'd2262702-f407-4ceb-9202-cbf2a7fccca5', 'deviceName': 'tls-browser', 'client': 'web', 'createdAt': '2026-11-18T02:49:31.491836Z', 'lastUsedAt': '2026-11-18T02:49:31.491836Z', 'idleExpiresAt': '2026-12-18T02:49:31.491836Z', 'absoluteExpiresAt': '2027-02-16T02:49:31.491836Z'}, {'id': 'ee3a3e49"
+    },
+    {
+      "check": "session revocation accepted",
+      "pass": true,
+      "detail": "204"
+    },
+    {
+      "check": "revoked session cannot refresh",
+      "pass": true,
+      "detail": "401"
+    },
+    {
+      "check": "revoked session's access token stops working",
+      "pass": true,
+      "detail": "401"
+    },
+    {
+      "check": "hostile metadata is stored and returned as inert JSON text",
+      "pass": true,
+      "detail": "{'id': 'e2d215d2-5efa-4b9f-bb8b-bae6f192110a', 'title': '<script>alert(1)</script><img src=x onerror=alert(1)>', 'authors': ['\"><svg onload=alert(1)>'], 'series': [], 'languages': [], 'editionCount': 1, 'recordingCount': 0, 'lastActivityAt': None}"
+    },
+    {
+      "check": "API JSON responses are nosniff",
+      "pass": true,
+      "detail": "nosniff"
+    }
+  ]
+}
