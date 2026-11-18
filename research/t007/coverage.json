@@ -124,11 +124,13 @@
     },
     {
       "id": "providers",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m2-providers/README.md"
+      ],
+      "command": "public documentation review plus one public synthetic query per provider (curl)",
+      "environment": "Windows 11 host, live public services on 2026-11-18",
+      "blocker": "No client-side rate limiter; Open Library contact identification missing; Google Books keyless 429; Audnexus successor/terms is a user policy choice; Google APIs Terms caching clauses not read."
     },
     {
       "id": "reconcile-concurrency",
