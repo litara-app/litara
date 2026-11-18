@@ -12,25 +12,25 @@ States are the worker's observation as of the latest commit: `passed`, `partial`
 | `locator-roundtrip` | Web/native actual locator compatibility | **partial** | `research/t007/evidence/m1-locators/` | Synthetic fixtures; sub-page PDF coordinates and KEPUB/MOBI open. |
 | `native-personal-state` | Native annotations, shelves and completion | **partial** | `research/t007/evidence/m1-annotations/`, `research/t007/evidence/m1-finish-conflicts/` | Shelves UI, real two-writer annotation conflicts, account switch not covered. |
 | `native-offline-isolation` | Native durable queues and downloads | **pending** | - | Not started. |
-| `audio-regression` | Integrated native/web audio regression | **pending** | - | Not started. |
+| `audio-regression` | Integrated native/web audio regression | **partial** | `research/t007/evidence/m4-corpus/android-audio-playback.txt`, `research/t007/evidence/m4-corpus/audio-playback-chromium.json` | Native playback of the corpus only; offline completion, revocation, account switch and post-repair/replacement regression on native audio not re-run (G03). |
 | `auth-refresh` | Sessions, refresh and grant revocation | **partial** | `research/t007/evidence/m3-tls-origins/run.json` | Native refresh rotation and session revocation over TLS; grant revocation and token race on device only in slice 4 notes. |
 | `ingest-reader` | Ingestion to edition/recording workflows | **pending** | - | Not started. |
 | `repair-native` | Recording repair with old clients/offline state | **pending** | - | Not started. |
 | `metadata-writers` | Per-format in-file writer fidelity | **partial** | `research/t007/evidence/m2-epub-writer/README.md`, `research/t007/evidence/m2-epub-writer/live-run.json` | EPUB only; MP3/FLAC/M4A/M4B have no writer and stay disabled with a visible reason. |
 | `write-recovery` | Reviewed write/import safety | **partial** | `research/t007/evidence/m3-writeback-kill/run.json`, `research/t007/evidence/m3-import-kill/run.json` | No-overwrite publication race and filesystems without hard links (NAS) not tested; backup on/failure paths not exercised live. |
-| `providers` | Opt-in provider qualification | **pending** | - | Not started. |
+| `providers` | Opt-in provider qualification | **partial** | `research/t007/evidence/m2-providers/README.md` | No client-side rate limiter; Open Library contact identification missing; Google Books keyless 429; Audnexus successor/terms is a user policy choice; Google APIs Terms caching clauses not read. |
 | `reconcile-concurrency` | Reconciliation and concurrent workers | **pending** | - | Not started. |
 | `tls-reader-isolation` | Actual TLS and separate reader origin | **partial** | `research/t007/evidence/m3-tls-origins/` | No real browser, no production proxy config, reader asset packaging open. |
 | `process-restart` | Process-death job/state recovery | **passed** | `research/t007/evidence/m3-kill-recovery/README.md`, `research/t007/evidence/m3-writeback-kill/run.json`, `research/t007/evidence/m3-import-kill/run.json` | Single-host Windows, default rescue 5 min; no concurrent-load or container-supervisor kills. |
 | `smtp-key-restart` | SMTP key loss through real restart | **partial** | `research/t007/evidence/m3-backup-restore/run.json` | Missing, other-id and wrong-material key restarts observed; same-id wrong key is reported available (finding). |
-| `secret-logs` | Credential log regression | **pending** | - | Not started. |
-| `opds-conformance` | OPDS semantic/conformance closure | **pending** | - | Not started. |
+| `secret-logs` | Credential log regression | **partial** | `research/t007/evidence/m4-secret-logs/` | No leak found, but the server has no request/access log, so redaction is untested; Atom conformance validator not run. |
+| `opds-conformance` | OPDS semantic/conformance closure | **partial** | `research/t007/evidence/m4-atom/README.md`, `research/t007/evidence/m4-atom/run.json` | Not formal validation (no Atom/OPDS 1.x RelaxNG validator); real OPDS client apps are a user-assisted gate; publication entry documents lack rel=self (advisory). |
 | `backup-restore` | Independent whole-stack restore rehearsal | **partial** | `research/t007/evidence/m3-backup-restore/` | No audio/KOReader/queued-delivery restore, same-path media required, single host. |
-| `package-notices` | Unsigned package and provenance | **pending** | - | Not started. |
-| `corpus-capabilities` | Realistic per-capability corpus | **pending** | - | Not started. |
+| `package-notices` | Unsigned package and provenance | **partial** | `research/t007/evidence/m5-package/README.md`, `research/t007/evidence/m5-package/image-contents.txt`, `research/t007/evidence/m5-package/package-check.txt` | Reproducibility not compared; Android artifacts and FFmpeg component licences not audited; no signing (out of scope). |
+| `corpus-capabilities` | Realistic per-capability corpus | **partial** | `research/t007/evidence/m4-corpus/`, `research/t007/capabilities.md`, `research/t007/evidence/m4-corpus/android-audio-playback.txt` | Synthetic fixtures only; no lawful real-world corpus, no >4 GiB valid media, WebKit (Windows) has no decoders, damaged-file state missing (F6). |
 | `nas-mounted` | Mounted NAS acceptance | **pending** | - | Needs a user-assisted mounted SMB/NFS test share. |
 | `koreader-app` | Actual KOReader/OPDS app over TLS | **pending** | - | Needs the actual KOReader/OPDS apps over TLS. |
-| `koreader-large-digest` | Upstream large-file digest agreement | **pending** | - | Not started. |
+| `koreader-large-digest` | Upstream large-file digest agreement | **pending** | - | Needs upstream KOReader digest vectors for large files compared with ours. |
 | `accessibility` | Screen-reader, keyboard and touch | **pending** | - | Needs screen reader, keyboard and touch checks by a person. |
 | `android-emulator` | Both Android emulator flavors | **partial** | `research/t007/logs/instrumented-results/`, `handoffs/T007.md` | 24/24 per flavor on API 36; API 37 blocked by Espresso 3.6.1 (finding F4); new screens lack instrumented tests. |
 | `physical-phone` | Physical Android acceptance | **pending** | - | Physical Android resource/operator not confirmed. |
@@ -44,5 +44,5 @@ States are the worker's observation as of the latest commit: `passed`, `partial`
 * **T008 / ADR-0063:** personal-state migration is a separate reserved task and a release hold; T007 neither implements nor weakens it.
 * **ADR-0064:** GitHub Actions stays disabled; no CI, publishing, signing or tags were touched.
 * **Metadata writers:** EPUB enabled-by-operator with evidence; MP3, FLAC, M4A, M4B have no writer and stay disabled with a visible reason and an open gate (not an undocumented stream-copy claim).
-* **Findings needing a decision** (see `handoffs/T007.md`): absolute media paths make restores path-sensitive; SMTP `keyAvailable` overstates for a same-id wrong key; web lockfile fails `npm ci` on npm 11.21; managed-import targets use "Unknown Author"; KEPUB/MOBI/AZW locator compatibility is unproven; Android Espresso 3.6.1 cannot run on API 37; root `.gitattributes` for Windows checkouts.
+* **Findings needing a decision** (see `handoffs/T007.md`): absolute media paths make restores path-sensitive; SMTP `keyAvailable` overstates for a same-id wrong key; web lockfile fails `npm ci` on npm 11.21; F5 (audio allowlist) resolved by user decision; F6 damaged-file state missing; F7 sign-in/process-restart persistence race fixed; managed-import targets use "Unknown Author"; KEPUB/MOBI/AZW locator compatibility is unproven; Android Espresso 3.6.1 cannot run on API 37; root `.gitattributes` for Windows checkouts.
 * **Hardware:** physical phone, Android Auto head unit and Chromecast are not available to the worker and stay open.
