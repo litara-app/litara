@@ -27,12 +27,13 @@ import stack  # noqa: E402
 
 ROOT, WORK = stack.ROOT, stack.WORK
 arg = lambda n, d=None: sys.argv[sys.argv.index(n) + 1] if n in sys.argv else d  # noqa: E731
-SHARE = Path(arg("--share", "")).resolve() if arg("--share") else Path("")
+SHARE = Path(os.path.abspath(arg("--share"))) if arg("--share") else Path("")  # abspath, not resolve(): keep a drive letter instead of its UNC target
 SIM = "--simulate" in sys.argv
 KEEP = "--keep" in sys.argv
 OUT = ROOT / arg("--out", "research/t007/evidence/m4-nas")
 PROMPT, GO = WORK / "nas-prompt.txt", WORK / "nas-continue"
 checks, probe = [], {}
+REMOTE = ""
 
 
 def now():
@@ -112,7 +113,29 @@ def capability_probe(d):
     return p
 
 
+UNMAP = arg("--auto-unmap")  # drive letter such as W: ; the user authorized this one mapping to be dropped and restored by the script
+
+
+def net_use_remote(letter):
+    out = subprocess.run(["net", "use", letter], capture_output=True, text=True).stdout
+    for ln in out.splitlines():
+        if ln.lower().startswith("remote name"):
+            return ln.split(None, 2)[2].strip()
+    raise SystemExit(f"{letter} is not a mapped network drive")
+
+
 def wait_user(text):
+    if UNMAP and text.startswith("DISCONNECT"):
+        global REMOTE
+        REMOTE = net_use_remote(UNMAP)
+        print(f"dropping only the mapping {UNMAP} -> {REMOTE}", flush=True)
+        subprocess.run(["net", "use", UNMAP, "/delete", "/y"], capture_output=True, text=True)
+        return
+    if UNMAP and text.startswith("RECONNECT"):
+        r = subprocess.run(["net", "use", UNMAP, REMOTE, "/persistent:no"], capture_output=True, text=True)
+        print("re-mapped:", r.stdout.strip().splitlines()[:1], r.stderr.strip()[:120], flush=True)
+        return
+
     PROMPT.write_text(text, encoding="utf-8")
     GO.unlink(missing_ok=True)
     print("WAITING FOR USER:", text, flush=True)

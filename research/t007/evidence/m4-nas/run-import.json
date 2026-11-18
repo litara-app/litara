@@ -1,0 +1,42 @@
+{
+  "itemStates": {
+    "Import 1.epub": "published",
+    "Import 2.epub": "failed",
+    "Import 3.epub": "published"
+  },
+  "share": "W:\\",
+  "passed": 6,
+  "failed": 0,
+  "checks": [
+    {
+      "check": "import plan lists the 3 source files",
+      "pass": true,
+      "detail": "3"
+    },
+    {
+      "check": "the conflicting target was not overwritten",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "the conflicted item failed with a reason and the plan ended failed",
+      "pass": true,
+      "detail": "{'Import 1.epub': 'published', 'Import 2.epub': 'failed', 'Import 3.epub': 'published'}"
+    },
+    {
+      "check": "the other items published with the exact reviewed bytes",
+      "pass": true,
+      "detail": "['published', 'published']"
+    },
+    {
+      "check": "no temporary copies remain on the share",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "the source folder is unchanged",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}
