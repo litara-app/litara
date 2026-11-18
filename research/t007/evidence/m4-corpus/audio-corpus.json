@@ -158,7 +158,7 @@
       "rangeBytesExact": true,
       "tailRange206": true,
       "tailBytesExact": true,
-      "sha256": "ed5f02b2544c48a0"
+      "sha256": "173b76dae6407bc0"
     },
     "Format OPUS": {
       "readiness": "ready",
@@ -183,7 +183,7 @@
       "rangeBytesExact": true,
       "tailRange206": true,
       "tailBytesExact": true,
-      "sha256": "a12fc9b2100759ba"
+      "sha256": "30273ea48767c96a"
     },
     "Format WAV": {
       "readiness": "ready",

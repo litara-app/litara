@@ -14,7 +14,7 @@ Legend: **observed** = exercised in T007 with the evidence named; **inherited** 
 | Damaged EPUB (truncated zip) | **finding F6:** cataloged `ready`/`supported` although the container is unreadable; no damaged state exists | untested | n/a | n/a | n/a |
 | PDF | observed (extraction not needed; Range) | observed (PdfRenderer page view) | canonical `pdf-page` at page granularity only; sub-page coordinates open | text selection untested; PDF annotation UI absent | none |
 | CBZ | observed (page manifest, extraction, kill/restart) | observed (comic host, offline untested) | observed canonical `comic-page` (manifest identity) | observed page bookmark/note | none |
-| CBR/CB7 | server support inherited (ADR-0072) | untested | untested | untested | none |
+| CBR/CB7 | server support inherited (ADR-0072) | untested | untested | **pass** (same) | none |
 
 ## Audio formats (server catalog, original delivery and browser playback; observed 2026-11-18 on synthetic fixtures)
 
@@ -22,16 +22,16 @@ After the user's decision to widen the allowlist (finding F5, `catalog.Supported
 
 | Format | Server (ready, play/download, HEAD, head and tail Range with exact bytes) | Chromium (Playwright) | Firefox (Playwright) | WebKit (Playwright, Windows) | Android | Writer |
 | --- | --- | --- | --- | --- | --- | --- |
-| MP3 (and 3-part recording) | pass | play+seek pass | pass | fails for every format (no media decoders in this build; environment limit, not format specific) | untested in T007 (inherited T003) | none |
-| M4A, M4B with 3 embedded chapters | pass; chapters `embedded` at 0/10/20 s | pass | pass | fail (as above) | untested in T007 | none |
-| FLAC | pass | pass | pass | fail (as above) | untested | none |
-| Ogg Vorbis | pass | pass | pass | fail (as above) | untested | none |
-| Opus (`audio/opus`) | pass | pass | pass | fail (as above) | untested | none |
-| WAV | pass | pass | pass | fail (as above) | untested | none |
-| Raw AAC (ADTS) | pass (duration estimated by ffprobe, 19629 ms vs 20000) | pass | pass | fail (as above) | untested | none |
+| MP3 (and 3-part recording) | pass | play+seek pass | pass | fails for every format (no media decoders in this build; environment limit, not format specific) | **pass** (real app, API 37 emulator: plays, position advances, scrubber seek) | none |
+| M4A, M4B with 3 embedded chapters | pass; chapters `embedded` at 0/10/20 s | pass | pass | fail (as above) | **pass** (same) | none |
+| FLAC | pass | pass | pass | fail (as above) | **pass** (same) | none |
+| Ogg Vorbis | pass | pass | pass | fail (as above) | **pass** (same) | none |
+| Opus (`audio/opus`) | pass | pass | pass | fail (as above) | **pass** (same) | none |
+| WAV | pass | pass | pass | fail (as above) | **pass** (same) | none |
+| Raw AAC (ADTS) | pass (duration estimated by ffprobe, 19629 ms vs 20000) | pass | pass | fail (as above) | **pass** (same) | none |
 | Valid >4 GiB media | arithmetic proven earlier with sparse files only | open | open | open | open | n/a |
 
-Defect found while checking: `canPlayType("audio/opus")` is empty in Chromium and Firefox although Ogg Opus plays, so the web player would have refused `.opus` files. `apps/web/src/audio/mime.ts` (`probeType`) now probes `audio/ogg; codecs="opus"` (and maps the x-m4a/x-m4b aliases), with unit tests. Android playback of FLAC/Ogg/Opus/WAV/AAC on an emulator was attempted but not completed (UI text entry on the emulator did not register), so it stays untested; the app's own MIME mapping already lists them (`AudioMimeType.kt`). MP3/FLAC/M4A/M4B in-file writers remain absent.
+Defect found while checking: `canPlayType("audio/opus")` is empty in Chromium and Firefox although Ogg Opus plays, so the web player would have refused `.opus` files. `apps/web/src/audio/mime.ts` (`probeType`) now probes `audio/ogg; codecs="opus"` (and maps the x-m4a/x-m4b aliases), with unit tests. Android playback of every format was then verified in the real app on the Pixel_9_Pro emulator (API 37) with `scripts/t007/android_audio.sh` (`evidence/m4-corpus/android-audio-playback.txt`, 8/8 play and scrubber-seek; fixtures are 20-30 s so only short seeks were exercised). Getting there exposed a sign-in defect (F7 below). MP3/FLAC/M4A/M4B in-file writers remain absent.
 
 ## Per-capability notes
 

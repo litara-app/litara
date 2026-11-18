@@ -65,11 +65,14 @@
     },
     {
       "id": "audio-regression",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-corpus/android-audio-playback.txt",
+        "research/t007/evidence/m4-corpus/audio-playback-chromium.json"
+      ],
+      "command": "bash scripts/t007/android_audio.sh; node scripts/t007/audio_browser.mjs chromium",
+      "environment": "Pixel_9_Pro API 37 emulator; Playwright Chromium/Firefox",
+      "blocker": "Native playback of the corpus only; offline completion, revocation, account switch and post-repair/replacement regression on native audio not re-run (G03)."
     },
     {
       "id": "auth-refresh",
@@ -214,11 +217,12 @@
       "state": "partial",
       "evidencePaths": [
         "research/t007/evidence/m4-corpus/",
-        "research/t007/capabilities.md"
+        "research/t007/capabilities.md",
+        "research/t007/evidence/m4-corpus/android-audio-playback.txt"
       ],
       "command": "ffmpeg/Calibre-generated fixtures ingested into the disposable stack (see evidence README)",
       "environment": "Windows 11, bundled-equivalent ffprobe 8.0.1, Calibre ebook-convert",
-      "blocker": "Synthetic fixtures only; no lawful real-world corpus, no >4 GiB valid media, Android playback of the widened audio formats untested, WebKit (Windows) has no decoders, damaged-file state missing (F6)."
+      "blocker": "Synthetic fixtures only; no lawful real-world corpus, no >4 GiB valid media, WebKit (Windows) has no decoders, damaged-file state missing (F6)."
     },
     {
       "id": "nas-mounted",
