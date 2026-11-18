@@ -3,7 +3,9 @@ package ingest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path"
+	"reflect"
 	"strings"
 
 	"github.com/google/uuid"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/ebookmeta"
+	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 )
 
 // EditionFormat returns the T005 format name for a file name, or "" when the
@@ -62,6 +65,139 @@ func (s *Scanner) SyncEditions(ctx context.Context, lib uuid.UUID) error {
 		}
 	}
 	return nil
+}
+
+// embeddedFields lists the metadata fields a file's own tags actually carry.
+func embeddedFields(m ebookmeta.Meta) map[string]any {
+	emb := map[string]any{}
+	if m.Title != "" {
+		emb["title"] = m.Title
+	}
+	if len(m.Authors) > 0 {
+		emb["authors"] = m.Authors
+	}
+	if m.Series != "" {
+		emb["series_name"] = m.Series
+	}
+	if m.SeriesIndex != nil {
+		emb["series_index"] = *m.SeriesIndex
+	}
+	if m.Language != "" {
+		emb["language"] = m.Language
+	}
+	return emb
+}
+
+// refreshEmbedded re-reads a replaced file's own tags (same file ID, new content version) and brings the edition's
+// "embedded" evidence up to date, so a change made in the file itself, including an approved write-back, shows in the
+// catalog. Evidence from other sources, and every field an administrator edited (even a clear), is never touched; the
+// title row only follows while this edition is its sole child and the field has no administrator edit. An unreadable file
+// keeps the previous evidence.
+func (s *Scanner) refreshEmbedded(ctx context.Context, lib, fileID uuid.UUID, rel string) error {
+	q := sqlcgen.New(s.Pool)
+	ed, err := q.GetEditionByFileID(ctx, fileID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // audio files and files that never became editions
+	}
+	if err != nil {
+		return err
+	}
+	cfg, err := q.GetLibraryConfig(ctx, lib)
+	if err != nil {
+		return err
+	}
+	m, merr := ebookmeta.Read(path.Join(cfg.RootPath, rel), ed.Format)
+	if merr != nil || m.Source != "embedded" {
+		if merr != nil && merr != ebookmeta.ErrUnsupported {
+			s.log().Warn("embedded metadata unreadable after replacement; keeping previous", "path", rel, "error", merr)
+		}
+		return nil
+	}
+	emb := embeddedFields(m)
+	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		if _, err := q.LockEdition(ctx, ed.ID); err != nil {
+			return err
+		}
+		rows, err := q.ListEditionMetadataValues(ctx, ed.ID)
+		if err != nil {
+			return err
+		}
+		have, user := map[string][]byte{}, map[string]bool{}
+		for _, r := range rows {
+			switch r.Source {
+			case "embedded":
+				have[r.Field] = r.Value
+			case metadata.SourceUser:
+				user[r.Field] = true
+			}
+		}
+		changed := false
+		for f := range have {
+			if _, ok := emb[f]; !ok {
+				if _, err := q.DeleteEditionMetadataValue(ctx, sqlcgen.DeleteEditionMetadataValueParams{EditionID: ed.ID, Field: f, Source: "embedded"}); err != nil {
+					return err
+				}
+				changed = true
+			}
+		}
+		for f, v := range emb {
+			raw, err := json.Marshal(v)
+			if err != nil {
+				return err
+			}
+			var a, b any
+			if old, ok := have[f]; ok && json.Unmarshal(old, &a) == nil && json.Unmarshal(raw, &b) == nil && reflect.DeepEqual(a, b) {
+				continue
+			}
+			if err := q.UpsertEditionMetadataValue(ctx, sqlcgen.UpsertEditionMetadataValueParams{EditionID: ed.ID, Field: f, Source: "embedded", Value: raw}); err != nil {
+				return err
+			}
+			changed = true
+		}
+		if !changed {
+			return nil
+		}
+		if err := q.BumpEdition(ctx, ed.ID); err != nil {
+			return err
+		}
+		if !user["language"] {
+			var lang *string
+			if m.Language != "" {
+				lang = &m.Language
+			}
+			if err := q.SetEditionLanguage(ctx, sqlcgen.SetEditionLanguageParams{ID: ed.ID, Language: lang}); err != nil {
+				return err
+			}
+		}
+		if n, err := q.CountTitleChildren(ctx, ed.TitleID); err != nil || n != 1 {
+			return err
+		}
+		t, err := q.GetTitleRow(ctx, ed.TitleID)
+		if err != nil {
+			return err
+		}
+		name, authors, series, index := t.Title, t.Authors, t.SeriesName, t.SeriesIndex
+		if !user["title"] && m.Title != "" {
+			name = m.Title
+		}
+		if !user["authors"] {
+			authors = m.Authors
+			if authors == nil {
+				authors = []string{}
+			}
+		}
+		if !user["series_name"] {
+			series = nil
+			if m.Series != "" {
+				series = &m.Series
+			}
+		}
+		if !user["series_index"] {
+			index = m.SeriesIndex
+		}
+		return q.UpdateTitleFields(ctx, sqlcgen.UpdateTitleFieldsParams{ID: t.ID, Title: name, Authors: authors, SeriesName: series, SeriesIndex: index})
+	})
 }
 
 func (s *Scanner) insertEdition(ctx context.Context, q *sqlcgen.Queries, lib, fileID uuid.UUID, rel, format string, m ebookmeta.Meta) error {
@@ -133,23 +269,7 @@ func (s *Scanner) insertEdition(ctx context.Context, q *sqlcgen.Queries, lib, fi
 	if m.Source != "embedded" {
 		return nil // the file name is a computed fallback, never stored as embedded evidence
 	}
-	emb := map[string]any{}
-	if m.Title != "" {
-		emb["title"] = m.Title
-	}
-	if len(m.Authors) > 0 {
-		emb["authors"] = m.Authors
-	}
-	if m.Series != "" {
-		emb["series_name"] = m.Series
-	}
-	if m.SeriesIndex != nil {
-		emb["series_index"] = *m.SeriesIndex
-	}
-	if m.Language != "" {
-		emb["language"] = m.Language
-	}
-	for f, v := range emb {
+	for f, v := range embeddedFields(m) {
 		raw, err := json.Marshal(v)
 		if err != nil {
 			return err

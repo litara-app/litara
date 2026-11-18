@@ -3049,6 +3049,10 @@
               "m4b"
             ],
             "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 512
           }
         },
         "required": [

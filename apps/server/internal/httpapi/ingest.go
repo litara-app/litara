@@ -457,7 +457,17 @@ func (a *API) registerWriteback(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, apperr.ErrUnavailable)
 			}
-			out.Items = append(out.Items, wire.WriterCapability{Format: f, Enabled: c.Enabled})
+			wc := wire.WriterCapability{Format: f, Enabled: c.Enabled}
+			if !c.Enabled {
+				_, registered := a.Writeback.Writers[f]
+				switch {
+				case !registered:
+					wc.Reason = "No writer for this format is built into this server; fidelity has not been demonstrated (ADR-0052). Export a sidecar instead."
+				default:
+					wc.Reason = "A writer is built in but has not been enabled; an operator records its fidelity evidence with `ctl writers enable`."
+				}
+			}
+			out.Items = append(out.Items, wc)
 		}
 		return &bodyOut[wire.WriterCapabilityList]{Body: out}, nil
 	})

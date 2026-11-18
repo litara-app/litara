@@ -85,6 +85,8 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return resetPasswordCmd(ctx, cfg, args[1:], out)
 	case "seed":
 		return seedCmd(ctx, cfg, args[1:], out)
+	case "writers":
+		return writersCmd(ctx, cfg, args[1:], out)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }

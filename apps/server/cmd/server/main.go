@@ -121,8 +121,10 @@ func run() error {
 		metadata.ProviderGoogleBooks: metadata.GoogleBooks{HTTP: metadata.HTTP{BaseURL: "https://www.googleapis.com"}, APIKey: cfg.GoogleBooksAPIKey},
 		metadata.ProviderAudnexus:    metadata.Audnexus{HTTP: metadata.HTTP{BaseURL: "https://api.audnex.us"}},
 	}}
-	// No in-file writer is registered: every format stays disabled until fidelity evidence exists (ADR-0052).
-	wb := &writeback.Service{Pool: pool, Inspector: scanInsp, Scanner: scanner, Metadata: meta, Writers: map[string]writeback.Writer{}}
+	// Only writers with retained fidelity evidence are built in (ADR-0052): today EPUB. Even then a writer stays disabled until an
+	// operator records its evidence with `ctl writers enable`; MP3, FLAC, M4A and M4B have no writer and stay disabled.
+	wb := &writeback.Service{Pool: pool, Inspector: scanInsp, Scanner: scanner, Metadata: meta,
+		Writers: map[string]writeback.Writer{"epub": writeback.EPUBWriter{}}}
 	if done, gone, err := wb.Recover(ctx); err != nil {
 		log.Warn("write-back recovery failed", "error", err)
 	} else if done+gone > 0 {

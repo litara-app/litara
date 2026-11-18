@@ -125,6 +125,8 @@ type Writeback struct {
 type WriterCapability struct {
 	Format  string `json:"format" enum:"epub,mp3,flac,m4a,m4b"`
 	Enabled bool   `json:"enabled"`
+	// Reason is present while Enabled is false: why in-file writing is not available for the format.
+	Reason string `json:"reason,omitempty" maxLength:"512"`
 }
 
 type WriterCapabilityList struct {

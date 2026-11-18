@@ -182,7 +182,11 @@ def up():
     api("PUT", f"/admin/users/{tp['user']['id']}/libraries/{lib}", tok)
     api("PUT", f"/admin/users/{reader['id']}/libraries/{lib}", tok)
     time.sleep(2)  # files must be older than stabilitySecs
-    api("POST", f"/admin/libraries/{lib}/scans", tok, {})
+    try:
+        api("POST", f"/admin/libraries/{lib}/scans", tok, {})
+    except SystemExit as e:  # a scheduled first scan may already be queued; that is as good
+        if "scan_active" not in str(e):
+            raise
     (WORK / "creds.json").write_text(json.dumps({"base": BASE, "admin": ["t007admin", admin_pw], "reader": ["t007reader", user_pw], "library": lib}))
     for _ in range(60):
         eds = api("GET", "/editions?size=50", tok)

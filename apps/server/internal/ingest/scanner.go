@@ -419,7 +419,7 @@ func (s *Scanner) addFile(ctx context.Context, lib uuid.UUID, e Entry, sha strin
 // affected recording layouts; saved positions are never remapped (ADR-0044).
 func (s *Scanner) replace(ctx context.Context, lib uuid.UUID, o obs, e Entry, sha string, now time.Time) error {
 	c, r, f, d := s.inspectFile(ctx, e)
-	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+	if err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		if err := q.RetireCurrentVersion(ctx, o.FileID); err != nil {
 			return err
@@ -434,7 +434,11 @@ func (s *Scanner) replace(ctx context.Context, lib uuid.UUID, o obs, e Entry, sh
 			return err
 		}
 		return q.DeleteCandidate(ctx, sqlcgen.DeleteCandidateParams{LibraryID: lib, RelPath: e.Rel})
-	})
+	}); err != nil {
+		return err
+	}
+	// Both the scanner and an approved in-file write-back arrive here; the catalog follows the file's new tags.
+	return s.refreshEmbedded(ctx, lib, o.FileID, e.Rel)
 }
 
 // refreshStat records a touched-but-identical file (same bytes, new mtime).
