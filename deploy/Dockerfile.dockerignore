@@ -1,0 +1,9 @@
+.git
+.tmp
+archive
+apps/android
+apps/web/node_modules
+apps/web/dist
+**/node_modules
+research
+handoffs

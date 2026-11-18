@@ -11,7 +11,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$root"
 export LITARA_IMAGE="${LITARA_IMAGE:-litara-backend:dev}"
-export LITARA_HTTP_PORT="${LITARA_HTTP_PORT:-18080}"
+export LITARA_HTTP_PORT="${LITARA_HTTP_PORT:-18080}" LITARA_READER_PORT="${LITARA_READER_PORT:-18081}"
 export LITARA_DB_PASSWORD="smoke-$(date +%s)"
 export LITARA_DEV_INSECURE_HTTP=1
 fx="$(mktemp -d)"

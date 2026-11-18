@@ -197,11 +197,15 @@
     },
     {
       "id": "package-notices",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m5-package/README.md",
+        "research/t007/evidence/m5-package/image-contents.txt",
+        "research/t007/evidence/m5-package/package-check.txt"
+      ],
+      "command": "docker build -f deploy/Dockerfile .; bash scripts/t007/package_check.sh; bash scripts/backend/smoke.sh",
+      "environment": "Windows 11 + Docker 29, linux/amd64 image",
+      "blocker": "Reproducibility not compared; Android artifacts and FFmpeg component licences not audited; no signing (out of scope)."
     },
     {
       "id": "corpus-capabilities",

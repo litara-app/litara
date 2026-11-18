@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1.7
-# Backend-only image (T001). Bundles pinned native ffprobe/FFmpeg per ADR-0028.
-# Built/tested platform: linux/amd64 only. Other platforms are NOT supported.
+# Local unsigned test image (T001 backend, T007 packaging): server, ctl, the built web app and reader assets, and pinned
+# native ffprobe/FFmpeg per ADR-0028. Nothing is downloaded at run time. Build context is the repository root.
+# Built/tested platform: linux/amd64 only. Other platforms are NOT supported. This is not a release artifact.
 
 ARG GO_VERSION=1.26
+ARG NODE_VERSION=25.2.1
 ARG DEBIAN_RELEASE=bookworm
 
 # ---- pinned FFmpeg (BtbN autobuild, LGPL static, linux64) -------------------
@@ -26,12 +28,20 @@ RUN curl -fsSL -o ff.tar.xz \
       /out/bin/ffmpeg -hide_banner -version; } > /out/BUILDINFO.txt \
  && /out/bin/ffprobe -hide_banner -version | head -1
 
+# ---- web app and reader assets (lockfile install, no network at run time) ----
+FROM node:${NODE_VERSION}-${DEBIAN_RELEASE}-slim AS web
+WORKDIR /w
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci
+COPY apps/web/ ./
+RUN npm run build  && test -s dist/index.html && test -d dist/reader
+
 # ---- Go build ---------------------------------------------------------------
 FROM golang:${GO_VERSION}-${DEBIAN_RELEASE} AS build
 WORKDIR /src
-COPY go.mod go.sum ./
+COPY apps/server/go.mod apps/server/go.sum ./
 RUN go mod download
-COPY . .
+COPY apps/server/ .
 RUN CGO_ENABLED=0 go build -trimpath -o /out/server ./cmd/server \
  && CGO_ENABLED=0 go build -trimpath -o /out/ctl ./cmd/ctl
 
@@ -44,11 +54,18 @@ COPY --from=ffmpeg /out/bin/ffmpeg /out/bin/ffprobe /opt/litara/bin/
 COPY --from=ffmpeg /out/BUILDINFO.txt /opt/litara/ffmpeg-BUILDINFO.txt
 COPY --from=ffmpeg /out/licenses/ /usr/share/doc/litara/ffmpeg/
 COPY --from=build /out/server /out/ctl /usr/local/bin/
+COPY --from=web /w/dist /opt/litara/web
+COPY apps/server/THIRD_PARTY_NOTICES.md /usr/share/doc/litara/THIRD_PARTY_NOTICES.md
+COPY apps/web/THIRD_PARTY_NOTICES.md /usr/share/doc/litara/web-THIRD_PARTY_NOTICES.md
+COPY apps/server/third_party/licenses/ /usr/share/doc/litara/licenses/
+COPY LICENSE /usr/share/doc/litara/LICENSE
 # Writable managed-library mount point (T004); index libraries mount media read-only elsewhere.
 RUN mkdir -p /library && chown litara /library
 ENV LITARA_FFPROBE_PATH=/opt/litara/bin/ffprobe \
     LITARA_FFMPEG_PATH=/opt/litara/bin/ffmpeg \
     LITARA_HTTP_ADDR=0.0.0.0:8080
+# Web assets are present in the image; the compose file (or the operator) enables them with LITARA_WEB_DIR=/opt/litara/web,
+# LITARA_READER_ADDR and two distinct origins (ADR-0071).
 USER litara
-EXPOSE 8080
+EXPOSE 8080 8081
 ENTRYPOINT ["server"]

@@ -128,10 +128,13 @@ done = poll(import_done, 'import to finish')
 published = [i for i in done['items'] if i['state'] == 'published']
 if done['state'] != 'completed' or not published:
     raise SystemExit(f'FAIL import: {json.dumps(done)[:500]}')
-scan(mgd)
-time.sleep(2)
-scan(mgd)
-_, recs = call('GET', f'/recordings?libraryId={mgd}&size=50', token, expect=200)
+recs = {'items': []}
+for _attempt in range(5):  # a file needs two stable observations; a single fixed wait was timing-sensitive
+    scan(mgd)
+    time.sleep(2)
+    _, recs = call('GET', f'/recordings?libraryId={mgd}&size=50', token, expect=200)
+    if recs['items']:
+        break
 if not recs['items']:
     raise SystemExit('FAIL imported files were not cataloged')
 
