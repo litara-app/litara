@@ -1,6 +1,6 @@
 # M4 NAS rehearsal: runbook and dry-run (2026-11-18)
 
-**Status: dry-run only.** `python scripts/t007/nas_check.py --share <folder> --simulate` passed 15/15 on a LOCAL folder (`run-simulated.json`, connection loss simulated by renaming the test subdirectory). No real share has been used yet; the `nas-mounted` gate stays pending.
+**Status: run on a real SMB share on 2026-11-18 (see "Real run" below); the original dry-run note follows.** `python scripts/t007/nas_check.py --share <folder> --simulate` passed 15/15 on a LOCAL folder (`run-simulated.json`, connection loss simulated by renaming the test subdirectory). No real share has been used yet; the `nas-mounted` gate stays pending.
 
 ## What is needed from you (nothing has been mounted, unmounted or touched)
 * A **dedicated test share** (SMB or NFS) mounted on this Windows machine as a drive letter, UNC path or mount point, with at least 1 GB free and read/write access. Not a library or share with private data: the script only creates and removes one new subdirectory `litara-t007-<id>` (with a marker file), but a disconnect test should never be run on a share other things are using.
@@ -19,3 +19,12 @@ While it waits, the instruction is in `.tmp/t007/nas-prompt.txt`; create `.tmp/t
 
 ## Finding from the dry run (F8)
 Files under a library root that is not inside `LITARA_MEDIA_ROOT` are cataloged but their content is refused with 503 (`media.Open` restricts to the media root; the first dry-run attempt hit this). The NAS rehearsal therefore points `LITARA_MEDIA_ROOT` at the share. Open question: the compose file sets `LITARA_MEDIA_ROOT=/media` while managed libraries live under `/library`; whether managed-library originals are served in that layout was not verified here.
+
+## Real run (2026-11-18)
+Share: a dedicated empty folder on the user's NAS, mapped as `W:` on the Windows 11 host over SMB (the NAS address and model are not recorded here; the user's NAS root `Z:` was never written to). `python scripts/t007/nas_check.py --share W:\ --auto-unmap W:` (`run.json`): **15/15 checks passed**, including connection loss: only the `W:` mapping was dropped (the user authorized `net use W: /delete /y`, then the same mapping was restored with `net use W: <remote> /persistent:no`), the scan reported the root unavailable and marked nothing missing, originals answered 503, and after the re-map the same file ids and content versions were available again. `python scripts/t007/nas_import.py --share W:\` (`run-import.json`): 6/6 checks passed: a copy-only import onto the share published the reviewed bytes, a conflicting pre-existing target was not overwritten and its item failed, no temporary copies remained, the source stayed unchanged.
+
+Measured capabilities of this share (first phase): rename and atomic replace over an existing file work; **hard links are not available** (so the import publish path used its checked-rename fallback, whose tiny race is documented in the importer, not eliminated); case-insensitive names; mtime kept at 100 ns resolution (set 123 ns, read back 100 ns); 200-character file names work with absolute paths. A first attempt that resolved `W:` to its UNC path could not be disconnected by dropping the drive mapping (fixed: `abspath`, not `resolve`).
+
+Cleanup: both scripts removed only their own marker-protected subfolders; `W:` was empty afterwards. The mapping was recreated as non-persistent; re-add `/persistent:yes` if it should survive a reboot.
+
+Not covered: NFS and Linux mounts, a disconnect in the middle of a copy or write, concurrent writers from other clients on the share, SMB permission/locking behavior, files over 4 GiB, very large trees. One share, one protocol, one client OS.

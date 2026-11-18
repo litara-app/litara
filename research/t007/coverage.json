@@ -231,11 +231,15 @@
     },
     {
       "id": "nas-mounted",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-nas/README.md",
+        "research/t007/evidence/m4-nas/run.json",
+        "research/t007/evidence/m4-nas/run-import.json"
+      ],
+      "command": "python scripts/t007/nas_check.py --share W:\\ --auto-unmap W:; python scripts/t007/nas_import.py --share W:\\",
+      "environment": "Windows 11 host, SMB share mapped as W: (dedicated empty folder on the user NAS)",
+      "blocker": "One SMB share from a Windows client only; no NFS/Linux mount, no mid-copy disconnect, no concurrent remote writers, no >4 GiB files; hard links unavailable on this share (checked-rename fallback exercised)."
     },
     {
       "id": "koreader-app",
