@@ -38,7 +38,7 @@ def env_for(key, media):
     e.update({
         "LITARA_DATABASE_URL": DB_URL, "LITARA_SECRET_KEY": key, "LITARA_DEV_INSECURE_HTTP": "1",
         "LITARA_HTTP_ADDR": f"0.0.0.0:{PORT}", "LITARA_MEDIA_ROOT": str(media),
-        "LITARA_CACHE_DIR": str(WORK / "cache"), "LITARA_SMTP_ALLOW_LOCAL_TEST": "1",
+        "LITARA_CACHE_DIR": str(WORK / "cache"), "LITARA_SMTP_ALLOW_LOCAL_TEST": "1", "LITARA_PUBLIC_ORIGIN": BASE,
     })
     sk = WORK / "smtp.key"
     if sk.exists():  # the SMTP key ring is independent of the login secret key (ADR-0030 operator configuration)

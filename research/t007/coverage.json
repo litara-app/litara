@@ -186,11 +186,14 @@
     },
     {
       "id": "opds-conformance",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-atom/README.md",
+        "research/t007/evidence/m4-atom/run.json"
+      ],
+      "command": "python scripts/t007/atom_check.py",
+      "environment": "Windows 11, disposable stack",
+      "blocker": "Not formal validation (no Atom/OPDS 1.x RelaxNG validator); real OPDS client apps are a user-assisted gate; publication entry documents lack rel=self (advisory)."
     },
     {
       "id": "backup-restore",

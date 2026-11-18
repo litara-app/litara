@@ -1,0 +1,7 @@
+# M4 evidence: OPDS 1.x Atom rule check (2026-11-18)
+
+`python scripts/t007/atom_check.py` (results `run.json`): crawled every feed reachable from `/opds/v1` on the real server with a synthetic OPDS credential (8 documents: navigation and acquisition feeds, pagination, and four single-entry publication documents) plus the OpenSearch description, and applied 179 rule checks: well-formed XML, feed/entry `id`, `title`, `updated` (RFC 3339), IRI-shaped ids, author coverage, unique entry ids, link `href`, Content-Type `application/atom+xml` with `profile=opds-catalog` and `kind=`/`type=entry`, `self`/`start` links, navigation vs acquisition entries, acquisition links with a media type. **0 failures.** One advisory finding: the four publication entry documents carry no `rel=self` link (a SHOULD for standalone entries, not an RFC 4287 MUST).
+
+**This is not formal validation.** No RelaxNG/Schematron Atom or OPDS 1.x validator is installed or bundled, and none was added; the limitation stays recorded for the scenario. OPDS 2.0 remains covered by the pinned official JSON schemas (`TestOPDS2ConformsToPinnedOfficialSchemas`, inherited). Not covered: real OPDS client apps (open user-assisted gate `koreader-app`), search result feeds with unusual queries, large catalogs, localized/`xml:lang` content.
+
+Setup note: the stack now sets `LITARA_PUBLIC_ORIGIN` (OPDS returns 503 `configuration_unavailable` without it, by design).
