@@ -1,47 +1,59 @@
 {
   "schemaVersion": 1,
   "task": "T007",
-  "note": "Preparation only: all scenarios pending. Worker records actual commands/environment and linked evidence; preparation cannot pass runtime or release gates.",
+  "note": "Worker-recorded states as of the latest commit; 'partial' means some observed evidence exists and the named blocker remains. Nothing here is a release acceptance.",
   "scenarios": [
     {
       "id": "native-catalog",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-epub/README.md"
+      ],
+      "command": "handoffs/T007.md M1 slice 1",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Synthetic two-book library only; no real corpus."
     },
     {
       "id": "native-reflowable",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-epub/README.md",
+        "research/t007/evidence/m1-locators/"
+      ],
+      "command": "handoffs/T007.md slices 1 and 5",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Synthetic fixtures; KEPUB/MOBI/AZW unproven."
     },
     {
       "id": "native-pdf-comic",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-pdf-comics/"
+      ],
+      "command": "handoffs/T007.md slice 3",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "CBR/CB7, rotated/encrypted PDFs, comic offline not covered."
     },
     {
       "id": "locator-roundtrip",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-locators/"
+      ],
+      "command": "scripts/t007/locators/*",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Synthetic fixtures; sub-page PDF coordinates and KEPUB/MOBI open."
     },
     {
       "id": "native-personal-state",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-annotations/",
+        "research/t007/evidence/m1-finish-conflicts/"
+      ],
+      "command": "handoffs/T007.md slices 2 and 4",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Shelves UI, real two-writer annotation conflicts, account switch not covered."
     },
     {
       "id": "native-offline-isolation",
@@ -61,11 +73,13 @@
     },
     {
       "id": "auth-refresh",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-tls-origins/run.json"
+      ],
+      "command": "python scripts/t007/tls_rehearsal.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Native refresh rotation and session revocation over TLS; grant revocation and token race on device only in slice 4 notes."
     },
     {
       "id": "ingest-reader",
@@ -85,11 +99,14 @@
     },
     {
       "id": "metadata-writers",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m2-epub-writer/README.md",
+        "research/t007/evidence/m2-epub-writer/live-run.json"
+      ],
+      "command": "python scripts/t007/epub_writeback_live.py; go test ./internal/writeback",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "EPUB only; MP3/FLAC/M4A/M4B have no writer and stay disabled with a visible reason."
     },
     {
       "id": "write-recovery",
@@ -117,27 +134,34 @@
     },
     {
       "id": "tls-reader-isolation",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-tls-origins/"
+      ],
+      "command": "python scripts/t007/tls_rehearsal.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "No real browser, no production proxy config, reader asset packaging open."
     },
     {
       "id": "process-restart",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-kill-recovery/",
+        "research/t007/evidence/m3-smtp-kill/run.json"
+      ],
+      "command": "python scripts/t007/kill_recovery.py; python scripts/t007/smtp_kill.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Comic extraction and SMTP boundary done; import staging, KOReader state and write-back replacement kills open."
     },
     {
       "id": "smtp-key-restart",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-backup-restore/run.json"
+      ],
+      "command": "python scripts/t007/backup_restore.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Missing, other-id and wrong-material key restarts observed; same-id wrong key is reported available (finding)."
     },
     {
       "id": "secret-logs",
@@ -157,11 +181,13 @@
     },
     {
       "id": "backup-restore",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-backup-restore/"
+      ],
+      "command": "python scripts/t007/backup_restore.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "No audio/KOReader/queued-delivery restore, same-path media required, single host."
     },
     {
       "id": "package-notices",
@@ -213,11 +239,14 @@
     },
     {
       "id": "android-emulator",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/logs/instrumented-results/",
+        "handoffs/T007.md"
+      ],
+      "command": "./gradlew connectedFullDebugAndroidTest connectedFdroidDebugAndroidTest (API 36)",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "24/24 per flavor on API 36; API 37 blocked by Espresso 3.6.1 (finding F4); new screens lack instrumented tests."
     },
     {
       "id": "physical-phone",
