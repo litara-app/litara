@@ -1,0 +1,89 @@
+{
+ "Format AAC": {
+  "readiness": "incomplete",
+  "mime": "audio/aac",
+  "durationMs": 19629,
+  "size": 166790,
+  "play": false,
+  "download": false,
+  "issues": [
+   "file_unsupported"
+  ],
+  "rangeStatus": 409,
+  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
+ },
+ "Format FLAC": {
+  "readiness": "incomplete",
+  "mime": "audio/flac",
+  "durationMs": 20000,
+  "size": 248408,
+  "play": false,
+  "download": false,
+  "issues": [
+   "file_unsupported"
+  ],
+  "rangeStatus": 409,
+  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
+ },
+ "Format M4A": {
+  "readiness": "ready",
+  "mime": "audio/mp4",
+  "durationMs": 20000,
+  "size": 165111,
+  "play": true,
+  "download": true,
+  "issues": [],
+  "rangeStatus": 206,
+  "rangeResult": 100
+ },
+ "Format MP3": {
+  "readiness": "ready",
+  "mime": "audio/mpeg",
+  "durationMs": 20000,
+  "size": 160607,
+  "play": true,
+  "download": true,
+  "issues": [],
+  "rangeStatus": 206,
+  "rangeResult": 100
+ },
+ "Format OGG": {
+  "readiness": "incomplete",
+  "mime": "audio/ogg",
+  "durationMs": 20000,
+  "size": 37357,
+  "play": false,
+  "download": false,
+  "issues": [
+   "file_unsupported"
+  ],
+  "rangeStatus": 409,
+  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
+ },
+ "Format OPUS": {
+  "readiness": "incomplete",
+  "mime": "audio/opus",
+  "durationMs": 20007,
+  "size": 160170,
+  "play": false,
+  "download": false,
+  "issues": [
+   "file_unsupported"
+  ],
+  "rangeStatus": 409,
+  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
+ },
+ "Format WAV": {
+  "readiness": "incomplete",
+  "mime": "audio/wav",
+  "durationMs": 20000,
+  "size": 1764140,
+  "play": false,
+  "download": false,
+  "issues": [
+   "file_unsupported"
+  ],
+  "rangeStatus": 409,
+  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
+ }
+}

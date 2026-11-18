@@ -171,11 +171,13 @@
     },
     {
       "id": "secret-logs",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-secret-logs/"
+      ],
+      "command": "python scripts/t007/secret_logs.py",
+      "environment": "Windows 11, debug log level",
+      "blocker": "No leak found, but the server has no request/access log, so redaction is untested; Atom conformance validator not run."
     },
     {
       "id": "opds-conformance",
@@ -209,11 +211,14 @@
     },
     {
       "id": "corpus-capabilities",
-      "state": "pending",
-      "evidencePaths": [],
-      "command": "",
-      "environment": "",
-      "blocker": ""
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-corpus/",
+        "research/t007/capabilities.md"
+      ],
+      "command": "ffmpeg/Calibre-generated fixtures ingested into the disposable stack (see evidence README)",
+      "environment": "Windows 11, bundled-equivalent ffprobe 8.0.1, Calibre ebook-convert",
+      "blocker": "Synthetic fixtures only; no lawful real-world corpus, no >4 GiB valid media, no per-client playback/seek for non-ready formats (F5), damaged-file state missing (F6)."
     },
     {
       "id": "nas-mounted",

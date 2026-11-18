@@ -1,0 +1,134 @@
+{
+ "Synthetic Comic (cbz)": {
+  "readiness": "ready",
+  "issues": [],
+  "caps": {
+   "read": "supported",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "unsupported",
+   "textHighlight": "unsupported",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ },
+ "Variant MOBI (mobi)": {
+  "readiness": "ready",
+  "issues": [],
+  "caps": {
+   "read": "supported",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "incomplete",
+   "textHighlight": "incomplete",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ },
+ "Synthetic Paper (pdf)": {
+  "readiness": "ready",
+  "issues": [],
+  "caps": {
+   "read": "supported",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "supported",
+   "textHighlight": "supported",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ },
+ "Second Tale (epub)": {
+  "readiness": "ready",
+  "issues": [],
+  "caps": {
+   "read": "supported",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "supported",
+   "textHighlight": "supported",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ },
+ "Variant AZW3 (azw3)": {
+  "readiness": "ready",
+  "issues": [],
+  "caps": {
+   "read": "supported",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "incomplete",
+   "textHighlight": "incomplete",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ },
+ "Synthetic Tale (kepub)": {
+  "readiness": "incomplete",
+  "issues": [
+   "format_untested"
+  ],
+  "caps": {
+   "read": "incomplete",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "incomplete",
+   "textHighlight": "incomplete",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ },
+ "Fixed Layout (epub)": {
+  "readiness": "ready",
+  "issues": [],
+  "caps": {
+   "read": "supported",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "supported",
+   "textHighlight": "supported",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ },
+ "Synthetic Tale (epub)": {
+  "readiness": "ready",
+  "issues": [],
+  "caps": {
+   "read": "supported",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "supported",
+   "textHighlight": "supported",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ },
+ "Variant FB2 (fb2)": {
+  "readiness": "ready",
+  "issues": [],
+  "caps": {
+   "read": "supported",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "incomplete",
+   "textHighlight": "incomplete",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ },
+ "Damaged (epub)": {
+  "readiness": "ready",
+  "issues": [],
+  "caps": {
+   "read": "supported",
+   "download": "supported",
+   "resume": "supported",
+   "textSelection": "supported",
+   "textHighlight": "supported",
+   "pageNote": "supported",
+   "bookmark": "supported"
+  }
+ }
+}
