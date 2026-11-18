@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AudioRecording } from "../api/types";
 import { locate, toWhole } from "./timeline";
+import { probeType } from "./mime";
 
 export interface Checkpoint { fileId: string; contentVersion: string; offsetMs: number }
 
@@ -38,7 +39,7 @@ export function useAudioPlayer({ recording, onCheckpoint, onEnded }: Opts) {
 
   const unsupported = useMemo(() => {
     const probe = document.createElement("audio");
-    return files.filter((f) => f.mimeType && probe.canPlayType(f.mimeType) === "").map((f) => f.filename);
+    return files.filter((f) => f.mimeType && probe.canPlayType(probeType(f.mimeType)) === "").map((f) => f.filename);
   }, [files]);
 
   const anchor = useCallback((): Checkpoint => {

@@ -1,89 +1,254 @@
 {
- "Format AAC": {
-  "readiness": "incomplete",
-  "mime": "audio/aac",
-  "durationMs": 19629,
-  "size": 166790,
-  "play": false,
-  "download": false,
-  "issues": [
-   "file_unsupported"
-  ],
-  "rangeStatus": 409,
-  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
- },
- "Format FLAC": {
-  "readiness": "incomplete",
-  "mime": "audio/flac",
-  "durationMs": 20000,
-  "size": 248408,
-  "play": false,
-  "download": false,
-  "issues": [
-   "file_unsupported"
-  ],
-  "rangeStatus": 409,
-  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
- },
- "Format M4A": {
-  "readiness": "ready",
-  "mime": "audio/mp4",
-  "durationMs": 20000,
-  "size": 165111,
-  "play": true,
-  "download": true,
-  "issues": [],
-  "rangeStatus": 206,
-  "rangeResult": 100
- },
- "Format MP3": {
-  "readiness": "ready",
-  "mime": "audio/mpeg",
-  "durationMs": 20000,
-  "size": 160607,
-  "play": true,
-  "download": true,
-  "issues": [],
-  "rangeStatus": 206,
-  "rangeResult": 100
- },
- "Format OGG": {
-  "readiness": "incomplete",
-  "mime": "audio/ogg",
-  "durationMs": 20000,
-  "size": 37357,
-  "play": false,
-  "download": false,
-  "issues": [
-   "file_unsupported"
-  ],
-  "rangeStatus": 409,
-  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
- },
- "Format OPUS": {
-  "readiness": "incomplete",
-  "mime": "audio/opus",
-  "durationMs": 20007,
-  "size": 160170,
-  "play": false,
-  "download": false,
-  "issues": [
-   "file_unsupported"
-  ],
-  "rangeStatus": 409,
-  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
- },
- "Format WAV": {
-  "readiness": "incomplete",
-  "mime": "audio/wav",
-  "durationMs": 20000,
-  "size": 1764140,
-  "play": false,
-  "download": false,
-  "issues": [
-   "file_unsupported"
-  ],
-  "rangeStatus": 409,
-  "rangeResult": "{\"type\":\"urn:litara:problem:recording_incomplete\",\"title\":\"recording_incomplete\",\"status\":409,\"detail\":\"The recording is"
- }
+  "recordings": {
+    "Chaptered M4B": {
+      "readiness": "ready",
+      "mime": "audio/mp4",
+      "files": 1,
+      "durationMs": 30000,
+      "sizeBytes": 187895,
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true,
+      "issues": [],
+      "chapters": [
+        [
+          "One",
+          0,
+          "embedded"
+        ],
+        [
+          "Two",
+          10000,
+          "embedded"
+        ],
+        [
+          "Three",
+          20000,
+          "embedded"
+        ]
+      ],
+      "head": 200,
+      "headLength": "187895",
+      "range206": true,
+      "rangeBytesExact": true,
+      "tailRange206": true,
+      "tailBytesExact": true,
+      "sha256": "3f1989ab48d835a5"
+    },
+    "Format AAC": {
+      "readiness": "ready",
+      "mime": "audio/aac",
+      "files": 1,
+      "durationMs": 19629,
+      "sizeBytes": 166790,
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true,
+      "issues": [],
+      "chapters": [
+        [
+          "book.aac",
+          0,
+          "generated"
+        ]
+      ],
+      "head": 200,
+      "headLength": "166790",
+      "range206": true,
+      "rangeBytesExact": true,
+      "tailRange206": true,
+      "tailBytesExact": true,
+      "sha256": "5e73c47f390a671b"
+    },
+    "Format FLAC": {
+      "readiness": "ready",
+      "mime": "audio/flac",
+      "files": 1,
+      "durationMs": 20000,
+      "sizeBytes": 248408,
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true,
+      "issues": [],
+      "chapters": [
+        [
+          "book.flac",
+          0,
+          "generated"
+        ]
+      ],
+      "head": 200,
+      "headLength": "248408",
+      "range206": true,
+      "rangeBytesExact": true,
+      "tailRange206": true,
+      "tailBytesExact": true,
+      "sha256": "def19ed924e20ca4"
+    },
+    "Format M4A": {
+      "readiness": "ready",
+      "mime": "audio/mp4",
+      "files": 1,
+      "durationMs": 20000,
+      "sizeBytes": 165111,
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true,
+      "issues": [],
+      "chapters": [
+        [
+          "book.m4a",
+          0,
+          "generated"
+        ]
+      ],
+      "head": 200,
+      "headLength": "165111",
+      "range206": true,
+      "rangeBytesExact": true,
+      "tailRange206": true,
+      "tailBytesExact": true,
+      "sha256": "cc0ab55827c3d93f"
+    },
+    "Format MP3": {
+      "readiness": "ready",
+      "mime": "audio/mpeg",
+      "files": 1,
+      "durationMs": 20000,
+      "sizeBytes": 160607,
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true,
+      "issues": [],
+      "chapters": [
+        [
+          "book.mp3",
+          0,
+          "generated"
+        ]
+      ],
+      "head": 200,
+      "headLength": "160607",
+      "range206": true,
+      "rangeBytesExact": true,
+      "tailRange206": true,
+      "tailBytesExact": true,
+      "sha256": "6676ec0cfa282bd0"
+    },
+    "Format OGG": {
+      "readiness": "ready",
+      "mime": "audio/ogg",
+      "files": 1,
+      "durationMs": 20000,
+      "sizeBytes": 37357,
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true,
+      "issues": [],
+      "chapters": [
+        [
+          "book.ogg",
+          0,
+          "generated"
+        ]
+      ],
+      "head": 200,
+      "headLength": "37357",
+      "range206": true,
+      "rangeBytesExact": true,
+      "tailRange206": true,
+      "tailBytesExact": true,
+      "sha256": "ed5f02b2544c48a0"
+    },
+    "Format OPUS": {
+      "readiness": "ready",
+      "mime": "audio/opus",
+      "files": 1,
+      "durationMs": 20007,
+      "sizeBytes": 160170,
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true,
+      "issues": [],
+      "chapters": [
+        [
+          "book.opus",
+          0,
+          "generated"
+        ]
+      ],
+      "head": 200,
+      "headLength": "160170",
+      "range206": true,
+      "rangeBytesExact": true,
+      "tailRange206": true,
+      "tailBytesExact": true,
+      "sha256": "a12fc9b2100759ba"
+    },
+    "Format WAV": {
+      "readiness": "ready",
+      "mime": "audio/wav",
+      "files": 1,
+      "durationMs": 20000,
+      "sizeBytes": 1764140,
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true,
+      "issues": [],
+      "chapters": [
+        [
+          "book.wav",
+          0,
+          "generated"
+        ]
+      ],
+      "head": 200,
+      "headLength": "1764140",
+      "range206": true,
+      "rangeBytesExact": true,
+      "tailRange206": true,
+      "tailBytesExact": true,
+      "sha256": "0ec6921cf9d16690"
+    },
+    "Multi File MP3": {
+      "readiness": "ready",
+      "mime": "audio/mpeg",
+      "files": 3,
+      "durationMs": 24000,
+      "sizeBytes": 48591,
+      "play": true,
+      "download": true,
+      "wholeRecordingSeek": true,
+      "issues": [],
+      "chapters": [
+        [
+          "part1.mp3",
+          0,
+          "generated"
+        ],
+        [
+          "part2.mp3",
+          8000,
+          "generated"
+        ],
+        [
+          "part3.mp3",
+          16000,
+          "generated"
+        ]
+      ],
+      "head": 200,
+      "headLength": "48591",
+      "range206": true,
+      "rangeBytesExact": true,
+      "tailRange206": true,
+      "tailBytesExact": true,
+      "sha256": "2fcf4f1301f7c64a"
+    }
+  },
+  "failures": [],
+  "missing": [],
+  "embeddedChaptersOk": true,
+  "multiFileOk": true,
+  "result": "PASS"
 }

@@ -18,8 +18,14 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
 
-// SupportedMIME is the audio set this slice can play and download (MP3, M4A/M4B).
-var SupportedMIME = map[string]bool{"audio/mpeg": true, "audio/mp4": true, "audio/x-m4b": true, "audio/x-m4a": true}
+// SupportedMIME is the audio set the catalog offers for playback and download: every type the scanner catalogs
+// (MP3, M4A/M4B, AAC, FLAC, Ogg/Opus, WAV). The server never transcodes, so whether a given client can decode a type
+// is the client's decision: Android's Media3 plays them natively and the web player probes canPlayType per file and
+// shows an explicit error. T007 widened this from MP3/MP4 after the user's decision (finding F5).
+var SupportedMIME = map[string]bool{
+	"audio/mpeg": true, "audio/mp4": true, "audio/x-m4b": true, "audio/x-m4a": true,
+	"audio/aac": true, "audio/flac": true, "audio/ogg": true, "audio/opus": true, "audio/wav": true,
+}
 
 type Service struct {
 	pool    *pgxpool.Pool

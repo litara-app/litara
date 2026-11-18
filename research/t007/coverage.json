@@ -218,7 +218,7 @@
       ],
       "command": "ffmpeg/Calibre-generated fixtures ingested into the disposable stack (see evidence README)",
       "environment": "Windows 11, bundled-equivalent ffprobe 8.0.1, Calibre ebook-convert",
-      "blocker": "Synthetic fixtures only; no lawful real-world corpus, no >4 GiB valid media, no per-client playback/seek for non-ready formats (F5), damaged-file state missing (F6)."
+      "blocker": "Synthetic fixtures only; no lawful real-world corpus, no >4 GiB valid media, Android playback of the widened audio formats untested, WebKit (Windows) has no decoders, damaged-file state missing (F6)."
     },
     {
       "id": "nas-mounted",
