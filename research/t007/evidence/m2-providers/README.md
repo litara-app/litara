@@ -16,3 +16,14 @@ Findings (no provider was substituted):
 5. Terms not fully read: Google APIs Terms (caching/storage), Open Library licensing page. Persistent storage of provider results as evidence should be reviewed against them before release.
 
 Not covered: Atom/event hints (ADR-0050), provider outage behavior against live services, response-size limits against hostile responses (unit-tested locally in `providers_test.go`, inherited).
+
+
+## Approved policy and tradeoffs
+
+- Open Library contact. An opt-in operator-maintained role alias gives Open Library a monitored abuse contact and qualifies for the identified quota. An anonymous instance avoids sending operator contact details and has a lower quota. Account emails should never be reused automatically. [Open Library API guidelines](https://openlibrary.org/developers/api)
+- Outbound rate limiting. A single server-wide budget per provider prevents multiple library workers from each consuming the full quota. Queue requests, cache permitted results and honor `429`/`Retry-After` with backoff. One process is simple to operate. Replicas sharing a quota need shared admission or a single outbound worker. Open Library lists one request per second for unidentified clients and three for identified clients. [Open Library API guidelines](https://openlibrary.org/developers/api)
+- Audiobook providers. Audnexus fits the existing opt-in lookups by ASIN and supports self-hosting, with the cost of running another service. AudiobookDB adds search and distinguishes books from releases. Its personal API access and product integration permissions are separate, especially for retained metadata, backups and redistribution. Keep the current adapter while clarifying documented hosted-use and retention terms. [Audnexus](https://github.com/laxamentumtech/audnexus) · [AudiobookDB API access](https://audiobookdb.org/docs)
+
+ADR-0077 selects the optional setting `LITARA_OPEN_LIBRARY_CONTACT`, shared per-provider request budgets and continued opt-in Audnexus. The implementation paces Google Books and Audnexus at a conservative one request per second, bounds each lookup to 15 seconds, retries HTTP 429 once when time permits, and honors longer shared cooldowns. The memory cache applies to Open Library responses whose headers permit reuse.
+
+Synthetic HTTP tests passed for separate provider budgets, the optional User-Agent contact, concurrent request spacing, cache reuse and no-store, Retry-After in seconds and HTTP-date form, one retry and shared cooldown after rejection. The follow-up sent no requests to live providers.

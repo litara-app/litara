@@ -104,6 +104,9 @@ class LitaraReaderViewModel @Inject constructor(
             return UiText.of(R.string.litara_book_unsupported, ed.file.format.uppercase())
         }
         if (!ed.capabilities.read.supported) {
+            if (ed.capabilities.read.issues.any { it.code == "file_damaged" }) {
+                return UiText.of(R.string.litara_book_damaged)
+            }
             val why = ed.capabilities.read.issues.joinToString { it.code }.ifEmpty { ed.capabilities.read.state }
             return UiText.of(R.string.litara_book_not_readable, why)
         }

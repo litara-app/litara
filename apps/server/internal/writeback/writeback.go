@@ -201,9 +201,13 @@ func (s *Service) PlanInFile(ctx context.Context, fileID uuid.UUID, changes meta
 		return sqlcgen.WritebackPlan{}, apperr.New(409, "writer_disabled",
 			"In-file writing is not enabled for this format; export a sidecar instead.")
 	}
-	_ = w
 	if len(changes) == 0 {
 		return sqlcgen.WritebackPlan{}, apperr.Validation("no changes to write")
+	}
+	if validator, ok := w.(interface{ ValidateFields(metadata.Fields) error }); ok {
+		if err := validator.ValidateFields(changes); err != nil {
+			return sqlcgen.WritebackPlan{}, apperr.Validation(err.Error())
+		}
 	}
 	if cur.Sha256 == nil {
 		return sqlcgen.WritebackPlan{}, apperr.New(409, "file_unverified", "The file has no fingerprint yet.")

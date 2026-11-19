@@ -120,17 +120,30 @@ class EditionProgressSync(
     private val format: String,
     private val policy: LocatorPolicy,
     private val dir: File,
+    private val initialState: LEditionPositionState? = null,
 ) {
     private val gate = Mutex()
     private val localFile = File(dir, "local-position.json")
     private val pendingFile = File(dir, "pending-position.json")
 
-    var revision: String = "0"
+    private val revisionFile = File(dir, "position-revision-$contentVersion.txt")
+    private fun revisionNumber(value: String?) = value?.toLongOrNull()?.takeIf { it >= 0 } ?: 0L
+
+    var revision: String = maxOf(
+        revisionNumber(runCatching { revisionFile.readText() }.getOrNull()),
+        revisionNumber(initialState?.revision),
+    ).toString()
         private set
     var unresolvedConflicts: Long = 0
         private set
 
-    private fun adopt(s: LEditionPositionState) { revision = s.revision; unresolvedConflicts = s.unresolvedConflictCount }
+    private fun adopt(s: LEditionPositionState) {
+        if (revisionNumber(s.revision) >= revisionNumber(revision)) {
+            revision = s.revision
+            runCatching { AtomicFile.write(revisionFile, revision) }
+        }
+        unresolvedConflicts = s.unresolvedConflictCount
+    }
 
     /** The device-local location for exactly this file version, or null (a position for other bytes is never returned). */
     fun local(): LocalEditionPosition? =
@@ -145,8 +158,11 @@ class EditionProgressSync(
     suspend fun serverLocator(readerKinds: Set<String>): LLocator? = gate.withLock {
         // A reader whose locator kinds are all refused by the policy never even asks for the server position.
         if (readerKinds.none { policy.allowsKind(engineProfile, it, format) }) return null
-        val state = try { client.editionPosition(editionId) } catch (_: TransientException) { return null }
-        adopt(state)
+        val state = try {
+            client.editionPosition(editionId).also(::adopt)
+        } catch (_: TransientException) {
+            initialState?.takeIf { local() == null } ?: return null
+        }
         val a = state.position?.anchor ?: return null
         if (a.fileId != fileId || a.contentVersion != contentVersion) return null
         a.locator.takeIf { policy.allows(engineProfile, it, format) }

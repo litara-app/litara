@@ -1,6 +1,6 @@
 # M2 evidence: EPUB metadata writer (ADR-0048, ADR-0052, ADR-0057)
 
-Scope: the built-in `epub` writer for `title`, `authors`, `series_name` and `series_index`. Nothing else is writable; MP3, FLAC, M4A and M4B have no writer and stay disabled with a visible reason (`GET /admin/writers` returns `reason`).
+Scope: the built-in `epub` writer for `title`, `authors`, `series_name` and `series_index`. MP3, FLAC, M4A and M4B were outside this run. See the later [audio writer qualification](../m2-audio-writers/README.md).
 
 ## What the writer guarantees
 

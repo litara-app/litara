@@ -37,6 +37,6 @@ Defect found while checking: `canPlayType("audio/opus")` is empty in Chromium an
 
 * **Read / resume / annotate / finish:** observed for EPUB, PDF, CBZ in the native Android app; two-device conflicts for finish observed (`m1-finish-conflicts`).
 * **Download / offline:** EPUB offline relaunch observed on the emulator (airplane mode); PDF and comic local stores have unit tests, but offline relaunch of PDF/CBZ was not exercised on a device; browser offline downloads are out of scope.
-* **Write (in-file):** EPUB only, per field set above, with byte-level fidelity validation, optional backups default off, kill-safe (`m3-writeback-kill`). Sidecar write exists from T004 (inherited).
+* **Write (in-file):** EPUB per field set above and MP3/FLAC/M4A/M4B title edits. Byte-level validation, evidence-gated enablement and optional backups (default off) apply to all writers. Audio evidence is in [m2-audio-writers](evidence/m2-audio-writers/README.md). Sidecar write exists from T004 (inherited).
 * **Server/transport:** TLS two-origin, cookies/CSRF, bearer refresh and revocation observed (`m3-tls-origins`, no browser); KOReader progress state durable across hard kill (`m3-koreader-kill`, synthetic client speaking the wire protocol, not the KOReader app); SMTP boundary safe (`m3-smtp-kill`, local sink).
 * **Accessibility, real corpora, NAS, KOReader/OPDS apps, Chromecast, Android Auto, physical phone:** untested; see `release-gates.md`.

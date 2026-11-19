@@ -55,6 +55,22 @@ func TestRescueMustExceedTimeout(t *testing.T) {
 	}
 }
 
+func TestOpenLibraryContactIsOptionalAndValidated(t *testing.T) {
+	values := map[string]string{"LITARA_DATABASE_URL": "postgres://h/db"}
+	for _, contact := range []string{"", "books-ops@example.org"} {
+		values["LITARA_OPEN_LIBRARY_CONTACT"] = contact
+		cfg, err := loadFrom(env(values))
+		if err != nil || cfg.OpenLibraryContact != contact {
+			t.Fatalf("expected optional contact %q, got %v", contact, err)
+		}
+	}
+	values["LITARA_OPEN_LIBRARY_CONTACT"] = "leak-sentinel@example.org\r\nX-Invalid: true"
+	_, err := loadFrom(env(values))
+	if err == nil || !strings.Contains(err.Error(), "OPEN_LIBRARY_CONTACT") || strings.Contains(err.Error(), "leak-sentinel") {
+		t.Fatalf("expected a redacted contact validation error, got %v", err)
+	}
+}
+
 func TestReaderOriginsRequireDistinctHostnames(t *testing.T) {
 	base := map[string]string{"LITARA_DATABASE_URL": "postgres://u@h/db", "LITARA_WEB_DIR": "web"}
 	with := func(kv ...string) map[string]string {

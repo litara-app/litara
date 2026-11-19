@@ -208,6 +208,9 @@ func TestScanReviewMetadataExportFlowOverHTTP(t *testing.T) {
 	r = e.Do("GET", "/admin/writers", admin, nil)
 	var ws wire.WriterCapabilityList
 	r.JSON(t, &ws)
+	if len(ws.Items) != 5 {
+		t.Fatalf("expected all five writers: %+v", ws.Items)
+	}
 	for _, c := range ws.Items {
 		if c.Enabled {
 			t.Fatalf("no writer may be enabled by default: %+v", c)
@@ -215,11 +218,8 @@ func TestScanReviewMetadataExportFlowOverHTTP(t *testing.T) {
 		if c.Reason == "" {
 			t.Fatalf("a disabled writer must say why: %+v", c)
 		}
-		if c.Format == "epub" && !strings.Contains(c.Reason, "ctl writers enable") {
-			t.Fatalf("epub has a built-in writer; the reason must point at enabling it: %q", c.Reason)
-		}
-		if c.Format != "epub" && !strings.Contains(c.Reason, "No writer for this format") {
-			t.Fatalf("%s has no writer; the reason must say so: %q", c.Format, c.Reason)
+		if !strings.Contains(c.Reason, "ctl writers enable") {
+			t.Fatalf("%s has a built-in writer; the reason must point at enabling it: %q", c.Format, c.Reason)
 		}
 	}
 	fileID := ""

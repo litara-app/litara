@@ -35,3 +35,5 @@ Documentation evidence is in [reference observations](../research/t004/reference
 ## Open questions
 
 ADR-0060 now selects provider preference and match acceptance/review rules. Credentials/configuration, current quotas/terms and live availability must be checked during implementation; this ADR does not guarantee third-party uptime or accept AudiobookDB.
+
+[ADR-0077](0077-provider-identification-and-rate-limits.md) records the optional Open Library contact, the per-provider budgets, and the decision to keep Audnexus.

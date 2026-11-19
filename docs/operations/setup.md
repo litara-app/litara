@@ -15,4 +15,18 @@ Exercised with `bash scripts/t007/package_check.sh` and `bash scripts/backend/sm
 * `LITARA_SECRET_KEY` protects short-lived refresh recovery. The SMTP password key ring is separate: `LITARA_SMTP_KEYS="id:base64key"` with `LITARA_SMTP_ACTIVE_KEY=id` (`ctl gen-key` produces a suitable 32-byte value). A stored SMTP password is bound to its key id; keep the ring with your backups, but not in the same place as the database dump if you want the encryption to mean something.
 * Missing ring or a different key id: the server starts, SMTP reports `keyAvailable=false`, and all other state is intact (exercised). The same id with different key material is reported as available but fails the connection test with `configuration_unavailable` (exercised; a known reporting gap).
 * `LITARA_SMTP_ALLOW_LOCAL_TEST=1` allows plaintext SMTP to a loopback sink and is for rehearsals only.
-* Operator write-back switch: `ctl writers list|enable FORMAT --evidence PATH|disable FORMAT`. Only the built-in `epub` writer exists; other formats cannot be enabled.
+* Operator write-back switch: `ctl writers list|enable FORMAT --evidence PATH|disable FORMAT`. EPUB, MP3, FLAC, M4A and M4B are built in and disabled by default. The audio writers accept title edits. See [audio writer qualification](../../research/t007/evidence/m2-audio-writers/README.md) for supported layouts and the evidence reference.
+
+## KOReader progress sync
+
+In KOReader, set **Progress sync → Custom sync server** to your Litara app origin followed by `/1`, for example `https://books.example.com/1`. Use **Login** with the KOReader device credential generated in Litara. Set up the OPDS catalog separately under `/opds/v1`.
+
+## Metadata providers
+
+Enable providers in each library that should use external metadata. Set `LITARA_OPEN_LIBRARY_CONTACT` to a monitored operator email address if you want Open Library to identify this instance. Litara sends the contact in its Open Library User-Agent. Leave the setting unset for anonymous access. Open Library requests are paced at up to 1 per second anonymously or 3 per second with a contact. [Open Library API guidelines](https://openlibrary.org/developers/api)
+
+Google Books and Audnexus each start at one request per second. These budgets are shared by library jobs in one server process. Litara can retry a throttled request once within its 15-second lookup budget and honors longer Retry-After cooldowns across jobs. Open Library responses can be cached in memory for up to 15 minutes when response headers permit it. Audnexus remains an opt-in ASIN lookup.
+
+## Damaged EPUB or KEPUB
+
+An edition marked **Damaged file** still has its catalog entry, history, and authorized original download. Replace the damaged file at its existing library path and run a scan. Litara checks the replacement under its new content version and clears the damage issue when its basic EPUB structure passes.

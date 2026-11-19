@@ -48,7 +48,14 @@ class ProgressSync(
 
     var layout: String = layoutRevision
         private set
-    var revision: String = "0"
+    /**
+     * The newest server revision this device has seen for the recording, kept on disk next to the pending write. A cold start
+     * (force-close, process death) must not forget it: a reporter that restarts offline would otherwise queue writes against
+     * base "0", and after reconnecting the server rightly refuses them as stale and the user loses the offline progress (T007 F10).
+     */
+    private val revisionFile = File(pendingFile.parentFile, REVISION_FILE)
+
+    var revision: String = readSavedRevision() ?: "0"
         private set
     var conflicts: List<LConflict> = emptyList()
         private set
@@ -59,9 +66,20 @@ class ProgressSync(
 
     private var loaded = false
 
+    private fun readSavedRevision(): String? =
+        revisionFile.takeIf { it.exists() }?.let { runCatching { it.readText().trim() }.getOrNull() }?.takeIf { r -> r.isNotEmpty() && r.all { it.isDigit() } }
+
+    private fun saveRevision(value: String) {
+        runCatching {
+            revisionFile.parentFile?.mkdirs()
+            AtomicFile.write(revisionFile, value)
+        }
+    }
+
     private fun adopt(state: LPositionState) {
         loaded = true
         revision = state.revision
+        saveRevision(state.revision)
         position = state.position
         conflicts = state.unresolvedConflicts
     }
@@ -145,6 +163,11 @@ class ProgressSync(
     private fun clearPending() { pendingFile.delete() }
 
     fun hasPending(): Boolean = pendingFile.exists()
+
+    companion object {
+        /** File name of the remembered server revision inside the recording directory (kept by offline cleanups). */
+        const val REVISION_FILE = "position-revision.txt"
+    }
 
     /** The user's explicit choice for one conflict; each is a new revision-aware operation. */
     suspend fun resolve(conflictId: String, choice: String, explicit: LPositionInput? = null): LPositionState = gate.withLock {

@@ -10,6 +10,9 @@ import com.litara.core.litara.LitaraHttpException
 import com.litara.core.litara.SessionEndedException
 import com.litara.core.litara.TransientException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,15 +21,17 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** An edition with the display title/authors of the title it belongs to (the edition's own label is only its format). */
-data class BookRow(val edition: LEdition, val title: String, val authors: List<String>, val waitingToSync: Boolean = false) {
+data class BookRow(val edition: LEdition, val title: String, val authors: List<String>, val waitingToSync: Boolean = false, val downloaded: Boolean = false, val olderDownload: Boolean = false) {
     val finished: Boolean get() = edition.completion.finished
 }
 
 /** One short, user-visible result of the last action (a code the UI maps to text; never server prose). */
-enum class BooksNote { FINISH_QUEUED, EARLIER_DELIVERED, CONTENT_CHANGED, ACCESS_ENDED, CONFLICT_SAVED, RESOLVED, RESOLVE_STALE }
+enum class BooksNote { FINISH_QUEUED, EARLIER_DELIVERED, CONTENT_CHANGED, ACCESS_ENDED, CONFLICT_SAVED, RESOLVED, RESOLVE_STALE, DOWNLOAD_FAILED }
 
 data class BooksUi(
     val loading: Boolean = true,
+    val offline: Boolean = false,
+    val downloading: String? = null,
     val books: List<BookRow> = emptyList(),
     val error: String? = null,
     /** Unresolved personal conflicts of the account, any kind; only completion and position are decided here. */
@@ -46,6 +51,10 @@ fun openability(e: LEdition): BookOpen = when {
     e.file.contentPath == null -> BookOpen.No(e.file.availability)
     else -> BookOpen.Yes
 }
+
+fun bookDownloadable(e: LEdition): Boolean =
+    (e.file.format in FOLIATE_FORMATS || e.file.format == "pdf") &&
+        openability(e) == BookOpen.Yes && (e.file.sizeBytes ?: 0) > 0
 
 /** The conflict kinds this screen can decide itself; the rest are listed and sent to the web app. */
 fun decidableHere(c: LPersonalConflict) = c.resourceKind == "completion" || c.resourceKind == "position"
@@ -77,19 +86,49 @@ class LitaraBooksViewModel @Inject constructor(private val repo: LitaraRepositor
                 if (delivered) editions = repo.editions()
             }
             val stillPending = runCatching { repo.editionsWithPendingCompletion() }.getOrDefault(emptyList()).toSet()
+            val visible = editions.map { it.id }.toSet()
+            val downloads = withContext(Dispatchers.IO) { repo.downloadedBooks(visible).associateBy { it.edition.id } }
             val rows = editions.map { e ->
                 val t = byTitle[e.titleId]
-                BookRow(e, t?.title?.ifBlank { null } ?: e.label, t?.authors.orEmpty(), waitingToSync = e.id in stillPending)
+                val saved = downloads[e.id]?.edition?.file
+                val downloaded = saved != null && saved.id == e.file.id && saved.contentVersion == e.file.contentVersion
+                BookRow(e, t?.title?.ifBlank { null } ?: e.label, t?.authors.orEmpty(),
+                    waitingToSync = e.id in stillPending, downloaded = downloaded, olderDownload = saved != null && !downloaded)
             }.sortedBy { it.title.lowercase() }
             val conflicts = repo.personalConflicts()
-            _ui.update { BooksUi(loading = false, books = rows, conflicts = conflicts, note = it.note) }
+            _ui.update { it.copy(loading = false, offline = false, books = rows, conflicts = conflicts, error = null) }
         } catch (e: SessionEndedException) {
             repo.refreshSignedIn()
             _ui.update { it.copy(loading = false, error = e.code) }
         } catch (e: TransientException) {
-            _ui.update { it.copy(loading = false, error = "offline") }
+            val downloaded = withContext(Dispatchers.IO) { repo.downloadedBooks() }
+            _ui.update { it.copy(loading = false, offline = true, books = downloaded, conflicts = emptyList(), error = null) }
         } catch (e: LitaraHttpException) {
             _ui.update { it.copy(loading = false, error = e.problem.code.ifEmpty { "HTTP ${e.status}" }) }
+        }
+    }
+
+    fun changeDownload(row: BookRow, remove: Boolean = false) {
+        if (_ui.value.downloading != null) return
+        _ui.update { it.copy(downloading = row.edition.id, note = null) }
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    if (remove) repo.removeBookDownload(row.edition.id) else repo.downloadBook(row)
+                }
+                load()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SessionEndedException) {
+                repo.refreshSignedIn()
+            } catch (_: com.litara.core.litara.ContentChangedException) {
+                _ui.update { it.copy(note = BooksNote.CONTENT_CHANGED) }
+                load()
+            } catch (_: Exception) {
+                _ui.update { it.copy(note = BooksNote.DOWNLOAD_FAILED) }
+            } finally {
+                _ui.update { it.copy(downloading = null) }
+            }
         }
     }
 

@@ -140,7 +140,7 @@ func New(t *testing.T, opts ...Options) *Env {
 	e.Scanner = &ingest.Scanner{Pool: pool, Inspector: t4insp, Now: clock.Now}
 	e.Importer = &importer.Service{Pool: pool, Inspector: t4insp, Now: clock.Now}
 	meta := metadata.New(pool)
-	e.Writeback = &writeback.Service{Pool: pool, Inspector: t4insp, Scanner: e.Scanner, Metadata: meta, Writers: map[string]writeback.Writer{"epub": writeback.EPUBWriter{}}, Now: clock.Now}
+	e.Writeback = &writeback.Service{Pool: pool, Inspector: t4insp, Scanner: e.Scanner, Metadata: meta, Writers: writeback.BuiltInWriters(), Now: clock.Now}
 	e.Queue = &Queue{}
 	e.Integrations = integrations.New(integrations.Options{Pool: pool, Clock: clock.Now, Argon: accounts.ArgonParams{MemoryKiB: 8, Time: 1, Threads: 1},
 		FingerprintKey: integrations.DeriveFingerprintKey(kb)})

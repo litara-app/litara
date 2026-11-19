@@ -7,6 +7,7 @@ package sqlcgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -135,10 +136,12 @@ func (q *Queries) GetEditionFileName(ctx context.Context, id uuid.UUID) (string,
 
 const getEditionRow = `-- name: GetEditionRow :one
 SELECT e.id, e.title_id, e.library_id, e.file_id, e.revision, e.label, e.language, e.format, e.link_state,
-       fv.content_version, fv.mime_type, fv.size_bytes, fv.available, COALESCE(o.missing, false)::boolean AS missing
+       fv.content_version, fv.mime_type, fv.size_bytes, fv.available, COALESCE(o.missing, false)::boolean AS missing,
+       COALESCE(fm.result->>'ebookStructure' = 'damaged', false)::boolean AS file_damaged
 FROM editions e
 JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current
 LEFT JOIN file_observations o ON o.file_id = e.file_id
+LEFT JOIN file_metadata fm ON fm.content_version = fv.content_version
 WHERE e.id = $1
 `
 
@@ -157,6 +160,7 @@ type GetEditionRowRow struct {
 	SizeBytes      *int64    `json:"size_bytes"`
 	Available      bool      `json:"available"`
 	Missing        bool      `json:"missing"`
+	FileDamaged    bool      `json:"file_damaged"`
 }
 
 func (q *Queries) GetEditionRow(ctx context.Context, id uuid.UUID) (GetEditionRowRow, error) {
@@ -177,6 +181,7 @@ func (q *Queries) GetEditionRow(ctx context.Context, id uuid.UUID) (GetEditionRo
 		&i.SizeBytes,
 		&i.Available,
 		&i.Missing,
+		&i.FileDamaged,
 	)
 	return i, err
 }
@@ -348,11 +353,13 @@ func (q *Queries) ListEditionMetadataValues(ctx context.Context, editionID uuid.
 
 const listEditionsPage = `-- name: ListEditionsPage :many
 SELECT e.id, e.title_id, e.library_id, e.file_id, e.revision, e.label, e.language, e.format, e.link_state,
-       fv.content_version, fv.mime_type, fv.size_bytes, fv.available, COALESCE(o.missing, false)::boolean AS missing
+       fv.content_version, fv.mime_type, fv.size_bytes, fv.available, COALESCE(o.missing, false)::boolean AS missing,
+       COALESCE(fm.result->>'ebookStructure' = 'damaged', false)::boolean AS file_damaged
 FROM editions e
 JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
 JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current
 LEFT JOIN file_observations o ON o.file_id = e.file_id
+LEFT JOIN file_metadata fm ON fm.content_version = fv.content_version
 WHERE ($2::uuid IS NULL OR e.library_id = $2)
   AND ($3::uuid IS NULL OR e.title_id = $3)
 ORDER BY e.id
@@ -382,6 +389,7 @@ type ListEditionsPageRow struct {
 	SizeBytes      *int64    `json:"size_bytes"`
 	Available      bool      `json:"available"`
 	Missing        bool      `json:"missing"`
+	FileDamaged    bool      `json:"file_damaged"`
 }
 
 func (q *Queries) ListEditionsPage(ctx context.Context, arg ListEditionsPageParams) ([]ListEditionsPageRow, error) {
@@ -414,6 +422,7 @@ func (q *Queries) ListEditionsPage(ctx context.Context, arg ListEditionsPagePara
 			&i.SizeBytes,
 			&i.Available,
 			&i.Missing,
+			&i.FileDamaged,
 		); err != nil {
 			return nil, err
 		}
@@ -628,6 +637,50 @@ func (q *Queries) ListTitlesPage(ctx context.Context, arg ListTitlesPageParams) 
 	return items, nil
 }
 
+const listUnassessedEPUBs = `-- name: ListUnassessedEPUBs :many
+SELECT fv.content_version, o.rel_path, o.mtime, o.size_bytes, fv.locator
+FROM file_observations o
+JOIN file_versions fv ON fv.file_id = o.file_id AND fv.current AND fv.available
+LEFT JOIN file_metadata fm ON fm.content_version = fv.content_version
+WHERE o.library_id = $1 AND NOT o.missing AND lower(fv.filename) LIKE '%.epub'
+  AND fm.result->>'ebookStructure' IS NULL
+ORDER BY o.rel_path
+`
+
+type ListUnassessedEPUBsRow struct {
+	ContentVersion uuid.UUID `json:"content_version"`
+	RelPath        string    `json:"rel_path"`
+	Mtime          time.Time `json:"mtime"`
+	SizeBytes      int64     `json:"size_bytes"`
+	Locator        string    `json:"locator"`
+}
+
+func (q *Queries) ListUnassessedEPUBs(ctx context.Context, libraryID uuid.UUID) ([]ListUnassessedEPUBsRow, error) {
+	rows, err := q.db.Query(ctx, listUnassessedEPUBs, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnassessedEPUBsRow
+	for rows.Next() {
+		var i ListUnassessedEPUBsRow
+		if err := rows.Scan(
+			&i.ContentVersion,
+			&i.RelPath,
+			&i.Mtime,
+			&i.SizeBytes,
+			&i.Locator,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUneditionedEbookFiles = `-- name: ListUneditionedEbookFiles :many
 SELECT o.file_id, v.content_version, o.rel_path, v.filename, v.mime_type
 FROM file_observations o
@@ -691,6 +744,25 @@ func (q *Queries) LockEdition(ctx context.Context, id uuid.UUID) (Edition, error
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const recordEPUBStructure = `-- name: RecordEPUBStructure :exec
+INSERT INTO file_metadata (content_version, completeness, result)
+SELECT fv.content_version, 'complete', jsonb_build_object('ebookStructure', $1::text)
+FROM file_versions fv WHERE fv.content_version = $2 AND fv.current AND fv.available
+ON CONFLICT ON CONSTRAINT file_metadata_pkey DO UPDATE
+SET result = COALESCE(file_metadata.result, '{}'::jsonb) || EXCLUDED.result, inspected_at = now()
+WHERE file_metadata.result->>'ebookStructure' IS NULL
+`
+
+type RecordEPUBStructureParams struct {
+	Structure      string    `json:"structure"`
+	ContentVersion uuid.UUID `json:"content_version"`
+}
+
+func (q *Queries) RecordEPUBStructure(ctx context.Context, arg RecordEPUBStructureParams) error {
+	_, err := q.db.Exec(ctx, recordEPUBStructure, arg.Structure, arg.ContentVersion)
+	return err
 }
 
 const setEditionLanguage = `-- name: SetEditionLanguage :exec

@@ -23,6 +23,7 @@ arg = lambda n, d=None: sys.argv[sys.argv.index(n) + 1] if n in sys.argv else d 
 IP = arg("--ip", "127.0.0.1")
 MINUTES = int(arg("--minutes", "90"))
 SELF = "--self-test" in sys.argv
+PHONE = "--phone" in sys.argv  # also create a phone-friendly reader account and 2-minute audio fixtures for the Litara Android app
 OUT = ROOT / "research/t007/evidence/m4-koreader"
 PORT = 18443
 BASE = f"https://{IP}:{PORT}"
@@ -60,7 +61,7 @@ def main():
     pdir.mkdir(exist_ok=True)
     (pdir / "ca.pem").unlink(missing_ok=True)
     backend = f"127.0.0.1:{stack.PORT}"
-    proxy = subprocess.Popen(["go", "run", str(ROOT / "scripts/t007/tlsproxy/main.go"), "-out", str(pdir), "-listen", f"0.0.0.0:{PORT}", "-ip", f"{IP},127.0.0.1",
+    proxy = subprocess.Popen(["go", "run", str(ROOT / "scripts/t007/tlsproxy/main.go"), "-out", str(pdir), "-listen", f"0.0.0.0:{PORT}", "-ip", ",".join([IP, "127.0.0.1"] + [x for x in arg("--san", "").split(",") if x]),
                               "-app", f"litara.test={backend}", "-default", f"litara.test={backend}"], stdout=open(pdir / "proxy.log", "wb"), stderr=subprocess.STDOUT)
     http_ok = False
     for _ in range(60):
@@ -87,6 +88,30 @@ def main():
             except SystemExit:
                 pass
             time.sleep(4)
+        phone_creds = None
+        if PHONE:
+            import secrets as _sec
+            m = WORK / "media" / "Phone Author"
+            for name, args, ext in (("MP3", ["-c:a", "libmp3lame", "-b:a", "64k"], "mp3"), ("FLAC", ["-c:a", "flac"], "flac")):
+                dd = m / f"Phone Audio {name}"
+                dd.mkdir(parents=True, exist_ok=True)
+                subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=330:duration=120", "-metadata", f"title=Phone Audio {name}", "-metadata", "artist=Phone Author",
+                                "-metadata", f"album=Phone Audio {name}", *args, str(dd / f"book.{ext}")], check=True)
+            dm = m / "Phone Chaptered"
+            dm.mkdir(exist_ok=True)
+            (dm / "m.txt").write_text(";FFMETADATA1" + "\ntitle=Phone Chaptered\nartist=Phone Author\nalbum=Phone Chaptered\n" + "".join(f"[CHAPTER]\nTIMEBASE=1/1000\nSTART={i * 40000}\nEND={(i + 1) * 40000}\ntitle=Part {i + 1}\n" for i in range(3)))
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=120", "-i", str(dm / "m.txt"), "-map_metadata", "1", "-map_chapters", "1", "-c:a", "aac", "-b:a", "48k", "-f", "ipod", str(dm / "book.m4b")], check=True)
+            (dm / "m.txt").unlink()
+            ppw = _sec.token_hex(12)  # letters and digits only: adb input text drops some punctuation
+            pu = stack.api("POST", "/admin/users", adm, {"username": "phonereader", "displayName": "Phone Reader", "password": ppw, "isAdmin": False})
+            stack.api("PUT", f"/admin/users/{pu['id']}/libraries/{c['library']}", adm)
+            for _ in range(8):
+                try:
+                    stack.api("POST", f"/admin/libraries/{c['library']}/scans", adm, {})
+                except SystemExit:
+                    pass
+                time.sleep(4)
+            phone_creds = ("phonereader", ppw)
         ist = stack.api("GET", "/integrations/settings", adm)
         stack.api("PUT", "/admin/integrations/settings", adm, {"operationId": str(uuid.uuid4()), "baseRevision": ist["revision"], "opdsEnabled": True, "emailEnabled": ist["emailEnabled"],
                   "koreaderEnabled": True, "maxAttachmentBytes": ist["maxAttachmentBytes"], "maxDeliveriesPerUserPerHour": ist["maxDeliveriesPerUserPerHour"]})
@@ -117,10 +142,12 @@ def main():
             return 0 if ok else 1
         ku, kp = creds["koreader"]
         ca = (pdir / "ca.pem").resolve()
+        import shutil
+        shutil.copyfile(pdir / "ca.pem", pdir / "litara-t007-ca.crt")  # Android only offers files with a .crt/.cer extension
         (WORK / "koreader-session.md").write_text(f"""# KOReader + OPDS test session (synthetic, disposable)
 
 Server: {BASE}   (certificate signed by the throwaway CA below; valid for {IP} and 127.0.0.1)
-CA certificate to trust: {ca}
+CA certificate to trust: {ca}  (copy for Android: {pdir / "litara-t007-ca.crt"})
 
 OPDS (KOReader: top menu > Search > OPDS catalog > + )
   Catalog URL : {BASE}/opds/v1          (OPDS 1.x Atom; v2 JSON is at {BASE}/opds/v2)
@@ -128,10 +155,12 @@ OPDS (KOReader: top menu > Search > OPDS catalog > + )
   Password    : {op}
 
 Progress sync (KOReader: Tools > Progress sync > Custom sync server)
-  Custom sync server : {BASE}
+  Custom sync server : {BASE}/1
   Username           : {ku}
   Password           : {kp}
   (do not use Register; the server refuses account creation. Use Login.)
+
+{("Litara Android app (phone): sign-in user " + phone_creds[0] + " password " + phone_creds[1]) if phone_creds else ""}
 
 Books in the library: {', '.join(sorted(books))}
 """, encoding="utf-8")

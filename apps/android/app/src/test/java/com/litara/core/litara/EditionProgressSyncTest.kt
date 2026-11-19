@@ -31,8 +31,12 @@ class EditionProgressSyncTest {
 
     @After fun tearDown() = server.shutdown()
 
-    private fun sync(version: String = "v1", compatible: Set<String> = setOf(web), dir: java.io.File = tmp.root) =
-        EditionProgressSync(client, "e1", "f1", version, web, "epub", LocatorPolicy(compatible), dir)
+    private fun sync(
+        version: String = "v1",
+        compatible: Set<String> = setOf(web),
+        dir: java.io.File = tmp.root,
+        downloadedState: LEditionPositionState? = null,
+    ) = EditionProgressSync(client, "e1", "f1", version, web, "epub", LocatorPolicy(compatible), dir, downloadedState)
 
     private fun state(rev: String) = """{"revision":"$rev","position":null,"unresolvedConflictCount":0,"conflictsPath":"/api/v1/personal-conflicts"}"""
     private fun problem(status: Int, code: String, extra: String = "") =
@@ -60,6 +64,20 @@ class EditionProgressSyncTest {
         assertEquals("0", first["baseRevision"]!!.jsonPrimitive.content)
         assertEquals("1", second["baseRevision"]!!.jsonPrimitive.content)
         assertEquals("v1", first["anchor"]!!.jsonObject["contentVersion"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun `offline sends use the download revision and later restarts remember finer server progress`() = runBlocking {
+        val downloaded = LitaraJson.decodeFromString<LEditionPositionState>(state("6"))
+        server.enqueue(MockResponse().setResponseCode(503))
+        assertEquals(EditionReportOutcome.Queued, sync(downloadedState = downloaded).report("epubcfi(/6/2)", 0.1))
+        val first = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+        assertEquals("6", first["baseRevision"]!!.jsonPrimitive.content)
+
+        server.enqueue(MockResponse().setBody(state("7")))
+        assertEquals(EditionReportOutcome.Accepted, sync(downloadedState = downloaded).flushPending())
+        server.takeRequest()
+        assertEquals("7", sync(downloadedState = downloaded).revision)
+        assertEquals("0", sync(version = "v2").revision)
     }
 
     @Test fun `a lost response is retried with the same operation id after a restart`() = runBlocking {

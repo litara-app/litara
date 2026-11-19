@@ -46,6 +46,17 @@ export function ReaderPage() {
   const snapshot = useQuery({ queryKey: ["reader", editionId], queryFn: () => get<ReaderSnapshot>(`/editions/${editionId}/reader`), staleTime: Infinity, gcTime: 0 });
   if (snapshot.isPending) return <Busy />;
   if (snapshot.error) return <Stack p="md"><ErrorBox error={snapshot.error} /><Button component={Link} to="/" variant="default">Back to library</Button></Stack>;
+  const edition = snapshot.data.edition;
+  const damage = edition.capabilities.read.issues.find((i) => i.code === "file_damaged");
+  if (damage) {
+    return <Stack p="md" maw={560}>
+      <Alert color="yellow" title="Damaged file">{damage.detail}</Alert>
+      <Group>
+        <Button component={Link} to={`/editions/${edition.id}`} variant="default">Back to edition</Button>
+        {edition.file.contentPath && <Button component="a" href={edition.file.contentPath} download>Download original</Button>}
+      </Group>
+    </Stack>;
+  }
   if (["cbz", "cbr", "cb7"].includes(snapshot.data.edition.file.format)) return <ComicReader snapshot={snapshot.data} />;
   return <Reader snapshot={snapshot.data} />;
 }

@@ -12,10 +12,11 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/config"
 	"github.com/deranjer/ebooker/apps/server/internal/db"
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
+	"github.com/deranjer/ebooker/apps/server/internal/writeback"
 )
 
 // builtInWriters are the formats this build has a writer for (ADR-0052). Enabling anything else is refused.
-var builtInWriters = map[string]bool{"epub": true}
+var builtInWriters = writeback.BuiltInWriters()
 
 var writerFormats = []string{"epub", "mp3", "flac", "m4a", "m4b"}
 
@@ -51,7 +52,7 @@ func writersCmd(ctx context.Context, cfg *config.Config, args []string, out io.W
 			if c.EvidenceRef != nil {
 				ev = *c.EvidenceRef
 			}
-			fmt.Fprintf(out, "%-5s %-8s built-in=%-5v evidence=%s\n", f, state, builtInWriters[f], ev)
+			fmt.Fprintf(out, "%-5s %-8s built-in=%-5v evidence=%s\n", f, state, builtInWriters[f] != nil, ev)
 		}
 		return nil
 	case "enable":
@@ -64,7 +65,7 @@ func writersCmd(ctx context.Context, cfg *config.Config, args []string, out io.W
 		if err := fs.Parse(args[2:]); err != nil {
 			return err
 		}
-		if !builtInWriters[format] {
+		if builtInWriters[format] == nil {
 			return fmt.Errorf("this build has no %s writer; in-file writing stays disabled for it (ADR-0052)", format)
 		}
 		ref := strings.TrimSpace(*evidence)
