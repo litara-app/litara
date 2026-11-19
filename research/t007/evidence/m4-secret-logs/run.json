@@ -1,0 +1,114 @@
+{
+  "finished": "2026-11-18T13:19:53.976012+00:00",
+  "logLevel": "debug",
+  "logBytes": 7030,
+  "logLines": 50,
+  "secretsChecked": 20,
+  "leaked": [],
+  "headerDumpMarkersFound": [],
+  "perSecret": [
+    {
+      "secret": "admin password",
+      "length": 24,
+      "leaked": false
+    },
+    {
+      "secret": "reader password",
+      "length": 24,
+      "leaked": false
+    },
+    {
+      "secret": "login secret key",
+      "length": 44,
+      "leaked": false
+    },
+    {
+      "secret": "smtp key ring key",
+      "length": 44,
+      "leaked": false
+    },
+    {
+      "secret": "wrong password",
+      "length": 40,
+      "leaked": false
+    },
+    {
+      "secret": "access token",
+      "length": 43,
+      "leaked": false
+    },
+    {
+      "secret": "refresh token",
+      "length": 43,
+      "leaked": false
+    },
+    {
+      "secret": "invalid bearer",
+      "length": 40,
+      "leaked": false
+    },
+    {
+      "secret": "refresh token 2",
+      "length": 43,
+      "leaked": false
+    },
+    {
+      "secret": "access token 2",
+      "length": 43,
+      "leaked": false
+    },
+    {
+      "secret": "garbage refresh token",
+      "length": 48,
+      "leaked": false
+    },
+    {
+      "secret": "access token 3",
+      "length": 43,
+      "leaked": false
+    },
+    {
+      "secret": "admin access token",
+      "length": 43,
+      "leaked": false
+    },
+    {
+      "secret": "opds credential password",
+      "length": 64,
+      "leaked": false
+    },
+    {
+      "secret": "koreader credential password",
+      "length": 64,
+      "leaked": false
+    },
+    {
+      "secret": "opds basic header",
+      "length": 112,
+      "leaked": false
+    },
+    {
+      "secret": "opds wrong basic header",
+      "length": 120,
+      "leaked": false
+    },
+    {
+      "secret": "koreader x-auth-key",
+      "length": 32,
+      "leaked": false
+    },
+    {
+      "secret": "smtp password",
+      "length": 37,
+      "leaked": false
+    },
+    {
+      "secret": "query token",
+      "length": 35,
+      "leaked": false
+    }
+  ],
+  "requestLinesInLog": 0,
+  "note": "the server writes no per-request access log, only startup, worker and warning lines; absence of secrets is therefore expected and a missing audit trail for auth failures is a separate observation",
+  "result": "PASS"
+}

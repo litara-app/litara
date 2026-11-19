@@ -1,0 +1,57 @@
+{
+  "base": "https://lab-host.invalid:18443",
+  "timeline": [
+    {
+      "at": "2026-11-18T21:02:46.381533Z",
+      "state": {
+        "Synthetic Comic": {
+          "koreaderRevision": "0",
+          "source": "koreader",
+          "progress": {},
+          "percentage": {},
+          "webRevision": "0"
+        },
+        "Synthetic Tale": {
+          "koreaderRevision": "0",
+          "source": "koreader",
+          "progress": {},
+          "percentage": {},
+          "webRevision": "0"
+        },
+        "Second Tale": {
+          "koreaderRevision": "0",
+          "source": "koreader",
+          "progress": {},
+          "percentage": {},
+          "webRevision": "0"
+        },
+        "Synthetic Paper": {
+          "koreaderRevision": "0",
+          "source": "koreader",
+          "progress": {},
+          "percentage": {},
+          "webRevision": "0"
+        },
+        "_conflicts": 0
+      }
+    },
+    {
+      "at": "2026-11-18T21:17:49.878187Z",
+      "state": {
+        "Synthetic Comic": {
+          "error": "GET /editions/04f88ee4-9edd-4e28-b6eb-c15ee4063193/koreader-position -> 401 {\"ty"
+        },
+        "Synthetic Tale": {
+          "error": "GET /editions/be644a4b-47e0-4e9a-aff3-bdfd556e7f9f/koreader-position -> 401 {\"ty"
+        },
+        "Second Tale": {
+          "error": "GET /editions/c4d186b7-7524-43aa-aaf8-fc2c7b41f647/koreader-position -> 401 {\"ty"
+        },
+        "Synthetic Paper": {
+          "error": "GET /editions/cc220d5e-c530-4e4c-ad48-0306db4719ce/koreader-position -> 401 {\"ty"
+        },
+        "_conflicts": "?"
+      }
+    }
+  ]
+}

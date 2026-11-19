@@ -116,18 +116,10 @@ class LitaraShellViewModel @Inject constructor(
 
     fun resolve(conflict: LConflict, choice: String) = run {
         val s = sync ?: return@run
+        val snap = _ui.value.detail?.snapshot ?: return@run
         val state = s.resolve(conflict.id, choice)
         val remaining = state.unresolvedConflicts
-        _ui.update { it.copy(prompt = if (remaining.isEmpty()) null else it.prompt?.copy(conflicts = remaining)) }
-    }
-
-    /** Resolves a position conflict with a position the user picked (file + offset); the caller validated the range. */
-    fun resolveExplicit(conflict: LConflict, fileIndex: Int, offsetMs: Long) = run {
-        val s = sync ?: return@run
-        val snap = _ui.value.detail?.snapshot ?: return@run
-        val f = snap.files.getOrNull(fileIndex) ?: return@run
-        val state = s.resolve(conflict.id, "use_explicit", com.litara.core.litara.LPositionInput(f.id, f.contentVersion, offsetMs, java.time.Instant.now().toString()))
-        _ui.update { it.copy(prompt = if (state.unresolvedConflicts.isEmpty()) null else it.prompt?.copy(conflicts = state.unresolvedConflicts)) }
+        _ui.update { it.copy(prompt = if (remaining.isEmpty()) null else conflictPrompt(snap, state.position, remaining, it.finished)) }
     }
 
     /** The user's answer to a completion conflict: keep the server state, apply the kept event, or set it explicitly. */

@@ -22,8 +22,8 @@ services:
   migrate:
     image: ${LITARA_IMAGE:-litara-backend:dev}
     build:
-      context: ../apps/server
-      dockerfile: ../../deploy/Dockerfile
+      context: ..
+      dockerfile: deploy/Dockerfile
     entrypoint: ["ctl", "migrate", "up"]
     environment: &appenv
       LITARA_DATABASE_URL: postgres://litara:${LITARA_DB_PASSWORD:-litara-dev-only}@db:5432/litara?sslmode=disable
@@ -35,8 +35,8 @@ services:
   server:
     image: ${LITARA_IMAGE:-litara-backend:dev}
     build:
-      context: ../apps/server
-      dockerfile: ../../deploy/Dockerfile
+      context: ..
+      dockerfile: deploy/Dockerfile
     environment:
       <<: *appenv
       # Required by the server (generate one with: ctl gen-key). Never commit it.
@@ -44,8 +44,16 @@ services:
       # Development-only plain-HTTP cookie mode; leave empty for any real deployment.
       LITARA_DEV_INSECURE_HTTP: ${LITARA_DEV_INSECURE_HTTP:-}
       LITARA_PUBLIC_PATH_PREFIX: ${LITARA_PUBLIC_PATH_PREFIX:-}
+      LITARA_OPEN_LIBRARY_CONTACT: ${LITARA_OPEN_LIBRARY_CONTACT:-}
+      # Web app and reader assets bundled in the image, served on two distinct hostnames (ADR-0071). *.localhost resolves
+      # to loopback in current browsers; behind a real TLS proxy set both origins to your https hostnames.
+      LITARA_WEB_DIR: /opt/litara/web
+      LITARA_READER_ADDR: 0.0.0.0:8081
+      LITARA_PUBLIC_ORIGIN: ${LITARA_PUBLIC_ORIGIN:-http://app.localhost:${LITARA_HTTP_PORT:-8080}}
+      LITARA_READER_ORIGIN: ${LITARA_READER_ORIGIN:-http://reader.localhost:${LITARA_READER_PORT:-8081}}
     ports:
       - "127.0.0.1:${LITARA_HTTP_PORT:-8080}:8080"
+      - "127.0.0.1:${LITARA_READER_PORT:-8081}:8081"
     volumes:
       - ${LITARA_MEDIA_DIR:-./media-fixtures}:/media:ro
       # Writable root for managed libraries (T004). Index libraries keep using the read-only mount above.

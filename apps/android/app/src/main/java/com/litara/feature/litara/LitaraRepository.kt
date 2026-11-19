@@ -3,7 +3,12 @@ package com.litara.feature.litara
 import android.content.Context
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.litara.core.litara.AccountScope
+import com.litara.core.litara.ContentChangedException
 import com.litara.core.litara.AtomicFile
+import com.litara.core.litara.EditionProgressSync
+import com.litara.core.litara.LEdition
+import com.litara.core.litara.LEditionFile
+import com.litara.core.litara.LReaderSnapshot
 import com.litara.core.litara.CompletionSync
 import com.litara.core.litara.FinishOutcome
 import com.litara.core.litara.LAnchor
@@ -22,6 +27,8 @@ import com.litara.core.litara.StaleScopeException
 import com.litara.core.litara.TransientException
 import com.litara.core.network.UserCaTrust
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.decodeFromString
@@ -239,7 +246,7 @@ class LitaraRepository @Inject constructor(
             // Atomic swap: an interruption leaves the complete old manifest or the complete new one. Old bytes
             // are removed only after the new manifest is durably in place.
             AtomicFile.write(File(rd, "downloaded.json"), LitaraJson.encodeToString(snap))
-            val keep = snap.files.map { fileName(it) }.toSet() + setOf("downloaded.json", "pending-position.json", "LOCKED")
+            val keep = snap.files.map { fileName(it) }.toSet() + setOf("downloaded.json", "pending-position.json", ProgressSync.REVISION_FILE, "LOCKED")
             rd.listFiles()?.filter { it.name !in keep && it.name.endsWith(".bin") }?.forEach { it.delete() }
         }
         onProgress(snap.files.size, snap.files.size)
@@ -336,4 +343,176 @@ class LitaraRepository @Inject constructor(
     }
 
     fun hasPendingCompletion(recordingId: String): Boolean = File(recDir(token(), recordingId), "pending-completion.json").exists()
+    // ---- ebooks and comics (T005 editions) -----------------------------------------------------
+
+    /** What the native readers may exchange with the server's canonical positions and annotations (G02); see [com.litara.core.litara.LocatorPolicy.NATIVE]. */
+    val nativeLocatorPolicy = com.litara.core.litara.LocatorPolicy.NATIVE
+
+    /** The page manifest of a comic edition's exact file version, asking the server to extract it first if needed. */
+    suspend fun comicManifest(e: LEdition): com.litara.core.litara.LPageManifest {
+        val c = requireClient()
+        val f = e.file
+        val current = try { c.comicManifest(f.id, f.contentVersion) } catch (ex: LitaraHttpException) {
+            if (ex.status == 404 || ex.status == 409) null else throw ex
+        }
+        if (current != null && current.state != "processing" && current.pages.isNotEmpty()) return current
+        return c.prepareComicPages(f.id, f.contentVersion,
+            com.litara.core.litara.LExtraction(java.util.UUID.randomUUID().toString(), e.revision, f.contentVersion))
+    }
+
+    /** Re-reads the manifest (no job) until the server finishes extracting or [attempts] run out. */
+    suspend fun waitForManifest(e: LEdition, first: com.litara.core.litara.LPageManifest, attempts: Int = 40): com.litara.core.litara.LPageManifest {
+        var m = first
+        var n = 0
+        while (m.state == "processing" && n++ < attempts) {
+            kotlinx.coroutines.delay(500)
+            m = requireClient().comicManifest(e.file.id, e.file.contentVersion)
+        }
+        return m
+    }
+
+    fun comicPages(e: LEdition, manifest: com.litara.core.litara.LPageManifest): com.litara.core.litara.ComicPageStore =
+        com.litara.core.litara.ComicPageStore(requireClient(), File(edDir(token(), e.id), "pages"), manifest)
+
+    suspend fun editions(): List<LEdition> = requireClient().listAllEditions()
+
+    suspend fun titles(): List<com.litara.core.litara.LTitleSummary> = requireClient().listAllTitles()
+
+    suspend fun readerSnapshot(editionId: String): LReaderSnapshot {
+        val t = token()
+        return try {
+            requireClient().readerSnapshot(editionId).also {
+                offline.publish(t) { setBookLocked(edDir(t, editionId), false) }
+            }
+        } catch (e: LitaraHttpException) {
+            if (e.status == 403 || e.status == 404) {
+                offline.publish(t) { setBookLocked(edDir(t, editionId), true) }
+            }
+            throw e
+        } catch (e: TransientException) {
+            val directory = edDir(t, editionId)
+            savedBook(directory)?.takeUnless { File(directory, "LOCKED").exists() }?.snapshot ?: throw e
+        }
+    }
+
+    private fun edDir(t: ScopeToken, editionId: String) = File(dir(t), "ed/$editionId").apply { mkdirs() }
+
+    @kotlinx.serialization.Serializable
+    private data class SavedBook(val snapshot: LReaderSnapshot, val title: String, val authors: List<String>)
+
+    private val bookFiles = Mutex()
+
+    private fun bookFile(directory: File, f: LEditionFile): File {
+        val ext = f.format.filter { it.isLetterOrDigit() }.ifEmpty { "bin" }
+        return File(directory, "${f.id}-${f.contentVersion}.$ext")
+    }
+
+    private fun savedBook(directory: File): SavedBook? {
+        val marker = File(directory, "downloaded.json")
+        if (!marker.isFile) return null
+        val saved = runCatching { LitaraJson.decodeFromString<SavedBook>(marker.readText()) }.getOrNull() ?: return null
+        val file = saved.snapshot.edition.file
+        val local = bookFile(directory, file)
+        return saved.takeIf { local.isFile && local.length() == file.sizeBytes }
+    }
+
+    private fun setBookLocked(directory: File, locked: Boolean) {
+        val lock = File(directory, "LOCKED")
+        if (locked) {
+            if (File(directory, "downloaded.json").isFile) AtomicFile.write(lock, "")
+        } else if (lock.exists()) {
+            check(lock.delete()) { "Could not unlock this download." }
+        }
+    }
+
+    fun downloadedBooks(visible: Set<String>? = null): List<BookRow> = offline.read(token()) { directory ->
+        File(directory, "ed").listFiles().orEmpty().mapNotNull { book ->
+            val saved = savedBook(book) ?: return@mapNotNull null
+            if (visible != null) setBookLocked(book, book.name !in visible)
+            saved.takeUnless { File(book, "LOCKED").exists() }
+        }.map {
+            BookRow(it.snapshot.edition, it.title, it.authors, downloaded = true)
+        }.sortedBy { it.title.lowercase() }
+    }
+
+    suspend fun downloadBook(row: BookRow) = bookFiles.withLock {
+        val t = token()
+        val c = requireClient()
+        val snap = c.readerSnapshot(row.edition.id)
+        val file = snap.edition.file
+        if (file.id != row.edition.file.id || file.contentVersion != row.edition.file.contentVersion) {
+            throw ContentChangedException(file.id)
+        }
+        check(bookDownloadable(snap.edition)) { "This book cannot be downloaded." }
+        val directory = edDir(t, snap.edition.id)
+        fetchEditionFile(c, snap, directory)
+        offline.publish(t) {
+            AtomicFile.write(File(directory, "downloaded.json"), LitaraJson.encodeToString(SavedBook(snap, row.title, row.authors)))
+            setBookLocked(directory, false)
+        }
+    }
+
+    suspend fun removeBookDownload(editionId: String) = bookFiles.withLock {
+        val t = token()
+        offline.publish(t) {
+            val directory = edDir(t, editionId)
+            val saved = savedBook(directory)
+            val marker = File(directory, "downloaded.json")
+            saved?.snapshot?.edition?.file?.let {
+                val file = bookFile(directory, it)
+                check(!file.exists() || file.delete()) { "Could not remove downloaded file." }
+            }
+            check(!marker.exists() || marker.delete()) { "Could not remove download record." }
+            setBookLocked(directory, false)
+        }
+        Unit
+    }
+
+    /** Readers and explicit downloads share the Range downloader and exact-version cache. */
+    suspend fun editionFile(snap: LReaderSnapshot): File = bookFiles.withLock {
+        val t = token()
+        fetchEditionFile(requireClient(), snap, edDir(t, snap.edition.id)).also { offline.publish(t) { } }
+    }
+
+    private suspend fun fetchEditionFile(c: LitaraClient, snap: LReaderSnapshot, directory: File): File {
+        val f = snap.edition.file
+        val path = f.contentPath ?: throw IllegalStateException("This edition has no readable content.")
+        val dest = bookFile(directory, f)
+        val file = LFile(f.id, f.contentVersion, 0, dest.name, f.mimeType, f.sizeBytes, null, f.availability == "available", path)
+        RangeDownloader(c).download(file, dest)
+        return dest
+    }
+
+    /** Manual finish/unfinish for [e]'s exact file version; the saved write lives with the account's edition data. */
+    fun editionCompletion(e: LEdition): com.litara.core.litara.EditionCompletionSync =
+        com.litara.core.litara.EditionCompletionSync(requireClient(), e.id, e.file.id, e.file.contentVersion,
+            File(edDir(token(), e.id), "pending-completion.json"))
+
+    /** Edition ids of the active account that still have an undelivered finish/unfinish write. */
+    fun editionsWithPendingCompletion(): List<String> {
+        val t = token()
+        return File(dir(t), "ed").listFiles { f -> f.isDirectory && File(f, "pending-completion.json").exists() }.orEmpty().map { it.name }
+    }
+
+    suspend fun personalConflicts(): List<com.litara.core.litara.LPersonalConflict> = requireClient().listAllPersonalConflicts()
+
+    /** [currentRevision] must be the resource's CURRENT revision (refetch on a stale answer); a new operation id per decision. */
+    suspend fun resolveConflict(c: com.litara.core.litara.LPersonalConflict, choice: String, currentRevision: String, contentVersion: String?) =
+        requireClient().resolvePersonalConflict(c.id,
+            com.litara.core.litara.LResolve(java.util.UUID.randomUUID().toString(), currentRevision, choice, contentVersion))
+
+    /** Private annotations for [snap]'s exact file version; local-first, synced only where [nativeLocatorPolicy] allows. */
+    fun editionAnnotations(snap: LReaderSnapshot): com.litara.core.litara.EditionAnnotationSync {
+        val t = token()
+        val f = snap.edition.file
+        val d = edDir(t, snap.edition.id)
+        return com.litara.core.litara.EditionAnnotationSync(requireClient(), snap.edition.id, f.id, f.contentVersion, snap.engineProfile, f.format,
+            nativeLocatorPolicy, com.litara.core.litara.AnnotationStore(d, f.id, f.contentVersion))
+    }
+
+    fun editionProgress(snap: LReaderSnapshot): EditionProgressSync {
+        val t = token()
+        return EditionProgressSync(requireClient(), snap.edition.id, snap.edition.file.id, snap.edition.file.contentVersion,
+            snap.engineProfile, snap.edition.file.format, nativeLocatorPolicy, edDir(t, snap.edition.id), snap.position)
+    }
 }

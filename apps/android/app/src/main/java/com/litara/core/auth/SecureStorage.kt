@@ -76,11 +76,13 @@ class SecureStorage internal constructor(
 
     fun putString(key: String, value: String?) {
         if (key == KEY_DATA_OWNER) saveOwner(value)
-        else prefs.edit().putString(key, value).apply()
+        // commit(), not apply(): sign-in/out can end in ProcessRestarter, which kills the process right after the write, and
+        // an asynchronous apply() that has not reached disk is lost (T007: the app came back signed out after Litara sign-in).
+        else prefs.edit().putString(key, value).commit()
     }
 
     fun remove(key: String) {
-        if (key == KEY_DATA_OWNER) saveOwner(null) else prefs.edit().remove(key).apply()
+        if (key == KEY_DATA_OWNER) saveOwner(null) else prefs.edit().remove(key).commit()
     }
 
     companion object {

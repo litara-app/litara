@@ -116,13 +116,11 @@ func run() error {
 	running.Store(true)
 	log.Info("workers started", "inspect_workers", cfg.InspectWorkers)
 	meta := metadata.New(pool)
-	enricher := &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{
-		metadata.ProviderOpenLibrary: metadata.OpenLibrary{HTTP: metadata.HTTP{BaseURL: "https://openlibrary.org"}},
-		metadata.ProviderGoogleBooks: metadata.GoogleBooks{HTTP: metadata.HTTP{BaseURL: "https://www.googleapis.com"}, APIKey: cfg.GoogleBooksAPIKey},
-		metadata.ProviderAudnexus:    metadata.Audnexus{HTTP: metadata.HTTP{BaseURL: "https://api.audnex.us"}},
-	}}
-	// No in-file writer is registered: every format stays disabled until fidelity evidence exists (ADR-0052).
-	wb := &writeback.Service{Pool: pool, Inspector: scanInsp, Scanner: scanner, Metadata: meta, Writers: map[string]writeback.Writer{}}
+	enricher := &metadata.Enricher{Service: meta, Providers: metadata.NewProviders(cfg.OpenLibraryContact, cfg.GoogleBooksAPIKey)}
+	// Only writers with retained fidelity evidence are built in (ADR-0052). A writer stays disabled until an
+	// operator records its evidence with `ctl writers enable`.
+	wb := &writeback.Service{Pool: pool, Inspector: scanInsp, Scanner: scanner, Metadata: meta,
+		Writers: writeback.BuiltInWriters()}
 	if done, gone, err := wb.Recover(ctx); err != nil {
 		log.Warn("write-back recovery failed", "error", err)
 	} else if done+gone > 0 {

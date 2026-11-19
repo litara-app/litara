@@ -1,0 +1,3 @@
+Synthetic Tale: completion rev 1 finished=True  edition=3e4c7b6f-b2ca-4002-ac75-8db576bf3674
+Second Tale: completion rev 3 finished=True  edition=e548bb01-499c-4e5b-9815-a641312a58a7
+unresolved conflicts: 0

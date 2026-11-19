@@ -35,7 +35,7 @@ class PdfReaderViewModel @Inject constructor(
     private val settingsStore: PdfReaderSettingsStore,
     private val sessions: ReadingSessionTracker,
     @ApplicationContext private val context: Context,
-) : ViewModel() {
+) : ViewModel(), PdfHost {
 
     val bookId: Int = savedStateHandle.get<Int>("id") ?: 0
 
@@ -65,7 +65,7 @@ class PdfReaderViewModel @Inject constructor(
     )
 
     private val _ui = MutableStateFlow(UiState())
-    val ui = _ui.asStateFlow()
+    override val ui = _ui.asStateFlow()
 
     private var fileId: Int = 0
     private var lastSaved = 0L
@@ -111,7 +111,7 @@ class PdfReaderViewModel @Inject constructor(
         }
     }
 
-    fun onPageChanged(pageIndex: Int) {
+    override fun onPageChanged(pageIndex: Int) {
         val total = _ui.value.pageCount
         if (total <= 0) return
         val clamped = pageIndex.coerceIn(0, total - 1)
@@ -121,14 +121,14 @@ class PdfReaderViewModel @Inject constructor(
         sessions.onReadingProgress(PdfProgress.pageToPercentage(clamped, total))
     }
 
-    fun updateSettings(settings: PdfReaderSettings) {
+    override fun updateSettings(settings: PdfReaderSettings) {
         _ui.update { it.copy(settings = settings) }
         viewModelScope.launch { settingsStore.save(settings) }
     }
 
     // ---- Search (API 35+) ----
 
-    fun search(query: String) {
+    override fun search(query: String) {
         val core = _ui.value.core ?: return
         searchJob?.cancel()
         if (query.isBlank()) {
@@ -152,9 +152,9 @@ class PdfReaderViewModel @Inject constructor(
         }
     }
 
-    fun nextMatch() = stepMatch(1)
+    override fun nextMatch() = stepMatch(1)
 
-    fun prevMatch() = stepMatch(-1)
+    override fun prevMatch() = stepMatch(-1)
 
     private fun stepMatch(delta: Int) {
         val s = _ui.value.search ?: return
@@ -163,7 +163,7 @@ class PdfReaderViewModel @Inject constructor(
         _ui.update { it.copy(search = s.copy(activeIndex = next)) }
     }
 
-    fun clearSearch() {
+    override fun clearSearch() {
         searchJob?.cancel()
         _ui.update { it.copy(search = null) }
     }
@@ -173,7 +173,7 @@ class PdfReaderViewModel @Inject constructor(
         if (System.currentTimeMillis() - lastSaved >= PROGRESS_THROTTLE_MS) flush()
     }
 
-    fun flush() {
+    override fun flush() {
         val page = pendingPage ?: return
         val total = _ui.value.pageCount
         if (fileId == 0 || total <= 0) return

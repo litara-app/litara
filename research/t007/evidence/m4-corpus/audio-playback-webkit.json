@@ -1,0 +1,77 @@
+{
+  "browser": "webkit",
+  "results": {
+    "Chaptered M4B": {
+      "canPlayType": "probably",
+      "metadata": false,
+      "duration": null,
+      "mediaError": 4,
+      "mime": "audio/mp4",
+      "pass": false
+    },
+    "Format AAC": {
+      "canPlayType": "probably",
+      "metadata": false,
+      "duration": null,
+      "mediaError": 4,
+      "mime": "audio/aac",
+      "pass": false
+    },
+    "Format FLAC": {
+      "canPlayType": "probably",
+      "metadata": false,
+      "duration": null,
+      "mediaError": 4,
+      "mime": "audio/flac",
+      "pass": false
+    },
+    "Format M4A": {
+      "canPlayType": "probably",
+      "metadata": false,
+      "duration": null,
+      "mediaError": 4,
+      "mime": "audio/mp4",
+      "pass": false
+    },
+    "Format MP3": {
+      "canPlayType": "probably",
+      "metadata": false,
+      "duration": null,
+      "mediaError": 4,
+      "mime": "audio/mpeg",
+      "pass": false
+    },
+    "Format OGG": {
+      "canPlayType": "",
+      "metadata": false,
+      "duration": null,
+      "mediaError": 4,
+      "mime": "audio/ogg",
+      "pass": false
+    },
+    "Format OPUS": {
+      "canPlayType": "",
+      "metadata": false,
+      "duration": null,
+      "mediaError": 4,
+      "mime": "audio/opus",
+      "pass": false
+    },
+    "Format WAV": {
+      "canPlayType": "probably",
+      "metadata": false,
+      "duration": null,
+      "mediaError": 4,
+      "mime": "audio/wav",
+      "pass": false
+    },
+    "Multi File MP3": {
+      "canPlayType": "probably",
+      "metadata": false,
+      "duration": null,
+      "mediaError": 4,
+      "mime": "audio/mpeg",
+      "pass": false
+    }
+  }
+}

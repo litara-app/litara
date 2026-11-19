@@ -32,7 +32,7 @@ class ReaderViewModel @Inject constructor(
     private val sessions: ReadingSessionTracker,
     private val annotationRepo: ReaderAnnotationRepository,
     private val bookmarkRepo: ReaderBookmarkRepository,
-) : ViewModel() {
+) : ViewModel(), ReaderHost {
 
     val bookId: Int = savedStateHandle.get<Int>("id") ?: 0
 
@@ -86,7 +86,7 @@ class ReaderViewModel @Inject constructor(
     data class SearchGroup(val label: String, val hits: List<SearchHit>)
 
     private val _ui = MutableStateFlow(UiState())
-    val ui = _ui.asStateFlow()
+    override val ui = _ui.asStateFlow()
 
     private var lastSaved = 0L
     private var pending: Pair<String?, Double>? = null
@@ -130,12 +130,12 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    fun onLoaded(toc: List<TocItem>, title: String?) {
+    override fun onLoaded(toc: List<TocItem>, title: String?) {
         _ui.update { it.copy(loaded = true, toc = toc, chapterTitle = it.chapterTitle ?: title) }
     }
 
     /** Keep the last reading position and reset page state before a fresh WebView is created. */
-    fun onRendererGone() {
+    override fun onRendererGone() {
         _ui.update { state ->
             state.copy(
                 loaded = false,
@@ -151,7 +151,7 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    fun onRelocate(cfi: String?, fraction: Double?, chapterTitle: String?) {
+    override fun onRelocate(cfi: String?, fraction: Double?, chapterTitle: String?) {
         _ui.update {
             it.copy(
                 chapterTitle = chapterTitle ?: it.chapterTitle,
@@ -167,38 +167,38 @@ class ReaderViewModel @Inject constructor(
 
     // --- in-book search ---
 
-    fun startSearch(query: String) {
+    override fun startSearch(query: String) {
         val q = query.trim()
         _ui.update {
             it.copy(search = if (q.isEmpty()) null else SearchState(query = q, running = true))
         }
     }
 
-    fun clearSearch() = _ui.update { it.copy(search = null) }
+    override fun clearSearch() = _ui.update { it.copy(search = null) }
 
-    fun onSearchResults(label: String, hits: List<SearchHit>) = _ui.update { s ->
+    override fun onSearchResults(label: String, hits: List<SearchHit>) = _ui.update { s ->
         val cur = s.search ?: return@update s
         cur.copy(groups = cur.groups + SearchGroup(label, hits), total = cur.total + hits.size).let { s.copy(search = it) }
     }
 
-    fun onSearchProgress(progress: Double) = _ui.update { s ->
+    override fun onSearchProgress(progress: Double) = _ui.update { s ->
         s.search?.let { s.copy(search = it.copy(progress = progress)) } ?: s
     }
 
-    fun onSearchDone(total: Int, capped: Boolean) = _ui.update { s ->
+    override fun onSearchDone(total: Int, capped: Boolean) = _ui.update { s ->
         s.search?.let { s.copy(search = it.copy(running = false, done = true, total = total, capped = capped, progress = 1.0)) } ?: s
     }
 
     // --- bookmarks ---
 
-    fun loadBookmarks() {
+    override fun loadBookmarks() {
         viewModelScope.launch {
             runCatching { bookmarkRepo.list(bookId) }.onSuccess { list -> _ui.update { it.copy(bookmarks = list) } }
         }
     }
 
     /** Bookmark the current page, named after the chapter and how far through the book it is. */
-    fun addBookmark() {
+    override fun addBookmark() {
         val cfi = currentCfi ?: return
         val s = _ui.value
         val title = BookmarkNames.default(s.chapterTitle, s.percentage)
@@ -209,7 +209,7 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    fun deleteBookmark(id: Int) {
+    override fun deleteBookmark(id: Int) {
         viewModelScope.launch {
             runCatching { bookmarkRepo.delete(bookId, id) }
                 .onSuccess { _ui.update { s -> s.copy(bookmarks = s.bookmarks.filterNot { it.id == id }) } }
@@ -240,30 +240,30 @@ class ReaderViewModel @Inject constructor(
         _ui.update { it.copy(annotations = annotationRepo.local(bookId), toolbar = null) }
     }
 
-    fun onSelection(text: String, cfi: String?, rect: ViewportRect?) {
+    override fun onSelection(text: String, cfi: String?, rect: ViewportRect?) {
         if (cfi == null) return
         _ui.update { it.copy(toolbar = ToolbarTarget(rect, selection = PendingSelection(text, cfi))) }
     }
 
-    fun onSelectionCleared() {
+    override fun onSelectionCleared() {
         // A selection going away dismisses the new-highlight toolbar, but not one opened on an existing highlight.
         _ui.update { s -> if (s.toolbar?.annotationId == null) s.copy(toolbar = null) else s }
     }
 
-    fun onAnnotationTap(cfi: String, rect: ViewportRect?) {
+    override fun onAnnotationTap(cfi: String, rect: ViewportRect?) {
         val ann = _ui.value.annotations.firstOrNull { it.cfi == cfi } ?: return
         _ui.update { it.copy(toolbar = ToolbarTarget(rect, annotationId = ann.id)) }
     }
 
-    fun dismissToolbar() = _ui.update { it.copy(toolbar = null) }
+    override fun dismissToolbar() = _ui.update { it.copy(toolbar = null) }
 
-    fun consumeMessage() = _ui.update { it.copy(message = null) }
+    override fun consumeMessage() = _ui.update { it.copy(message = null) }
 
     /** Highlight the selection in [color], or recolour the highlight the toolbar is open on. */
-    fun highlight(color: String) = saveAnnotation(color = color, note = null)
+    override fun highlight(color: String) = saveAnnotation(color = color, note = null)
 
     /** Save a note: on the open highlight, or on the selection as a new (yellow) highlight. */
-    fun saveNote(note: String) = saveAnnotation(color = null, note = note)
+    override fun saveNote(note: String) = saveAnnotation(color = null, note = note)
 
     private fun saveAnnotation(color: String?, note: String?) {
         val target = _ui.value.toolbar ?: return
@@ -294,7 +294,7 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    fun deleteAnnotation(id: Int) {
+    override fun deleteAnnotation(id: Int) {
         viewModelScope.launch {
             runCatching { annotationRepo.delete(bookId, id) }
                 .onSuccess {
@@ -305,16 +305,16 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    fun onError(message: String) {
+    override fun onError(message: String) {
         _ui.update { it.copy(error = UiText.raw(message)) }
     }
 
-    fun updateSettings(settings: ReaderSettings) {
+    override fun updateSettings(settings: ReaderSettings) {
         _ui.update { it.copy(settings = settings) }
         viewModelScope.launch { settingsStore.save(settings) }
     }
 
-    fun dismissPagingHint() {
+    override fun dismissPagingHint() {
         _ui.update { it.copy(showPagingHint = false) }
         viewModelScope.launch { settingsStore.markPagingHintSeen() }
     }
@@ -324,7 +324,7 @@ class ReaderViewModel @Inject constructor(
         if (System.currentTimeMillis() - lastSaved >= PROGRESS_THROTTLE_MS) flush()
     }
 
-    fun flush() {
+    override fun flush() {
         val fileId = _ui.value.resolved?.fileId ?: return
         val p = pending ?: return
         pending = null

@@ -1,0 +1,2 @@
+cbz revision 1 device Android sdk_gphone16k_x86_64 locator {"kind": "comic-page", "version": 1, "pageIndex": 1, "entryId": "2eaf77187b65b7e80888c49a21a071e3f9d3280e0c0a378125937360ce67224d", "manifestVersion": "36a1c581-8497-4b35-84c8-e16697016ee8"}
+pdf revision 0 device None locator null

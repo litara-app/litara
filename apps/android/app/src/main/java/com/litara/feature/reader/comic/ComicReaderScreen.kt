@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatTextdirectionLToR
 import androidx.compose.material.icons.automirrored.filled.FormatTextdirectionRToL
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -51,7 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.litara.ui.LocalImageUrls
 import kotlinx.coroutines.launch
 
 private const val MAX_ZOOM = 4f
@@ -63,7 +64,7 @@ private const val MAX_ZOOM = 4f
 @Composable
 fun ComicReaderScreen(
     onBack: () -> Unit,
-    vm: ComicReaderViewModel = hiltViewModel(),
+    vm: ComicHost = hiltViewModel<ComicReaderViewModel>(),
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val rtl by vm.rtl.collectAsStateWithLifecycle()
@@ -100,6 +101,16 @@ fun ComicReaderScreen(
             ) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = Color.White) }
                 Text(ui.title.orEmpty(), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (vm.supportsBookmarks) {
+                    val marked by vm.bookmarkedPage.collectAsStateWithLifecycle()
+                    IconButton(onClick = { vm.toggleBookmark() }) {
+                        Icon(
+                            if (marked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                            contentDescription = stringResource(if (marked) R.string.litara_bookmark_remove else R.string.litara_bookmark_add),
+                            tint = Color.White,
+                        )
+                    }
+                }
                 IconButton(onClick = { vm.setRtl(!rtl) }) {
                     Icon(
                         if (rtl) Icons.AutoMirrored.Filled.FormatTextdirectionRToL else Icons.AutoMirrored.Filled.FormatTextdirectionLToR,
@@ -116,7 +127,7 @@ fun ComicReaderScreen(
 private fun androidx.compose.foundation.layout.BoxScope.ComicPages(
     ui: ComicReaderViewModel.UiState,
     rtl: Boolean,
-    vm: ComicReaderViewModel,
+    vm: ComicHost,
     onToggleChrome: () -> Unit,
 ) {
     val pagerState = rememberPagerState(initialPage = ui.initialPage, pageCount = { ui.pageCount })
@@ -137,8 +148,9 @@ private fun androidx.compose.foundation.layout.BoxScope.ComicPages(
         beyondViewportPageCount = 1,
         key = { it },
     ) { page ->
+        val model by androidx.compose.runtime.produceState<Any?>(initialValue = null, page) { value = vm.loadPage(page) }
         ZoomablePage(
-            fileId = ui.fileId,
+            model = model,
             page = page,
             active = page == pagerState.currentPage,
             onZoomChanged = { if (page == pagerState.currentPage) zoomed = it },
@@ -188,13 +200,12 @@ private fun androidx.compose.foundation.layout.BoxScope.ComicPages(
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun ZoomablePage(
-    fileId: Int,
+    model: Any?,
     page: Int,
     active: Boolean,
     onZoomChanged: (Boolean) -> Unit,
     onTap: (Float) -> Unit,
 ) {
-    val imageUrls = LocalImageUrls.current
     // The gesture block below is keyed on Unit and never restarts, so read these through State to
     // always see the latest lambdas (e.g. after the reading direction flips).
     val currentOnTap by rememberUpdatedState(onTap)
@@ -246,7 +257,7 @@ private fun ZoomablePage(
         contentAlignment = Alignment.Center,
     ) {
         AsyncImage(
-            model = imageUrls.comicPage(fileId, page),
+            model = model,
             contentDescription = stringResource(R.string.page, page + 1),
             contentScale = ContentScale.Fit,
             modifier = Modifier

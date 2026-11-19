@@ -1,0 +1,4 @@
+Synthetic Tale: completion rev 1 finished=True  edition=3e4c7b6f-b2ca-4002-ac75-8db576bf3674
+Second Tale: completion rev 2 finished=False  edition=e548bb01-499c-4e5b-9815-a641312a58a7
+unresolved conflicts: 1
+  completion stale_revision base=0 current=2 id=3285573a-b968-4e21-b8df-f1c3ee478e31

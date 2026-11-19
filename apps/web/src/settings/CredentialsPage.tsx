@@ -17,7 +17,7 @@ function OneTimeSecret({ shown, onDismiss }: { shown: Shown; onDismiss: () => vo
       <Stack gap="xs">
         <Text size="sm">{c.kind === "opds"
           ? "Enter these in your OPDS reader. Use HTTP Basic authentication."
-          : "Enter these in KOReader's progress-sync settings. Each device needs its own credential."}</Text>
+          : "Set KOReader’s Custom sync server to your Litara server URL followed by /1 (for example, https://books.example.com/1). Then choose Login and enter these credentials. Each device needs its own credential."}</Text>
         <Group gap="xs"><Text size="sm" w={110}>Catalog address</Text>
           <Code data-testid="secret-address">{c.kind === "opds" ? `${origin}/opds/v1` : `${origin}/1`}</Code></Group>
         {c.kind === "opds" && <Group gap="xs"><Text size="sm" w={110}>OPDS 2.0 address</Text><Code>{origin}/opds/v2</Code></Group>}

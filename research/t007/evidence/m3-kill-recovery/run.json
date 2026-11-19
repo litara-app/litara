@@ -1,0 +1,39 @@
+{
+  "started": "2026-11-18T02:26:52.187096Z",
+  "rescueStuckAfter": "90s",
+  "fixture": {
+    "pages": 300,
+    "pixels": "3000x2000",
+    "bytes": 6690022
+  },
+  "partialFilesOnDiskAtKill": 15,
+  "killedAfterSeconds": 1.48,
+  "rowAtKill": "processing|0",
+  "rowAfterDeath": "processing|0|0",
+  "partialFilesAfterDeath": 177,
+  "riverJobAfterDeath": "running|1",
+  "manifestStatesAfterRestart": [
+    [
+      0.1,
+      [
+        "processing",
+        0
+      ]
+    ],
+    [
+      94.4,
+      [
+        "ready",
+        300
+      ]
+    ]
+  ],
+  "secondsFromRestartToReady": 94.4,
+  "finalPages": 300,
+  "finalMatchesFile": true,
+  "cacheFilesAtReady": 300,
+  "riverJobsAfter": "completed|2",
+  "duplicateRows": "1",
+  "finished": "2026-11-18T02:29:46.951545Z",
+  "result": "PASS"
+}

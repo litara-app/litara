@@ -1,0 +1,9 @@
+device: sdk_gphone16k_x86_64 API 37, app: versionName=0.1.0
+Format AAC: play=PASS seek=PASS state=PLAYING position 7778 -> 20024 ms, after seek 20024 ms, error=null
+Format FLAC: play=PASS seek=PASS state=PLAYING position 5015 -> 20000 ms, after seek 20000 ms, error=null
+Format M4A: play=PASS seek=PASS state=PLAYING position 16811 -> 20000 ms, after seek 20000 ms, error=null
+Format MP3: play=PASS seek=PASS state=PLAYING position 20009 -> 20035 ms, after seek 20035 ms, error=null
+Format OGG: play=PASS seek=PASS state=PLAYING position 19972 -> 20000 ms, after seek 20000 ms, error=null
+Format OPUS: play=PASS seek=PASS state=PLAYING position 5340 -> 20006 ms, after seek 20006 ms, error=null
+Format WAV: play=PASS seek=PASS state=PLAYING position 9086 -> 20000 ms, after seek 20000 ms, error=null
+Chaptered M4B: play=PASS seek=PASS state=PLAYING position 5596 -> 30000 ms, after seek 30000 ms, error=null

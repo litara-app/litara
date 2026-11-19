@@ -1,0 +1,118 @@
+{
+  "numPages": 7,
+  "pdfjsVersion": "6.5.438",
+  "pages": [
+    {
+      "pageIndex": 0,
+      "label": "i",
+      "text": "PAGE 1",
+      "rotate": 0,
+      "cropBoxView": [
+        0,
+        0,
+        612,
+        792
+      ],
+      "unrotatedCropWidth": 612,
+      "unrotatedCropHeight": 792,
+      "viewportWidth": 612,
+      "viewportHeight": 792
+    },
+    {
+      "pageIndex": 1,
+      "label": "ii",
+      "text": "PAGE 2",
+      "rotate": 0,
+      "cropBoxView": [
+        0,
+        0,
+        595,
+        842
+      ],
+      "unrotatedCropWidth": 595,
+      "unrotatedCropHeight": 842,
+      "viewportWidth": 595,
+      "viewportHeight": 842
+    },
+    {
+      "pageIndex": 2,
+      "label": "1",
+      "text": "PAGE 3",
+      "rotate": 0,
+      "cropBoxView": [
+        0,
+        0,
+        792,
+        612
+      ],
+      "unrotatedCropWidth": 792,
+      "unrotatedCropHeight": 612,
+      "viewportWidth": 792,
+      "viewportHeight": 612
+    },
+    {
+      "pageIndex": 3,
+      "label": "2",
+      "text": "PAGE 4",
+      "rotate": 90,
+      "cropBoxView": [
+        0,
+        0,
+        612,
+        792
+      ],
+      "unrotatedCropWidth": 612,
+      "unrotatedCropHeight": 792,
+      "viewportWidth": 792,
+      "viewportHeight": 612
+    },
+    {
+      "pageIndex": 4,
+      "label": "3",
+      "text": "PAGE 5",
+      "rotate": 0,
+      "cropBoxView": [
+        50,
+        50,
+        562,
+        742
+      ],
+      "unrotatedCropWidth": 512,
+      "unrotatedCropHeight": 692,
+      "viewportWidth": 512,
+      "viewportHeight": 692
+    },
+    {
+      "pageIndex": 5,
+      "label": "4",
+      "text": "PAGE 6",
+      "rotate": 270,
+      "cropBoxView": [
+        0,
+        0,
+        400,
+        600
+      ],
+      "unrotatedCropWidth": 400,
+      "unrotatedCropHeight": 600,
+      "viewportWidth": 600,
+      "viewportHeight": 400
+    },
+    {
+      "pageIndex": 6,
+      "label": "5",
+      "text": "PAGE 7",
+      "rotate": 0,
+      "cropBoxView": [
+        0,
+        0,
+        300,
+        900
+      ],
+      "unrotatedCropWidth": 300,
+      "unrotatedCropHeight": 900,
+      "viewportWidth": 300,
+      "viewportHeight": 900
+    }
+  ]
+}

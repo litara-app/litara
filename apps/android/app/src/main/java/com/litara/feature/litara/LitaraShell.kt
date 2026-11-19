@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.LocalLibrary
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -36,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +65,7 @@ import com.litara.ui.LocalImageUrls
 /** Test tags for the Litara shell. */
 object ShellTags {
     const val TAB_LIBRARY = "shell-tab-library"
+    const val TAB_BOOKS = "shell-tab-books"
     const val TAB_DOWNLOADS = "shell-tab-downloads"
     const val TAB_ACCOUNT = "shell-tab-account"
     const val PLAY = "shell-play"
@@ -71,12 +74,23 @@ object ShellTags {
     const val SIGN_OUT = "shell-sign-out"
     const val DETAIL_TITLE = "shell-detail-title"
     const val EMPTY_DOWNLOADS = "shell-empty-downloads"
+    const val BOOKS_NOTE = "shell-books-note"
+    const val BOOKS_CONFLICTS = "shell-books-conflicts"
+    const val CONFLICT_USE_MINE = "shell-conflict-use-mine"
+    const val CONFLICT_KEEP_SERVER = "shell-conflict-keep-server"
+    fun book(id: String) = "shell-book-$id"
+    fun bookDownload(id: String) = "shell-book-download-$id"
+    fun bookFinish(id: String) = "shell-book-finish-$id"
+    fun bookStatus(id: String) = "shell-book-status-$id"
     fun recording(id: String) = "shell-rec-$id"
     fun download(id: String) = "shell-dl-$id"
 }
 
 private const val ROUTE_MAIN = "main"
 private const val ROUTE_PLAYER = "player"
+private const val ROUTE_READER = "reader/{editionId}"
+private const val ROUTE_PDF = "pdf/{editionId}"
+private const val ROUTE_COMIC = "comic/{editionId}"
 
 /**
  * The phone app for a signed-in Litara account: Library, Downloads and Account over recording detail.
@@ -92,14 +106,29 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
             ShellMain(vm, onListen = { handle ->
                 player.loadAndPlay(handle)
                 nav.navigate(ROUTE_PLAYER)
-            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) })
+            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onReadBook = { id, format ->
+                nav.navigate(when {
+                    format == "pdf" -> "pdf/$id"
+                    format in COMIC_FORMATS -> "comic/$id"
+                    else -> "reader/$id"
+                })
+            })
+        }
+        composable(ROUTE_PDF) {
+            com.litara.feature.reader.pdf.PdfReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraPdfViewModel>())
+        }
+        composable(ROUTE_COMIC) {
+            com.litara.feature.reader.comic.ComicReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraComicViewModel>())
+        }
+        composable(ROUTE_READER) {
+            com.litara.feature.reader.ReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraReaderViewModel>())
         }
         composable(ROUTE_PLAYER) { PlayerScreen(onBack = dropUnlessResumed { nav.popBackStack() }) }
     }
 }
 
 @Composable
-private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit) {
+private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onReadBook: (String, String) -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     BackHandler(enabled = ui.detail != null) { vm.closeDetail() }
@@ -110,9 +139,11 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
                 NavigationBar {
                     NavigationBarItem(tab == 0, { tab = 0; vm.closeDetail() }, { Icon(Icons.Outlined.LocalLibrary, null) },
                         label = { Text(stringResource(R.string.litara_tab_library)) }, modifier = Modifier.testTag(ShellTags.TAB_LIBRARY))
-                    NavigationBarItem(tab == 1, { tab = 1; vm.closeDetail() }, { Icon(Icons.Outlined.Download, null) },
+                    NavigationBarItem(tab == 1, { tab = 1; vm.closeDetail() }, { Icon(Icons.Outlined.MenuBook, null) },
+                        label = { Text(stringResource(R.string.litara_tab_books)) }, modifier = Modifier.testTag(ShellTags.TAB_BOOKS))
+                    NavigationBarItem(tab == 2, { tab = 2; vm.closeDetail() }, { Icon(Icons.Outlined.Download, null) },
                         label = { Text(stringResource(R.string.litara_tab_downloads)) }, modifier = Modifier.testTag(ShellTags.TAB_DOWNLOADS))
-                    NavigationBarItem(tab == 2, { tab = 2; vm.closeDetail() }, { Icon(Icons.Outlined.AccountCircle, null) },
+                    NavigationBarItem(tab == 3, { tab = 3; vm.closeDetail() }, { Icon(Icons.Outlined.AccountCircle, null) },
                         label = { Text(stringResource(R.string.litara_tab_account)) }, modifier = Modifier.testTag(ShellTags.TAB_ACCOUNT))
                 }
             }
@@ -125,12 +156,13 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
             when {
                 ui.detail != null -> ShellDetail(vm, ui, onListen)
                 tab == 0 -> ShellLibrary(vm, ui)
-                tab == 1 -> ShellDownloads(vm, ui)
+                tab == 1 -> ShellBooks(onReadBook)
+                tab == 2 -> ShellDownloads(vm, ui)
                 else -> ShellAccount(vm, ui)
             }
         }
     }
-    ui.prompt?.let { p -> ConflictPromptHost(p, vm::resolve, vm::resolveExplicit, vm::resolveCompletion) }
+    ui.prompt?.let { p -> ConflictPromptHost(p, vm::resolve, vm::resolveCompletion) }
     if (ui.incompatible && ui.prompt == null) {
         AlertDialog(
             onDismissRequest = {},
@@ -178,6 +210,119 @@ private fun ShellLibrary(vm: LitaraShellViewModel, ui: ShellUi) {
             HorizontalDivider()
         }
     }
+}
+
+@Composable
+private fun ShellBooks(onRead: (String, String) -> Unit, vm: LitaraBooksViewModel = hiltViewModel()) {
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    var deciding by rememberSaveable { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.litara_tab_books), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        TextButton({ vm.refresh() }) { Text(stringResource(R.string.litara_refresh)) }
+    }
+    if (ui.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+    ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(LitaraTags.ERROR)) }
+    ui.note?.let { n ->
+        Text(stringResource(booksNoteText(n)), style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.clickable { vm.consumeNote() }.testTag(ShellTags.BOOKS_NOTE))
+    }
+    if (ui.conflicts.isNotEmpty()) {
+        OutlinedButton({ deciding = true }, Modifier.fillMaxWidth().testTag(ShellTags.BOOKS_CONFLICTS)) {
+            Text(stringResource(R.string.litara_conflicts_banner, ui.conflicts.size))
+        }
+    }
+    if (ui.offline) {
+        Text(stringResource(R.string.litara_offline_books), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (ui.books.isEmpty() && !ui.loading && ui.error == null) {
+        Text(stringResource(R.string.litara_no_books), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    LazyColumn {
+        items(ui.books, key = { it.edition.id }) { row ->
+            val e = row.edition
+            val open = openability(e)
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag(ShellTags.book(e.id)), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).clickable(enabled = open is BookOpen.Yes) { onRead(e.id, e.file.format) }) {
+                    Text(row.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    val detail = when (open) {
+                        BookOpen.Yes -> (row.authors + e.file.format.uppercase()).joinToString(" · ")
+                        is BookOpen.No -> if (e.capabilities.read.issues.any { it.code == "file_damaged" }) {
+                            stringResource(R.string.litara_book_damaged)
+                        } else {
+                            stringResource(R.string.litara_book_unsupported, open.reason)
+                        }
+                    }
+                    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val status = listOfNotNull(
+                        stringResource(R.string.litara_downloaded).takeIf { row.downloaded },
+                        stringResource(R.string.litara_finished).takeIf { row.finished },
+                        stringResource(R.string.litara_waiting_to_sync).takeIf { row.waitingToSync },
+                    ).joinToString(" · ")
+                    if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag(ShellTags.bookStatus(e.id)))
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    if (!ui.offline) {
+                        TextButton({ vm.setFinished(row, !row.finished) }, Modifier.testTag(ShellTags.bookFinish(e.id))) {
+                            Text(stringResource(if (row.finished) R.string.litara_mark_unfinished else R.string.litara_mark_finished))
+                        }
+                    }
+                    val canDownload = !ui.offline && !row.downloaded && bookDownloadable(e)
+                    if (canDownload || row.downloaded || row.olderDownload) {
+                        val label = when {
+                            ui.downloading == e.id -> R.string.litara_book_download_working
+                            row.downloaded -> R.string.litara_delete_download
+                            canDownload && row.olderDownload -> R.string.litara_download_update
+                            canDownload -> R.string.litara_download
+                            else -> R.string.litara_delete_download
+                        }
+                        TextButton({ vm.changeDownload(row, remove = !canDownload) },
+                            Modifier.testTag(ShellTags.bookDownload(e.id)), enabled = ui.downloading == null) {
+                            Text(stringResource(label))
+                        }
+                    }
+                }
+            }
+            HorizontalDivider()
+        }
+    }
+    if (deciding && ui.conflicts.isNotEmpty()) {
+        val c = ui.conflicts.first()
+        val title = ui.books.firstOrNull { it.edition.id == c.editionId }?.title.orEmpty()
+        if (decidableHere(c)) {
+            AlertDialog(
+                onDismissRequest = { deciding = false },
+                title = { Text(stringResource(R.string.litara_conflict_title, title)) },
+                text = { Text(stringResource(conflictBodyText(c))) },
+                confirmButton = { TextButton({ vm.resolve(c, useCandidate = true) }, Modifier.testTag(ShellTags.CONFLICT_USE_MINE)) { Text(stringResource(R.string.litara_conflict_use_mine)) } },
+                dismissButton = { TextButton({ vm.resolve(c, useCandidate = false) }, Modifier.testTag(ShellTags.CONFLICT_KEEP_SERVER)) { Text(stringResource(R.string.litara_conflict_keep_server)) } },
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = { deciding = false },
+                title = { Text(stringResource(R.string.litara_conflict_title, title)) },
+                text = { Text(stringResource(R.string.litara_conflict_web_only)) },
+                confirmButton = { TextButton({ deciding = false }) { Text(stringResource(R.string.litara_not_now)) } },
+            )
+        }
+    }
+}
+
+private fun booksNoteText(n: BooksNote): Int = when (n) {
+    BooksNote.FINISH_QUEUED -> R.string.litara_note_finish_queued
+    BooksNote.EARLIER_DELIVERED -> R.string.litara_note_earlier_delivered
+    BooksNote.CONTENT_CHANGED -> R.string.litara_reader_content_changed
+    BooksNote.ACCESS_ENDED -> R.string.litara_reader_access_ended
+    BooksNote.CONFLICT_SAVED -> R.string.litara_note_conflict_saved
+    BooksNote.RESOLVED -> R.string.litara_note_resolved
+    BooksNote.DOWNLOAD_FAILED -> R.string.litara_book_download_failed
+    BooksNote.RESOLVE_STALE -> R.string.litara_note_resolve_stale
+}
+
+private fun conflictBodyText(c: com.litara.core.litara.LPersonalConflict): Int = when {
+    c.resourceKind == "completion" -> R.string.litara_conflict_completion
+    c.reason == "content_changed" || c.reason == "locator_incompatible" -> R.string.litara_conflict_position_changed
+    else -> R.string.litara_conflict_position
 }
 
 @Composable

@@ -343,6 +343,9 @@ func (s *Scanner) reconcile(ctx context.Context, run sqlcgen.ScanRun) (Outcome, 
 		if _, err := s.Group(ctx, run.LibraryID); err != nil {
 			return out, fmt.Errorf("group: %w", err)
 		}
+		if err := s.backfillEditionStructures(ctx, run.LibraryID, listing); err != nil {
+			return out, fmt.Errorf("ebook structure: %w", err)
+		}
 		if err := s.SyncEditions(ctx, run.LibraryID); err != nil {
 			return out, fmt.Errorf("editions: %w", err)
 		}
@@ -368,6 +371,10 @@ func keys(m map[string]bool) []string {
 func (s *Scanner) inspectFile(ctx context.Context, e Entry) (completeness string, result []byte, failure *string, durationMs *int64) {
 	if !strings.HasPrefix(e.Mime, "audio/") {
 		// Ebook/comic containers are parsed by Go readers, never by ffprobe.
+		if structure := inspectEditionStructure(e); structure != "" {
+			result, _ := json.Marshal(map[string]string{"ebookStructure": structure})
+			return "complete", result, nil, nil
+		}
 		return "complete", nil, nil, nil
 	}
 	if s.Inspector == nil {
@@ -419,7 +426,7 @@ func (s *Scanner) addFile(ctx context.Context, lib uuid.UUID, e Entry, sha strin
 // affected recording layouts; saved positions are never remapped (ADR-0044).
 func (s *Scanner) replace(ctx context.Context, lib uuid.UUID, o obs, e Entry, sha string, now time.Time) error {
 	c, r, f, d := s.inspectFile(ctx, e)
-	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+	if err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
 		q := sqlcgen.New(tx)
 		if err := q.RetireCurrentVersion(ctx, o.FileID); err != nil {
 			return err
@@ -434,7 +441,11 @@ func (s *Scanner) replace(ctx context.Context, lib uuid.UUID, o obs, e Entry, sh
 			return err
 		}
 		return q.DeleteCandidate(ctx, sqlcgen.DeleteCandidateParams{LibraryID: lib, RelPath: e.Rel})
-	})
+	}); err != nil {
+		return err
+	}
+	// Both the scanner and an approved in-file write-back arrive here; the catalog follows the file's new tags.
+	return s.refreshEmbedded(ctx, lib, o.FileID, e.Rel)
 }
 
 // refreshStat records a touched-but-identical file (same bytes, new mtime).

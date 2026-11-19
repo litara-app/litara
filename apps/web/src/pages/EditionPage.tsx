@@ -28,7 +28,8 @@ export function EditionPage() {
   if (q.error) return <ErrorBox error={q.error} />;
   const e = q.data;
   const caps = e.capabilities;
-  const readable = ["epub", "kepub", "fb2", "pdf", "cbz", "cbr", "cb7", "mobi", "azw", "azw3"].includes(e.file.format) && caps.read.state !== "unsupported" && e.file.availability === "available" && !!e.file.contentPath;
+  const damage = caps.read.issues.find((i) => i.code === "file_damaged");
+  const readable = !damage && ["epub", "kepub", "fb2", "pdf", "cbz", "cbr", "cb7", "mobi", "azw", "azw3"].includes(e.file.format) && caps.read.state !== "unsupported" && e.file.availability === "available" && !!e.file.contentPath;
   return (
     <Stack>
       <Anchor component={Link} to={`/titles/${e.titleId}`}>Back to title</Anchor>
@@ -39,7 +40,7 @@ export function EditionPage() {
         <Badge variant="light" color={e.readiness === "ready" ? "green" : e.readiness === "incomplete" ? "yellow" : "gray"}>{e.readiness}</Badge>
         {e.completion.finished && <Badge color="green">Finished</Badge>}
       </Group>
-      {e.issues.map((i) => <Alert key={i.code} color="yellow" title={i.code}>{i.detail}</Alert>)}
+      {e.issues.map((i) => <Alert key={i.code} color="yellow" title={i.code === "file_damaged" ? "Damaged file" : i.code}>{i.detail}</Alert>)}
 
       <Card withBorder>
         <Stack gap="xs">
@@ -52,7 +53,7 @@ export function EditionPage() {
 
       <Group>
         {readable ? <Button component={Link} to={`/read/${e.id}`}>Read</Button>
-          : <Button disabled title="The web reader does not support this format yet">Read</Button>}
+          : <Button disabled title={damage?.detail ?? "The web reader does not support this format yet"}>Read</Button>}
         {e.file.contentPath && caps.download.state === "supported" && (
           <Button component="a" href={e.file.contentPath} download variant="default">Download original</Button>
         )}

@@ -1,0 +1,8 @@
+files/litara-offline/4d306da5b7500014ce033612/ed/3e4c7b6f-b2ca-4002-ac75-8db576bf3674/local-position.json
+{"fileId":"57e45b78-d315-42c3-aa0b-26be69977986","contentVersion":"37090cf2-8bc5-4b6b-8bab-6aa2e71d1ae9","cfi":"epubcfi(/6/4!/4,/2,/6/1:715)","fraction":0.15625,"savedAt":"2026-11-17T21:12:44.997617Z"}
+files/litara-offline/4d306da5b7500014ce033612/ed/e548bb01-499c-4e5b-9815-a641312a58a7/local-position.json
+{"fileId":"0ed12f1b-6e7b-4965-b7a6-d5f065eaf96b","contentVersion":"80fc19b2-ab57-4328-b9f2-e4a259eef4a6","cfi":"epubcfi(/6/2!/4,/2,/6/1:715)","fraction":0.08333333333333333,"savedAt":"2026-11-17T21:15:56.497726Z"}
+files/litara-offline/4d306da5b7500014ce033612/ed/5869f721-d66e-4b40-9ee3-060efe6ebafc/local-position.json
+{"fileId":"327c366d-3da2-45ae-9d7e-6b164637aadf","contentVersion":"d9a12967-6503-406b-97c7-33dd8f90856f","cfi":"","fraction":0.75,"savedAt":"2026-11-17T21:37:32.435731Z","locator":{"kind":"comic-page","pageIndex":3,"entryId":"21dfc0008653dca066143f2c23e0b6f98b208a64e6d7142a92e46bd8ea33685e","manifestVersion":"36a1c581-8497-4b35-84c8-e16697016ee8","version":1}}
+files/litara-offline/4d306da5b7500014ce033612/ed/daa784b6-1556-4e36-9419-c36403502c83/local-position.json
+{"fileId":"f46e10dc-38cc-40ce-aacc-4c622e3fd057","contentVersion":"86a57337-3547-4586-a226-2afae06a8dfa","cfi":"","fraction":0.8333333333333334,"savedAt":"2026-11-17T21:38:59.806138Z","locator":{"kind":"pdf-page","pageIndex":4,"x":0.0,"y":0.0,"version":1}}

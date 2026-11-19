@@ -1,0 +1,333 @@
+{
+  "schemaVersion": 1,
+  "task": "T007",
+  "note": "Worker-recorded states as of the latest commit; 'partial' means some observed evidence exists and the named blocker remains. Nothing here is a release acceptance.",
+  "scenarios": [
+    {
+      "id": "native-catalog",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-epub/README.md"
+      ],
+      "command": "handoffs/T007.md M1 slice 1",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Synthetic two-book library only; no real corpus."
+    },
+    {
+      "id": "native-reflowable",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-epub/README.md",
+        "research/t007/evidence/m1-locators/README.md"
+      ],
+      "command": "handoffs/T007.md slices 1 and 5",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Synthetic fixtures; KEPUB/MOBI/AZW unproven."
+    },
+    {
+      "id": "native-pdf-comic",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-pdf-comics/README.md"
+      ],
+      "command": "handoffs/T007.md slice 3",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "CBR/CB7, rotated/encrypted PDFs, comic offline not covered."
+    },
+    {
+      "id": "locator-roundtrip",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-locators/README.md"
+      ],
+      "command": "scripts/t007/locators/*",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Synthetic fixtures; sub-page PDF coordinates and KEPUB/MOBI open."
+    },
+    {
+      "id": "native-personal-state",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m1-annotations/README.md",
+        "research/t007/evidence/m1-finish-conflicts/README.md"
+      ],
+      "command": "handoffs/T007.md slices 2 and 4",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Shelves UI, real two-writer annotation conflicts, account switch not covered."
+    },
+    {
+      "id": "native-offline-isolation",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-phone/README.md"
+      ],
+      "command": "LitaraOfflineBookUiTest; :app:testFullDebugUnitTest :app:testFdroidDebugUnitTest",
+      "environment": "API 36 Pixel Tablet emulator, disposable PostgreSQL server, synthetic EPUB, Android debug flavors with JDK 25",
+      "blocker": "EPUB local download and offline renderer passed. Offline PDF, physical phone and the wider revocation matrix are open."
+    },
+    {
+      "id": "audio-regression",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-corpus/android-audio-playback.txt",
+        "research/t007/evidence/m4-corpus/audio-playback-chromium.json",
+        "research/t007/evidence/m4-phone/README.md"
+      ],
+      "command": "bash scripts/t007/android_audio.sh; node scripts/t007/audio_browser.mjs chromium",
+      "environment": "Pixel_9_Pro API 37 emulator; Playwright Chromium/Firefox",
+      "blocker": "Native playback of the corpus only; offline completion, revocation, account switch and post-repair/replacement regression on native audio not re-run (G03)."
+    },
+    {
+      "id": "auth-refresh",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-tls-origins/run.json"
+      ],
+      "command": "python scripts/t007/tls_rehearsal.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Native refresh rotation and session revocation over TLS; grant revocation and token race on device only in slice 4 notes."
+    },
+    {
+      "id": "ingest-reader",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "repair-native",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "metadata-writers",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m2-epub-writer/README.md",
+        "research/t007/evidence/m2-epub-writer/live-run.json",
+        "research/t007/evidence/m2-audio-writers/README.md"
+      ],
+      "command": "python scripts/t007/epub_writeback_live.py; go test ./internal/writeback",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "EPUB and title edits for all four audio formats have generated-fixture evidence. Broader fields and additional container layouts require qualification."
+    },
+    {
+      "id": "write-recovery",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-writeback-kill/run.json",
+        "research/t007/evidence/m3-import-kill/run.json"
+      ],
+      "command": "python scripts/t007/writeback_kill.py; python scripts/t007/import_kill.py",
+      "environment": "Windows 11, disposable PostgreSQL 17 and local synthetic media",
+      "blocker": "No-overwrite publication race and filesystems without hard links (NAS) not tested; backup on/failure paths not exercised live."
+    },
+    {
+      "id": "providers",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m2-providers/README.md"
+      ],
+      "command": "public documentation review plus one public synthetic query per provider (curl); go test ./internal/metadata ./internal/config",
+      "environment": "Windows 11 host, live public services on 2026-11-18",
+      "blocker": "Contact and server-wide budgets are implemented. Google Books returned 429 without a key in the earlier live check. Google caching terms and shared quotas across replicas remain open."
+    },
+    {
+      "id": "reconcile-concurrency",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": ""
+    },
+    {
+      "id": "tls-reader-isolation",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-tls-origins/README.md"
+      ],
+      "command": "python scripts/t007/tls_rehearsal.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "No real browser, no production proxy config, reader asset packaging open."
+    },
+    {
+      "id": "process-restart",
+      "state": "passed",
+      "evidencePaths": [
+        "research/t007/evidence/m3-kill-recovery/README.md",
+        "research/t007/evidence/m3-writeback-kill/run.json",
+        "research/t007/evidence/m3-import-kill/run.json",
+        "research/t007/evidence/m3-koreader-kill/run.json",
+        "research/t007/evidence/m3-smtp-kill/run.json"
+      ],
+      "command": "python scripts/t007/{kill_recovery,smtp_kill,writeback_kill,import_kill,koreader_kill}.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Single-host Windows, default rescue 5 min; no concurrent-load or container-supervisor kills."
+    },
+    {
+      "id": "smtp-key-restart",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-backup-restore/run.json"
+      ],
+      "command": "python scripts/t007/backup_restore.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "Missing, other-id and wrong-material key restarts observed; same-id wrong key is reported available (finding)."
+    },
+    {
+      "id": "secret-logs",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-secret-logs/README.md"
+      ],
+      "command": "python scripts/t007/secret_logs.py",
+      "environment": "Windows 11, debug log level",
+      "blocker": "No leak found, but the server has no request/access log, so redaction is untested; Atom conformance validator not run."
+    },
+    {
+      "id": "opds-conformance",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-atom/README.md",
+        "research/t007/evidence/m4-atom/run.json",
+        "research/t007/evidence/m4-koreader/README.md"
+      ],
+      "command": "python scripts/t007/atom_check.py",
+      "environment": "Windows 11, disposable stack",
+      "blocker": "Not formal validation (no Atom/OPDS 1.x validator); the real KOReader OPDS client browsed and downloaded over TLS on a phone; other OPDS apps untested; publication entry documents lack rel=self (advisory)."
+    },
+    {
+      "id": "backup-restore",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m3-backup-restore/README.md"
+      ],
+      "command": "python scripts/t007/backup_restore.py",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "No audio/KOReader/queued-delivery restore, same-path media required, single host."
+    },
+    {
+      "id": "package-notices",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m5-package/README.md",
+        "research/t007/evidence/m5-package/image-contents.txt",
+        "research/t007/evidence/m5-package/package-check.txt"
+      ],
+      "command": "docker build -f deploy/Dockerfile .; bash scripts/t007/package_check.sh; bash scripts/backend/smoke.sh",
+      "environment": "Windows 11 + Docker 29, linux/amd64 image",
+      "blocker": "Reproducibility not compared; Android artifacts and FFmpeg component licences not audited; no signing (out of scope)."
+    },
+    {
+      "id": "corpus-capabilities",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-corpus/README.md",
+        "research/t007/capabilities.md",
+        "research/t007/evidence/m4-corpus/android-audio-playback.txt"
+      ],
+      "command": "ffmpeg/Calibre-generated fixtures ingested into the disposable stack (see evidence README)",
+      "environment": "Windows 11, bundled-equivalent ffprobe 8.0.1, Calibre ebook-convert",
+      "blocker": "Synthetic media and limited client combinations. F6 covers confirmed structural damage to EPUB and KEPUB."
+    },
+    {
+      "id": "nas-mounted",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-nas/README.md",
+        "research/t007/evidence/m4-nas/run.json",
+        "research/t007/evidence/m4-nas/run-import.json"
+      ],
+      "command": "python scripts/t007/nas_check.py --share W:\\ --auto-unmap W:; python scripts/t007/nas_import.py --share W:\\",
+      "environment": "Windows 11 host, SMB share mapped as W: (dedicated empty folder on the user NAS)",
+      "blocker": "One SMB share from a Windows client only; no NFS/Linux mount, no mid-copy disconnect, no concurrent remote writers, no >4 GiB files; hard links unavailable on this share (checked-rename fallback exercised)."
+    },
+    {
+      "id": "koreader-app",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-koreader/README.md",
+        "research/t007/evidence/m4-koreader/server-observed-requests.txt"
+      ],
+      "command": "python scripts/t007/koreader_session.py --ip <host-ip> --san <other-ip> (+ scripts/t007/http_tap.py between proxy and server)",
+      "environment": "Pixel 9 Pro (Android 17), KOReader v2026.07.1 F-Droid build, Wi-Fi LAN, throwaway-CA TLS",
+      "blocker": "One phone and one KOReader build. CBZ download/open and OPDS 2.0 remain unconfirmed. The /1 sync URL is documented."
+    },
+    {
+      "id": "koreader-large-digest",
+      "state": "passed",
+      "evidencePaths": [
+        "research/t007/evidence/m4-koreader-digest/README.md"
+      ],
+      "command": "KOReader v2026.07.1 bundled LuaJIT and Litara PartialMD5 on the same four generated files",
+      "environment": "Linux x86-64 under WSL; generated sparse fixtures and ZIP64 CBZ",
+      "blocker": ""
+    },
+    {
+      "id": "accessibility",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "User-assisted screen reader, keyboard and touch checks deferred to a later segment."
+    },
+    {
+      "id": "android-emulator",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/logs/instrumented-results/full.xml",
+        "research/t007/logs/instrumented-results/fdroid.xml",
+        "handoffs/T007.md"
+      ],
+      "command": "./gradlew connectedFullDebugAndroidTest connectedFdroidDebugAndroidTest (API 36)",
+      "environment": "Windows 11 worktree, PostgreSQL 17 (Docker), Go/JDK 25 toolchains; Pixel_9_Pro API 37 and Pixel_Tablet API 36 emulators where noted",
+      "blocker": "24/24 per flavor on API 36; API 37 blocked by Espresso 3.6.1 (finding F4); new screens lack instrumented tests."
+    },
+    {
+      "id": "physical-phone",
+      "state": "partial",
+      "evidencePaths": [
+        "research/t007/evidence/m4-phone/README.md"
+      ],
+      "command": "python scripts/t007/koreader_session.py --ip <host-ip> --san <other-ip> --phone; adb install app-full-debug.apk (user-driven)",
+      "environment": "Pixel 9 Pro (Android 17), full debug flavor, Wi-Fi LAN, throwaway-CA TLS",
+      "blocker": "Follow-up is deferred. F10 has failing-first unit evidence. The emulator did not reproduce the phone failure. F11/F12/F13 have no follow-up phone evidence."
+    },
+    {
+      "id": "physical-auto",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "User-assisted Android Auto check deferred to a later segment."
+    },
+    {
+      "id": "physical-cast",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "User-assisted Chromecast check deferred and scheduled last."
+    },
+    {
+      "id": "migration-gate",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "Separate package or explicit user decision required."
+    },
+    {
+      "id": "release-policy",
+      "state": "pending",
+      "evidencePaths": [],
+      "command": "",
+      "environment": "",
+      "blocker": "Separate package or explicit user decision required."
+    }
+  ]
+}

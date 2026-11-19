@@ -63,7 +63,7 @@ fun LitaraScreen(vm: LitaraViewModel = hiltViewModel()) {
             else -> Detail(vm, ui)
         }
     }
-    ui.prompt?.let { prompt -> ConflictPromptHost(prompt, vm::resolve, vm::resolveExplicit, vm::resolveCompletion) }
+    ui.prompt?.let { prompt -> ConflictPromptHost(prompt, vm::resolve, vm::resolveCompletion) }
 }
 
 /** The in-app sign-in step for a Litara server; success flips the app gate to the Litara shell. */

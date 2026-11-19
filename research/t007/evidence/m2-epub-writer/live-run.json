@@ -1,0 +1,106 @@
+{
+  "fileId": "b002f65f-105d-4219-83df-7328ef09c2f3",
+  "contentVersionBefore": "6a99ee9d-f1f0-4aa7-a90f-280b349797ce",
+  "sha256Before": "85295f3534f9a233281d9e93f93ab02eab87f1ee80ebd7d39494288158ce8967",
+  "writersBeforeEnable": [
+    {
+      "format": "epub",
+      "enabled": false,
+      "reason": "A writer is built in but has not been enabled; an operator records its fidelity evidence with `ctl writers enable`."
+    },
+    {
+      "format": "mp3",
+      "enabled": false,
+      "reason": "No writer for this format is built into this server; fidelity has not been demonstrated (ADR-0052). Export a sidecar instead."
+    },
+    {
+      "format": "flac",
+      "enabled": false,
+      "reason": "No writer for this format is built into this server; fidelity has not been demonstrated (ADR-0052). Export a sidecar instead."
+    },
+    {
+      "format": "m4a",
+      "enabled": false,
+      "reason": "No writer for this format is built into this server; fidelity has not been demonstrated (ADR-0052). Export a sidecar instead."
+    },
+    {
+      "format": "m4b",
+      "enabled": false,
+      "reason": "No writer for this format is built into this server; fidelity has not been demonstrated (ADR-0052). Export a sidecar instead."
+    }
+  ],
+  "planWhileDisabled": "POST /admin/files/b002f65f-105d-4219-83df-7328ef09c2f3/writebacks -> 409 {\"type\":\"urn:litara:problem:writer_disabled\",\"title\":\"writer_disabled\",\"status\":409,\"detail\":\"In-file writing is not enabled for this format; export a sidecar instead.\",\"code\":\"writer_disabled\",\"requestId\":\"cd3af10c-9498-437d-a296-02bcc1fb7f5b\"}\n",
+  "ctlEnable": "epub writer enabled (evidence: research/t007/evidence/m2-epub-writer/README.md)",
+  "ctlList": [
+    "epub  enabled  built-in=true  evidence=research/t007/evidence/m2-epub-writer/README.md",
+    "mp3   disabled built-in=false evidence=-",
+    "flac  disabled built-in=false evidence=-",
+    "m4a   disabled built-in=false evidence=-",
+    "m4b   disabled built-in=false evidence=-"
+  ],
+  "writersAfterEnable": [
+    {
+      "format": "epub",
+      "enabled": true
+    },
+    {
+      "format": "mp3",
+      "enabled": false,
+      "reason": "No writer for this format is built into this server; fidelity has not been demonstrated (ADR-0052). Export a sidecar instead."
+    },
+    {
+      "format": "flac",
+      "enabled": false,
+      "reason": "No writer for this format is built into this server; fidelity has not been demonstrated (ADR-0052). Export a sidecar instead."
+    },
+    {
+      "format": "m4a",
+      "enabled": false,
+      "reason": "No writer for this format is built into this server; fidelity has not been demonstrated (ADR-0052). Export a sidecar instead."
+    },
+    {
+      "format": "m4b",
+      "enabled": false,
+      "reason": "No writer for this format is built into this server; fidelity has not been demonstrated (ADR-0052). Export a sidecar instead."
+    }
+  ],
+  "plan": {
+    "id": "9569b9e8-2bd2-42a0-97e4-2c23cc203114",
+    "kind": "in_file",
+    "stage": "planned"
+  },
+  "executed": {
+    "stage": "published",
+    "detail": null
+  },
+  "entriesChecked": 11,
+  "otherEntriesIdentical": true,
+  "opfChanged": true,
+  "sha256After": "621520ba4480f473435112f9989da43ead632540f0d50180e3974ef792272dd6",
+  "firstEntry": [
+    "mimetype",
+    0
+  ],
+  "opfContainsNewValues": true,
+  "contentVersionAfter": "cef7f588-6fea-4f5e-b19b-8e8afc24fa46",
+  "sameFileIdentity": true,
+  "titleAfter": {
+    "id": "49bf286c-4dda-4256-a74c-4be85f8e0585",
+    "title": "Rich Book (Retitled)",
+    "authors": [
+      "Ada Lovelace",
+      "Grace Hopper"
+    ],
+    "series": [
+      "Retitled Series"
+    ],
+    "languages": [
+      "en"
+    ],
+    "editionCount": 1,
+    "recordingCount": 0,
+    "lastActivityAt": null
+  },
+  "catalogFollowsFile": true,
+  "leftoverStagedFiles": []
+}

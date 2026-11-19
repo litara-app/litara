@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/mail"
 	"net/url"
 	"os"
 	"strconv"
@@ -48,7 +49,8 @@ type Config struct {
 	ArgonTime      uint32
 	ArgonThreads   uint8
 	// GoogleBooksAPIKey is optional and local; it is only sent to Google Books for libraries that enable it.
-	GoogleBooksAPIKey string
+	GoogleBooksAPIKey  string
+	OpenLibraryContact string
 	// ScanWorkers bounds concurrent library scans.
 	ScanWorkers int
 	// WebDir is a built web application directory served by the Go process.
@@ -141,6 +143,7 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		ArgonTime:          uint32(getInt("ARGON2_TIME", 3)),
 		ArgonThreads:       uint8(getInt("ARGON2_THREADS", 2)),
 		GoogleBooksAPIKey:  get("GOOGLE_BOOKS_API_KEY", ""),
+		OpenLibraryContact: get("OPEN_LIBRARY_CONTACT", ""),
 		ScanWorkers:        getInt("SCAN_WORKERS", 2),
 		WebDir:             get("WEB_DIR", ""),
 		CacheDir:           get("CACHE_DIR", ""),
@@ -154,6 +157,12 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	for _, o := range strings.Split(get("ALLOWED_ORIGINS", ""), ",") {
 		if o = strings.TrimSpace(o); o != "" {
 			c.AllowedOrigins = append(c.AllowedOrigins, o)
+		}
+	}
+	if contact := c.OpenLibraryContact; contact != "" {
+		addr, err := mail.ParseAddress(contact)
+		if err != nil || addr.Address != contact || strings.ContainsAny(contact, "\r\n()") || len(contact) > 254 {
+			errs = append(errs, fmt.Errorf("%sOPEN_LIBRARY_CONTACT must be a single email address", prefix))
 		}
 	}
 	if c.PublicPrefix != "" && !strings.HasPrefix(c.PublicPrefix, "/") {

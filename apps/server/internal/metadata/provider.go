@@ -64,29 +64,78 @@ const maxResponse = 1 << 20
 
 // HTTP is a shared, bounded client for the provider adapters.
 type HTTP struct {
-	Client  *http.Client
-	BaseURL string
+	Client    *http.Client
+	BaseURL   string
+	userAgent string
+	policy    *providerPolicy
 }
 
 func (h HTTP) get(ctx context.Context, path string, params url.Values, out any) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	c := h.Client
 	if c == nil {
-		c = &http.Client{Timeout: 15 * time.Second}
+		c = &http.Client{Timeout: providerLookupTimeout}
 	}
 	u := strings.TrimRight(h.BaseURL, "/") + path
 	if len(params) > 0 {
 		u += "?" + params.Encode()
 	}
+	ctx, cancel := context.WithTimeout(ctx, providerLookupTimeout)
+	defer cancel()
+	p := h.policy
+	if p != nil {
+		if body := p.getCached(u); body != nil {
+			return http.StatusOK, json.Unmarshal(body, out)
+		}
+		if err := p.enter(ctx); err != nil {
+			return 0, err
+		}
+		defer p.leave()
+		if body := p.getCached(u); body != nil {
+			return http.StatusOK, json.Unmarshal(body, out)
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return 0, err
 	}
-	req.Header.Set("User-Agent", "Litara (self-hosted metadata lookup)")
-	req.Header.Set("Accept", "application/json")
-	resp, err := c.Do(req)
-	if err != nil {
-		return 0, fmt.Errorf("provider request failed")
+	agent := h.userAgent
+	if agent == "" {
+		agent = "Litara (self-hosted metadata lookup)"
 	}
+	req.Header.Set("User-Agent", agent)
+	req.Header.Set("Accept", "application/json")
+	for attempt := 0; ; attempt++ {
+		if p != nil {
+			if err := p.wait(ctx); err != nil {
+				if attempt == 0 {
+					return 0, err
+				}
+				return http.StatusTooManyRequests, fmt.Errorf("provider returned status %d", http.StatusTooManyRequests)
+			}
+		}
+		resp, err := c.Do(req.Clone(ctx))
+		if err != nil {
+			return 0, fmt.Errorf("provider request failed")
+		}
+		if p == nil || resp.StatusCode != http.StatusTooManyRequests {
+			return h.decodeResponse(u, resp, out)
+		}
+		now := time.Now()
+		if until := now.Add(retryDelay(resp.Header.Get("Retry-After"), now)); until.After(p.next) {
+			p.next = until
+		}
+		resp.Body.Close()
+		if attempt == 1 {
+			return resp.StatusCode, fmt.Errorf("provider returned status %d", resp.StatusCode)
+		}
+	}
+}
+
+func (h HTTP) decodeResponse(key string, resp *http.Response, out any) (int, error) {
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
 		return resp.StatusCode, nil
@@ -94,8 +143,12 @@ func (h HTTP) get(ctx context.Context, path string, params url.Values, out any) 
 	if resp.StatusCode != http.StatusOK {
 		return resp.StatusCode, fmt.Errorf("provider returned status %d", resp.StatusCode)
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponse)).Decode(out); err != nil {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponse+1))
+	if err != nil || len(body) > maxResponse || json.Unmarshal(body, out) != nil {
 		return resp.StatusCode, fmt.Errorf("provider response unreadable")
+	}
+	if h.policy != nil {
+		h.policy.cacheResponse(key, body, resp.Header)
 	}
 	return resp.StatusCode, nil
 }

@@ -25,27 +25,15 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/writeback"
 )
 
-// ffmpegWriter is a TEST-ONLY mp3 tag writer (stream copy). It stands in for a
-// real writer to exercise the engine; no production writer is registered.
-type ffmpegWriter struct {
-	t       *testing.T
-	dropMap bool // simulate a lossy writer that loses a stream
-}
+// lossyWriter truncates the input to exercise the engine's independent inspection.
+type lossyWriter struct{ t *testing.T }
 
-func (w ffmpegWriter) Format() string { return "mp3" }
-func (w ffmpegWriter) Write(ctx context.Context, src, dst string, ch metadata.Fields) error {
-	args := []string{"-v", "error", "-y", "-i", src, "-map", "0:a", "-c", "copy", "-f", "mp3"}
-	if t, ok := ch["title"]; ok {
-		args = append(args, "-metadata", "title="+strings.Trim(string(t), `"`))
-	}
-	if w.dropMap {
-		args = []string{"-v", "error", "-y", "-i", src, "-t", "0.2", "-c", "copy", "-f", "mp3", dst}
-		return exec.CommandContext(ctx, testutil.Tool(w.t, "ffmpeg"), args...).Run()
-	}
-	args = append(args, dst)
-	return exec.CommandContext(ctx, testutil.Tool(w.t, "ffmpeg"), args...).Run()
+func (w lossyWriter) Format() string { return "mp3" }
+func (w lossyWriter) Write(ctx context.Context, src, dst string, _ metadata.Fields) error {
+	return exec.CommandContext(ctx, testutil.Tool(w.t, "ffmpeg"), "-v", "error", "-i", src,
+		"-t", "0.2", "-c", "copy", "-f", "mp3", dst).Run()
 }
-func (ffmpegWriter) Validate(context.Context, string, string, metadata.Fields) error { return nil }
+func (lossyWriter) Validate(context.Context, string, string, metadata.Fields) error { return nil }
 
 type env struct {
 	t       *testing.T
@@ -210,7 +198,7 @@ func TestInFileWritingIsDisabledUntilEvidenceIsRecorded(t *testing.T) {
 	if _, err := e.svc.PlanInFile(ctx, e.file, ch); code(err) != "writer_disabled" {
 		t.Fatalf("no writer is registered: %v", err)
 	}
-	e.svc.Writers["mp3"] = ffmpegWriter{t: t}
+	e.svc.Writers["mp3"] = writeback.BuiltInWriters()["mp3"]
 	if _, err := e.svc.PlanInFile(ctx, e.file, ch); code(err) != "writer_disabled" {
 		t.Fatalf("a registered writer without recorded evidence stays disabled: %v", err)
 	}
@@ -231,7 +219,7 @@ func strPtr(s string) *string { return &s }
 func TestInFileWriteCreatesNewContentVersionAndInvalidatesLayout(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	e.enableMP3(ffmpegWriter{t: t})
+	e.enableMP3(writeback.BuiltInWriters()["mp3"])
 	var layout1 uuid.UUID
 	_ = e.pool.QueryRow(ctx, `SELECT layout_revision FROM recordings WHERE id=$1`, e.rec).Scan(&layout1)
 	cur1, _ := e.q.GetFileCurrent(ctx, e.file)
@@ -261,7 +249,7 @@ func TestInFileWriteCreatesNewContentVersionAndInvalidatesLayout(t *testing.T) {
 
 func TestLossyWriterIsRejectedByValidation(t *testing.T) {
 	e := newEnv(t)
-	e.enableMP3(ffmpegWriter{t: t, dropMap: true}) // truncates the audio
+	e.enableMP3(lossyWriter{t: t}) // truncates the audio
 	before := e.hash(e.media)
 	plan, err := e.svc.PlanInFile(context.Background(), e.file, metadata.Fields{"title": []byte(`"X"`)})
 	if err != nil {
@@ -292,7 +280,7 @@ func TestBackupsDefaultOffAndOptInFailureBlocksTheWrite(t *testing.T) {
 	_ = os.WriteFile(blocker, []byte("x"), 0o644)
 	bad := filepath.Join(blocker, "backups") // a path beneath a regular file
 	e2 := newEnv(t, func(c *wire.LibraryConfig) { c.WritebackBackups, c.BackupRoot = true, &bad })
-	e2.enableMP3(ffmpegWriter{t: t})
+	e2.enableMP3(writeback.BuiltInWriters()["mp3"])
 	before := e2.hash(e2.media)
 	p2, err := e2.svc.PlanInFile(context.Background(), e2.file, metadata.Fields{"title": []byte(`"X"`)})
 	if err != nil {
@@ -309,7 +297,7 @@ func TestBackupsDefaultOffAndOptInFailureBlocksTheWrite(t *testing.T) {
 	// Opt-in with a working backup location: the original is preserved verbatim.
 	good := t.TempDir()
 	e3 := newEnv(t, func(c *wire.LibraryConfig) { c.WritebackBackups, c.BackupRoot = true, &good })
-	e3.enableMP3(ffmpegWriter{t: t})
+	e3.enableMP3(writeback.BuiltInWriters()["mp3"])
 	orig := e3.hash(e3.media)
 	p3, _ := e3.svc.PlanInFile(context.Background(), e3.file, metadata.Fields{"title": []byte(`"Y"`)})
 	if err := e3.approveRun(p3.ID); err != nil {
@@ -334,7 +322,7 @@ func TestCrashRecoveryAtEveryJournalStage(t *testing.T) {
 		t.Run(tc.stage, func(t *testing.T) {
 			e := newEnv(t)
 			ctx := context.Background()
-			e.enableMP3(ffmpegWriter{t: t})
+			e.enableMP3(writeback.BuiltInWriters()["mp3"])
 			orig := e.hash(e.media)
 			e.svc.Crash = func(stage string) error {
 				if stage == tc.stage {
@@ -382,7 +370,7 @@ func TestCrashRecoveryAtEveryJournalStage(t *testing.T) {
 func TestCrashAfterPublishBeforeJournalIsRecognized(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	e.enableMP3(ffmpegWriter{t: t})
+	e.enableMP3(writeback.BuiltInWriters()["mp3"])
 	plan, _ := e.svc.PlanInFile(ctx, e.file, metadata.Fields{"title": []byte(`"P"`)})
 	e.svc.Crash = func(stage string) error {
 		if stage == "after_validated" {

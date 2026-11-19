@@ -1,0 +1,18 @@
+{
+  "started": "2026-11-18T02:31:33.404444Z",
+  "deliveryId": "712b84e3-2d69-45c9-ac48-fbe7e721d6b6",
+  "stateAtKill": "sending|1|t",
+  "messagesBeforeRestart": 1,
+  "stateAfterDeath": "sending|1|t",
+  "stateSequenceAfterKill": [
+    [
+      2.0,
+      "sending/1"
+    ]
+  ],
+  "finalState": "outcome_unknown|1|attempt_interrupted",
+  "messagesReceivedBySink": 1,
+  "resendWithoutAcknowledgement": "POST /deliveries -> 422 {\"type\":\"urn:litara:problem:duplicate_acknowledgement_required\",\"title\":\"duplicate_acknowledgement_required\",\"status\":422,\"detail\":\"Resending may deliver a duplicate; acknowledge that explicitly.\",\"code\":\"duplicate_a",
+  "result": "PASS",
+  "finished": "2026-11-18T02:39:37.555823Z"
+}

@@ -1,0 +1,7 @@
+PASS server ready from the image (web enabled)
+PASS app origin serves the bundled SPA
+PASS app CSP present
+PASS app-config names the reader origin
+PASS reader origin serves bundled reader assets (frame.html)
+PASS reader origin has no API (404)
+PASS pinned ffprobe and ffmpeg run inside the package

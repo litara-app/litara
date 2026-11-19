@@ -1,0 +1,52 @@
+== gofmt
+== go mod tidy is clean
+== go vet / build
+== sqlc generated code is current
+== tests
+?   	github.com/deranjer/ebooker/apps/server/cmd/ctl	[no test files]
+ok  	github.com/deranjer/ebooker/apps/server/cmd/server	3.177s
+?   	github.com/deranjer/ebooker/apps/server/cmd/webserve	[no test files]
+?   	github.com/deranjer/ebooker/apps/server/internal/accounts	[no test files]
+?   	github.com/deranjer/ebooker/apps/server/internal/apitest	[no test files]
+?   	github.com/deranjer/ebooker/apps/server/internal/app	[no test files]
+?   	github.com/deranjer/ebooker/apps/server/internal/apperr	[no test files]
+ok  	github.com/deranjer/ebooker/apps/server/internal/catalog	0.505s
+ok  	github.com/deranjer/ebooker/apps/server/internal/comics	3.826s
+?   	github.com/deranjer/ebooker/apps/server/internal/comics/archivetest	[no test files]
+ok  	github.com/deranjer/ebooker/apps/server/internal/config	0.326s
+ok  	github.com/deranjer/ebooker/apps/server/internal/db	4.680s
+?   	github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen	[no test files]
+ok  	github.com/deranjer/ebooker/apps/server/internal/delivery	0.595s
+ok  	github.com/deranjer/ebooker/apps/server/internal/ebookmeta	0.374s
+ok  	github.com/deranjer/ebooker/apps/server/internal/httpapi	134.113s
+ok  	github.com/deranjer/ebooker/apps/server/internal/importer	9.534s
+ok  	github.com/deranjer/ebooker/apps/server/internal/ingest	41.500s
+ok  	github.com/deranjer/ebooker/apps/server/internal/inspect	2.800s
+?   	github.com/deranjer/ebooker/apps/server/internal/integrations	[no test files]
+ok  	github.com/deranjer/ebooker/apps/server/internal/jobs	26.178s
+?   	github.com/deranjer/ebooker/apps/server/internal/koreader	[no test files]
+?   	github.com/deranjer/ebooker/apps/server/internal/library	[no test files]
+ok  	github.com/deranjer/ebooker/apps/server/internal/media	2.805s
+ok  	github.com/deranjer/ebooker/apps/server/internal/metadata	1.077s
+?   	github.com/deranjer/ebooker/apps/server/internal/opds	[no test files]
+?   	github.com/deranjer/ebooker/apps/server/internal/progress	[no test files]
+ok  	github.com/deranjer/ebooker/apps/server/internal/reading	0.793s
+?   	github.com/deranjer/ebooker/apps/server/internal/receipts	[no test files]
+?   	github.com/deranjer/ebooker/apps/server/internal/seed	[no test files]
+?   	github.com/deranjer/ebooker/apps/server/internal/smtptest	[no test files]
+?   	github.com/deranjer/ebooker/apps/server/internal/testutil	[no test files]
+ok  	github.com/deranjer/ebooker/apps/server/internal/webui	0.688s
+?   	github.com/deranjer/ebooker/apps/server/internal/wire	[no test files]
+ok  	github.com/deranjer/ebooker/apps/server/internal/writeback	20.940s
+?   	github.com/deranjer/ebooker/apps/server/migrations	[no test files]
+== generated OpenAPI matches the shared T003 contract
+T005 pending (not yet implemented, not compared): 0 operations []
+T005 schemas reachable only from pending operations: 0
+T006 implemented: 26 operations; pending (not yet compared): 0 []
+T006 schemas reachable only from pending operations: 1
+compared 116 operations and 145 schemas
+  intentional deviation UpdateUser.minProperties: enforced by the handler (422 validation_failed); Huma has no minProperties tag
+  intentional deviation Problem.additionalProperties: Problem is a closed typed struct in Huma; the contract leaves it open
+  note: generated-only schemas (inline/helper types): ['Capabilities', 'PositionInput', 'ProblemError', 'Series', 'T005Capabilities', 'T006KoCandidate', 'T006KoPositionData', 'T006TransportState']
+OPENAPI PARITY OK
+CHECK OK

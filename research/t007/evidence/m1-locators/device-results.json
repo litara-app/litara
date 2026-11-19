@@ -1,0 +1,60 @@
+{
+  "generated": "2026-11-17T23:07:52.794Z",
+  "device": {
+    "serial": "emulator-5554",
+    "userAgent": "Mozilla/5.0 (Linux; Android 17; sdk_gphone16k_x86_64 Build/CP21.260306.017.A1; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/154.0.8037.106 Mobile Safari/537.36",
+    "hasView": true,
+    "sections": 8,
+    "lastCfi": "epubcfi(/6/4!/4,/6/1:715,/10/1:817)",
+    "socket": "webview_devtools_remote_4182"
+  },
+  "web": {
+    "sections": 8,
+    "linear": 8
+  },
+  "book": "Synthetic Tale.epub",
+  "results": {
+    "D1_web_positions_resolve_on_device": {
+      "total": 41,
+      "pass": 41,
+      "fail": 0,
+      "examples": []
+    },
+    "D1b_device_shows_web_target": {
+      "total": 41,
+      "pass": 41,
+      "fail": 0,
+      "examples": []
+    },
+    "D2_device_positions_resolve_in_web": {
+      "total": 18,
+      "pass": 18,
+      "fail": 0,
+      "examples": []
+    },
+    "D2b_web_shows_device_target": {
+      "total": 18,
+      "pass": 18,
+      "fail": 0,
+      "examples": []
+    },
+    "D3_ranges_same_text_both_ways": {
+      "total": 96,
+      "pass": 96,
+      "fail": 0,
+      "examples": []
+    },
+    "D3b_range_cfi_strings_identical": {
+      "total": 96,
+      "pass": 96,
+      "fail": 0,
+      "examples": []
+    },
+    "D3c_collapsed_points_resolve_on_device": {
+      "total": 96,
+      "pass": 96,
+      "fail": 0,
+      "examples": []
+    }
+  }
+}

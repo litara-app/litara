@@ -69,7 +69,7 @@ private val PDF_BACKDROP = Color(0xFF20242A)
 @Composable
 fun PdfReaderScreen(
     onBack: () -> Unit,
-    vm: PdfReaderViewModel = hiltViewModel(),
+    vm: PdfHost = hiltViewModel<PdfReaderViewModel>(),
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -200,7 +200,7 @@ fun PdfReaderScreen(
 private fun PdfContent(
     core: PdfRenderCore,
     ui: PdfReaderViewModel.UiState,
-    vm: PdfReaderViewModel,
+    vm: PdfHost,
     onToggleChrome: () -> Unit,
     onLink: (PdfLink) -> Unit,
     onCopyText: (Int) -> Unit,
@@ -233,7 +233,7 @@ private fun PdfContent(
 private fun PdfContinuous(
     core: PdfRenderCore,
     ui: PdfReaderViewModel.UiState,
-    vm: PdfReaderViewModel,
+    vm: PdfHost,
     widthPx: Int,
     heightPx: Int,
     onToggleChrome: () -> Unit,
@@ -292,7 +292,7 @@ private fun PdfContinuous(
 private fun PdfPaginated(
     core: PdfRenderCore,
     ui: PdfReaderViewModel.UiState,
-    vm: PdfReaderViewModel,
+    vm: PdfHost,
     widthPx: Int,
     heightPx: Int,
     onLink: (PdfLink) -> Unit,
@@ -370,7 +370,7 @@ private fun JumpToPageDialog(
     )
 }
 
-private fun handleLink(context: Context, vm: PdfReaderViewModel, link: PdfLink) {
+private fun handleLink(context: Context, vm: PdfHost, link: PdfLink) {
     when (link) {
         is PdfLink.Internal -> vm.onPageChanged(link.targetPage)
         is PdfLink.External -> {

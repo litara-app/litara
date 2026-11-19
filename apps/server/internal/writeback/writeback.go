@@ -32,7 +32,9 @@ import (
 )
 
 // Writer updates metadata inside one file format. Implementations are
-// registered only for formats whose fidelity has been tested.
+// registered only for formats whose fidelity has been tested. A writer for a
+// container that is not an audio file may also implement MediaInspection() bool
+// returning false to skip the engine's ffprobe stream comparison.
 type Writer interface {
 	Format() string
 	// Write creates dst from src with changes applied; src is never modified.
@@ -199,9 +201,13 @@ func (s *Service) PlanInFile(ctx context.Context, fileID uuid.UUID, changes meta
 		return sqlcgen.WritebackPlan{}, apperr.New(409, "writer_disabled",
 			"In-file writing is not enabled for this format; export a sidecar instead.")
 	}
-	_ = w
 	if len(changes) == 0 {
 		return sqlcgen.WritebackPlan{}, apperr.Validation("no changes to write")
+	}
+	if validator, ok := w.(interface{ ValidateFields(metadata.Fields) error }); ok {
+		if err := validator.ValidateFields(changes); err != nil {
+			return sqlcgen.WritebackPlan{}, apperr.Validation(err.Error())
+		}
 	}
 	if cur.Sha256 == nil {
 		return sqlcgen.WritebackPlan{}, apperr.New(409, "file_unverified", "The file has no fingerprint yet.")
@@ -390,6 +396,13 @@ func (s *Service) validate(ctx context.Context, plan sqlcgen.WritebackPlan, diff
 	info, err := os.Stat(staged)
 	if err != nil || info.Size() == 0 {
 		return errors.New("staged file is empty")
+	}
+	// A writer for a non-audio container (EPUB) opts out of the ffprobe comparison below, which only understands media
+	// streams; its own Validate is then the whole fidelity check and must prove it.
+	if w := s.Writers[derefStr(plan.Format)]; w != nil {
+		if np, ok := w.(interface{ MediaInspection() bool }); ok && !np.MediaInspection() {
+			return w.Validate(ctx, target, staged, diff.Changes)
+		}
 	}
 	if s.Inspector == nil {
 		return errors.New("no inspector available to verify the staged file")

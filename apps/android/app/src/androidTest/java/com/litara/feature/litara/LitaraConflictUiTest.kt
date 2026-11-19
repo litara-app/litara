@@ -4,9 +4,9 @@ import android.content.ComponentName
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextReplacement
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Resolving conflicts in the phone UI, through the REAL launcher activity against a real server: a resume
- * conflict is answered by choosing a brand-new position (file 3, 20 s), and a completion conflict is answered
+ * conflict is answered by choosing a retained position, and a completion conflict is answered
  * by setting the finished state explicitly. Another device is simulated by a second client of the same user.
  * Arguments: litaraUrl, litaraPassword, litaraRecording.
  */
@@ -79,7 +79,7 @@ class LitaraConflictUiTest {
     }
 
     @Test
-    fun aResumeConflictIsResolvedByChoosingAPositionAndACompletionConflictByAnExplicitState() = runBlocking<Unit> {
+    fun aDistinctResumeCandidateAppearsBeforeANearDuplicateAndCompletionCanBeResolved() = runBlocking<Unit> {
         val recording = args.getString("litaraRecording")!!
         val url = args.getString("litaraUrl")!!
         val deps = EntryPointAccessors.fromApplication(context, LitaraTestDependencies::class.java)
@@ -88,33 +88,35 @@ class LitaraConflictUiTest {
         other.login("fixture-user-a", args.getString("litaraPassword")!!, "Other device")
         val snap = phone.snapshot(recording)
         val f1 = snap.files[0]
-        val f3 = snap.files[2]
         fun stamp() = java.time.Instant.now().toString()
 
         // A resume conflict: the other device wrote first, then this phone wrote from the older revision.
         val rev = phone.position(recording).revision
         other.writePosition(recording, com.litara.core.litara.LPositionWrite(java.util.UUID.randomUUID().toString(), rev, snap.layoutRevision,
             com.litara.core.litara.LPositionInput(f1.id, f1.contentVersion, 12_000, stamp())))
-        try {
-            phone.writePosition(recording, com.litara.core.litara.LPositionWrite(java.util.UUID.randomUUID().toString(), rev, snap.layoutRevision,
-                com.litara.core.litara.LPositionInput(f1.id, f1.contentVersion, 3_000, stamp())))
-            throw AssertionError("expected a conflict")
-        } catch (e: com.litara.core.litara.LitaraHttpException) { assertEquals(409, e.status) }
-        assertEquals(1, phone.position(recording).unresolvedConflicts.size)
+        for (offset in listOf(12_250L, 3_000L)) {
+            try {
+                phone.writePosition(recording, com.litara.core.litara.LPositionWrite(java.util.UUID.randomUUID().toString(), rev, snap.layoutRevision,
+                    com.litara.core.litara.LPositionInput(f1.id, f1.contentVersion, offset, stamp())))
+                throw AssertionError("expected a conflict")
+            } catch (e: com.litara.core.litara.LitaraHttpException) { assertEquals(409, e.status) }
+        }
+        assertEquals(2, phone.position(recording).unresolvedConflicts.size)
 
         waitTag(ShellTags.recording(recording))
         compose.onNodeWithTag(ShellTags.recording(recording)).performClick()
-        waitTag(ConflictTags.CHOOSE)
-        compose.onNodeWithTag(ConflictTags.CHOOSE).performClick()
-        waitTag(ConflictTags.file(2))
-        compose.onNodeWithTag(ConflictTags.file(2)).performClick()
-        compose.onNodeWithTag(ConflictTags.EXPLICIT_SECONDS).performTextReplacement("20")
-        compose.onNodeWithTag(ConflictTags.EXPLICIT_CONFIRM).performClick()
-        compose.waitUntil(20_000) { !present(ConflictTags.EXPLICIT_CONFIRM) && present(ShellTags.PLAY) }
+        waitTag(ConflictTags.USE_OTHER)
+        compose.onNodeWithText("0:00:03.000", substring = true).assertExists()
+        compose.onNodeWithTag(ConflictTags.USE_OTHER).performClick()
+        compose.waitUntil(20_000) {
+            compose.onAllNodes(androidx.compose.ui.test.hasText("0:00:12.250", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag(ConflictTags.KEEP_SERVER).performClick()
+        compose.waitUntil(20_000) { !present(ConflictTags.KEEP_SERVER) && present(ShellTags.PLAY) }
         val resolved = phone.position(recording)
         assertEquals(0, resolved.unresolvedConflicts.size)
-        assertEquals(f3.id, resolved.position!!.fileId)
-        assertEquals(20_000L, resolved.position!!.offsetMs)
+        assertEquals(f1.id, resolved.position!!.fileId)
+        assertEquals(3_000L, resolved.position!!.offsetMs)
 
         // A completion conflict: the other device changed the state, then this phone wrote the opposite from the old revision.
         instrumentation.runOnMainSync { compose.activity.onBackPressedDispatcher.onBackPressed() }

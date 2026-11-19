@@ -1,0 +1,35 @@
+{
+  "finished": "2026-11-18T15:41:32.560069+00:00",
+  "formalValidation": false,
+  "limitation": "no authoritative RelaxNG/Schematron validator available; stdlib rule check only",
+  "feedsChecked": [
+    "/opds/v1",
+    "/opds/v1/publications",
+    "/opds/v1/publications/2ed7ce56-51ff-40b8-8578-5caf927f8142",
+    "/opds/v1/publications/9429b4d4-68f1-4525-9c76-4be5b02086f7",
+    "/opds/v1/publications/99b744ad-c0c8-4c14-a910-109498ca4cd9",
+    "/opds/v1/publications/f00f16e4-1e75-4229-a545-a83c6c63c6a7",
+    "/opds/v1/publications?libraryId=176d4eae-2113-46b4-b723-1820409398da",
+    "/opds/v1/search.xml"
+  ],
+  "rules": 179,
+  "failed": 0,
+  "failures": [],
+  "advisoryFindings": 4,
+  "advisoryExample": [
+    {
+      "feed": "/opds/v1/publications/2ed7ce56-51ff-40b8-8578-5caf927f8142",
+      "rule": "entry document has rel=self (SHOULD: lets a client re-fetch it; RFC 5023 practice, not an RFC 4287 MUST)",
+      "pass": false,
+      "detail": "",
+      "advisory": true
+    },
+    {
+      "feed": "/opds/v1/publications/9429b4d4-68f1-4525-9c76-4be5b02086f7",
+      "rule": "entry document has rel=self (SHOULD: lets a client re-fetch it; RFC 5023 practice, not an RFC 4287 MUST)",
+      "pass": false,
+      "detail": "",
+      "advisory": true
+    }
+  ]
+}

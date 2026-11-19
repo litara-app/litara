@@ -1,0 +1,32 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.litara.core.auth.SecureStorageRecoveryTest" tests="24" failures="0" errors="0" skipped="0" time="69.12" timestamp="2026-11-18T00:00:54" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_Tablet(AVD) - 16" />
+    <property name="flavor" value="full" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="lostKeystoreKeyResetsCredentialsButKeepsDatabaseOwner" classname="com.litara.core.auth.SecureStorageRecoveryTest" time="0.194" />
+  <testcase name="legacyOwnerMigratesOutOfEncryptedPreferences" classname="com.litara.core.auth.SecureStorageRecoveryTest" time="0.127" />
+  <testcase name="restoredLegacyDatabaseWithoutOwnerIsNeverClaimedByANewServer" classname="com.litara.core.auth.SecureStorageRecoveryTest" time="0.061" />
+  <testcase name="redirectDoesNotExtendConsentToAnotherHostname" classname="com.litara.core.network.UserCaTrustTest" time="0.277" />
+  <testcase name="installedIssuerDoesNotPermitTheWrongHostname" classname="com.litara.core.network.UserCaTrustTest" time="0.061" />
+  <testcase name="installedIssuerDoesNotPermitExpiredCertificates" classname="com.litara.core.network.UserCaTrustTest" time="0.06" />
+  <testcase name="consentCanBeEnabledAndRevokedOnTheSameClientIncludingAPooledConnection" classname="com.litara.core.network.UserCaTrustTest" time="0.091" />
+  <testcase name="remoteTailRangePreservesLargeOffsetsAndTransfersOnlyRequestedBytes" classname="com.litara.feature.cast.CastProxyRangeTest" time="0.09" />
+  <testcase name="replacingBookInvalidatesOldUrlsAndServesNewLocalRangesWithCors" classname="com.litara.feature.cast.CastProxyRangeTest" time="0.03" />
+  <testcase name="chapterFilteringIsIdenticalForLocalRemoteAndPartialRangeResponses" classname="com.litara.feature.cast.CastProxyRangeTest" time="0.123" />
+  <testcase name="carBrowsesSearchesPlaysChaptersReportsProgressAndCastProxyKeepsCredentialsOnThePhone" classname="com.litara.feature.litara.LitaraAutoCastTest" time="12.508" />
+  <testcase name="aResumeConflictIsResolvedByChoosingAPositionAndACompletionConflictByAnExplicitState" classname="com.litara.feature.litara.LitaraConflictUiTest" time="9.702" />
+  <testcase name="signInStreamDownloadPlayToNaturalEnd" classname="com.litara.feature.litara.LitaraServerFlowTest" time="18.472" />
+  <testcase name="shellListsDownloadsPlaysAndExposesTheOfflineCopyToAuto" classname="com.litara.feature.litara.LitaraShellTest" time="13.317" />
+  <testcase name="downloadedCoverIsReadableThroughContentResolver" classname="com.litara.feature.player.AutoArtworkProviderTest" time="0.075" />
+  <testcase name="providerRequiresExplicitReadGrants" classname="com.litara.feature.player.AutoArtworkProviderTest" time="0.032" />
+  <testcase name="providerRejectsWritesAndForeignScopes" classname="com.litara.feature.player.AutoArtworkProviderTest" time="0.003" />
+  <testcase name="offlineSearchVoiceResumeChaptersAndLiveDownloads" classname="com.litara.feature.player.AutoMediaSessionTest" time="1.723" />
+  <testcase name="partialQueueRetainsBookTimeAcrossSeekPlaybackAndChapterMode" classname="com.litara.feature.player.CastBookPositionTest" time="0.581" />
+  <testcase name="switchingFrom127FilesToOneSurvivesOldQueuePositionUpdates" classname="com.litara.feature.player.CastQueueReplacementTest" time="0.956" />
+  <testcase name="durationFollowsChapterOnSeekAndPlayback" classname="com.litara.feature.player.ChapterSessionRefreshTest" time="3.035" />
+  <testcase name="normalText" classname="com.litara.feature.settings.SettingsRowLayoutTest" time="1.315" />
+  <testcase name="largeTextRightToLeft" classname="com.litara.feature.settings.SettingsRowLayoutTest" time="2.515" />
+  <testcase name="largeText" classname="com.litara.feature.settings.SettingsRowLayoutTest" time="1.803" />
+</testsuite>

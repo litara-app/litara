@@ -1,0 +1,95 @@
+{
+  "browser": "firefox",
+  "results": {
+    "Chaptered M4B": {
+      "canPlayType": "maybe",
+      "metadata": true,
+      "duration": 30000,
+      "played": true,
+      "advanced": true,
+      "seekedNearEnd": true,
+      "mime": "audio/mp4",
+      "pass": true
+    },
+    "Format AAC": {
+      "canPlayType": "maybe",
+      "metadata": true,
+      "duration": 13491,
+      "played": true,
+      "advanced": true,
+      "seekedNearEnd": true,
+      "mime": "audio/aac",
+      "pass": true
+    },
+    "Format FLAC": {
+      "canPlayType": "maybe",
+      "metadata": true,
+      "duration": 20000,
+      "played": true,
+      "advanced": true,
+      "seekedNearEnd": true,
+      "mime": "audio/flac",
+      "pass": true
+    },
+    "Format M4A": {
+      "canPlayType": "maybe",
+      "metadata": true,
+      "duration": 20000,
+      "played": true,
+      "advanced": true,
+      "seekedNearEnd": true,
+      "mime": "audio/mp4",
+      "pass": true
+    },
+    "Format MP3": {
+      "canPlayType": "maybe",
+      "metadata": true,
+      "duration": 20000,
+      "played": true,
+      "advanced": true,
+      "seekedNearEnd": true,
+      "mime": "audio/mpeg",
+      "pass": true
+    },
+    "Format OGG": {
+      "canPlayType": "maybe",
+      "metadata": true,
+      "duration": 20000,
+      "played": true,
+      "advanced": true,
+      "seekedNearEnd": true,
+      "mime": "audio/ogg",
+      "pass": true
+    },
+    "Format OPUS": {
+      "canPlayType": "",
+      "metadata": true,
+      "duration": 20000,
+      "played": true,
+      "advanced": true,
+      "seekedNearEnd": true,
+      "mime": "audio/opus",
+      "pass": true
+    },
+    "Format WAV": {
+      "canPlayType": "maybe",
+      "metadata": true,
+      "duration": 20000,
+      "played": true,
+      "advanced": true,
+      "seekedNearEnd": true,
+      "mime": "audio/wav",
+      "pass": true
+    },
+    "Multi File MP3": {
+      "canPlayType": "maybe",
+      "metadata": true,
+      "duration": 8000,
+      "played": true,
+      "advanced": true,
+      "seekedNearEnd": true,
+      "mime": "audio/mpeg",
+      "pass": true
+    }
+  }
+}

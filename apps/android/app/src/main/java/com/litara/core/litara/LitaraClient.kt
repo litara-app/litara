@@ -147,6 +147,113 @@ class LitaraClient(
     suspend fun writeCompletion(recordingId: String, w: LCompletionWrite): LCompletion =
         sendJson("PUT", "/recordings/$recordingId/completion", LitaraJson.encodeToString(w))
 
+    // ---- ebooks and comics (T005 editions) -----------------------------------------
+
+    suspend fun listTitles(page: Int = 0, size: Int = 50, q: String? = null, mediaKind: String? = null): LTitles {
+        val qs = buildString {
+            append("?page=$page&size=$size")
+            if (q != null) append("&q=").append(java.net.URLEncoder.encode(q, "UTF-8"))
+            if (mediaKind != null) append("&mediaKind=").append(java.net.URLEncoder.encode(mediaKind, "UTF-8"))
+        }
+        return getJson("/titles$qs")
+    }
+
+    /** Every title the account may see (display titles and authors for editions), following the effective page size and total. */
+    suspend fun listAllTitles(pageSize: Int = 200, maxPages: Int = 500): List<LTitleSummary> {
+        val all = ArrayList<LTitleSummary>()
+        var page = 0
+        while (page < maxPages) {
+            val r = listTitles(page = page, size = pageSize)
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
+    suspend fun listEditions(page: Int = 0, size: Int = 50, titleId: String? = null): LEditions {
+        val qs = buildString {
+            append("?page=$page&size=$size")
+            if (titleId != null) append("&titleId=").append(java.net.URLEncoder.encode(titleId, "UTF-8"))
+        }
+        return getJson("/editions$qs")
+    }
+
+    /** Every edition the account may see, following the server's effective page size and total. */
+    suspend fun listAllEditions(titleId: String? = null, pageSize: Int = 200, maxPages: Int = 500): List<LEdition> {
+        val all = ArrayList<LEdition>()
+        var page = 0
+        while (page < maxPages) {
+            val r = listEditions(page = page, size = pageSize, titleId = titleId)
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
+    suspend fun edition(editionId: String): LEdition = getJson("/editions/$editionId")
+    suspend fun readerSnapshot(editionId: String): LReaderSnapshot = getJson("/editions/$editionId/reader")
+    suspend fun editionPosition(editionId: String): LEditionPositionState = getJson("/editions/$editionId/position")
+    suspend fun editionCompletion(editionId: String): LCompletion = getJson("/editions/$editionId/completion")
+
+    suspend fun writeEditionPosition(editionId: String, w: LEditionPositionWrite): LEditionPositionState =
+        sendJson("PUT", "/editions/$editionId/position", LitaraJson.encodeToString(w))
+
+    suspend fun writeEditionCompletion(editionId: String, w: LEditionCompletionWrite): LCompletion =
+        sendJson("PUT", "/editions/$editionId/completion", LitaraJson.encodeToString(w))
+
+    /** The current extraction state of a comic file version; read-only and never starts a job. */
+    suspend fun comicManifest(fileId: String, contentVersion: String): LPageManifest =
+        getJson("/files/$fileId/versions/$contentVersion/pages")
+
+    /** Asks the server to extract the pages (idempotent per file version); returns the manifest state. */
+    suspend fun prepareComicPages(fileId: String, contentVersion: String, r: LExtraction): LPageManifest =
+        postJson("/files/$fileId/versions/$contentVersion/pages", LitaraJson.encodeToString(r))
+
+    /** Every annotation of the edition INCLUDING tombstones, following the effective page size and total. */
+    suspend fun listAllAnnotations(editionId: String, pageSize: Int = 200, maxPages: Int = 500): List<LAnnotation> {
+        val all = ArrayList<LAnnotation>()
+        var page = 0
+        while (page < maxPages) {
+            val r: LAnnotations = getJson("/editions/$editionId/annotations?page=$page&size=$pageSize&includeDeleted=true")
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
+    suspend fun putAnnotation(editionId: String, annotationId: String, w: LAnnotationWrite): LAnnotation =
+        sendJson("PUT", "/editions/$editionId/annotations/$annotationId", LitaraJson.encodeToString(w))
+
+    suspend fun deleteAnnotation(editionId: String, annotationId: String, d: LAnnotationDelete): LAnnotation =
+        sendJson("DELETE", "/editions/$editionId/annotations/$annotationId", LitaraJson.encodeToString(d))
+
+    suspend fun listPersonalConflicts(page: Int = 0, size: Int = 50, resourceId: String? = null, includeResolved: Boolean = false): LPersonalConflicts {
+        val qs = buildString {
+            append("?page=$page&size=$size&includeResolved=$includeResolved")
+            if (resourceId != null) append("&resourceId=").append(java.net.URLEncoder.encode(resourceId, "UTF-8"))
+        }
+        return getJson("/personal-conflicts$qs")
+    }
+
+    /** Every unresolved conflict of the signed-in account, following the effective page size and total. */
+    suspend fun listAllPersonalConflicts(pageSize: Int = 200, maxPages: Int = 500): List<LPersonalConflict> {
+        val all = ArrayList<LPersonalConflict>()
+        var page = 0
+        while (page < maxPages) {
+            val r = listPersonalConflicts(page = page, size = pageSize)
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
+    suspend fun resolvePersonalConflict(conflictId: String, r: LResolve): LResolved =
+        postJson("/personal-conflicts/$conflictId/resolve", LitaraJson.encodeToString(r))
+
     // ---- plumbing ---------------------------------------------------------------
 
     private suspend inline fun <reified T> getJson(path: String, authenticated: Boolean = true): T =
@@ -195,6 +302,13 @@ class LitaraClient(
             val resp = raw(builder.header("Authorization", "Bearer $used").build())
             if (resp.code != 401 || attempt > 0) return resp
             val problem = problemOf(withContext(Dispatchers.IO) { resp.peekBody(64 * 1024).string() }, 401)
+            // A concurrent refresh rotates the access token away; a request that had already read the old one is then
+            // answered `unauthenticated` (the server no longer knows that token). Retry once with the current token.
+            if (problem.code == "unauthenticated" && creds.load()?.accessToken?.let { it != used } == true) {
+                resp.close()
+                attempt++
+                continue
+            }
             if (problem.code != "token_expired") {
                 if (problem.code == "session_revoked" || problem.code == "session_expired") {
                     resp.close()

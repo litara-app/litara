@@ -1,0 +1,90 @@
+[
+  {
+    "killPoint": "A",
+    "started": "2026-11-18T02:51:54.186695Z",
+    "stagedBytesAtKill": 49677043,
+    "originalBytes": 419431433,
+    "killTriggered": true,
+    "stageSeenBeforeKill": [],
+    "targetShaAfterKillIsOriginal": true,
+    "stagedLeftoverAfterKill": [
+      ".litara-write-e3289dd7-907b-4e94-a679-9a0806916072.tmp"
+    ],
+    "planStageAfterKill": "staged",
+    "planStageAfterRestart": "abandoned | interrupted before a verified stage; original untouched",
+    "targetIsOriginal": true,
+    "targetIsValidZipWithEntries": [
+      "mimetype",
+      "META-INF/container.xml",
+      "content.opf",
+      "payload.bin"
+    ],
+    "targetHasNewTitle": false,
+    "stagedLeftoverAfterRestart": [],
+    "contentVersionChanged": false,
+    "catalogSizeMatchesDisk": true,
+    "catalogTitle": "Big Original",
+    "result": "PASS",
+    "finished": "2026-11-18T02:53:52.664454Z"
+  },
+  {
+    "killPoint": "B",
+    "started": "2026-11-18T02:53:53.614000Z",
+    "stagedBytesAtKill": 419431413,
+    "originalBytes": 419431433,
+    "killTriggered": true,
+    "stageSeenBeforeKill": [],
+    "targetShaAfterKillIsOriginal": true,
+    "stagedLeftoverAfterKill": [
+      ".litara-write-f660c318-6578-453e-b4b5-7f183c2ee13f.tmp"
+    ],
+    "planStageAfterKill": "staged",
+    "planStageAfterRestart": "abandoned | interrupted before a verified stage; original untouched",
+    "targetIsOriginal": true,
+    "targetIsValidZipWithEntries": [
+      "mimetype",
+      "META-INF/container.xml",
+      "content.opf",
+      "payload.bin"
+    ],
+    "targetHasNewTitle": false,
+    "stagedLeftoverAfterRestart": [],
+    "contentVersionChanged": false,
+    "catalogSizeMatchesDisk": true,
+    "catalogTitle": "Big Original",
+    "result": "PASS",
+    "finished": "2026-11-18T02:55:51.895529Z"
+  },
+  {
+    "killPoint": "C",
+    "started": "2026-11-18T02:55:52.816543Z",
+    "stagedBytesAtKill": 419431413,
+    "originalBytes": 419431433,
+    "killTriggered": true,
+    "stageSeenBeforeKill": [
+      "approved",
+      "staged",
+      "validated"
+    ],
+    "targetShaAfterKillIsOriginal": true,
+    "stagedLeftoverAfterKill": [
+      ".litara-write-9c47f1e7-9731-44d3-891a-80a56b62126e.tmp"
+    ],
+    "planStageAfterKill": "validated",
+    "planStageAfterRestart": "recovered | completed from the journal",
+    "targetIsOriginal": false,
+    "targetIsValidZipWithEntries": [
+      "mimetype",
+      "META-INF/container.xml",
+      "content.opf",
+      "payload.bin"
+    ],
+    "targetHasNewTitle": true,
+    "stagedLeftoverAfterRestart": [],
+    "contentVersionChanged": true,
+    "catalogSizeMatchesDisk": true,
+    "catalogTitle": "Big Rewritten",
+    "result": "PASS",
+    "finished": "2026-11-18T02:57:52.626556Z"
+  }
+]

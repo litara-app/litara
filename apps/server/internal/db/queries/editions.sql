@@ -23,23 +23,44 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: GetEditionRow :one
 SELECT e.id, e.title_id, e.library_id, e.file_id, e.revision, e.label, e.language, e.format, e.link_state,
-       fv.content_version, fv.mime_type, fv.size_bytes, fv.available, COALESCE(o.missing, false)::boolean AS missing
+       fv.content_version, fv.mime_type, fv.size_bytes, fv.available, COALESCE(o.missing, false)::boolean AS missing,
+       COALESCE(fm.result->>'ebookStructure' = 'damaged', false)::boolean AS file_damaged
 FROM editions e
 JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current
 LEFT JOIN file_observations o ON o.file_id = e.file_id
+LEFT JOIN file_metadata fm ON fm.content_version = fv.content_version
 WHERE e.id = $1;
 
 -- name: ListEditionsPage :many
 SELECT e.id, e.title_id, e.library_id, e.file_id, e.revision, e.label, e.language, e.format, e.link_state,
-       fv.content_version, fv.mime_type, fv.size_bytes, fv.available, COALESCE(o.missing, false)::boolean AS missing
+       fv.content_version, fv.mime_type, fv.size_bytes, fv.available, COALESCE(o.missing, false)::boolean AS missing,
+       COALESCE(fm.result->>'ebookStructure' = 'damaged', false)::boolean AS file_damaged
 FROM editions e
 JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
 JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current
 LEFT JOIN file_observations o ON o.file_id = e.file_id
+LEFT JOIN file_metadata fm ON fm.content_version = fv.content_version
 WHERE (sqlc.narg(library_id)::uuid IS NULL OR e.library_id = sqlc.narg(library_id))
   AND (sqlc.narg(title_id)::uuid IS NULL OR e.title_id = sqlc.narg(title_id))
 ORDER BY e.id
 LIMIT sqlc.arg(page_size) OFFSET sqlc.arg(page_offset);
+
+-- name: ListUnassessedEPUBs :many
+SELECT fv.content_version, o.rel_path, o.mtime, o.size_bytes, fv.locator
+FROM file_observations o
+JOIN file_versions fv ON fv.file_id = o.file_id AND fv.current AND fv.available
+LEFT JOIN file_metadata fm ON fm.content_version = fv.content_version
+WHERE o.library_id = $1 AND NOT o.missing AND lower(fv.filename) LIKE '%.epub'
+  AND fm.result->>'ebookStructure' IS NULL
+ORDER BY o.rel_path;
+
+-- name: RecordEPUBStructure :exec
+INSERT INTO file_metadata (content_version, completeness, result)
+SELECT fv.content_version, 'complete', jsonb_build_object('ebookStructure', sqlc.arg(structure)::text)
+FROM file_versions fv WHERE fv.content_version = sqlc.arg(content_version) AND fv.current AND fv.available
+ON CONFLICT ON CONSTRAINT file_metadata_pkey DO UPDATE
+SET result = COALESCE(file_metadata.result, '{}'::jsonb) || EXCLUDED.result, inspected_at = now()
+WHERE file_metadata.result->>'ebookStructure' IS NULL;
 
 -- name: CountEditionsPage :one
 SELECT count(*)

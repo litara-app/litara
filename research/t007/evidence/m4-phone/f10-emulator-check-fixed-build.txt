@@ -1,0 +1,7 @@
+F10 emulator check 2026-11-19T01:07:14Z, app: versionName=0.1.0
+downloaded: yes
+online save -> server position (revision|offset_ms): 3|12952  open conflicts: 0
+network while offline: 0 connected networks
+offline: server position still (revision|offset_ms): 3|12952
+after reconnect -> server position (revision|offset_ms): 5|18100   unresolved conflicts: 0
+RESULT: PASS (offline progress accepted, no stale conflict)

@@ -11,7 +11,11 @@ Coordination owner: the user and the ADR/integration chat
 
 **T005 is reviewed, merged and Done for its scoped implementation.** [PR #85](https://github.com/litara-app/litara/pull/85) merged into main at `c65738a` on 2026-11-16. Its [handoff](handoffs/T005.md) records the coordinator review and verification. All 38 operations are implemented; 36 covered scenarios and two T007 partials remain the declared boundary, not production/hardware acceptance.
 
-**T006 is implemented and coordinator-approved for PR; integration pending.** The implementation and fixes are on `codex/t006-delivery`, reviewed at `ada77fc`. The [handoff](handoffs/T006.md) records fresh clean-source checks and resolved findings. All 26 management operations and 16 protocol operations are implemented; the ledger reports 36 covered and two partial scenarios with explicit client/conformance limits. T007 remains unassigned; serialize overlapping server/schema work until integration. Historical preparation statements below are superseded by this overview/register.
+**T006 is reviewed and merged for its scoped implementation.** [PR #86](https://github.com/litara-app/litara/pull/86) merged into main at `8de06b96c704bbf2a6067dc4df61a25401390393` on 2026-11-17. The [handoff](handoffs/T006.md) records checks and resolved findings; its integration-pending wording is historical. All 26 management operations and 16 protocol operations are implemented; the ledger's 36 covered and two partial scenarios retain their explicit client/conformance limits. The merge is not fresh runtime/hardware acceptance.
+
+**T007 implementation is complete and submitted for review.** The repository owner closed the scoped implementation on 2026-11-18. See the [handoff](handoffs/T007.md) and [release gates](research/t007/release-gates.md). The user-assisted phone follow-up, screen-reader, keyboard and touch checks, Android Auto, and Chromecast remain deferred. Chromecast is last. PR review, integration into main, and release approval are separate.
+
+**T008 is reserved for separate legacy personal-state migration**, explicitly selected by the user on 2026-11-17. Its concrete source/mapping/conversion decisions and implementation brief are not ready. It remains a release blocker under ADR-0063 and must not overlap T007 server/schema writes without an explicit narrowed transfer.
 
 **Release hold:** 2.0.0 requires a verified personal-state migration path (ADR-0062/0063). GitHub Actions is disabled repository-wide under ADR-0064; do not re-enable CI or publish builds without the user's explicit release-readiness decision. Local development verification remains allowed.
 
@@ -19,7 +23,7 @@ Prefer substantial end-to-end packages over small tickets. Each package may cont
 
 The authoritative working repository is `G:\Programming\ebooker`. `E:\Programming\ebooker` was a separate audit folder, not this Git repository. External reference clones/logs under `E:\Programming\_reference\` are optional local resources, not portable project dependencies.
 
-**T006 assignment checkout:** start from the exact committed `codex/t006-readiness` checkpoint recorded below, based on merged main `c65738a`. The agent must receive the accepted ADRs, both protocol/management contracts, fixtures and full assignment through Git. Suggested worker branch: `codex/t006-delivery`. The old T003/T005 preparation checkpoints are historical provenance, not this task's source. Do not restore historical deletions or commit another owner's local work.
+**T007 assignment checkout:** start from the final coordinator-supplied immutable `codex/t007-readiness` commit, based on merged main `8de06b96c704bbf2a6067dc4df61a25401390393`. The checkpoint includes accepted ADRs, existing T003–T006 APIs/fixtures, the full T007 brief, 32-scenario ledger and inherited gap/resource inventory. Suggested implementation branch: `codex/t007-integration`. Source/checkpoint evidence is in [research/t007/readiness.md](research/t007/readiness.md). Earlier readiness branches are historical provenance, not this assignment's starting point. Do not restore historical deletions or commit another owner's local work.
 
 ## Assignment and ownership rules
 
@@ -41,10 +45,17 @@ The authoritative working repository is `G:\Programming\ebooker`. `E:\Programmin
 | T003 | Shared client contract, accounts, and end-to-end recording playback API | Merged: PR #81, integrated to main by #83 | Closed implementation assignment | Handoff evidence retained; physical hardware and release gates remain |
 | T004 | Catalog, library ingestion, metadata, and NAS recovery | Merged with named gaps: PR #82, integrated to main by #83 | Closed merged assignment; follow-ups need explicit ownership | See handoff: ebook entities, merge/split, writers, provider/NAS verification remain incomplete |
 | T005 | Redesigned web library and complete reading/listening flows | Done: reviewed and merged, PR #85 at c65738a | Closed implementation assignment | handoffs/T005.md; two T007 partials and release gates retained |
-| T006 | OPDS, email delivery, and basic KOReader integration | Coordinator-approved for PR; integration pending | Implementation complete; coordinator review passed | codex/t006-delivery; handoffs/T006.md; named partials and release gates retained |
-| T007 | Cross-client integration, hardware acceptance, and release readiness | Not ready: earlier packages and test resources needed | Unassigned | Integrated T003–T006, hardware/operators and release decisions |
+| T006 | OPDS, email delivery, and basic KOReader integration | Done for scoped implementation: reviewed/merged PR #86 at 8de06b9 | Closed implementation assignment | handoffs/T006.md; named partials and release gates retained |
+| T007 | Native Android readers, cross-client integration, and release evidence | Implementation complete; PR review pending | Closed implementation scope | [Handoff](handoffs/T007.md) and [release gates](research/t007/release-gates.md); deferred user-assisted checks, Chromecast last |
+| T008 | Legacy personal-state migration | Not ready: source/mapping/conversion decisions and brief needed | Unassigned; user selected separate package | ADR-0063; mandatory release gate; serialize overlapping server/schema scope with T007 |
 
-These are large work packages, not promises that every architectural question is resolved or every originally intended behavior is implemented. T001–T005 have been integrated. T006 is implemented and approved for PR; T007 still needs its own execution-ready brief/checkpoint and test resources. A roadmap description does not authorize a worker to pick one up opportunistically.
+T001–T006 are integrated, and T007 implementation is complete with PR review pending. External and production gates remain in the release ledger. T008 requires a separate decision and design pass before assignment.
+
+## T007 preparation — 2026-11-17
+
+User choices: include Android ebook/PDF/comic adaptation; keep migration separate as T008; Android uses emulators; Chromecast network debugging last. Preparation includes the full exclusive cross-client brief, 18 inherited gap rows, 32 acceptance scenarios, pending evidence ledger and resource/decision boundaries. See [readiness](research/t007/readiness.md) for static and clean-export evidence and the immutable source commit. No new application API, runtime/hardware success or production-policy acceptance is inferred. At preparation, T007 was unassigned. Local builds/checks are allowed; Actions/release holds stay in force.
+
+**Verified immutable T007 source snapshot:** `7ea3d929c663d8c50a9445559ffb68b3a29bf644` on `codex/t007-readiness`, based on merged main `8de06b96c704bbf2a6067dc4df61a25401390393`. An independent Git-archive export passed T007 integrity, all existing T003/T005/T006 static contracts and all 76 ADR/index checks. All 18 validator dependency versions matched pinned requirements. This following evidence-only commit records readiness; supply its exact final branch-tip hash to the worker and use that as the base. No runtime/hardware/build/CI/release or worker launch occurred during preparation.
 
 ## T006 preparation verification - 2026-11-16
 
@@ -236,9 +247,13 @@ One full-stack owner receives the explicit server/schema/contracts/web brief. No
 
 ## T007 — Integration, hardware acceptance, and release readiness
 
-Planned outcome: exercise a realistic library through web, Android, Cast/Auto, offline recovery, NAS failures, backups/restores, upgrades, and delivery; fix integration defects and produce a supported-format/platform matrix. Verify package licenses/notices, media-tool provenance, release configuration, source/build reproducibility, and operational documentation. Hardware results must name the tested device/receiver/head unit and versions.
+Completed implementation scope: [handoffs/T007-assignment.md](handoffs/T007-assignment.md), [acceptance inventory](contracts/t007/README.md), [gap inventory](research/t007/gaps.md), [user scope/resource choices](research/t007/decisions.md). One owner adapts the preserved Android ebook/PDF/comic reader to the real APIs, fixes integrated workflows, qualifies metadata writers and supplies recovery/TLS/backup/restore/client/corpus/accessibility/unsigned-package evidence. Do not reimplement T005's edition/repair work or label prior partial tests as fresh passes.
 
-Requires integrated earlier packages and available hardware/operators. Playback through proxy/fake-player tests does not count as physical Cast acceptance. Prepare reviewable unsigned/test artifacts without publishing; release identity/signing/distribution decisions and final release approval remain with the user.
+Local and emulator verification is recorded in the [handoff](handoffs/T007.md). The repository owner deferred assisted phone confirmation, accessibility, Android Auto, and Chromecast to a later segment. Chromecast remains last. The release gates also track outstanding verification and production decisions. This closeout authorizes the review PR. Release publishing, signing, tagging, and Actions reactivation remain held.
+
+## T008 — Separate legacy personal-state migration
+
+User selected a separate migration package on 2026-11-17. ADR-0063 requires a verified supported path before 2.0.0 ships. Source-version/export support, account/root mapping, conversion and manual-recovery coverage, rerun behavior and administration still need actual decisions, fixtures and an execution brief. No worker is assigned and no importer is authorized by T007. Preparation may inspect archived schema as read-only evidence; no legacy application build/modification or in-place transformation is authorized. Serialize overlapping runtime/schema ownership with T007.
 
 ## Worker handoff format
 

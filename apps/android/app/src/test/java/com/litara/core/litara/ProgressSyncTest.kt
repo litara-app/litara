@@ -24,6 +24,8 @@ class ProgressSyncTest {
     @get:Rule val tmp = TemporaryFolder()
     private lateinit var server: MockWebServer
     private lateinit var sync: ProgressSync
+    private lateinit var client: LitaraClient
+    private lateinit var pendingFile: java.io.File
     private val bodies = CopyOnWriteArrayList<String>()
     private val files = listOf(
         LFile("f0", "v0", 0, "a", "audio/mpeg", 10, 60_000, true, "/x"),
@@ -35,8 +37,9 @@ class ProgressSyncTest {
     fun setUp() {
         server = MockWebServer().also { it.start() }
         val store = InMemoryCredentialStore().also { it.save(StoredCredentials("tok", "ref")) }
-        val client = LitaraClient(server.url("/api/v1").toString(), OkHttpClient.Builder().retryOnConnectionFailure(false).build(), store)
-        sync = ProgressSync(client, "rec", "L", files, tmp.newFile("pending.json").also { it.delete() })
+        client = LitaraClient(server.url("/api/v1").toString(), OkHttpClient.Builder().retryOnConnectionFailure(false).build(), store)
+        pendingFile = tmp.newFile("pending.json").also { it.delete() }
+        sync = ProgressSync(client, "rec", "L", files, pendingFile)
     }
 
     @After
@@ -118,6 +121,32 @@ class ProgressSyncTest {
         assertTrue(r.all { it == ReportOutcome.Accepted })
         assertEquals(listOf("0", "1", "2", "3"), bodies.map { Regex(""""baseRevision":"(\d+)"""").find(it)!!.groupValues[1] })
     }
+
+    // T007 F10: after a force-close the next reporter (a new process) started at base revision "0" again. Reopened offline, it queued
+    // writes against base 0; after reconnecting the server (at revision 21) refused them as stale and the app fell back to the server position.
+    @Test
+    fun `a restarted reporter remembers the last server revision and does not write against base 0`() = runBlocking {
+        script(accepted("21"))
+        assertEquals(ReportOutcome.Accepted, sync.report(0, 5000))
+        val restarted = ProgressSync(client, "rec", "L", files, pendingFile) // same recording directory, new process
+        script({ MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST) })
+        assertEquals(ReportOutcome.Queued, restarted.report(0, 7000))
+        assertEquals("21", restarted.revision)
+        assertTrue(pendingFile.readText().contains(""""baseRevision":"21""""))
+    }
+
+    @Test
+    fun `a revision learned by reading the server also survives a restart`() = runBlocking {
+        script({ MockResponse().setBody("""{"revision":"9","position":$position,"unresolvedConflicts":[]}""") })
+        sync.load()
+        val restarted = ProgressSync(client, "rec", "L", files, pendingFile)
+        assertEquals("9", restarted.revision)
+    }
+
+    @Test
+    fun `a reporter that never reached the server still starts at base 0`() {
+        assertEquals("0", ProgressSync(client, "rec", "L", files, pendingFile).revision)
+    }
 }
 
 /** R1: a saved position for different bytes is preserved and never applied; a compatible reorder still resumes. */
@@ -184,4 +213,5 @@ class ProgressSyncCompatibilityTest {
         assertEquals("F", s.resumeCandidate()!!.fileId)
         assertNull(s.incompatiblePosition())
     }
+
 }

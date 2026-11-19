@@ -1,0 +1,124 @@
+{
+  "started": "2026-11-18T16:50:03.924475Z",
+  "share": "G:\\Programming\\ebooker\\.task-worktrees\\t007-readiness\\.tmp\\t007\\fake-share",
+  "simulate": true,
+  "platform": "win32",
+  "capabilityProbe": {
+    "rename": true,
+    "atomicReplaceOverExisting": true,
+    "hardLinks": true,
+    "caseInsensitive": true,
+    "mtimeNsAfterSet": 1000000001000000100,
+    "longName200": "no: [Errno 2] No such file or directory: 'G:\\\\Programming\\\\ebooker\\\\.task-worktrees\\\\t007-readiness\\\\.tmp\\\\t007\\\\fake-share\\\\litara-t007-3ac4719a\\\\nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn.txt'"
+  },
+  "libraryRootHealth": {
+    "library": {
+      "id": "501143c2-139e-49a0-bf7a-5f7500af1a88",
+      "name": "NAS test"
+    },
+    "config": {
+      "mode": "index",
+      "rootPath": "G:\\Programming\\ebooker\\.task-worktrees\\t007-readiness\\.tmp\\t007\\fake-share\\litara-t007-3ac4719a",
+      "followSymlinks": false,
+      "scanIntervalSecs": 900,
+      "verifyIntervalSecs": 86400,
+      "stabilitySecs": 1,
+      "writebackBackups": false,
+      "providerOrder": []
+    },
+    "health": {
+      "state": "healthy",
+      "checkedAt": "2026-11-18T16:51:14Z"
+    }
+  },
+  "scanWhileOffline": {
+    "id": "10f71bb2-6a03-445d-b19e-c3fc18a5b1ed",
+    "libraryId": "501143c2-139e-49a0-bf7a-5f7500af1a88",
+    "trigger": "manual",
+    "state": "completed",
+    "health": "unavailable",
+    "filesSeen": 0,
+    "createdAt": "2026-11-18T16:51:51Z",
+    "completedAt": "2026-11-18T16:51:52Z"
+  },
+  "finished": "2026-11-18T16:52:29.948125Z",
+  "passed": 15,
+  "failed": 0,
+  "checks": [
+    {
+      "check": "fixtures on the share are cataloged",
+      "pass": true,
+      "detail": "4"
+    },
+    {
+      "check": "original over the API equals the share bytes (Range)",
+      "pass": true,
+      "detail": "206"
+    },
+    {
+      "check": "a rename on the share keeps the file id (move, not a new file)",
+      "pass": true,
+      "detail": "(4, True)"
+    },
+    {
+      "check": "moved file content version unchanged",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "same-path replacement: same file id, new content version",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "in-file write-back on the share reached published",
+      "pass": true,
+      "detail": "published"
+    },
+    {
+      "check": "write-back changed the bytes and left no staged files",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "catalog shows the written title",
+      "pass": true,
+      "detail": "Share Tale Rewritten"
+    },
+    {
+      "check": "scan while the share is gone does not mark anything missing",
+      "pass": true,
+      "detail": "unavailable"
+    },
+    {
+      "check": "original answers 503 (temporarily unavailable), not 404/200, while the share is gone",
+      "pass": true,
+      "detail": "503"
+    },
+    {
+      "check": "catalog keeps every edition while the share is gone",
+      "pass": true,
+      "detail": "4"
+    },
+    {
+      "check": "after reconnect the same ids and versions are available again",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "original readable again after reconnect",
+      "pass": true,
+      "detail": "206"
+    },
+    {
+      "check": "a deleted file stays in the catalog and is reported unavailable after confirming scans (never deleted)",
+      "pass": true,
+      "detail": "['missing']"
+    },
+    {
+      "check": "restoring the same bytes re-attaches the same file id",
+      "pass": true,
+      "detail": "['available']"
+    }
+  ]
+}

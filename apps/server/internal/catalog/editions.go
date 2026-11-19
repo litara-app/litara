@@ -118,6 +118,10 @@ func (s *Service) editionWire(r editionRow) wire.T005Edition {
 		file.ContentPath = &p
 	}
 	caps := capabilities(r.Format, avail == "available")
+	if r.FileDamaged && avail == "available" {
+		damage := incomplete("file_damaged", "The ebook file is damaged. Replace it with a readable copy and rescan the library.")
+		caps.Read, caps.Resume, caps.TextSelection, caps.TextHighlight = damage, damage, damage, damage
+	}
 	readiness := map[string]string{"supported": "ready", "incomplete": "incomplete", "unsupported": "unsupported"}[caps.Read.State]
 	return wire.T005Edition{ID: r.ID.String(), TitleID: r.TitleID.String(), LibraryID: r.LibraryID.String(),
 		Revision: strconv.FormatInt(r.Revision, 10), Label: r.Label, Language: r.Language, File: file,

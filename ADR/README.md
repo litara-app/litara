@@ -120,6 +120,8 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0074](0074-t006-smtp-ownership-and-delivery-recovery.md) | T006 SMTP ownership and recoverable delivery | Accepted |
 | [0075](0075-t006-koreader-separate-source-and-identity.md) | T006 isolated KOReader positions and file identity | Accepted |
 | [0076](0076-t006-koreader-device-revisions-and-conflicts.md) | T006 KOReader device credentials and retained conflicts | Accepted |
+| [0077](0077-provider-identification-and-rate-limits.md) | Optional Open Library contact and per-provider request budgets | Accepted |
+| [0078](0078-report-confirmed-ebook-damage.md) | Report confirmed ebook damage as incomplete | Accepted |
 
 ## Workflow
 

@@ -36,21 +36,44 @@ data class ConflictPrompt(
     val serverLabel: String,
     val conflicts: List<LConflict>,
     val labels: Map<String, String>,
-    val files: List<com.litara.core.litara.LFile> = emptyList(),
+    val nearby: Set<String>,
+    val identical: Set<String>,
+    val usable: Set<String>,
     val serverFinished: Boolean = false,
 )
 
-private fun fileLabel(snap: LRecording, fileId: String, offset: Long): String =
-    "file ${snap.files.indexOfFirst { it.id == fileId } + 1} at ${offset / 1000}s"
+private fun fileLabel(snap: LRecording, position: com.litara.core.litara.LPosition): String {
+    val file = snap.files.firstOrNull { it.id == position.fileId }
+    val seconds = position.offsetMs / 1000
+    val time = "%d:%02d:%02d.%03d".format(seconds / 3600, seconds / 60 % 60, seconds % 60, position.offsetMs % 1000)
+    return "${position.deviceName} · ${file?.filename ?: "Unavailable file"} · $time"
+}
 
-/** Builds the prompt for every unresolved conflict of one recording (position and completion). */
-fun conflictPrompt(snap: LRecording, position: com.litara.core.litara.LPosition?, conflicts: List<LConflict>, finished: Boolean) = ConflictPrompt(
-    serverLabel = position?.let { fileLabel(snap, it.fileId, it.offsetMs) } ?: "start",
-    conflicts = conflicts,
-    labels = conflicts.associate { c -> c.id to (c.candidate?.let { "${it.deviceName}: ${fileLabel(snap, it.fileId, it.offsetMs)}" } ?: c.reason) },
-    files = snap.files,
-    serverFinished = finished,
-)
+/** Rank close saves below more distinct alternatives, while retaining every conflict. */
+fun conflictPrompt(snap: LRecording, position: com.litara.core.litara.LPosition?, conflicts: List<LConflict>, finished: Boolean): ConflictPrompt {
+    val differences = conflicts.mapNotNull { conflict ->
+        val candidate = conflict.candidate ?: return@mapNotNull null
+        if (position == null || candidate.fileId != position.fileId || candidate.contentVersion != position.contentVersion) {
+            return@mapNotNull null
+        }
+        conflict.id to kotlin.math.abs(candidate.offsetMs - position.offsetMs)
+    }.toMap()
+    return ConflictPrompt(
+        serverLabel = position?.let { fileLabel(snap, it) } ?: "Beginning of the recording",
+        conflicts = conflicts,
+        labels = conflicts.associate { c -> c.id to (c.candidate?.let { fileLabel(snap, it) } ?: c.reason) },
+        nearby = differences.filterValues { it < 1000 }.keys,
+        identical = differences.filterValues { it == 0L }.keys,
+        usable = conflicts.filter { c ->
+            val candidate = c.candidate ?: return@filter false
+            snap.files.any { file ->
+                file.available && file.id == candidate.fileId && file.contentVersion == candidate.contentVersion &&
+                    candidate.offsetMs >= 0 && file.durationMs?.let { candidate.offsetMs <= it } == true
+            }
+        }.map { it.id }.toSet(),
+        serverFinished = finished,
+    )
+}
 
 data class LitaraUi(
     val signedIn: Boolean = false,
@@ -190,18 +213,10 @@ class LitaraViewModel @Inject constructor(
     /** The user's answer to the resume prompt; each is a new revision-aware operation. */
     fun resolve(conflict: LConflict, choice: String) = launch {
         val s = sync ?: return@launch
+        val snap = current ?: return@launch
         val state = s.resolve(conflict.id, choice)
         val remaining = state.unresolvedConflicts
-        _ui.update { it.copy(prompt = if (remaining.isEmpty()) null else it.prompt?.copy(conflicts = remaining)) }
-        state.position?.let { p -> s.indexOf(p.fileId)?.let { player?.seekTo(it, p.offsetMs) } }
-    }
-
-    /** Resolves a position conflict with a position the user picked (file + offset), validated by the caller. */
-    fun resolveExplicit(conflict: LConflict, fileIndex: Int, offsetMs: Long) = launch {
-        val s = sync ?: return@launch
-        val f = current?.files?.getOrNull(fileIndex) ?: return@launch
-        val state = s.resolve(conflict.id, "use_explicit", com.litara.core.litara.LPositionInput(f.id, f.contentVersion, offsetMs, java.time.Instant.now().toString()))
-        _ui.update { it.copy(prompt = if (state.unresolvedConflicts.isEmpty()) null else it.prompt?.copy(conflicts = state.unresolvedConflicts)) }
+        _ui.update { it.copy(prompt = if (remaining.isEmpty()) null else conflictPrompt(snap, state.position, remaining, it.finished)) }
         state.position?.let { p -> s.indexOf(p.fileId)?.let { player?.seekTo(it, p.offsetMs) } }
     }
 
