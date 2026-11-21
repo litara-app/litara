@@ -1,9 +1,8 @@
-import { Badge, Button, Group, Modal, Stack, Text } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, get } from "../api/client";
 import type { Edition } from "../api/types";
-import { ErrorBox } from "../ui/common";
+import { icons, Badge, Button, ConfirmDialog, ErrorBox, Row, Stack, Text } from "../ui";
 
 interface CompletionState { revision: string; finished: boolean; changedAt: string | null }
 
@@ -30,28 +29,23 @@ export function FinishControl({ edition }: { edition: Edition }) {
   });
   const finished = state.data?.finished ?? edition.completion.finished;
   return (
-    <Stack gap="xs" mb="sm" data-testid="finish-control">
-      <Group justify="space-between">
-        <Text size="sm">{finished ? "You marked this book finished." : "Not marked finished."}</Text>
-        {finished && <Badge color="green" data-testid="finished-badge">Finished</Badge>}
-      </Group>
-      <Button size="compact-sm" variant={finished ? "default" : "light"} onClick={() => setConfirm(true)}>
-        {finished ? "Mark unfinished…" : "Mark finished…"}
-      </Button>
+    <Stack gap="sm" data-testid="finish-control">
+      <Row justify="between">
+        <Text as="span" size="sm">{finished ? "You marked this book finished." : "Not marked finished."}</Text>
+        {finished && <Badge tone="success" data-testid="finished-badge">Finished</Badge>}
+      </Row>
+      <Row>
+        <Button size="sm" variant={finished ? "default" : "primary"} onClick={() => setConfirm(true)} icon={icons.check}>
+          {finished ? "Mark unfinished…" : "Mark finished…"}
+        </Button>
+      </Row>
       <ErrorBox error={write.error} />
-      <Modal opened={confirm} onClose={() => setConfirm(false)} title={finished ? "Mark this book unfinished?" : "Mark this book finished?"} centered>
-        <Stack>
-          <Text size="sm">{finished
-            ? "This records the book as unfinished again. Your reading place is not changed."
-            : "This records the book as finished. It is never done automatically when you reach the last page, and your reading place is not changed."}</Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setConfirm(false)}>Cancel</Button>
-            <Button loading={write.isPending} onClick={() => write.mutate(finished ? "manual_unfinish" : "manual_finish")} data-testid="finish-confirm">
-              {finished ? "Mark unfinished" : "Mark finished"}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <ConfirmDialog open={confirm} title={finished ? "Mark this book unfinished?" : "Mark this book finished?"} confirmLabel={finished ? "Mark unfinished" : "Mark finished"}
+        loading={write.isPending} onCancel={() => setConfirm(false)} onConfirm={() => write.mutate(finished ? "manual_unfinish" : "manual_finish")}>
+        {finished
+          ? "This records the book as unfinished again. Your reading place is not changed."
+          : "This records the book as finished. It is never done automatically when you reach the last page, and your reading place is not changed."}
+      </ConfirmDialog>
     </Stack>
   );
 }

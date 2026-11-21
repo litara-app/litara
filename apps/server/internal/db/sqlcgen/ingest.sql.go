@@ -454,7 +454,7 @@ func (q *Queries) InsertObservation(ctx context.Context, arg InsertObservationPa
 }
 
 const listAssociations = `-- name: ListAssociations :many
-SELECT id, library_id, kind, rel_path, recording_id, state, detail FROM associations WHERE library_id = $1 ORDER BY rel_path
+SELECT id, library_id, kind, rel_path, recording_id, state, detail, edition_id FROM associations WHERE library_id = $1 ORDER BY rel_path
 `
 
 func (q *Queries) ListAssociations(ctx context.Context, libraryID uuid.UUID) ([]Association, error) {
@@ -474,6 +474,7 @@ func (q *Queries) ListAssociations(ctx context.Context, libraryID uuid.UUID) ([]
 			&i.RecordingID,
 			&i.State,
 			&i.Detail,
+			&i.EditionID,
 		); err != nil {
 			return nil, err
 		}
@@ -988,7 +989,7 @@ func (q *Queries) RetireCurrentVersion(ctx context.Context, fileID uuid.UUID) er
 }
 
 const setAssociationState = `-- name: SetAssociationState :exec
-UPDATE associations SET state = $3, detail = $4, recording_id = $5 WHERE library_id = $1 AND rel_path = $2
+UPDATE associations SET state = $3, detail = $4, recording_id = $5, edition_id = NULL WHERE library_id = $1 AND rel_path = $2
 `
 
 type SetAssociationStateParams struct {

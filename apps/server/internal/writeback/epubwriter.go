@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,7 +53,23 @@ type epubChanges struct {
 	seriesNm           string
 	idxSet, idxClear   bool
 	seriesIdx          float64
+	// Descriptive fields (ADR-0081). A field is untouched unless set or cleared.
+	publisher, published, isbn, desc single
+	pagesSet, pagesClear             bool
+	pages                            int
+	// cover is a new cover image as JPEG bytes (ADR-0086), supplied by the engine from the stored cover as cover_image.
+	cover []byte
+	// addCoverID, set by the writer (never by a caller), adds <meta name="cover"> for a cover it is adding.
+	addCoverID string
 }
+
+// single is one optional text field: set it to val, or clear it.
+type single struct {
+	set, clear bool
+	val        string
+}
+
+func (s single) touched() bool { return s.set || s.clear }
 
 func parseEPUBChanges(f metadata.Fields) (epubChanges, error) {
 	var c epubChanges
@@ -96,17 +113,111 @@ func parseEPUBChanges(f metadata.Fields) (epubChanges, error) {
 				return c, errors.New("series_index must be null or a non-negative number")
 			}
 			c.idxSet, c.seriesIdx = true, v
+		case "publisher", "published", "isbn", "description":
+			sg, err := parseSingle(k, raw)
+			if err != nil {
+				return c, err
+			}
+			switch k {
+			case "publisher":
+				c.publisher = sg
+			case "published":
+				c.published = sg
+			case "isbn":
+				c.isbn = sg
+			default:
+				c.desc = sg
+			}
+		case "page_count":
+			if string(raw) == "null" {
+				c.pagesClear = true
+				continue
+			}
+			var n int
+			if err := json.Unmarshal(raw, &n); err != nil || n < 1 || n > 100000 {
+				return c, errors.New("page_count must be null or a whole number from 1 to 100000")
+			}
+			c.pagesSet, c.pages = true, n
+		case "cover_image":
+			img, err := parseCoverImage(raw)
+			if err != nil {
+				return c, err
+			}
+			c.cover = img
 		default:
 			return c, fmt.Errorf("the EPUB writer does not support the field %q", k)
 		}
 	}
-	if c.title == nil && c.authors == nil && !c.nameSet && !c.nameClear && !c.idxSet && !c.idxClear {
+	if c.title == nil && c.authors == nil && !c.nameSet && !c.nameClear && !c.idxSet && !c.idxClear &&
+		!c.publisher.touched() && !c.published.touched() && !c.isbn.touched() && !c.desc.touched() && !c.pagesSet && !c.pagesClear && c.cover == nil {
 		return c, errors.New("no supported change")
 	}
 	if c.nameClear && c.nameSet {
 		return c, errors.New("series_name cannot be both set and cleared")
 	}
 	return c, nil
+}
+
+var (
+	publishedRe = regexp.MustCompile(`^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$`)
+	isbnRe      = regexp.MustCompile(`^(\d{9}[\dX]|\d{13})$`)
+)
+
+func parseSingle(field string, raw json.RawMessage) (single, error) {
+	if string(raw) == "null" {
+		return single{clear: true}, nil
+	}
+	var v string
+	if err := json.Unmarshal(raw, &v); err != nil || strings.TrimSpace(v) == "" {
+		return single{}, fmt.Errorf("%s must be null or a non-empty string", field)
+	}
+	v = strings.TrimSpace(v)
+	switch field {
+	case "publisher":
+		if len([]rune(v)) > 512 {
+			return single{}, errors.New("publisher must be at most 512 characters")
+		}
+	case "published":
+		if !publishedRe.MatchString(v) {
+			return single{}, errors.New("published must be YYYY, YYYY-MM or YYYY-MM-DD")
+		}
+	case "isbn":
+		if !isbnRe.MatchString(v) {
+			return single{}, errors.New("isbn must be 10 or 13 characters without hyphens")
+		}
+	case "description":
+		if len([]rune(v)) > 8000 {
+			return single{}, errors.New("description must be at most 8000 characters")
+		}
+		if strings.ContainsAny(v, "<>") {
+			return single{}, errors.New("a description written to the file cannot contain < or >, because readers would take them for markup")
+		}
+	}
+	return single{set: true, val: v}, nil
+}
+
+// isbnText reports whether an identifier's text is an ISBN, and the prefix it is written with.
+func isbnText(t string) (prefix string, ok bool) {
+	s := strings.TrimSpace(t)
+	low := strings.ToLower(s)
+	switch {
+	case strings.HasPrefix(low, "urn:isbn:"):
+		prefix, s = s[:9], s[9:]
+	case strings.HasPrefix(low, "isbn:"):
+		prefix, s = s[:5], s[5:]
+	}
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		switch {
+		case r >= '0' && r <= '9', r == 'x':
+			b.WriteRune(r)
+		case r == '-' || r == ' ':
+		default:
+			return "", false
+		}
+	}
+	n := b.Len()
+	return prefix, n == 10 || n == 13
 }
 
 // ---- reading the package document with byte offsets --------------------------------------------------------------
@@ -281,6 +392,16 @@ func (d *opfDoc) dcName(local string) string {
 	return d.dcPrefix + ":" + local
 }
 
+// isPublicationDate is a dc:date that is not the file's last-modified stamp.
+func (d *opfDoc) isPublicationDate(c child) bool {
+	for _, a := range c.attrs {
+		if (a.name == "event" || strings.HasSuffix(a.name, ":event")) && strings.EqualFold(a.value, "modification") {
+			return false
+		}
+	}
+	return true
+}
+
 func (d *opfDoc) newline() string { return "\n" + d.indent }
 
 func (d *opfDoc) isDC(c child, local string) bool { return c.local == local && c.prefix == d.dcPrefix }
@@ -333,7 +454,9 @@ func (d *opfDoc) plan(c epubChanges) ([]edit, error) {
 	var inserts []string
 
 	for _, ch := range d.children {
-		if ch.hasChild && (d.isDC(ch, "title") || d.isDC(ch, "creator")) {
+		if ch.hasChild && (d.isDC(ch, "title") || d.isDC(ch, "creator") ||
+			(c.publisher.touched() && d.isDC(ch, "publisher")) || (c.published.touched() && d.isDC(ch, "date")) ||
+			(c.desc.touched() && d.isDC(ch, "description"))) {
 			return nil, fmt.Errorf("unexpected nested markup in %s", ch.qname())
 		}
 	}
@@ -495,6 +618,124 @@ func (d *opfDoc) plan(c epubChanges) ([]edit, error) {
 		}
 	}
 
+	// A page count lives in a <meta name="litara:page_count"> pair (no vocabulary prefix is needed, as with Calibre's own
+	// metas). BookOrbit's bookorbit:page_count is updated alongside it so both agree; a Calibre custom column is read-only.
+	if c.pagesSet || c.pagesClear {
+		var mine, theirs []child
+		for _, ch := range d.children {
+			if ch.local != "meta" {
+				continue
+			}
+			n, _ := ch.attr("name")
+			p, _ := ch.attr("property")
+			switch {
+			case n == "litara:page_count" || p == "litara:page_count":
+				mine = append(mine, ch)
+			case n == "bookorbit:page_count" || p == "bookorbit:page_count":
+				theirs = append(theirs, ch)
+			case n == "calibre:user_metadata:#pagecount" || n == "calibre:user_metadata:#page_count":
+				if c.pagesClear {
+					return nil, errors.New("the page count is stored in a Calibre custom column, which this writer does not change")
+				}
+			}
+		}
+		set := func(ch child) {
+			if p, _ := ch.attr("property"); p != "" {
+				if ch.selfClosing {
+					return
+				}
+				add(edit{ch.textStart, ch.textEnd, esc(strconv.Itoa(c.pages))})
+			} else {
+				add(edit{ch.start, ch.end, rebuildMeta(ch, d.metaName(), "content", strconv.Itoa(c.pages), nil)})
+			}
+		}
+		switch {
+		case c.pagesClear:
+			for _, ch := range append(append([]child{}, mine...), theirs...) {
+				remove(ch)
+			}
+		default:
+			if len(mine) == 0 {
+				inserts = append(inserts, "<"+d.metaName()+" name=\"litara:page_count\" content=\""+strconv.Itoa(c.pages)+"\"/>")
+			} else {
+				set(mine[0])
+				for _, extra := range mine[1:] {
+					remove(extra)
+				}
+			}
+			for _, ch := range theirs {
+				set(ch)
+			}
+		}
+	}
+
+	// Single-valued descriptive elements: replace the first, drop any extras, or add one when the file has none.
+	oneOf := func(sg single, local string, pick func(child) bool) {
+		if !sg.touched() {
+			return
+		}
+		var found []child
+		for _, ch := range d.children {
+			if d.isDC(ch, local) && pick(ch) {
+				found = append(found, ch)
+			}
+		}
+		switch {
+		case sg.clear:
+			for _, ch := range found {
+				remove(ch)
+			}
+		case len(found) == 0:
+			inserts = append(inserts, "<"+d.dcName(local)+">"+esc(sg.val)+"</"+d.dcName(local)+">")
+		default:
+			if found[0].selfClosing {
+				add(edit{found[0].start, found[0].end, rebuildWithText(found[0], sg.val)})
+			} else {
+				add(edit{found[0].textStart, found[0].textEnd, esc(sg.val)})
+			}
+			for _, ch := range found[1:] {
+				remove(ch)
+			}
+		}
+	}
+	always := func(child) bool { return true }
+	oneOf(c.publisher, "publisher", always)
+	oneOf(c.desc, "description", always)
+	oneOf(c.published, "date", d.isPublicationDate)
+
+	if c.isbn.touched() {
+		var found []child
+		for _, ch := range d.children {
+			if d.isDC(ch, "identifier") && !ch.selfClosing {
+				if _, ok := isbnText(ch.inner(d.src)); ok {
+					found = append(found, ch)
+				}
+			}
+		}
+		switch {
+		case c.isbn.clear:
+			for _, ch := range found {
+				if _, hasID := ch.attr("id"); hasID {
+					return nil, errors.New("the ISBN is the book's package identifier, so it cannot be removed from the file")
+				}
+				remove(ch)
+			}
+		case len(found) == 0:
+			inserts = append(inserts, "<"+d.dcName("identifier")+">urn:isbn:"+esc(c.isbn.val)+"</"+d.dcName("identifier")+">")
+		default:
+			prefix, _ := isbnText(found[0].inner(d.src))
+			add(edit{found[0].textStart, found[0].textEnd, esc(prefix + c.isbn.val)})
+			for _, ch := range found[1:] {
+				if _, hasID := ch.attr("id"); !hasID {
+					remove(ch)
+				}
+			}
+		}
+	}
+
+	if c.addCoverID != "" {
+		inserts = append(inserts, "<"+d.metaName()+` name="cover" content="`+c.addCoverID+`"/>`)
+	}
 	if len(inserts) > 0 {
 		text := ""
 		for _, s := range inserts {
@@ -635,6 +876,15 @@ func (EPUBWriter) Write(ctx context.Context, src, dst string, changes metadata.F
 	if err != nil {
 		return err
 	}
+	var cp coverPlan
+	if ch.cover != nil {
+		if cp, err = e.planCover(ch.cover); err != nil {
+			return err
+		}
+		if cp.add {
+			ch.addCoverID = cp.id
+		}
+	}
 	edits, err := doc.plan(ch)
 	if err != nil {
 		return err
@@ -642,6 +892,11 @@ func (EPUBWriter) Write(ctx context.Context, src, dst string, changes metadata.F
 	newOPF, err := applyEdits(e.opf, edits)
 	if err != nil {
 		return err
+	}
+	if cp.add {
+		if newOPF, err = cp.applyManifest(newOPF, strings.HasPrefix(packageVersion(e.opf), "3")); err != nil {
+			return err
+		}
 	}
 	if _, err := parseOPF(newOPF); err != nil {
 		return fmt.Errorf("edited package document is not valid: %w", err)
@@ -664,32 +919,27 @@ func (EPUBWriter) Write(ctx context.Context, src, dst string, changes metadata.F
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if f.Name != e.opfName {
+		if f.Name != e.opfName && (cp.data == nil || cp.add || f.Name != cp.name) {
 			if err := zw.Copy(f); err != nil { // raw copy: same compressed bytes, method, CRC, times and extra fields
 				return err
 			}
 			continue
 		}
-		var buf bytes.Buffer
-		method := f.Method
-		if method == zip.Deflate {
-			fw, _ := flate.NewWriter(&buf, flate.DefaultCompression)
-			fw.Write(newOPF)
-			fw.Close()
-		} else {
-			buf.Write(newOPF)
+		data := newOPF
+		if f.Name != e.opfName {
+			data = cp.data
 		}
-		h := f.FileHeader
-		h.CRC32 = crc32.ChecksumIEEE(newOPF)
-		h.UncompressedSize64 = uint64(len(newOPF))
-		h.CompressedSize64 = uint64(buf.Len())
-		h.Flags &^= 0x8 // sizes are known: no data descriptor
-		h.Extra = nil   // a stale zip64 extra field must not describe the old sizes
-		w, err := zw.CreateRaw(&h)
+		if err := replaceEntry(zw, f, data); err != nil {
+			return err
+		}
+	}
+	if cp.add {
+		h := &zip.FileHeader{Name: cp.name, Method: zip.Store, Modified: e.opfFile.Modified}
+		w, err := zw.CreateHeader(h)
 		if err != nil {
 			return err
 		}
-		if _, err := w.Write(buf.Bytes()); err != nil {
+		if _, err := w.Write(cp.data); err != nil {
 			return err
 		}
 	}
@@ -697,6 +947,36 @@ func (EPUBWriter) Write(ctx context.Context, src, dst string, changes metadata.F
 		return err
 	}
 	return out.Sync()
+}
+
+// replaceEntry writes f's replacement with the same name, method and timestamps; the sizes and CRC are recomputed.
+func replaceEntry(zw *zip.Writer, f *zip.File, data []byte) error {
+	var buf bytes.Buffer
+	if f.Method == zip.Deflate {
+		fw, _ := flate.NewWriter(&buf, flate.DefaultCompression)
+		fw.Write(data)
+		fw.Close()
+	} else {
+		buf.Write(data)
+	}
+	h := f.FileHeader
+	h.CRC32 = crc32.ChecksumIEEE(data)
+	h.UncompressedSize64 = uint64(len(data))
+	h.CompressedSize64 = uint64(buf.Len())
+	h.Flags &^= 0x8 // sizes are known: no data descriptor
+	h.Extra = nil   // a stale zip64 extra field must not describe the old sizes
+	w, err := zw.CreateRaw(&h)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(buf.Bytes())
+	return err
+}
+
+func pageMeta(ch child) bool {
+	n, _ := ch.attr("name")
+	p, _ := ch.attr("property")
+	return n == "litara:page_count" || p == "litara:page_count" || n == "bookorbit:page_count" || p == "bookorbit:page_count"
 }
 
 func rawSum(f *zip.File) (string, error) {
@@ -733,6 +1013,17 @@ func (d *opfDoc) managed(c epubChanges) map[int]bool {
 			m[i], titleDone = true, true
 		case c.authors != nil && d.isDC(ch, "creator"):
 			m[i] = true
+		case c.publisher.touched() && d.isDC(ch, "publisher"), c.desc.touched() && d.isDC(ch, "description"),
+			c.published.touched() && d.isDC(ch, "date") && d.isPublicationDate(ch):
+			m[i] = true
+		case c.isbn.touched() && d.isDC(ch, "identifier") && !ch.selfClosing:
+			if _, ok := isbnText(ch.inner(d.src)); ok {
+				m[i] = true
+			}
+		case ch.local == "meta" && (c.pagesSet || c.pagesClear) && pageMeta(ch):
+			m[i] = true
+		case ch.local == "meta" && c.addCoverID != "" && coverMetaFor(ch, c.addCoverID):
+			m[i] = true
 		case ch.local == "meta":
 			n, _ := ch.attr("name")
 			p, _ := ch.attr("property")
@@ -765,7 +1056,20 @@ func (EPUBWriter) Validate(ctx context.Context, orig, staged string, changes met
 		return fmt.Errorf("staged: %w", err)
 	}
 	defer s.close()
-	if o.opfName != s.opfName || len(o.zr.File) != len(s.zr.File) {
+	var cp coverPlan
+	if ch.cover != nil {
+		if cp, err = o.planCover(ch.cover); err != nil {
+			return err
+		}
+		if cp.add {
+			ch.addCoverID = cp.id
+		}
+	}
+	wantEntries := len(o.zr.File)
+	if cp.add {
+		wantEntries++
+	}
+	if o.opfName != s.opfName || len(s.zr.File) != wantEntries {
 		return errors.New("archive layout changed")
 	}
 	for i, of := range o.zr.File {
@@ -774,6 +1078,13 @@ func (EPUBWriter) Validate(ctx context.Context, orig, staged string, changes met
 			return fmt.Errorf("entry %d changed name or method", i)
 		}
 		if of.Name == o.opfName {
+			continue
+		}
+		if cp.data != nil && !cp.add && of.Name == cp.name {
+			got, err := readEntry(sf, maxCoverBytes)
+			if err != nil || !bytes.Equal(got, cp.data) {
+				return fmt.Errorf("the cover image %q is not the requested cover", of.Name)
+			}
 			continue
 		}
 		if of.CRC32 != sf.CRC32 || of.UncompressedSize64 != sf.UncompressedSize64 {
@@ -791,6 +1102,13 @@ func (EPUBWriter) Validate(ctx context.Context, orig, staged string, changes met
 			return fmt.Errorf("entry %q bytes changed", of.Name)
 		}
 	}
+	if cp.add {
+		added := s.zr.File[len(s.zr.File)-1]
+		got, err := readEntry(added, maxCoverBytes)
+		if added.Name != cp.name || err != nil || !bytes.Equal(got, cp.data) {
+			return fmt.Errorf("the added cover entry %q is not the requested cover", cp.name)
+		}
+	}
 	if len(o.zr.File) > 0 && o.zr.File[0].Name == "mimetype" && (s.zr.File[0].Name != "mimetype" || s.zr.File[0].Method != zip.Store) {
 		return errors.New("mimetype is no longer the first stored entry")
 	}
@@ -805,7 +1123,19 @@ func (EPUBWriter) Validate(ctx context.Context, orig, staged string, changes met
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(o.opf[:od.metaStart], s.opf[:sd.metaStart]) || !bytes.Equal(o.opf[od.metaEnd:], s.opf[sd.metaEnd:]) {
+	sBefore, sAfter := s.opf[:sd.metaStart], s.opf[sd.metaEnd:]
+	if cp.add {
+		// The only change outside <metadata> is the one manifest item that was added, exactly as planned.
+		switch {
+		case bytes.Contains(sAfter, []byte(cp.insert)):
+			sAfter = bytes.Replace(sAfter, []byte(cp.insert), nil, 1)
+		case bytes.Contains(sBefore, []byte(cp.insert)):
+			sBefore = bytes.Replace(sBefore, []byte(cp.insert), nil, 1)
+		default:
+			return errors.New("the cover manifest item is missing from the package document")
+		}
+	}
+	if !bytes.Equal(o.opf[:od.metaStart], sBefore) || !bytes.Equal(o.opf[od.metaEnd:], sAfter) {
 		return errors.New("package document changed outside <metadata>")
 	}
 	if !bytes.Equal(o.opf[od.metaStart:od.metaOpenEnd], s.opf[sd.metaStart:sd.metaOpenEnd]) {
@@ -854,10 +1184,43 @@ func (EPUBWriter) Validate(ctx context.Context, orig, staged string, changes met
 		v := ch.seriesIdx
 		want.SeriesIndex = &v
 	}
+	if ch.publisher.touched() {
+		want.Publisher = ch.publisher.val
+	}
+	if ch.published.touched() {
+		want.Published = ch.published.val
+	}
+	if ch.desc.touched() {
+		want.Description = ebookmeta.PlainText(ch.desc.val)
+	}
+	if ch.pagesSet {
+		n := ch.pages
+		want.PageCount = &n
+	} else if ch.pagesClear {
+		want.PageCount = nil
+	}
+	if (got.PageCount == nil) != (want.PageCount == nil) || (got.PageCount != nil && *got.PageCount != *want.PageCount) {
+		return fmt.Errorf("staged page count does not read back as requested: got %v want %v", got.PageCount, want.PageCount)
+	}
+	if ch.isbn.set {
+		want.Identifier = ch.isbn.val
+	} else if ch.isbn.clear {
+		want.Identifier = ""
+	}
+	if got.Publisher != want.Publisher || got.Published != want.Published || got.Description != want.Description {
+		return fmt.Errorf("staged descriptive metadata does not read back as requested: got %+v want %+v", got, want)
+	}
 	if got.Title != want.Title || got.Language != want.Language || got.Identifier != want.Identifier || got.Series != want.Series ||
 		strings.Join(got.Authors, "\x00") != strings.Join(want.Authors, "\x00") ||
 		(got.SeriesIndex == nil) != (want.SeriesIndex == nil) || (got.SeriesIndex != nil && *got.SeriesIndex != *want.SeriesIndex) {
 		return fmt.Errorf("staged metadata does not read back as requested: got %+v want %+v", got, want)
 	}
 	return nil
+}
+
+// coverMetaFor reports whether a metadata child is the <meta name="cover"> the writer adds for the given manifest id.
+func coverMetaFor(ch child, id string) bool {
+	n, _ := ch.attr("name")
+	v, _ := ch.attr("content")
+	return n == "cover" && v == id
 }

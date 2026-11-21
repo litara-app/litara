@@ -14,7 +14,7 @@ import (
 
 const approveWritebackPlan = `-- name: ApproveWritebackPlan :one
 UPDATE writeback_plans SET stage = 'approved', approved_by = $2, updated_at = $3::timestamptz
-WHERE id = $1 AND stage = 'planned' RETURNING id, library_id, file_id, base_version, kind, format, diff, approved_by, stage, recording_id, target_rel, base_sha256, staged_path, staged_sha256, backup_ref, detail, created_at, updated_at
+WHERE id = $1 AND stage = 'planned' RETURNING id, library_id, file_id, base_version, kind, format, diff, approved_by, stage, recording_id, target_rel, base_sha256, staged_path, staged_sha256, backup_ref, detail, created_at, updated_at, edition_id
 `
 
 type ApproveWritebackPlanParams struct {
@@ -45,13 +45,14 @@ func (q *Queries) ApproveWritebackPlan(ctx context.Context, arg ApproveWriteback
 		&i.Detail,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EditionID,
 	)
 	return i, err
 }
 
 const createWritebackPlan = `-- name: CreateWritebackPlan :one
-INSERT INTO writeback_plans (library_id, file_id, base_version, kind, format, diff, recording_id, target_rel, base_sha256)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, library_id, file_id, base_version, kind, format, diff, approved_by, stage, recording_id, target_rel, base_sha256, staged_path, staged_sha256, backup_ref, detail, created_at, updated_at
+INSERT INTO writeback_plans (library_id, file_id, base_version, kind, format, diff, recording_id, edition_id, target_rel, base_sha256)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, library_id, file_id, base_version, kind, format, diff, approved_by, stage, recording_id, target_rel, base_sha256, staged_path, staged_sha256, backup_ref, detail, created_at, updated_at, edition_id
 `
 
 type CreateWritebackPlanParams struct {
@@ -62,6 +63,7 @@ type CreateWritebackPlanParams struct {
 	Format      *string       `json:"format"`
 	Diff        []byte        `json:"diff"`
 	RecordingID uuid.NullUUID `json:"recording_id"`
+	EditionID   uuid.NullUUID `json:"edition_id"`
 	TargetRel   string        `json:"target_rel"`
 	BaseSha256  *string       `json:"base_sha256"`
 }
@@ -75,6 +77,7 @@ func (q *Queries) CreateWritebackPlan(ctx context.Context, arg CreateWritebackPl
 		arg.Format,
 		arg.Diff,
 		arg.RecordingID,
+		arg.EditionID,
 		arg.TargetRel,
 		arg.BaseSha256,
 	)
@@ -98,6 +101,7 @@ func (q *Queries) CreateWritebackPlan(ctx context.Context, arg CreateWritebackPl
 		&i.Detail,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EditionID,
 	)
 	return i, err
 }
@@ -152,7 +156,7 @@ func (q *Queries) GetFileCurrent(ctx context.Context, fileID uuid.UUID) (GetFile
 }
 
 const getWritebackPlan = `-- name: GetWritebackPlan :one
-SELECT id, library_id, file_id, base_version, kind, format, diff, approved_by, stage, recording_id, target_rel, base_sha256, staged_path, staged_sha256, backup_ref, detail, created_at, updated_at FROM writeback_plans WHERE id = $1
+SELECT id, library_id, file_id, base_version, kind, format, diff, approved_by, stage, recording_id, target_rel, base_sha256, staged_path, staged_sha256, backup_ref, detail, created_at, updated_at, edition_id FROM writeback_plans WHERE id = $1
 `
 
 func (q *Queries) GetWritebackPlan(ctx context.Context, id uuid.UUID) (WritebackPlan, error) {
@@ -177,6 +181,7 @@ func (q *Queries) GetWritebackPlan(ctx context.Context, id uuid.UUID) (Writeback
 		&i.Detail,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EditionID,
 	)
 	return i, err
 }
@@ -193,7 +198,7 @@ func (q *Queries) GetWriterCapability(ctx context.Context, format string) (Write
 }
 
 const listRecoverableWritebacks = `-- name: ListRecoverableWritebacks :many
-SELECT id, library_id, file_id, base_version, kind, format, diff, approved_by, stage, recording_id, target_rel, base_sha256, staged_path, staged_sha256, backup_ref, detail, created_at, updated_at FROM writeback_plans WHERE stage IN ('staged', 'validated', 'backed_up') ORDER BY created_at
+SELECT id, library_id, file_id, base_version, kind, format, diff, approved_by, stage, recording_id, target_rel, base_sha256, staged_path, staged_sha256, backup_ref, detail, created_at, updated_at, edition_id FROM writeback_plans WHERE stage IN ('staged', 'validated', 'backed_up') ORDER BY created_at
 `
 
 func (q *Queries) ListRecoverableWritebacks(ctx context.Context) ([]WritebackPlan, error) {
@@ -224,6 +229,7 @@ func (q *Queries) ListRecoverableWritebacks(ctx context.Context) ([]WritebackPla
 			&i.Detail,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.EditionID,
 		); err != nil {
 			return nil, err
 		}

@@ -6,6 +6,9 @@ Decision owner: Repository owner
 
 ## Context
 
+Note (2026-11-19): ADR-0079 supersedes the Mantine part of this record; the tooling choices below are unchanged.
+
+
 ADR-0010 accepts React/TypeScript/Mantine but leaves supporting tools open. The integrated rebuild has no web app. T004's missing ebook entities and manual recording repair cannot be solved by frontend mockups. CI is paused under ADR-0064.
 
 ## Decision

@@ -158,6 +158,14 @@ func (s *Scanner) Associate(ctx context.Context, lib uuid.UUID, l *Listing) erro
 		byRec[m.RecordingID].Members = append(byRec[m.RecordingID].Members, toMember(m.FileID, m.ContentVersion, m.RelPath, m.DurationMs, m.Result))
 	}
 	sort.Slice(l.Sidecar, func(i, j int) bool { return l.Sidecar[i].Rel < l.Sidecar[j].Rel })
+	var eds []edInfo
+	if rows, eerr := q.ListLibraryEditionPaths(ctx, lib); eerr == nil {
+		for _, r := range rows {
+			eds = append(eds, edInfo{ID: r.EditionID, Rel: r.RelPath})
+		}
+	} else {
+		return eerr
+	}
 
 	var cues []Entry
 	for _, sc := range l.Sidecar {
@@ -165,10 +173,10 @@ func (s *Scanner) Associate(ctx context.Context, lib uuid.UUID, l *Listing) erro
 		case "cue":
 			cues = append(cues, sc)
 		case "opf":
-			err = s.associateMetadata(ctx, q, lib, sc, byRec)
+			err = s.associateMetadata(ctx, q, lib, sc, byRec, eds)
 		case "json":
 			if isLitaraJSON(sc.Rel) {
-				err = s.associateMetadata(ctx, q, lib, sc, byRec)
+				err = s.associateMetadata(ctx, q, lib, sc, byRec, eds)
 			}
 		}
 		if err != nil {
@@ -176,6 +184,21 @@ func (s *Scanner) Associate(ctx context.Context, lib uuid.UUID, l *Listing) erro
 		}
 	}
 	return s.associateCues(ctx, q, lib, cues, byRec)
+}
+
+// edInfo is one ebook edition and the library path of its file.
+type edInfo struct {
+	ID  uuid.UUID
+	Rel string
+}
+
+func (s *Scanner) setEditionAssoc(ctx context.Context, q *sqlcgen.Queries, lib uuid.UUID, kind, rel string, edition uuid.UUID, state, detail string) error {
+	var d *string
+	if detail != "" {
+		d = &detail
+	}
+	return q.UpsertEditionAssociation(ctx, sqlcgen.UpsertEditionAssociationParams{LibraryID: lib, Kind: kind, RelPath: rel,
+		EditionID: uuid.NullUUID{UUID: edition, Valid: true}, State: state, Detail: d})
 }
 
 func (s *Scanner) setAssoc(ctx context.Context, q *sqlcgen.Queries, lib uuid.UUID, kind, rel string, rec *uuid.UUID, state, detail string) error {
@@ -335,7 +358,7 @@ func (s *Scanner) writeCue(ctx context.Context, q *sqlcgen.Queries, rec *recInfo
 
 // associateMetadata ties a Litara JSON or OPF sidecar to the one recording whose
 // folder it sits in, or (for loose root-level files) whose file name it shares.
-func (s *Scanner) associateMetadata(ctx context.Context, q *sqlcgen.Queries, lib uuid.UUID, sc Entry, byRec map[uuid.UUID]*recInfo) error {
+func (s *Scanner) associateMetadata(ctx context.Context, q *sqlcgen.Queries, lib uuid.UUID, sc Entry, byRec map[uuid.UUID]*recInfo, eds []edInfo) error {
 	dir := path.Dir(sc.Rel)
 	if dir == "." {
 		dir = ""
@@ -353,9 +376,34 @@ func (s *Scanner) associateMetadata(ctx context.Context, q *sqlcgen.Queries, lib
 		}
 	}
 	kind := sc.Side
+	// An ebook owns a sidecar that shares its file name, or any sidecar in a folder that holds exactly one ebook.
+	var books []edInfo
+	perDir := map[string]int{}
+	for _, e := range eds {
+		perDir[pathDirOrDot(path.Dir(e.Rel))]++
+	}
+	for _, e := range eds {
+		d := pathDirOrDot(path.Dir(e.Rel))
+		if d != pathDirOrDot(dir) {
+			continue
+		}
+		stem := strings.TrimSuffix(strings.TrimSuffix(path.Base(e.Rel), path.Ext(e.Rel)), ".kepub")
+		if strings.EqualFold(stem, base) || perDir[d] == 1 {
+			books = append(books, e)
+		}
+	}
+	switch {
+	case len(cands) == 0 && len(books) == 1:
+		_ = q.CloseReviewByKey(ctx, sqlcgen.CloseReviewByKeyParams{LibraryID: lib, Kind: "association", SubjectKey: sc.Rel, Now: s.now()})
+		return s.setEditionAssoc(ctx, q, lib, kind, sc.Rel, books[0].ID, "associated", "")
+	case len(cands) == 0 && len(books) > 1:
+		return s.setAssoc(ctx, q, lib, kind, sc.Rel, nil, "needs_review", "more than one ebook could own this sidecar; name it after the book file")
+	case len(cands) > 0 && len(books) > 0:
+		return s.setAssoc(ctx, q, lib, kind, sc.Rel, nil, "needs_review", "a recording and an ebook could both own this sidecar; name it after one file")
+	}
 	switch len(cands) {
 	case 0:
-		return s.setAssoc(ctx, q, lib, kind, sc.Rel, nil, "needs_review", "no recording matches this sidecar")
+		return s.setAssoc(ctx, q, lib, kind, sc.Rel, nil, "needs_review", "no recording or ebook matches this sidecar")
 	case 1:
 		_ = q.CloseReviewByKey(ctx, sqlcgen.CloseReviewByKeyParams{LibraryID: lib, Kind: "association", SubjectKey: sc.Rel, Now: s.now()})
 		return s.setAssoc(ctx, q, lib, kind, sc.Rel, &cands[0].ID, "associated", "")

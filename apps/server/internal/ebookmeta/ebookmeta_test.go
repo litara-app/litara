@@ -85,3 +85,28 @@ func TestISBN(t *testing.T) {
 		}
 	}
 }
+
+func TestDescriptiveFields(t *testing.T) {
+	p := zipFile(t, map[string]string{
+		"META-INF/container.xml": containerXML,
+		"OPS/p.opf": `<package xmlns:dc="x"><metadata><dc:title>T</dc:title><dc:publisher> Old  House </dc:publisher><dc:date>1895-05-07T00:00:00Z</dc:date>` +
+			`<dc:description>&lt;p&gt;First &amp;amp; foremost.&lt;/p&gt;&lt;p&gt;Second  paragraph.&lt;/p&gt;</dc:description></metadata></package>`,
+	})
+	m, err := Read(p, "epub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Publisher != "Old House" || m.Published != "1895-05-07" || m.Description != "First & foremost.\n\nSecond paragraph." {
+		t.Fatalf("%+v", m)
+	}
+	ci := zipFile(t, map[string]string{"ComicInfo.xml": `<ComicInfo><Title>C</Title><Publisher>P</Publisher><Year>2001</Year><Month>3</Month><Summary>Hi</Summary><PageCount>32</PageCount></ComicInfo>`})
+	c, err := Read(ci, "cbz")
+	if err != nil || c.Publisher != "P" || c.Published != "2001-03" || c.Description != "Hi" || c.PageCount == nil || *c.PageCount != 32 {
+		t.Fatalf("%+v %v", c, err)
+	}
+	for in, want := range map[string]string{"1895": "1895", "1895-13-01": "1895", "x": "", "2020-02-30": "2020-02-30"} {
+		if got := normDate(in); got != want {
+			t.Errorf("normDate(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

@@ -118,6 +118,17 @@ func (s *Service) sidecarContent(ctx context.Context, rec uuid.UUID) ([]byte, me
 		}
 		out["series"] = series
 	}
+	// Descriptive fields (ADR-0081): only values someone chose or the files carried; a protected clear is left out.
+	if eff, err := metadata.EffectiveForTitle(ctx, q, row.TitleID); err == nil {
+		for _, k := range []string{metadata.FieldPublisher, metadata.FieldPublished, metadata.FieldISBN, metadata.FieldDescription} {
+			if e, ok := eff[k]; ok && !e.Cleared {
+				var v string
+				if json.Unmarshal(e.Raw, &v) == nil && v != "" {
+					out[k] = v
+				}
+			}
+		}
+	}
 	b, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return nil, nil, err
@@ -127,6 +138,113 @@ func (s *Service) sidecarContent(ctx context.Context, rec uuid.UUID) ([]byte, me
 		return nil, nil, err
 	}
 	return append(b, '\n'), f, nil
+}
+
+// editionSidecarContent renders the effective metadata of an ebook edition as Litara JSON: only values someone chose or the
+// file carried. Narrators and anything an edition does not have are left out.
+func (s *Service) editionSidecarContent(ctx context.Context, edition uuid.UUID) ([]byte, metadata.Fields, error) {
+	q := sqlcgen.New(s.Pool)
+	ed, err := q.GetEditionRow(ctx, edition)
+	if err != nil {
+		return nil, nil, apperr.ErrNotFound
+	}
+	rows, err := q.ListEditionMetadataValues(ctx, edition)
+	if err != nil {
+		return nil, nil, apperr.ErrUnavailable
+	}
+	vals := make([]metadata.Value, 0, len(rows))
+	for _, r := range rows {
+		vals = append(vals, metadata.Value{Field: r.Field, Source: r.Source, Raw: r.Value, ProtectedClear: r.ProtectedClear})
+	}
+	eff := metadata.Resolve(vals)
+	get := func(k string, into any) bool {
+		e, ok := eff[k]
+		return ok && !e.Cleared && json.Unmarshal(e.Raw, into) == nil
+	}
+	out := map[string]any{}
+	var str string
+	for _, k := range []string{"title", "publisher", "published", "isbn", "description", "language"} {
+		if str = ""; get(k, &str) && str != "" {
+			out[k] = str
+		}
+	}
+	if _, ok := out["title"]; !ok {
+		if t, terr := q.GetTitleRow(ctx, ed.TitleID); terr == nil {
+			out["title"] = t.Title
+		}
+	}
+	var list []string
+	for _, k := range []string{"authors", "tags"} {
+		if list = nil; get(k, &list) && len(list) > 0 {
+			out[k] = list
+		}
+	}
+	var name string
+	if get("series_name", &name) && name != "" {
+		series := map[string]any{"name": name}
+		var idx float64
+		if get("series_index", &idx) {
+			series["index"] = idx
+		}
+		out["series"] = series
+	}
+	var pages int
+	if get("page_count", &pages) && pages > 0 {
+		out["pageCount"] = pages
+	}
+	b, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return nil, nil, err
+	}
+	f, err := metadata.ParseLitaraJSON(b)
+	if err != nil {
+		return nil, nil, err
+	}
+	return append(b, '\n'), f, nil
+}
+
+// PlanEditionSidecar proposes exporting an ebook edition's effective metadata to "<book>.litara.json" beside the book. The
+// name ties the sidecar to exactly that file when the library is scanned. Nothing is written until the plan is approved.
+func (s *Service) PlanEditionSidecar(ctx context.Context, edition uuid.UUID) (sqlcgen.WritebackPlan, error) {
+	q := sqlcgen.New(s.Pool)
+	ed, err := q.GetEditionRow(ctx, edition)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sqlcgen.WritebackPlan{}, apperr.ErrNotFound
+	}
+	if err != nil {
+		return sqlcgen.WritebackPlan{}, apperr.ErrUnavailable
+	}
+	cur, err := q.GetFileCurrent(ctx, ed.FileID)
+	if err != nil {
+		return sqlcgen.WritebackPlan{}, apperr.ErrUnavailable
+	}
+	_, changes, err := s.editionSidecarContent(ctx, edition)
+	if err != nil {
+		return sqlcgen.WritebackPlan{}, err
+	}
+	stem := strings.TrimSuffix(strings.TrimSuffix(path.Base(cur.RelPath), path.Ext(cur.RelPath)), ".kepub")
+	target := path.Join(path.Dir(cur.RelPath), stem+".litara.json")
+	cfg, err := q.GetLibraryConfig(ctx, ed.LibraryID)
+	if err != nil {
+		return sqlcgen.WritebackPlan{}, apperr.ErrUnavailable
+	}
+	root, err := ingest.CanonicalRoot(cfg.RootPath)
+	if err != nil {
+		return sqlcgen.WritebackPlan{}, apperr.New(503, "library_unavailable", "The library root is not accessible.")
+	}
+	d := Diff{Kind: "sidecar", Target: target, Changes: changes}
+	var base *string
+	if sum, herr := sumFile(filepath.Join(root, filepath.FromSlash(target))); herr == nil {
+		d.Replace, d.Before = true, sum
+		base = &sum
+	}
+	raw, _ := json.Marshal(d)
+	p, err := q.CreateWritebackPlan(ctx, sqlcgen.CreateWritebackPlanParams{LibraryID: ed.LibraryID, FileID: ed.FileID, BaseVersion: cur.ContentVersion,
+		Kind: "sidecar", Diff: raw, EditionID: uuid.NullUUID{UUID: edition, Valid: true}, TargetRel: target, BaseSha256: base})
+	if err != nil {
+		return sqlcgen.WritebackPlan{}, apperr.ErrUnavailable
+	}
+	return p, nil
 }
 
 // PlanSidecar proposes exporting a recording's effective metadata to a Litara
@@ -204,8 +322,12 @@ func (s *Service) PlanInFile(ctx context.Context, fileID uuid.UUID, changes meta
 	if len(changes) == 0 {
 		return sqlcgen.WritebackPlan{}, apperr.Validation("no changes to write")
 	}
+	ready, merr := s.materialize(ctx, changes)
+	if merr != nil {
+		return sqlcgen.WritebackPlan{}, merr
+	}
 	if validator, ok := w.(interface{ ValidateFields(metadata.Fields) error }); ok {
-		if err := validator.ValidateFields(changes); err != nil {
+		if err := validator.ValidateFields(ready); err != nil {
 			return sqlcgen.WritebackPlan{}, apperr.Validation(err.Error())
 		}
 	}
@@ -298,7 +420,13 @@ func (s *Service) Execute(ctx context.Context, planID uuid.UUID) error {
 
 	switch plan.Kind {
 	case "sidecar":
-		body, _, cerr := s.sidecarContent(ctx, plan.RecordingID.UUID)
+		var body []byte
+		var cerr error
+		if plan.EditionID.Valid {
+			body, _, cerr = s.editionSidecarContent(ctx, plan.EditionID.UUID)
+		} else {
+			body, _, cerr = s.sidecarContent(ctx, plan.RecordingID.UUID)
+		}
 		if cerr != nil {
 			return s.refuse(ctx, planID, staged, "Could not render the sidecar.")
 		}
@@ -310,6 +438,11 @@ func (s *Service) Execute(ctx context.Context, planID uuid.UUID) error {
 		if w == nil {
 			return s.refuse(ctx, planID, staged, "No writer is registered for this format.")
 		}
+		ready, merr := s.materialize(ctx, diff.Changes)
+		if merr != nil {
+			return s.refuse(ctx, planID, staged, merr.Error())
+		}
+		diff.Changes = ready // the cover reference becomes the image the reviewer saw, or the write is refused
 		if err := w.Write(ctx, target, staged, diff.Changes); err != nil {
 			return s.refuse(ctx, planID, staged, "The writer failed: "+err.Error())
 		}
@@ -424,11 +557,20 @@ func (s *Service) validate(ctx context.Context, plan sqlcgen.WritebackPlan, diff
 	if len(a.Chapters) != len(b.Chapters) {
 		return errors.New("chapters were lost or added")
 	}
-	if len(a.Artwork) != len(b.Artwork) {
-		return errors.New("artwork was lost or added")
-	}
-	if len(a.Streams) != len(b.Streams) {
-		return errors.New("streams changed")
+	if _, covers := diff.Changes["cover_image"]; covers {
+		// A cover write may add the file's first picture (one more artwork and one more attached-picture stream) or
+		// replace the one it has; it may never remove one or touch the audio streams.
+		da := len(b.Artwork) - len(a.Artwork)
+		if (da != 0 && da != 1) || len(b.Streams)-len(a.Streams) != da || len(b.Artwork) < 1 {
+			return errors.New("the cover write changed the file's pictures or streams unexpectedly")
+		}
+	} else {
+		if len(a.Artwork) != len(b.Artwork) {
+			return errors.New("artwork was lost or added")
+		}
+		if len(a.Streams) != len(b.Streams) {
+			return errors.New("streams changed")
+		}
 	}
 	if w := s.Writers[derefStr(plan.Format)]; w != nil {
 		return w.Validate(ctx, target, staged, diff.Changes)

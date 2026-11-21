@@ -8,6 +8,7 @@
 //	ctl show <absolute-path>
 //	ctl gen-key                        print a new LITARA_SECRET_KEY value
 //	ctl openapi                        print the generated OpenAPI document (no database)
+//	ctl api-baseline check|update|release VERSION   keep the API backward compatible (ADR-0082; no database)
 //	ctl bootstrap-admin --username U   create the first administrator (password from a prompt or stdin)
 //	ctl reset-password --username U    set a new password and revoke that user's sessions
 //	ctl seed --dir ABS                 explicit fixture seeding with generated media (never automatic)
@@ -67,6 +68,9 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	}
 	if args[0] == "openapi" {
 		return openapiCmd(out)
+	}
+	if args[0] == "api-baseline" {
+		return apiBaselineCmd(args[1:], out)
 	}
 	cfg, err := config.Load()
 	if err != nil {

@@ -1,0 +1,772 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Litara T009 additions contract",
+    "version": "0.1.0-development",
+    "description": "Book details and personal rating, review and reading dates under ADR-0081. Shares T003 and T005 components."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "paths": {
+    "/editions/{editionId}/details": {
+      "get": {
+        "operationId": "getEditionDetails",
+        "summary": "Effective publisher, published date, page count, ISBN, synopsis and added time",
+        "tags": [
+          "t009"
+        ],
+        "parameters": [
+          {
+            "name": "editionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T009EditionDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/titles/{titleId}/personal": {
+      "get": {
+        "operationId": "getTitlePersonal",
+        "summary": "The caller private rating, review and reading dates for a title",
+        "tags": [
+          "t009"
+        ],
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T009Personal"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putTitlePersonal",
+        "summary": "Set the caller private rating, review and reading-date overrides",
+        "tags": [
+          "t009"
+        ],
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T009Personal"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T009PersonalWrite"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recordings/{recordingId}/details": {
+      "get": {
+        "operationId": "getRecordingDetails",
+        "summary": "Effective publisher, published date, ISBN, synopsis and added time of a recording",
+        "tags": [
+          "t009"
+        ],
+        "parameters": [
+          {
+            "name": "recordingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T009RecordingDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Typed error; see README for transactional and access semantics",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "T009EditionDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "addedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 8000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "editionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isbn": {
+            "pattern": "^([0-9]{9}[0-9X]|[0-9]{13})$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pageCount": {
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "published": {
+            "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publisher": {
+            "maxLength": 512,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "editionId",
+          "addedAt",
+          "publisher",
+          "published",
+          "pageCount",
+          "isbn",
+          "description"
+        ],
+        "type": "object"
+      },
+      "T009Personal": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/T009PersonalData"
+          },
+          "derivedFinishedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "derivedStartedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "titleId",
+          "revision",
+          "data",
+          "derivedStartedAt",
+          "derivedFinishedAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "T009PersonalData": {
+        "additionalProperties": false,
+        "properties": {
+          "finishedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ratingHalves": {
+            "description": "Half stars, 1 (half a star) to 10 (five stars); null is unrated.",
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "review": {
+            "description": "Private to the author; empty is no review.",
+            "maxLength": 20000,
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "ratingHalves",
+          "review",
+          "startedAt",
+          "finishedAt"
+        ],
+        "type": "object"
+      },
+      "T009PersonalWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "baseRevision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "capturedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/T009PersonalData"
+          },
+          "operationId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "capturedAt",
+          "data"
+        ],
+        "type": "object"
+      },
+      "T009RecordingDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "addedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 8000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isbn": {
+            "pattern": "^([0-9]{9}[0-9X]|[0-9]{13})$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "published": {
+            "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publisher": {
+            "maxLength": 512,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordingId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recordingId",
+          "addedAt",
+          "publisher",
+          "published",
+          "isbn",
+          "description"
+        ],
+        "type": "object"
+      }
+    }
+  }
+}

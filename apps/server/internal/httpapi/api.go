@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"github.com/deranjer/ebooker/apps/server/internal/apicompat"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -17,6 +18,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/accounts"
 	"github.com/deranjer/ebooker/apps/server/internal/apperr"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
+	"github.com/deranjer/ebooker/apps/server/internal/covers"
 	"github.com/deranjer/ebooker/apps/server/internal/delivery"
 	"github.com/deranjer/ebooker/apps/server/internal/importer"
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
@@ -66,6 +68,7 @@ type APIDeps struct {
 	Enricher  *metadata.Enricher
 	Importer  *importer.Service
 	Writeback *writeback.Service
+	Covers    *covers.Service // title covers (ADR-0086); nil only in contract-only builds
 	// T006 services (nil leaves the T006 management routes unmounted).
 	Integrations *integrations.Service
 	KOReader     *koreader.Service
@@ -92,8 +95,9 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	}
 	a := &API{APIDeps: d, log: log, base: d.Config.APIBase()}
 
-	cfg := huma.DefaultConfig("Litara API", "0.1.0-development")
-	cfg.Info.Description = "Litara T003 client contract (development stability)."
+	state := apicompat.Current()
+	cfg := huma.DefaultConfig("Litara API", state.Version)
+	cfg.Info.Description = "Litara client API, major version 1 (" + state.Stability + "). Within a major version only additive change is made (ADR-0082): ignore unknown response properties and unknown enum values."
 	cfg.OpenAPI.Servers = []*huma.Server{{URL: a.base}}
 	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
 		"bearer":         {Type: "http", Scheme: "bearer", BearerFormat: "opaque"},
@@ -120,9 +124,11 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerAnnotations(api)
 	a.registerShelves(api)
 	a.registerEditionAdmin(api)
+	a.registerDetails(api)
 	a.registerComics(api)
 	a.registerRepair(api)
 	a.registerMedia(api)
+	a.registerCovers(api)
 	a.registerIntegrations(api)
 	a.registerKOReaderManagement(api)
 	a.registerDelivery(api)

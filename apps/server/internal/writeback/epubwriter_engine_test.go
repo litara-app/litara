@@ -41,7 +41,10 @@ type epubEnv struct {
 	file uuid.UUID
 }
 
-func newEPUBEnv(t *testing.T) *epubEnv {
+func newEPUBEnv(t *testing.T) *epubEnv { return newEPUBEnvWith(t, engineOPF, nil) }
+
+// newEPUBEnvWith builds the same library with a chosen package document and extra archive entries.
+func newEPUBEnvWith(t *testing.T, opf string, extra map[string][]byte) *epubEnv {
 	pool := testutil.MigratedDatabase(t)
 	root := t.TempDir()
 	cfg := wire.LibraryConfig{Mode: "index", RootPath: root, ScanIntervalSecs: 900, VerifyIntervalSecs: 86400, StabilitySecs: 30, ProviderOrder: []string{}}
@@ -63,9 +66,13 @@ func newEPUBEnv(t *testing.T) *epubEnv {
 	w, _ = zw.Create("META-INF/container.xml")
 	w.Write([]byte(`<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`))
 	w, _ = zw.Create("OEBPS/content.opf")
-	w.Write([]byte(engineOPF))
+	w.Write([]byte(opf))
 	w, _ = zw.Create("OEBPS/c1.xhtml")
 	w.Write([]byte(`<html xmlns="http://www.w3.org/1999/xhtml"><body><p>` + strings.Repeat("Words. ", 300) + `</p></body></html>`))
+	for name, data := range extra {
+		w, _ = zw.Create(name)
+		w.Write(data)
+	}
 	zw.Close()
 	f.Close()
 	e.scan()

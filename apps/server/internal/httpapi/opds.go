@@ -175,10 +175,15 @@ func parseListQuery(r *http.Request) (opds.Query, *string, error) {
 }
 
 func pubOf(id, fileID, version uuid.UUID, kind, title string, authors, narrators []string, series *string, idx *float64, lang *string,
-	label, mime, filename string, size *int64, updated time.Time, order, count int32, coverMIME *string) opds.Pub {
+	label, mime, filename string, size *int64, updated time.Time, order, count int32, coverMIME *string,
+	publisher, published, isbn, synopsis *string, pages *int32) opds.Pub {
 	p := opds.Pub{ID: id, Kind: kind, Title: title, Authors: authors, Narrators: narrators, SeriesName: series, SeriesIndex: idx, Language: lang,
 		Label: label, FileID: fileID, ContentVersion: version, MIME: mime, Filename: filename, Updated: updated, FileOrder: int(order), FileCount: int(count),
-		CoverMIME: coverMIME}
+		CoverMIME: coverMIME, Publisher: publisher, Published: published, ISBN: isbn, Synopsis: synopsis}
+	if pages != nil {
+		n := int(*pages)
+		p.Pages = &n
+	}
 	if size != nil {
 		p.Size = *size
 	}
@@ -220,7 +225,8 @@ func (a *API) opdsList(version int) opdsFunc {
 				cover = x.CoverMime
 			}
 			pubs = append(pubs, pubOf(x.PublicationID, x.FileID, x.ContentVersion, x.MediaKind, x.Title, x.Authors, x.Narrators, x.SeriesName, x.SeriesIndex,
-				x.Language, x.Label, x.MimeType, x.Filename, x.SizeBytes, x.UpdatedAt, x.FileOrder, x.FileCount, cover))
+				x.Language, x.Label, x.MimeType, x.Filename, x.SizeBytes, x.UpdatedAt, x.FileOrder, x.FileCount, cover,
+				x.Publisher, x.Published, x.Isbn, x.Synopsis, x.PageCount))
 		}
 		if version == 1 {
 			feedHeaders(w, opds.AtomAcquisition)
@@ -253,7 +259,8 @@ func (a *API) opdsDetail(version int) opdsFunc {
 			cover = x.CoverMime
 		}
 		pub := pubOf(x.PublicationID, x.FileID, x.ContentVersion, x.MediaKind, x.Title, x.Authors, x.Narrators, x.SeriesName, x.SeriesIndex,
-			x.Language, x.Label, x.MimeType, x.Filename, x.SizeBytes, x.UpdatedAt, x.FileOrder, x.FileCount, cover)
+			x.Language, x.Label, x.MimeType, x.Filename, x.SizeBytes, x.UpdatedAt, x.FileOrder, x.FileCount, cover,
+			x.Publisher, x.Published, x.Isbn, x.Synopsis, x.PageCount)
 		if version == 1 {
 			feedHeaders(w, opds.AtomEntry)
 			_, _ = w.Write(opds.AtomPublication(a.links(), pub))

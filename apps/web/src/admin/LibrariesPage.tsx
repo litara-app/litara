@@ -1,11 +1,9 @@
-import { Anchor, Badge, Button, Card, Checkbox, Code, Group, NumberInput, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { api, get } from "../api/client";
 import type { Library, LibraryDetail, Page, Review, ScanRun } from "../api/types";
-import { ScrollRegion } from "../ui/ScrollRegion";
-import { Busy, ErrorBox } from "../ui/common";
+import { icons, IconPicker, LIBRARY_ICONS, libraryIcon, Badge, Busy, Button, Card, CheckboxField, Code, CodeBlock, EmptyState, ErrorBox, Heading, NumberField, PageHeader, Row, SelectField, Stack, Table, TBody, TD, Text, TextField, TextLink, TH, THead, TR, type Tone } from "../ui";
 import { ImportSection, WritebackSection } from "./ImportSection";
 
 export function LibrariesPage() {
@@ -23,24 +21,24 @@ export function LibrariesPage() {
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
   return (
     <Stack>
-      <Card withBorder>
+      <Card>
         <form onSubmit={submit}>
-          <Stack gap="xs">
-            <Title order={4}>New library</Title>
-            <Group grow align="flex-end">
-              <TextInput label="Name" value={name} onChange={(e) => setName(e.currentTarget.value)} required maxLength={200} />
-              <Select label="Mode" allowDeselect={false} value={mode} onChange={setMode}
-                data={[{ value: "managed", label: "Managed (Litara may organize files)" }, { value: "index", label: "Index only" }]} />
-            </Group>
-            <TextInput label="Root folder on the server" description="An absolute path inside the configured media root. Nothing is created or deleted here." value={root} onChange={(e) => setRoot(e.currentTarget.value)} required />
+          <Stack gap="sm">
+            <Heading level={2}>New library</Heading>
+            <Row grow align="end">
+              <TextField label="Name" value={name} onValue={setName} required maxLength={200} />
+              <SelectField label="Mode" value={mode} onValue={setMode}
+                items={[{ value: "managed", label: "Managed (Litara may organize files)" }, { value: "index", label: "Index only" }]} />
+            </Row>
+            <TextField label="Root folder on the server" description="An absolute path inside the configured media root. Nothing is created or deleted here." value={root} onValue={setRoot} required />
             <ErrorBox error={create.error} />
-            <Group><Button type="submit" loading={create.isPending}>Create library</Button></Group>
+            <Row><Button type="submit" variant="primary" loading={create.isPending} icon={icons.plus}>Create library</Button></Row>
           </Stack>
         </form>
       </Card>
-      <Text size="sm" c="dimmed">You see libraries you have been granted. After creating one, grant yourself access under Users to manage it.</Text>
-      {libs.isPending ? <Busy /> : libs.data?.items.map((l) => (
-        <Card key={l.id} withBorder><Anchor component={Link} to={`/admin/libraries/${l.id}`} fw={600}>{l.name}</Anchor></Card>
+      <Text size="sm" tone="dim">You see libraries you have been granted. After creating one, grant yourself access under Users to manage it.</Text>
+      {libs.isPending ? <Busy /> : libs.data?.items.length === 0 ? <EmptyState title="No libraries yet">Create one above.</EmptyState> : libs.data?.items.map((l) => (
+        <Card key={l.id} pad="sm"><TextLink to={`/admin/libraries/${l.id}`}>{l.name}</TextLink></Card>
       ))}
     </Stack>
   );
@@ -61,35 +59,60 @@ function ReviewRow({ lib, r }: { lib: string; r: Review }) {
   const qc = useQueryClient();
   const actions = actionsFor(r);
   const [action, setAction] = useState<string | null>(actions[0] ?? null);
-  const [f, setF] = useState({ missingFileId: "", newPath: "", titleId: "", path: "", index: "0", files: "" });
+  const [f, setF] = useState({ missingFileId: "", newPath: "", titleId: "", path: "", index: 0, files: "" });
   const resolve = useMutation({
     mutationFn: () => {
       const body: Record<string, unknown> = { action };
       if (action === "move") { body.missingFileId = f.missingFileId; body.newPath = f.newPath; }
       if (action === "link") body.titleId = f.titleId;
-      if (action === "choose") { body.path = f.path; body.index = Number(f.index); }
+      if (action === "choose") { body.path = f.path; body.index = f.index; }
       if (action === "order") body.files = f.files.split(/\s+/).filter(Boolean);
       return api<void>("POST", `/admin/libraries/${lib}/reviews/${r.id}/resolve`, body);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "reviews", lib] }),
   });
   return (
-    <Card withBorder data-testid="review-item">
-      <Stack gap="xs">
-        <Group justify="space-between"><Badge>{r.kind}</Badge><Text size="xs" c="dimmed">{new Date(r.createdAt).toLocaleString()}</Text></Group>
-        <Text size="sm" fw={500} style={{ wordBreak: "break-all" }}>{r.subjectKey}</Text>
-        <Code block tabIndex={0} role="region" aria-label="Details (scrollable)" style={{ maxHeight: 160, overflow: "auto" }}>{JSON.stringify(r.candidates, null, 2)}</Code>
-        {actions.length === 0 ? <Text size="sm" c="dimmed">This kind of review is resolved elsewhere.</Text> : (
-          <Group align="flex-end" gap="xs">
-            <Select size="xs" label="Decision" allowDeselect={false} value={action} onChange={setAction} data={actions} />
-            {action === "move" && <><TextInput size="xs" label="Missing file ID" value={f.missingFileId} onChange={(e) => setF({ ...f, missingFileId: e.currentTarget.value })} /><TextInput size="xs" label="New path" value={f.newPath} onChange={(e) => setF({ ...f, newPath: e.currentTarget.value })} /></>}
-            {action === "link" && <TextInput size="xs" label="Title ID" value={f.titleId} onChange={(e) => setF({ ...f, titleId: e.currentTarget.value })} />}
-            {action === "choose" && <><TextInput size="xs" label="Path" value={f.path} onChange={(e) => setF({ ...f, path: e.currentTarget.value })} /><NumberInput size="xs" label="Candidate index" min={0} max={4} value={f.index} onChange={(v) => setF({ ...f, index: String(v) })} /></>}
-            {action === "order" && <TextInput size="xs" label="File IDs in order (space separated)" value={f.files} onChange={(e) => setF({ ...f, files: e.currentTarget.value })} />}
-            <Button size="xs" loading={resolve.isPending} onClick={() => resolve.mutate()}>Resolve</Button>
-          </Group>
+    <Card data-testid="review-item">
+      <Stack gap="sm">
+        <Row justify="between"><Badge>{r.kind}</Badge><Text size="xs" tone="dim">{new Date(r.createdAt).toLocaleString()}</Text></Row>
+        <Text size="sm" strong>{r.subjectKey}</Text>
+        <CodeBlock label="Details (scrollable)">{JSON.stringify(r.candidates, null, 2)}</CodeBlock>
+        {actions.length === 0 ? <Text size="sm" tone="dim">This kind of review is resolved elsewhere.</Text> : (
+          <Row align="end" wrap>
+            <SelectField label="Decision" value={action} onValue={setAction} items={actions.map((a) => ({ value: a, label: a }))} />
+            {action === "move" && <><TextField label="Missing file ID" value={f.missingFileId} onValue={(v) => setF({ ...f, missingFileId: v })} /><TextField label="New path" value={f.newPath} onValue={(v) => setF({ ...f, newPath: v })} /></>}
+            {action === "link" && <TextField label="Title ID" value={f.titleId} onValue={(v) => setF({ ...f, titleId: v })} />}
+            {action === "choose" && <><TextField label="Path" value={f.path} onValue={(v) => setF({ ...f, path: v })} /><NumberField label="Candidate index" min={0} max={4} step={1} value={f.index} onValue={(v) => setF({ ...f, index: v ?? 0 })} /></>}
+            {action === "order" && <TextField label="File IDs in order (space separated)" value={f.files} onValue={(v) => setF({ ...f, files: v })} />}
+            <Button variant="primary" size="sm" loading={resolve.isPending} onClick={() => resolve.mutate()} icon={icons.check}>Resolve</Button>
+          </Row>
         )}
         <ErrorBox error={resolve.error} />
+      </Stack>
+    </Card>
+  );
+}
+
+const scanTone = (s: string): Tone => (s === "failed" ? "danger" : s === "completed" ? "success" : "neutral");
+
+/** Which icon a library shows in the sidebar. It is shared: everyone with access to the library sees the choice. */
+function IconCard({ libraryId, icon }: { libraryId: string; icon: string | null }) {
+  const qc = useQueryClient();
+  const save = useMutation({
+    mutationFn: (next: string | null) => api<Library>("PUT", `/admin/libraries/${libraryId}/icon`, { icon: next }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["libraries"] }); qc.invalidateQueries({ queryKey: ["admin", "library", libraryId] }); },
+  });
+  const chosen = LIBRARY_ICONS.find((i) => i.value === icon)?.value ?? LIBRARY_ICONS[0]!.value;
+  return (
+    <Card framed>
+      <Stack gap="sm">
+        <Row><span className="lt-btn-icon" aria-hidden="true">{libraryIcon(icon)}</span><Heading level={2}>Sidebar icon</Heading></Row>
+        <Text size="sm" tone="dim">Shown beside this library in the sidebar for everyone who can open it.</Text>
+        <IconPicker label="Library icon" value={chosen} options={LIBRARY_ICONS} disabled={save.isPending} onValue={(v) => save.mutate(v)} />
+        <Row>
+          <Button size="sm" icon={icons.close} disabled={icon === null || save.isPending} onClick={() => save.mutate(null)}>Use the default icon</Button>
+        </Row>
+        <ErrorBox error={save.error} />
       </Stack>
     </Card>
   );
@@ -111,44 +134,43 @@ export function LibraryAdminPage() {
   const d = detail.data;
   return (
     <Stack>
-      <Group justify="space-between"><Title order={3}>{d.library.name}</Title>
-        <Badge color={d.health.state === "healthy" ? "green" : "red"} variant="light">root {d.health.state}</Badge></Group>
-      <Card withBorder>
-        <Stack gap={2}>
+      <PageHeader title={d.library.name} actions={<Badge tone={d.health.state === "healthy" ? "success" : "danger"}>root {d.health.state}</Badge>} />
+      <Card framed>
+        <Stack gap="xs">
           <Text size="sm">Mode: {d.config.mode} · follow symlinks: {String(d.config.followSymlinks)} · in-file write backups: {d.config.writebackBackups ? "on" : "off"}</Text>
-          <Text size="sm" style={{ wordBreak: "break-all" }}>Root: <Code>{d.config.rootPath}</Code></Text>
-          {d.health.detail && <Text size="sm" c="dimmed">{d.health.detail}</Text>}
-          <Text size="xs" c="dimmed">Configuration editing is not in the web app yet.</Text>
+          <Text size="sm">Root: <Code>{d.config.rootPath}</Code></Text>
+          {d.health.detail && <Text size="sm" tone="dim">{d.health.detail}</Text>}
+          <Text size="xs" tone="dim">Configuration editing is not in the web app yet.</Text>
         </Stack>
       </Card>
 
-      <Title order={4}>Scans</Title>
-      <Group>
-        <Button loading={start.isPending} onClick={() => start.mutate()}>Scan now</Button>
-        <Checkbox label="Also re-hash every file (verify)" checked={verify} onChange={(e) => setVerify(e.currentTarget.checked)} />
-      </Group>
-      <ErrorBox error={start.error ?? scans.error} />
-      <ScrollRegion label="Scan runs">
-        <Table verticalSpacing="xs" data-testid="scans-table">
-          <Table.Thead><Table.Tr><Table.Th>Started</Table.Th><Table.Th>Trigger</Table.Th><Table.Th>State</Table.Th><Table.Th>Files</Table.Th></Table.Tr></Table.Thead>
-          <Table.Tbody>
-            {scans.data?.items.map((s) => (
-              <Table.Tr key={s.id}>
-                <Table.Td>{new Date(s.createdAt).toLocaleString()}</Table.Td><Table.Td>{s.trigger}</Table.Td>
-                <Table.Td><Badge variant="light" color={s.state === "failed" ? "red" : s.state === "completed" ? "green" : "gray"}>{s.state}</Badge>{s.failure && <Text size="xs" c="red">{s.failure}</Text>}</Table.Td>
-                <Table.Td>{s.filesSeen}</Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </ScrollRegion>
+      <IconCard libraryId={libraryId} icon={d.library.icon} />
 
-      <Title order={4}>Reviews</Title>
-      {reviews.isPending ? <Busy /> : reviews.data?.items.length === 0 ? <Text c="dimmed">Nothing needs review.</Text> :
+      <Heading level={2}>Scans</Heading>
+      <Row>
+        <Button variant="primary" loading={start.isPending} onClick={() => start.mutate()} icon={icons.sync}>Scan now</Button>
+        <CheckboxField label="Also re-hash every file (verify)" checked={verify} onChange={setVerify} />
+      </Row>
+      <ErrorBox error={start.error ?? scans.error} />
+      <Table label="Scan runs" data-testid="scans-table">
+        <THead><TR><TH>Started</TH><TH>Trigger</TH><TH>State</TH><TH num>Files</TH></TR></THead>
+        <TBody>
+          {scans.data?.items.map((s) => (
+            <TR key={s.id}>
+              <TD>{new Date(s.createdAt).toLocaleString()}</TD><TD>{s.trigger}</TD>
+              <TD><Badge tone={scanTone(s.state)}>{s.state}</Badge>{s.failure && <Text size="xs" tone="danger">{s.failure}</Text>}</TD>
+              <TD num>{s.filesSeen}</TD>
+            </TR>
+          ))}
+        </TBody>
+      </Table>
+
+      <Heading level={2}>Reviews</Heading>
+      {reviews.isPending ? <Busy /> : reviews.data?.items.length === 0 ? <EmptyState title="Nothing needs review" /> :
         reviews.data?.items.map((r) => <ReviewRow key={r.id} lib={libraryId} r={r} />)}
       <ImportSection libraryId={libraryId} />
       <WritebackSection backupsOn={d.config.writebackBackups} />
-      <Text size="xs" c="dimmed">Provider lookups are not in the web app yet.</Text>
+      <Text size="xs" tone="dim">Provider lookups are not in the web app yet.</Text>
     </Stack>
   );
 }

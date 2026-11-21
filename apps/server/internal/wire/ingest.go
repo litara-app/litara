@@ -57,7 +57,7 @@ type MetadataConflict struct {
 }
 
 type MetadataField struct {
-	Field     string             `json:"field" enum:"title,authors,series_name,series_index,narrators"`
+	Field     string             `json:"field" enum:"title,authors,series_name,series_index,narrators,publisher,published,isbn,description"`
 	Source    string             `json:"source" enum:"user,sidecar,embedded,provider"`
 	Cleared   bool               `json:"cleared"`
 	Value     json.RawMessage    `json:"value,omitempty" doc:"Absent when the field was deliberately cleared." type:"object" additionalProperties:"true"`
@@ -107,7 +107,12 @@ type ImportDecision struct {
 // ---- write-back --------------------------------------------------------------------
 
 type PlanInFile struct {
-	Changes map[string]json.RawMessage `json:"changes" minProperties:"1" doc:"Fields to write: title, authors, series_name, series_index, narrators."`
+	Changes map[string]json.RawMessage `json:"changes" minProperties:"1" doc:"Fields to write: title, authors, series_name, series_index, narrators, publisher, published, isbn, description. An EPUB cannot hold narrators or a page count."`
+}
+
+// PlanCoverInFile asks to embed the title's stored cover in one ebook file (ADR-0086).
+type PlanCoverInFile struct {
+	Medium string `json:"medium" enum:"ebook,audio"`
 }
 
 type Writeback struct {
@@ -131,4 +136,9 @@ type WriterCapability struct {
 
 type WriterCapabilityList struct {
 	Items []WriterCapability `json:"items"`
+}
+
+// CoverWritebacks is one plan per file of an audiobook.
+type CoverWritebacks struct {
+	Items []Writeback `json:"items" maxItems:"500"`
 }

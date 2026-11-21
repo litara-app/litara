@@ -191,7 +191,7 @@ func (a *API) registerIngest(api huma.API) {
 	pm.Security, pm.DefaultStatus = secured, http.StatusNoContent
 	huma.Register(api, pm, func(ctx context.Context, in *struct {
 		RecordingID string `path:"recordingId" format:"uuid"`
-		Field       string `path:"field" enum:"title,authors,series_name,series_index,narrators"`
+		Field       string `path:"field" enum:"title,authors,series_name,series_index,narrators,publisher,published,isbn,description"`
 		Body        wire.SetMetadata
 	}) (*noContent, error) {
 		id := mustUUID(in.RecordingID)
@@ -212,7 +212,7 @@ func (a *API) registerIngest(api huma.API) {
 	dm.Security, dm.DefaultStatus = secured, http.StatusNoContent
 	huma.Register(api, dm, func(ctx context.Context, in *struct {
 		RecordingID string `path:"recordingId" format:"uuid"`
-		Field       string `path:"field" enum:"title,authors,series_name,series_index,narrators"`
+		Field       string `path:"field" enum:"title,authors,series_name,series_index,narrators,publisher,published,isbn,description"`
 	}) (*noContent, error) {
 		id := mustUUID(in.RecordingID)
 		if err := recAuth(ctx, id); err != nil {
@@ -385,6 +385,26 @@ func (a *API) registerWriteback(api huma.API) {
 		return &bodyOut[wire.Writeback]{Body: toWriteback(p)}, nil
 	})
 
+	pe := adminOp(op("planEditionSidecarExport", http.MethodPost, "/admin/editions/{editionId}/writebacks/sidecar", "Plan a Litara JSON sidecar export for an ebook edition", "ingest"))
+	pe.Security, pe.DefaultStatus = secured, http.StatusCreated
+	huma.Register(api, pe, func(ctx context.Context, in *struct {
+		EditionID string `path:"editionId" format:"uuid"`
+	}) (*bodyOut[wire.Writeback], error) {
+		id := mustUUID(in.EditionID)
+		lib, err := a.Reading.EditionLibrary(ctx, id)
+		if err != nil {
+			return nil, a.fail(ctx, err)
+		}
+		if err := a.manage(ctx, lib); err != nil {
+			return nil, err
+		}
+		p, err := a.Writeback.PlanEditionSidecar(ctx, id)
+		if err != nil {
+			return nil, a.fail(ctx, err)
+		}
+		return &bodyOut[wire.Writeback]{Body: toWriteback(p)}, nil
+	})
+
 	pf := adminOp(op("planInFileWrite", http.MethodPost, "/admin/files/{fileId}/writebacks", "Plan an in-file metadata write (only for formats with recorded fidelity evidence)", "ingest"))
 	pf.Security, pf.DefaultStatus = secured, http.StatusCreated
 	huma.Register(api, pf, func(ctx context.Context, in *struct {
@@ -411,6 +431,51 @@ func (a *API) registerWriteback(api huma.API) {
 			return nil, a.fail(ctx, err)
 		}
 		return &bodyOut[wire.Writeback]{Body: toWriteback(p)}, nil
+	})
+
+	pc := adminOp(op("planCoverInFileWrite", http.MethodPost, "/admin/files/{fileId}/cover-writebacks", "Plan embedding the title's stored cover in an ebook file (reviewed like any in-file write)", "ingest"))
+	pc.Security, pc.DefaultStatus = secured, http.StatusCreated
+	huma.Register(api, pc, func(ctx context.Context, in *struct {
+		FileID string `path:"fileId" format:"uuid"`
+		Body   wire.PlanCoverInFile
+	}) (*bodyOut[wire.Writeback], error) {
+		fid := mustUUID(in.FileID)
+		lib, err := sqlcgen.New(a.Pool).GetFileLibrary(ctx, fid)
+		if err != nil {
+			return nil, a.fail(ctx, apperr.ErrNotFound)
+		}
+		if err := a.manage(ctx, lib); err != nil {
+			return nil, err
+		}
+		p, err := a.Writeback.PlanCoverInFile(ctx, fid, in.Body.Medium)
+		if err != nil {
+			return nil, a.fail(ctx, err)
+		}
+		return &bodyOut[wire.Writeback]{Body: toWriteback(p)}, nil
+	})
+
+	pr := adminOp(op("planRecordingCoverWrite", http.MethodPost, "/admin/recordings/{recordingId}/cover-writebacks", "Plan embedding the title's stored audiobook cover in every file of a recording", "ingest"))
+	pr.Security, pr.DefaultStatus = secured, http.StatusCreated
+	huma.Register(api, pr, func(ctx context.Context, in *struct {
+		RecordingID string `path:"recordingId" format:"uuid"`
+	}) (*bodyOut[wire.CoverWritebacks], error) {
+		rid := mustUUID(in.RecordingID)
+		row, err := sqlcgen.New(a.Pool).GetRecordingRow(ctx, rid)
+		if err != nil {
+			return nil, a.fail(ctx, apperr.ErrNotFound)
+		}
+		if err := a.manage(ctx, row.LibraryID); err != nil {
+			return nil, err
+		}
+		plans, err := a.Writeback.PlanCoverInRecording(ctx, rid)
+		if err != nil {
+			return nil, a.fail(ctx, err)
+		}
+		out := wire.CoverWritebacks{Items: make([]wire.Writeback, 0, len(plans))}
+		for _, p := range plans {
+			out.Items = append(out.Items, toWriteback(p))
+		}
+		return &bodyOut[wire.CoverWritebacks]{Body: out}, nil
 	})
 
 	gw := adminOp(op("getWriteback", http.MethodGet, "/admin/writebacks/{planId}", "Read a write-back plan and its journal stage", "ingest"))

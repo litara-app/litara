@@ -134,7 +134,8 @@ test("pending changes are locked at sign-out, never sent as another account, and
 
   // Sign out: the protected view is gone; the record stays in the browser.
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByTestId("account-menu").click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page.getByRole("heading", { name: "Sign in to Litara" })).toBeVisible();
   const kept = (await stored(page)).filter((r) => r.status === "pending");
   expect(kept.length).toBeGreaterThanOrEqual(1);
@@ -147,7 +148,8 @@ test("pending changes are locked at sign-out, never sent as another account, and
   await page.waitForTimeout(1500);
   expect(await annotations(page, adminEd)).toHaveLength(0); // never sent under the wrong account
   expect((await stored(page)).filter((r) => r.status === "pending").length).toBe(kept.length);
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByTestId("account-menu").click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page.getByRole("heading", { name: "Sign in to Litara" })).toBeVisible();
 
   // The owner returns: the original write is restored and delivered.

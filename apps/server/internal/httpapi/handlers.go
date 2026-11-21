@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"github.com/deranjer/ebooker/apps/server/internal/apicompat"
 	"net/http"
 	"time"
 
@@ -41,7 +42,7 @@ func (a *API) registerDiscovery(api huma.API) {
 				return nil, a.fail(ctx, err)
 			}
 			return &bodyOut[wire.Discovery]{Body: wire.Discovery{ServerID: id.String(), Product: "Litara", APIVersions: []string{"v1"},
-				APIBasePath: a.base, Stability: "development", Registration: "admin-only",
+				APIBasePath: a.base, APIVersion: apicompat.Current().Version, Stability: apicompat.Current().Stability, Registration: "admin-only",
 				Capabilities: []string{"recordings", "range-media", "position-conflicts", "offline-snapshots"}}}, nil
 		})
 }

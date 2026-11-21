@@ -71,40 +71,6 @@ func (q *Queries) CountTitleRecordings(ctx context.Context, arg CountTitleRecord
 	return count, err
 }
 
-const countTitlesPage = `-- name: CountTitlesPage :one
-SELECT count(*) FROM titles t
-WHERE (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id)
-    OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id))
-  AND ($2::text IS NULL OR position(lower($2::text) in lower(
-         t.title || chr(10) || array_to_string(t.authors, chr(10)) || chr(10) || COALESCE(t.series_name, ''))) > 0)
-  AND ($3::uuid IS NULL OR EXISTS (SELECT 1 FROM user_library_grants gg WHERE gg.user_id = $1 AND gg.library_id = $3))
-  AND ($3::uuid IS NULL
-       OR EXISTS (SELECT 1 FROM editions e WHERE e.title_id = t.id AND e.library_id = $3)
-       OR EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id AND r.library_id = $3))
-  AND ($4::text IS NULL
-       OR ($4::text = 'ebook' AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id))
-       OR ($4::text = 'audio' AND EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)))
-`
-
-type CountTitlesPageParams struct {
-	UserID    uuid.UUID     `json:"user_id"`
-	Q         *string       `json:"q"`
-	LibraryID uuid.NullUUID `json:"library_id"`
-	MediaKind *string       `json:"media_kind"`
-}
-
-func (q *Queries) CountTitlesPage(ctx context.Context, arg CountTitlesPageParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countTitlesPage,
-		arg.UserID,
-		arg.Q,
-		arg.LibraryID,
-		arg.MediaKind,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const deleteEditionMetadataValue = `-- name: DeleteEditionMetadataValue :execrows
 DELETE FROM edition_metadata_values WHERE edition_id = $1 AND field = $2 AND source = $3
 `
@@ -530,6 +496,8 @@ type ListTitleRecordingsPageRow struct {
 	Title     string    `json:"title"`
 }
 
+// Titles visible to a user: any granted library holds an edition or recording of it.
+// Counts include only granted libraries.
 func (q *Queries) ListTitleRecordingsPage(ctx context.Context, arg ListTitleRecordingsPageParams) ([]ListTitleRecordingsPageRow, error) {
 	rows, err := q.db.Query(ctx, listTitleRecordingsPage,
 		arg.UserID,
@@ -545,88 +513,6 @@ func (q *Queries) ListTitleRecordingsPage(ctx context.Context, arg ListTitleReco
 	for rows.Next() {
 		var i ListTitleRecordingsPageRow
 		if err := rows.Scan(&i.ID, &i.LibraryID, &i.Title); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTitlesPage = `-- name: ListTitlesPage :many
-WITH visible AS (
-  SELECT t.id,
-         (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id)::bigint AS edition_count,
-         (SELECT count(*) FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)::bigint AS recording_count
-  FROM titles t
-)
-SELECT t.id, t.title, t.authors, t.series_name, v.edition_count, v.recording_count,
-       COALESCE((SELECT array_agg(DISTINCT e.language) FILTER (WHERE e.language IS NOT NULL)
-                 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
-                 WHERE e.title_id = t.id), '{}')::text[] AS languages
-FROM titles t JOIN visible v ON v.id = t.id
-WHERE v.edition_count + v.recording_count > 0
-  AND ($2::text IS NULL OR position(lower($2::text) in lower(
-         t.title || chr(10) || array_to_string(t.authors, chr(10)) || chr(10) || COALESCE(t.series_name, ''))) > 0)
-  AND ($3::uuid IS NULL OR EXISTS (SELECT 1 FROM user_library_grants gg WHERE gg.user_id = $1 AND gg.library_id = $3))
-  AND ($3::uuid IS NULL
-       OR EXISTS (SELECT 1 FROM editions e WHERE e.title_id = t.id AND e.library_id = $3)
-       OR EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id AND r.library_id = $3))
-  AND ($4::text IS NULL
-       OR ($4::text = 'ebook' AND EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id))
-       OR ($4::text = 'audio' AND EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)))
-ORDER BY t.id
-LIMIT $6 OFFSET $5
-`
-
-type ListTitlesPageParams struct {
-	UserID     uuid.UUID     `json:"user_id"`
-	Q          *string       `json:"q"`
-	LibraryID  uuid.NullUUID `json:"library_id"`
-	MediaKind  *string       `json:"media_kind"`
-	PageOffset int32         `json:"page_offset"`
-	PageSize   int32         `json:"page_size"`
-}
-
-type ListTitlesPageRow struct {
-	ID             uuid.UUID `json:"id"`
-	Title          string    `json:"title"`
-	Authors        []string  `json:"authors"`
-	SeriesName     *string   `json:"series_name"`
-	EditionCount   int64     `json:"edition_count"`
-	RecordingCount int64     `json:"recording_count"`
-	Languages      []string  `json:"languages"`
-}
-
-// Titles visible to a user: any granted library holds an edition or recording of it.
-// Counts include only granted libraries.
-func (q *Queries) ListTitlesPage(ctx context.Context, arg ListTitlesPageParams) ([]ListTitlesPageRow, error) {
-	rows, err := q.db.Query(ctx, listTitlesPage,
-		arg.UserID,
-		arg.Q,
-		arg.LibraryID,
-		arg.MediaKind,
-		arg.PageOffset,
-		arg.PageSize,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTitlesPageRow
-	for rows.Next() {
-		var i ListTitlesPageRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Authors,
-			&i.SeriesName,
-			&i.EditionCount,
-			&i.RecordingCount,
-			&i.Languages,
-		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

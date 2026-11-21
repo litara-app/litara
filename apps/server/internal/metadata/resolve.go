@@ -16,6 +16,15 @@ const (
 	FieldSeriesName  = "series_name"
 	FieldSeriesIndex = "series_index"
 	FieldNarrators   = "narrators"
+	// Descriptive fields shared by ebooks and audiobooks (ADR-0081). They are stored as metadata values only and resolved when read.
+	FieldPublisher   = "publisher"
+	FieldPublished   = "published"
+	FieldISBN        = "isbn"
+	FieldDescription = "description"
+	// Edition-only fields a sidecar may also carry for an ebook.
+	FieldLanguage  = "language"
+	FieldTags      = "tags"
+	FieldPageCount = "page_count"
 )
 
 // Sources, highest precedence first.
@@ -41,7 +50,7 @@ func SubjectKind(field string) string {
 // Valid reports whether field is editable.
 func Valid(field string) bool {
 	switch field {
-	case FieldTitle, FieldAuthors, FieldSeriesName, FieldSeriesIndex, FieldNarrators:
+	case FieldTitle, FieldAuthors, FieldSeriesName, FieldSeriesIndex, FieldNarrators, FieldPublisher, FieldPublished, FieldISBN, FieldDescription:
 		return true
 	}
 	return false

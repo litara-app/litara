@@ -1,9 +1,9 @@
-import { Alert, Button, Container, Group, Stack, Text, Title } from "@mantine/core";
+import { icons } from "./icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router";
 import { ApiError } from "../api/client";
 import { usePendingQueue } from "../pending/PendingProvider";
+import { Alert, Button, Heading, Page, Row, Stack, Text } from "./index";
 
 const DENIED = "library_access_denied";
 
@@ -30,18 +30,18 @@ export function AccessGuard({ children }: { children: ReactNode }) {
 
   if (!revoked) return <>{children}</>;
   return (
-    <Container size="sm" py="xl">
+    <Page>
       <Stack>
-        <Title order={2}>Access to this library was removed</Title>
-        <Alert color="red" role="alert" title="This content is no longer shown">
+        <Heading level={1}>Access to this library was removed</Heading>
+        <Alert tone="danger" role="alert" title="This content is no longer shown">
           An administrator removed your access. What was open here has been closed and cleared from this page.
         </Alert>
         <Text>Changes you made that were not yet saved are kept on the Pending page. They are not sent, and not deleted, until you decide.</Text>
-        <Group>
-          <Button component={Link} to="/pending" onClick={() => setRevoked(false)}>Review unsent changes</Button>
-          <Button component={Link} to="/" variant="default" onClick={() => setRevoked(false)}>Back to the library</Button>
-        </Group>
+        <Row>
+          <Button variant="primary" to="/pending" onClick={() => setRevoked(false)}>Review unsent changes</Button>
+          <Button to="/" onClick={() => setRevoked(false)} icon={icons.arrowLeft}>Back to the library</Button>
+        </Row>
       </Stack>
-    </Container>
+    </Page>
   );
 }

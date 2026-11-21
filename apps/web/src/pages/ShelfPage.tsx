@@ -1,18 +1,19 @@
-import { ActionIcon, Alert, Badge, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import { api, ApiError, get, op } from "../api/client";
-import type { Page, Shelf, Title as TitleT } from "../api/types";
-import { Busy, ErrorBox } from "../ui/common";
+import type { Page as Paged, Shelf, Title as TitleT } from "../api/types";
+import { icons, Alert, Badge, Busy, Button, Card, ConfirmDialog, EmptyState, ErrorBox, IconButton, Page, PageHeader, Row, Stack, Text, TextLink, Tip } from "../ui";
 
 export function ShelfPage() {
   const { shelfId = "" } = useParams();
   const qc = useQueryClient();
   const nav = useNavigate();
+  const [confirming, setConfirming] = useState(false);
   const shelf = useQuery({ queryKey: ["shelf", shelfId], queryFn: () => get<Shelf>(`/shelves/${shelfId}`) });
   const titles = useQuery({
     queryKey: ["shelf", shelfId, "titles"], enabled: !!shelf.data && !shelf.data.deleted,
-    queryFn: () => get<Page<TitleT>>(`/shelves/${shelfId}/titles?size=200`),
+    queryFn: () => get<Paged<TitleT>>(`/shelves/${shelfId}/titles?size=200`),
   });
   // Every mutation refetches afterwards, so a 409 shows the server state and the user retries from it.
   const refresh = () => { qc.invalidateQueries({ queryKey: ["shelf", shelfId] }); qc.invalidateQueries({ queryKey: ["shelves"] }); };
@@ -30,10 +31,10 @@ export function ShelfPage() {
   });
 
   if (shelf.isPending) return <Busy />;
-  if (shelf.error) return <ErrorBox error={shelf.error} />;
+  if (shelf.error) return <Page><ErrorBox error={shelf.error} /></Page>;
   const s = shelf.data;
   const data = s.data;
-  if (!data) return <Alert color="gray">This shelf was deleted.</Alert>;
+  if (!data) return <Page><Alert tone="neutral">This shelf was deleted.</Alert></Page>;
   const items = titles.data?.items ?? [];
   const manualEdit = s.canEdit && data.kind === "manual";
   const move = (i: number, d: number) => {
@@ -44,36 +45,38 @@ export function ShelfPage() {
   const err = remove.error ?? reorder.error ?? del.error;
   const stale = err instanceof ApiError && (err.status === 409 || err.status === 412);
   return (
-    <Stack>
-      <Group justify="space-between">
-        <Title order={2}>{data.name}</Title>
-        <Group gap="xs">
-          <Badge variant="light">{data.kind}</Badge>
-          <Badge variant="outline">{data.visibility}</Badge>
-          <Badge color="gray">{s.visibleTitleCount} visible</Badge>
-        </Group>
-      </Group>
-      {data.kind === "smart" && <Text size="sm" c="dimmed">Smart shelves are evaluated for whoever is viewing, using their own library access and reading state.</Text>}
-      {stale && <Alert color="yellow" role="alert">This shelf changed elsewhere, so the action was not applied. The list below is current; try again.</Alert>}
+    <Page>
+      <PageHeader title={data.name}
+        actions={<><Badge>{data.kind}</Badge><Badge outline tone="neutral">{data.visibility}</Badge><Badge tone="neutral">{s.visibleTitleCount} visible</Badge></>} />
+      {data.kind === "smart" && <Text size="sm" tone="dim">Smart shelves are evaluated for whoever is viewing, using their own library access and reading state.</Text>}
+      {stale && <Alert tone="warning" role="alert">This shelf changed elsewhere, so the action was not applied. The list below is current; try again.</Alert>}
       {!stale && <ErrorBox error={err} />}
-      {titles.isPending ? <Busy /> : items.length === 0 ? <Text c="dimmed">No visible titles.</Text> : items.map((t, i) => (
-        <Card key={t.id} withBorder data-testid="shelf-title">
-          <Group justify="space-between">
-            <div>
-              <Text fw={600} component={Link} to={`/titles/${t.id}`}>{t.title}</Text>
-              <Text size="sm" c="dimmed">{t.authors.join(", ")}</Text>
-            </div>
-            {manualEdit && (
-              <Group gap="xs">
-                <ActionIcon variant="default" aria-label={`Move ${t.title} up`} disabled={i === 0 || reorder.isPending} onClick={() => move(i, -1)}>↑</ActionIcon>
-                <ActionIcon variant="default" aria-label={`Move ${t.title} down`} disabled={i === items.length - 1 || reorder.isPending} onClick={() => move(i, 1)}>↓</ActionIcon>
-                <Button size="compact-sm" variant="default" loading={remove.isPending && remove.variables === t.id} onClick={() => remove.mutate(t.id)}>Remove</Button>
-              </Group>
-            )}
-          </Group>
-        </Card>
-      ))}
-      {s.canEdit && <Group><Button color="red" variant="outline" loading={del.isPending} onClick={() => { if (confirm("Delete this shelf?")) del.mutate(); }}>Delete shelf</Button></Group>}
-    </Stack>
+      {titles.isPending ? <Busy /> : items.length === 0 ? <EmptyState title="No visible titles" /> : (
+        <Stack gap="sm">
+          {items.map((t, i) => (
+            <Card key={t.id} data-testid="shelf-title" pad="sm">
+              <Row justify="between">
+                <Stack gap="xs">
+                  <TextLink to={`/titles/${t.id}`}>{t.title}</TextLink>
+                  <Text size="sm" tone="dim">{t.authors.join(", ")}</Text>
+                </Stack>
+                {manualEdit && (
+                  <Row>
+                    <Tip label="Move up"><IconButton aria-label={`Move ${t.title} up`} disabled={i === 0 || reorder.isPending} onClick={() => move(i, -1)}>↑</IconButton></Tip>
+                    <Tip label="Move down"><IconButton aria-label={`Move ${t.title} down`} disabled={i === items.length - 1 || reorder.isPending} onClick={() => move(i, 1)}>↓</IconButton></Tip>
+                    <Button size="sm" loading={remove.isPending && remove.variables === t.id} onClick={() => remove.mutate(t.id)} icon={icons.trash}>Remove</Button>
+                  </Row>
+                )}
+              </Row>
+            </Card>
+          ))}
+        </Stack>
+      )}
+      {s.canEdit && <Row><Button variant="danger" loading={del.isPending} onClick={() => setConfirming(true)} icon={icons.trash}>Delete shelf</Button></Row>}
+      <ConfirmDialog open={confirming} title="Delete this shelf?" confirmLabel="Delete shelf" danger loading={del.isPending}
+        onCancel={() => setConfirming(false)} onConfirm={() => { setConfirming(false); del.mutate(); }}>
+        “{data.name}” will be deleted. The titles on it stay in your library. This cannot be undone.
+      </ConfirmDialog>
+    </Page>
   );
 }

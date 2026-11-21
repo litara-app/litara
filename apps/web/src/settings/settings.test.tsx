@@ -1,4 +1,4 @@
-import { MantineProvider } from "@mantine/core";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -54,7 +54,7 @@ function mount(path: string) {
   window.matchMedia ??= (() => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })) as never;
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider><QueryClientProvider client={qc}><AuthProvider><PendingProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></PendingProvider></AuthProvider></QueryClientProvider></MantineProvider>,
+    <QueryClientProvider client={qc}><AuthProvider><PendingProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></PendingProvider></AuthProvider></QueryClientProvider>,
   );
 }
 
@@ -95,7 +95,7 @@ test("a new credential's password is shown once, sent once and never stored in t
       return { status: 201, body: { id: "c1", kind: c.body.kind, username: "opds-abc123", label: c.body.label, createdAt: "2026-11-16T10:00:00Z", revoked: false, lastUsedAt: null } };
     }
   });
-  mount("/settings");
+  mount("/settings/credentials");
   fireEvent.change(await screen.findByLabelText(/Name/), { target: { value: "Phone reader" } });
   fireEvent.click(screen.getByRole("button", { name: "Create credential" }));
   const box = await screen.findByTestId("one-time-secret");
@@ -118,7 +118,7 @@ test("revoking needs a confirmation and sends a fresh operation", async () => {
     if (c.method === "GET" && c.url === "/integration-credentials") return { body: { items: [{ id: "c9", kind: "koreader", username: "kor-xyz", label: "Kobo", createdAt: "2026-11-16T10:00:00Z", revoked: false, lastUsedAt: null }] } };
     if (c.method === "POST" && c.url === "/integration-credentials/c9/revoke") return { body: { id: "c9", kind: "koreader", username: "kor-xyz", label: "Kobo", createdAt: "x", revoked: true, lastUsedAt: null } };
   });
-  mount("/settings");
+  mount("/settings/credentials");
   fireEvent.click(await screen.findByRole("button", { name: "Revoke Kobo" }));
   expect(sent("POST", "/integration-credentials/c9/revoke")).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Confirm revoke" }));
@@ -215,7 +215,7 @@ test("sending needs an explicit recipient and transport, names the exact file an
   expect(send.disabled).toBe(true);
   // The unavailable personal transport cannot be chosen; there is no silent fallback.
   fireEvent.click(screen.getByRole("combobox", { name: "Send through" }));
-  expect((await screen.findByRole("option", { name: "My own mail account", hidden: true })).getAttribute("data-combobox-disabled")).toBe("true");
+  expect((await screen.findByRole("option", { name: "My own mail account", hidden: true })).getAttribute("aria-disabled")).toBe("true");
   fireEvent.click(await screen.findByRole("option", { name: "Server mail", hidden: true }));
   await waitFor(() => expect(send.disabled).toBe(false));
   fireEvent.click(send);
@@ -311,9 +311,9 @@ test("history offers cancel only before submission and an acknowledged resend af
   expect(sent("POST", "/deliveries/dq/cancel")[0].body.baseRevision).toBe("3");
   // Resend: blocked until the duplicate warning is acknowledged.
   fireEvent.click(within(trs[1]).getByRole("button", { name: "Send again…" }));
-  const dlg = await screen.findByRole("dialog");
+  const dlg = await screen.findByRole("dialog", { hidden: true });
   expect(within(dlg).getByText(/may already have reached the recipient/)).toBeTruthy();
-  const go = within(dlg).getByRole("button", { name: "Send again" }) as HTMLButtonElement;
+  const go = within(dlg).getByRole("button", { name: "Send again", hidden: true }) as HTMLButtonElement;
   await waitFor(() => expect(go.disabled).toBe(true));
   fireEvent.click(within(dlg).getByLabelText(/may deliver a duplicate/));
   await waitFor(() => expect(go.disabled).toBe(false));
@@ -402,7 +402,7 @@ test("an audiobook is emailed one original file at a time, never as a package", 
   } as unknown as AudioRecording;
   respond((c) => { if (c.method === "POST" && c.url === "/deliveries") return { status: 202, body: delivery({ fileId: "af2", contentVersion: "av2" }) }; });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<MantineProvider><QueryClientProvider client={qc}><MemoryRouter><SendAudioFile recording={rec} /></MemoryRouter></QueryClientProvider></MantineProvider>);
+  render(<QueryClientProvider client={qc}><MemoryRouter><SendAudioFile recording={rec} /></MemoryRouter></QueryClientProvider>);
   // Only available files are offered, each named by its order; no whole-recording choice exists.
   fireEvent.click(await screen.findByRole("combobox", { name: "File" }));
   const options = await screen.findAllByRole("option", { hidden: true });

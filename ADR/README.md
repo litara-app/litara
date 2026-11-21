@@ -13,7 +13,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0007](0007-support-nas-book-storage.md) | Support NAS book folders with local state | Accepted |
 | [0008](0008-use-postgresql.md) | Use PostgreSQL | Accepted |
 | [0009](0009-open-versioned-api.md) | Publish an API open to third-party clients | Accepted |
-| [0010](0010-react-mantine-web.md) | Retain React/TypeScript/Mantine | Accepted |
+| [0010](0010-react-mantine-web.md) | Original React/TypeScript/Mantine web decision; replaced by 0079 | Superseded |
 | [0011](0011-first-usable-release.md) | Define the first usable release scope | Accepted |
 | [0012](0012-mit-licensing-direction.md) | Original all-MIT direction; replaced by 0017 | Superseded |
 | [0013](0013-library-access-local-login.md) | Per-user library access; local login first | Accepted |
@@ -122,6 +122,14 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0076](0076-t006-koreader-device-revisions-and-conflicts.md) | T006 KOReader device credentials and retained conflicts | Accepted |
 | [0077](0077-provider-identification-and-rate-limits.md) | Optional Open Library contact and per-provider request budgets | Accepted |
 | [0078](0078-report-confirmed-ebook-damage.md) | Report confirmed ebook damage as incomplete | Accepted |
+| [0079](0079-ui-sdk-only-web-interface.md) | Build the web interface with UI SDK only and remove Mantine | Accepted |
+| [0080](0080-optional-short-browser-sessions.md) | Let people choose a shorter browser sign-in | Rejected |
+| [0081](0081-book-details-rating-review-and-dates.md) | Add descriptive book details and personal rating, review and reading dates | Accepted |
+| [0082](0082-api-compatibility-policy-and-enforcement.md) | Keep the versioned API compatible, and enforce it mechanically | Accepted |
+| [0083](0083-tanstack-table-for-data-tables.md) | Use TanStack Table for the web app's data tables | Accepted |
+| [0084](0084-tanstack-virtual-for-long-lists.md) | Use TanStack Virtual to window long lists and grids | Accepted |
+| [0085](0085-stackable-filter-groups.md) | Let library filters stack into AND/OR groups | Accepted |
+| [0086](0086-cover-replacement.md) | Let administrators replace a title's cover | Accepted |
 
 ## Workflow
 

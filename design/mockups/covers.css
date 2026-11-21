@@ -1,0 +1,7 @@
+/* Shared by all mockups: generated placeholder covers */
+.cv{position:relative;aspect-ratio:2/3;border-radius:4px;overflow:hidden;color:#fff;display:flex;flex-direction:column;justify-content:space-between;padding:8% 9%;
+ background:linear-gradient(155deg,hsl(var(--h) 52% 40%),hsl(calc(var(--h) + 35) 58% 20%));box-shadow:0 1px 2px rgba(0,0,0,.25),inset 0 0 0 1px rgba(255,255,255,.08);font-family:Georgia,serif;container-type:inline-size}
+.cv::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.05) 0 2px,transparent 2px 9px);pointer-events:none}
+.cv b{font-weight:700;font-size:13cqw;line-height:1.05;letter-spacing:.01em;position:relative}
+.cv i{font-style:normal;font-size:8cqw;opacity:.8;position:relative;text-transform:uppercase;letter-spacing:.08em}
+.cv.tiny b,.cv.tiny i{font-size:0}

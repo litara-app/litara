@@ -26,7 +26,8 @@ test.describe.configure({ mode: "serial" });
 
 test("an app credential's password is shown once, works only for OPDS, and stops working when revoked", async ({ page, request }) => {
   await signIn(page, "fixture-user-a");
-  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByTestId("account-menu").click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
   await page.getByLabel(/^Name/).fill("Browser test reader");
   await page.getByRole("button", { name: "Create credential" }).click();
   const box = page.getByTestId("one-time-secret");

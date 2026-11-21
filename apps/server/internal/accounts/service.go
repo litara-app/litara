@@ -373,7 +373,7 @@ func (s *Service) Libraries(ctx context.Context, userID uuid.UUID, page, size in
 	}
 	out := wire.LibraryList{Items: make([]wire.Library, 0, len(rows)), Total: total, Page: int64(page), Size: int64(size)}
 	for _, l := range rows {
-		out.Items = append(out.Items, wire.Library{ID: l.ID.String(), Name: l.Name})
+		out.Items = append(out.Items, wire.Library{ID: l.ID.String(), Name: l.Name, Icon: l.Icon})
 	}
 	return out, nil
 }

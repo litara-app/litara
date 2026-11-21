@@ -72,8 +72,9 @@ export function stateLabel(s: DeliveryState): string {
   }
 }
 
-export function stateColor(s: DeliveryState): string {
-  return { queued: "gray", sending: "blue", retry_wait: "yellow", accepted: "green", failed: "red", outcome_unknown: "orange", cancelled: "gray" }[s];
+export type StateTone = "neutral" | "info" | "success" | "warning" | "danger";
+export function stateTone(s: DeliveryState): StateTone {
+  return { queued: "neutral", sending: "info", retry_wait: "warning", accepted: "success", failed: "danger", outcome_unknown: "warning", cancelled: "neutral" }[s] as StateTone;
 }
 
 /** Plain-language reason for a delivery code; unknown codes are shown as-is. */
