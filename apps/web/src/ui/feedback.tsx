@@ -58,8 +58,21 @@ export function ErrorBox({ error }: { error: unknown }) {
   return <Alert tone="danger" title="Something went wrong" role="alert">{e.message}{code}</Alert>;
 }
 
+/**
+ * Loading. The Reading Room shows a small open book whose pages turn one after another; the Clean theme shows a ring.
+ * Both are in the markup and the theme picks one.
+ */
 export function Busy() {
-  return <div className="lt-busy"><div className="lt-spinner" role="status" aria-label="Loading" /></div>;
+  return (
+    <div className="lt-busy" role="status" aria-label="Loading">
+      <div className="lt-spinner" aria-hidden="true" />
+      <div className="lt-turner" aria-hidden="true">
+        <span className="lt-turner-shadow" /><span className="lt-turner-left" /><span className="lt-turner-right" />
+        {[0, 1, 2, 3].map((i) => <span key={i} className="lt-leaf" style={{ "--i": i } as CSSProperties} />)}
+        <span className="lt-turner-spine" />
+      </div>
+    </div>
+  );
 }
 
 export function EmptyState({ title, children, action, level = 2 }: { title: string; children?: ReactNode; action?: ReactNode; level?: 2 | 3 }) {

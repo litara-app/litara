@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth/session";
 import { ListenPage } from "./audio/ListenPage";
+import { PlayerProvider } from "./audio/PlayerProvider";
 import { AdminLayout } from "./admin/AdminLayout";
 import { LibrariesPage, LibraryAdminPage } from "./admin/LibrariesPage";
 import { RepairPage, RepairPlanPage } from "./admin/RepairPage";
@@ -42,14 +43,15 @@ function RequireAuth({ shell = true }: { shell?: boolean }) {
 export function App() {
   return (
     <Suspense fallback={null}>
+      <PlayerProvider>
       <Routes>
         {ProofPage && <Route path="/read/proof" element={<ProofPage />} />}
         <Route path="/login" element={<LoginPage />} />
         <Route element={<RequireAuth shell={false} />}>
           <Route path="read/:editionId" element={<ReaderPage />} />
-          <Route path="listen/:recordingId" element={<ListenPage />} />
         </Route>
         <Route element={<RequireAuth />}>
+          <Route path="listen/:recordingId" element={<ListenPage />} />
           <Route index element={<LibraryPage />} />
           <Route path="titles/:titleId" element={<TitlePage />} />
           <Route path="editions/:editionId" element={<EditionPage />} />
@@ -73,6 +75,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+      </PlayerProvider>
     </Suspense>
   );
 }

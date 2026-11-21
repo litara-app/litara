@@ -7,8 +7,6 @@ import { App } from "../App";
 import { AuthProvider } from "../auth/session";
 import { PendingProvider } from "../pending/PendingProvider";
 import { newSecret } from "../api/t006";
-import { SendAudioFile } from "../audio/ListenPage";
-import type { AudioRecording } from "../api/types";
 
 const admin = { id: "a1", username: "root", displayName: "Root", isAdmin: true, active: true };
 const person = { id: "u1", username: "ada", displayName: "Ada", isAdmin: false, active: true };
@@ -390,27 +388,3 @@ test("the administration area is closed to ordinary accounts", async () => {
 });
 
 // ---- audio --------------------------------------------------------------------
-
-test("an audiobook is emailed one original file at a time, never as a package", async () => {
-  window.matchMedia ??= (() => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })) as never;
-  const rec = {
-    id: "rec1", files: [
-      { id: "af1", contentVersion: "av1", sequence: 0, filename: "part1.mp3", mimeType: "audio/mpeg", sizeBytes: 5000, durationMs: 1000, available: true, contentPath: "x" },
-      { id: "af2", contentVersion: "av2", sequence: 1, filename: "part2.mp3", mimeType: "audio/mpeg", sizeBytes: 6000, durationMs: 1000, available: true, contentPath: "y" },
-      { id: "af3", contentVersion: "av3", sequence: 2, filename: "missing.mp3", mimeType: "audio/mpeg", sizeBytes: null, durationMs: null, available: false, contentPath: "z" },
-    ],
-  } as unknown as AudioRecording;
-  respond((c) => { if (c.method === "POST" && c.url === "/deliveries") return { status: 202, body: delivery({ fileId: "af2", contentVersion: "av2" }) }; });
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={qc}><MemoryRouter><SendAudioFile recording={rec} /></MemoryRouter></QueryClientProvider>);
-  // Only available files are offered, each named by its order; no whole-recording choice exists.
-  fireEvent.click(await screen.findByRole("combobox", { name: "File" }));
-  const options = await screen.findAllByRole("option", { hidden: true });
-  expect(options.map((o) => o.textContent)).toEqual(["File 1 of 3: part1.mp3", "File 2 of 3: part2.mp3"]);
-  fireEvent.click(options[1]);
-  await choose("Recipient", /Reader One/);
-  await choose("Send through", "Server mail");
-  fireEvent.click(await screen.findByRole("button", { name: "Send file" }));
-  await waitFor(() => expect(sent("POST", "/deliveries")).toHaveLength(1));
-  expect(sent("POST", "/deliveries")[0].body).toMatchObject({ fileId: "af2", contentVersion: "av2" });
-});

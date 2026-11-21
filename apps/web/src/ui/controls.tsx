@@ -55,12 +55,12 @@ export function IconButton({ variant = "default", to, children, ...rest }: Omit<
 }
 
 /** An icon-only action. The label is its accessible name and its tooltip. */
-export function IconAction({ label, icon, to, href, onClick, disabled }: {
-  label: string; icon: ReactNode; to?: string; href?: string; onClick?: () => void; disabled?: boolean;
+export function IconAction({ label, icon, to, href, onClick, disabled, testId }: {
+  label: string; icon: ReactNode; to?: string; href?: string; onClick?: () => void; disabled?: boolean; testId?: string;
 }) {
   const body = href
     ? <a className="lt-btn lt-icon-btn" data-variant="default" href={href} download aria-label={label}>{icon}</a>
-    : <IconButton aria-label={label} to={to} onClick={onClick} disabled={disabled}>{icon}</IconButton>;
+    : <IconButton aria-label={label} to={to} onClick={onClick} disabled={disabled} data-testid={testId}>{icon}</IconButton>;
   return <Tip label={label}>{body}</Tip>;
 }
 

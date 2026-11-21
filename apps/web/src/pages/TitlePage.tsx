@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { get } from "../api/client";
 import type { AudioRecording, Edition, Page as Paged, RecordingLink, TitleDetail } from "../api/types";
+import { usePlayer } from "../audio/PlayerProvider";
 import { SendFile } from "../settings/SendFile";
 import { useAuth } from "../auth/session";
 import {
@@ -23,6 +24,7 @@ export function TitlePage() {
   const { titleId = "" } = useParams();
   const [params, setParams] = useSearchParams();
   const { user } = useAuth();
+  const player = usePlayer();
   const shelf = useShelfActions();
   const personal = usePersonal(titleId);
   const [sending, setSending] = useState(false);
@@ -73,7 +75,7 @@ export function TitlePage() {
                 ? <Button variant="primary" block to={`/read/${readable.id}`} icon={icons.bookOpen}>Read</Button>
                 : <Button block disabled icon={icons.bookOpen} title="No readable ebook">Read</Button>}
               <div className="lt-rail">
-                {recs[0] ? <IconAction label="Listen" icon={icons.headphones} to={`/listen/${recs[0].id}`} /> : <IconAction label="Listen (no audiobook)" icon={icons.headphones} disabled />}
+                {recs[0] ? <IconAction label="Listen" icon={icons.headphones} onClick={() => player.start(recs[0]!.id)} /> : <IconAction label="Listen (no audiobook)" icon={icons.headphones} disabled />}
                 {downloadable.length === 1
                   ? <IconAction label="Download" icon={icons.download} href={downloadable[0]!.file.contentPath!} />
                   : <IconAction label={downloadable.length > 1 ? "Download (choose a file)" : "Download (no file)"} icon={icons.download} disabled={downloadable.length === 0} onClick={() => setTab("files")} />}
