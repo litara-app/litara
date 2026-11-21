@@ -1,10 +1,14 @@
 # ADR-0010: Retain React, TypeScript, and Mantine for the redesigned web app
 
-Status: Accepted
+Status: Superseded
 Date: 2026-11-12
 Decision owner: Repository owner
+Superseded by: [ADR-0079](0079-ui-sdk-only-web-interface.md)
 
 ## Context
+
+Historical decision. ADR-0079 keeps React and TypeScript but replaces Mantine with UI SDK. The original rationale below is retained.
+
 
 Litara uses React/TypeScript/Mantine; BookOrbit uses Vue. The user selected retaining Litara's frontend foundation while redesigning the experience.
 

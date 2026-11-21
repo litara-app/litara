@@ -48,6 +48,7 @@ The authoritative working repository is `G:\Programming\ebooker`. `E:\Programmin
 | T006 | OPDS, email delivery, and basic KOReader integration | Done for scoped implementation: reviewed/merged PR #86 at 8de06b9 | Closed implementation assignment | handoffs/T006.md; named partials and release gates retained |
 | T007 | Native Android readers, cross-client integration, and release evidence | Implementation complete; PR review pending | Closed implementation scope | [Handoff](handoffs/T007.md) and [release gates](research/t007/release-gates.md); deferred user-assisted checks, Chromecast last |
 | T008 | Legacy personal-state migration | Not ready: source/mapping/conversion decisions and brief needed | Unassigned; user selected separate package | ADR-0063; mandatory release gate; serialize overlapping server/schema scope with T007 |
+| T009 | Complete web UI overhaul | UI SDK setup ready for review; redesign scope pending | Setup only | `apps/web`; preserve existing app behavior during setup and follow ADR-0010 |
 
 T001–T006 are integrated, and T007 implementation is complete with PR review pending. External and production gates remain in the release ledger. T008 requires a separate decision and design pass before assignment.
 
@@ -254,6 +255,12 @@ Local and emulator verification is recorded in the [handoff](handoffs/T007.md). 
 ## T008 — Separate legacy personal-state migration
 
 User selected a separate migration package on 2026-11-17. ADR-0063 requires a verified supported path before 2.0.0 ships. Source-version/export support, account/root mapping, conversion and manual-recovery coverage, rerun behavior and administration still need actual decisions, fixtures and an execution brief. No worker is assigned and no importer is authorized by T007. Preparation may inspect archived schema as read-only evidence; no legacy application build/modification or in-place transformation is authorized. Serialize overlapping runtime/schema ownership with T007.
+
+## T009 — Complete web UI overhaul
+
+Start by setting up UI SDK in the existing React and Vite app. Maintain the Mantine foundation selected in ADR-0010 during setup. See the [setup handoff](handoffs/T009.md).
+
+Confirm the screens and user flows for the redesign before implementation. Verify the agreed library, reading, listening, and administration flows as their interfaces are updated.
 
 ## Worker handoff format
 

@@ -18,7 +18,7 @@
 - Use sequential four-digit IDs and the template in `ADR/TEMPLATE.md`. Keep the index synchronized. Proposed ADRs must identify their open questions.
 - Each architectural change must identify its governing ADR in its PR description (or handoff when no PR is requested). Review must check actual behavior against that ADR; the structural checker cannot infer architectural compliance.
 - Run `pwsh -NoProfile -File scripts/Validate-Adrs.ps1` after ADR edits. CI validates structure and the decision index; it does not approve decisions.
-- React/TypeScript/Mantine, the first-release scope, local login with library access, an open versioned API, revision-aware resume conflicts, and a modular Go application with durable PostgreSQL-backed jobs are accepted. Android belongs in `apps/android/`. ADR-0024 selects net/http + Huma, sqlc/pgx, Goose, and River core. ADR-0027 selects pristine Foliate plus direct PDF.js for web while preserving Android's reader initially. ADR-0028 selects bundled native ffprobe/FFmpeg executables. ADRs 0031–0043 now select the T003 account/auth/API/offline/progress/readiness policies. Implement their concrete contract under `contracts/t003/`; do not silently choose unresolved ingestion, binary/platform, conversion or production policies.
+- React/TypeScript with UI SDK only (ADR-0079 supersedes ADR-0010; Mantine is removed), the first-release scope, local login with library access, an open versioned API, revision-aware resume conflicts, and a modular Go application with durable PostgreSQL-backed jobs are accepted. Android belongs in `apps/android/`. ADR-0024 selects net/http + Huma, sqlc/pgx, Goose, and River core. ADR-0027 selects pristine Foliate plus direct PDF.js for web while preserving Android's reader initially. ADR-0028 selects bundled native ffprobe/FFmpeg executables. ADRs 0031–0043 now select the T003 account/auth/API/offline/progress/readiness policies. Implement their concrete contract under `contracts/t003/`; do not silently choose unresolved ingestion, binary/platform, conversion or production policies.
 
 ## Research and implementation
 
@@ -28,9 +28,17 @@
 - Android plays specific recordings using stable opaque file/recording IDs and content versions. Audio positions are file/version plus millisecond offset with layout-change detection and revision-aware conflicts. Use bearer-authenticated app-to-server media and the preserved phone Cast proxy; rotating native refresh tokens have per-device revocable sessions. Completion belongs to editions/recordings with title history. Preserve full and Cast-free F-Droid build paths. Read ADR-0018 through ADR-0023 for boundaries and unresolved protocol details.
 - Target the broad format matrix in ADR-0025; recognition is not full support. Keep explicit incomplete/unsupported capability states. ADR-0028 supersedes ADR-0026: use bundled native ffprobe for inspection and bundle FFmpeg for explicitly designed media operations. Automatic transcoding is not selected. Preserve original files. WASM testing is deferred research, not a production dependency or implementation blocker; keep its module/results separate from the application.
 - ADR-0029 selects file/version-relative chapter starts with server-derived whole-recording times. Protect user edits, then prefer valid associated CUE over embedded chapters; generate clearly identified file-boundary markers when chapters are absent. ADRs 0039/0042 select incomplete-recording readiness and whole-source validation; T003 wire fields are specified in `contracts/t003/`. Real CUE association and ingestion policies remain T004 decisions.
+- The `/api/v1` API must never break a third-party client (ADR-0082). `go test ./...` fails on a breaking change to the generated OpenAPI; read `apps/server/internal/apicompat/README.md` before changing an endpoint, never edit the snapshots by hand, and use `ctl api-baseline update` for an additive change.
 - Avoid running old release workflows or hooks as part of the rebuild. Old deployment configuration is archived.
 - Preserve secrets, signing keys, local books, and user data without adding them to Git. Do not restore pre-existing deletions unless requested.
 - Verify changes with checks appropriate to their impact. State explicitly when runtime behavior or hardware behavior has not been tested.
+
+## UI SDK
+
+- Web UI is built with UI SDK only (ADR-0079). Do not add Mantine or another component library. Follow `design/DESIGN-LANGUAGE.md` and reuse `apps/web/src/ui/` components; the starting visual is `design/mockups/a3-ledger-collapsible.html`.
+- Buttons and links that perform an action carry an icon beside the visible label (design/DESIGN-LANGUAGE.md section 5, "Icons on actions"). Never ship a bare-word action button.
+- Before using UI SDK, follow the `ui-sdk` skill if it is installed and read `apps/web/node_modules/@ui-sdk/react/docs/llms.txt`.
+- When building a new UI SDK component, also search `apps/web/node_modules/@ui-sdk/react/docs/core.md` by heading and read `apps/web/node_modules/@ui-sdk/react/docs/rendering.md`.
 
 ## T005 implementation checkpoint
 
