@@ -1,10 +1,8 @@
-import { Alert, Badge, Button, Card, Code, Group, Stack, Table, Text, Title } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, get } from "../api/client";
 import type { Credential, DigestBinding, KoConflict } from "../api/t006";
 import type { Page } from "../api/types";
-import { ScrollRegion } from "../ui/ScrollRegion";
-import { Busy, ErrorBox } from "../ui/common";
+import { icons, Alert, Badge, Busy, Button, Card, Code, ErrorBox, Heading, Row, Stack, Table, TBody, TD, Text, TH, THead, TR } from "../ui";
 
 export const reasonText: Record<KoConflict["reason"], string> = {
   baseline_required: "This device had not yet synced with the saved position before it tried to save progress.",
@@ -27,33 +25,33 @@ function Conflict({ c, deviceLabel }: { c: KoConflict; deviceLabel: string }) {
     onSettled: done,
   });
   return (
-    <Card withBorder data-testid="ko-conflict">
-      <Stack gap="xs">
-        <Group justify="space-between">
-          <Text fw={600}>{c.candidate.device} <Text span size="sm" c="dimmed">({deviceLabel})</Text></Text>
-          <Badge color={c.resolved ? "gray" : "orange"} variant="light">{c.resolved ? "Resolved" : "Needs your decision"}</Badge>
-        </Group>
+    <Card data-testid="ko-conflict" tone={c.resolved ? undefined : "warning"}>
+      <Stack gap="sm">
+        <Row justify="between">
+          <Text strong>{c.candidate.device} <Text as="span" size="sm" tone="dim">({deviceLabel})</Text></Text>
+          <Badge tone={c.resolved ? "neutral" : "warning"}>{c.resolved ? "Resolved" : "Needs your decision"}</Badge>
+        </Row>
         <Text size="sm">{reasonText[c.reason]}</Text>
-        <Group gap="xs">
-          <Text size="sm">Position this device tried to save:</Text>
+        <Row>
+          <Text as="span" size="sm">Position this device tried to save:</Text>
           <Code data-testid="ko-candidate-progress">{c.candidate.progress}</Code>
-          <Badge variant="light">{(c.candidate.percentage * 100).toFixed(1)}%</Badge>
-        </Group>
-        <Text size="xs" c="dimmed">
+          <Badge>{(c.candidate.percentage * 100).toFixed(1)}%</Badge>
+        </Row>
+        <Text size="xs" tone="dim">
           This is a KOReader position. It is kept separate from your place in the Litara reader and never changes whether a book is marked finished.
         </Text>
         <ErrorBox error={resolve.error ?? reapply.error} />
         {!c.resolved ? (
-          <Group>
-            <Button size="xs" variant="default" loading={resolve.isPending} onClick={() => resolve.mutate("keep_server")}>Keep the saved position</Button>
-            <Button size="xs" loading={resolve.isPending} disabled={c.reason === "content_changed"} onClick={() => resolve.mutate("use_candidate")}>Use this device&rsquo;s position</Button>
-          </Group>
+          <Row>
+            <Button size="sm" loading={resolve.isPending} onClick={() => resolve.mutate("keep_server")} icon={icons.check}>Keep the saved position</Button>
+            <Button size="sm" variant="primary" loading={resolve.isPending} disabled={c.reason === "content_changed"} onClick={() => resolve.mutate("use_candidate")} icon={icons.check}>Use this device&rsquo;s position</Button>
+          </Row>
         ) : (
-          <Group>
-            <Button size="xs" variant="default" loading={reapply.isPending} disabled={c.reason === "content_changed"} onClick={() => reapply.mutate()}
+          <Row>
+            <Button size="sm" icon={icons.reset} loading={reapply.isPending} disabled={c.reason === "content_changed"} onClick={() => reapply.mutate()}
               title="Apply this position again as a new, deliberate change">Reapply this position…</Button>
-            <Text size="xs" c="dimmed">Reapplying records a new change on purpose; it is not a retry. The device reads the result on its next sync.</Text>
-          </Group>
+            <Text size="xs" tone="dim">Reapplying records a new change on purpose; it is not a retry. The device reads the result on its next sync.</Text>
+          </Row>
         )}
       </Stack>
     </Card>
@@ -75,38 +73,36 @@ export function KoReaderPage() {
   const closed = conflicts.data?.items.filter((c) => c.resolved) ?? [];
   return (
     <Stack>
-      <Text size="sm" c="dimmed">
+      <Text size="sm" tone="dim">
         KOReader keeps its own reading position in Litara, separate from the Litara reader and from finished status. When a device
         would overwrite a position saved by another device, Litara keeps its position here for you to decide instead.
       </Text>
       <ErrorBox error={conflicts.error ?? bindings.error} />
-      <Title order={4}>Waiting for your decision</Title>
-      {open.length === 0 ? <Text size="sm" c="dimmed" data-testid="ko-none">Nothing is waiting.</Text> : open.map((c) => <Conflict key={c.id} c={c} deviceLabel={label(c.credentialId)} />)}
+      <Heading level={2}>Waiting for your decision</Heading>
+      {open.length === 0 ? <Text size="sm" tone="dim" data-testid="ko-none">Nothing is waiting.</Text> : open.map((c) => <Conflict key={c.id} c={c} deviceLabel={label(c.credentialId)} />)}
       {closed.length > 0 && <>
-        <Title order={4}>Resolved</Title>
+        <Heading level={2}>Resolved</Heading>
         {closed.map((c) => <Conflict key={c.id} c={c} deviceLabel={label(c.credentialId)} />)}
       </>}
-      <Title order={4}>Document bindings</Title>
-      <Alert color="blue" variant="light">
+      <Heading level={2}>Document bindings</Heading>
+      <Alert tone="info">
         When two files have the same KOReader fingerprint, a device cannot tell which one it opened. Choose the right one from that book&rsquo;s page under
         &ldquo;KOReader&rdquo;. Existing bindings are listed here.
       </Alert>
       <ErrorBox error={unbind.error} />
-      <ScrollRegion label="Bindings table">
-        <Table verticalSpacing="xs" data-testid="bindings-table">
-          <Table.Thead><Table.Tr><Table.Th>Device</Table.Th><Table.Th>Document</Table.Th><Table.Th /></Table.Tr></Table.Thead>
-          <Table.Tbody>
-            {bindings.data?.items.length === 0 && <Table.Tr><Table.Td colSpan={3}><Text size="sm" c="dimmed">No bindings.</Text></Table.Td></Table.Tr>}
-            {bindings.data?.items.map((b) => (
-              <Table.Tr key={b.id}>
-                <Table.Td>{label(b.credentialId)}</Table.Td>
-                <Table.Td><Code>{b.document}</Code></Table.Td>
-                <Table.Td><Group justify="flex-end"><Button size="compact-xs" variant="default" loading={unbind.isPending} onClick={() => unbind.mutate(b)}>Remove</Button></Group></Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </ScrollRegion>
+      <Table label="Bindings table" data-testid="bindings-table">
+        <THead><TR><TH>Device</TH><TH>Document</TH><TH><span className="lt-sr">Actions</span></TH></TR></THead>
+        <TBody>
+          {bindings.data?.items.length === 0 && <TR><TD colSpan={3}><Text size="sm" tone="dim">No bindings.</Text></TD></TR>}
+          {bindings.data?.items.map((b) => (
+            <TR key={b.id}>
+              <TD>{label(b.credentialId)}</TD>
+              <TD><Code>{b.document}</Code></TD>
+              <TD><Row justify="end"><Button size="sm" loading={unbind.isPending} onClick={() => unbind.mutate(b)} icon={icons.trash}>Remove</Button></Row></TD>
+            </TR>
+          ))}
+        </TBody>
+      </Table>
     </Stack>
   );
 }

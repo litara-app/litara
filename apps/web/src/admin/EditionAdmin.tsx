@@ -1,12 +1,10 @@
-import { Badge, Button, Card, Group, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { adminOp, api, ApiError, get, qs } from "../api/client";
 import type { Edition, MetadataReport, Page, Title as TitleT } from "../api/types";
-import { ScrollRegion } from "../ui/ScrollRegion";
-import { Busy, ErrorBox } from "../ui/common";
+import { icons, Badge, Busy, Button, Card, ErrorBox, Grow, Heading, Row, SelectField, Stack, Table, TBody, TD, Text, TextField, TH, THead, TR, type Tone } from "../ui";
 
-const FIELDS = ["title", "authors", "series_name", "series_index", "language", "tags"];
+const FIELDS = ["title", "authors", "series_name", "series_index", "language", "tags"].map((v) => ({ value: v, label: v }));
 const LISTS = new Set(["authors", "tags"]);
 
 function show(v: unknown): string {
@@ -19,6 +17,8 @@ function parseValue(field: string, text: string): unknown {
   if (field === "series_index") return Number(text);
   return text;
 }
+
+const sourceTone = (s: string): Tone => (s === "user" ? "info" : s === "filename" ? "neutral" : "success");
 
 /** Administrator tools for one edition: metadata with provenance, and title linking. */
 export function EditionAdmin({ edition }: { edition: Edition }) {
@@ -51,50 +51,48 @@ export function EditionAdmin({ edition }: { edition: Edition }) {
 
   const forbidden = report.error instanceof ApiError && report.error.status === 403;
   if (report.isPending) return <Busy />;
-  if (forbidden) return <Text size="sm" c="dimmed">Administrator tools need an administrator account with access to this edition&apos;s library.</Text>;
+  if (forbidden) return <Text size="sm" tone="dim">Administrator tools need an administrator account with access to this edition&apos;s library.</Text>;
   if (report.error) return <ErrorBox error={report.error} />;
   const mutationError = write.error ?? remove.error ?? link.error;
   const staleMsg = mutationError instanceof ApiError && mutationError.status === 409;
 
   return (
-    <Card withBorder data-testid="edition-admin">
+    <Card data-testid="edition-admin">
       <Stack>
-        <Group justify="space-between"><Title order={4}>Administrator tools</Title><Badge variant="light">edition revision {report.data.revision}</Badge></Group>
-        <ScrollRegion label="Metadata table">
-          <Table verticalSpacing={4} data-testid="metadata-table">
-            <Table.Thead><Table.Tr><Table.Th>Field</Table.Th><Table.Th>Effective value</Table.Th><Table.Th>Source</Table.Th><Table.Th>Other evidence</Table.Th></Table.Tr></Table.Thead>
-            <Table.Tbody>
-              {report.data.fields.map((f) => (
-                <Table.Tr key={f.field}>
-                  <Table.Td>{f.field}</Table.Td>
-                  <Table.Td>{f.cleared ? <Text size="sm" c="dimmed" fs="italic">(deliberately empty)</Text> : show(f.value)}</Table.Td>
-                  <Table.Td><Badge variant="light" color={f.source === "user" ? "blue" : f.source === "filename" ? "gray" : "teal"}>{f.source}</Badge></Table.Td>
-                  <Table.Td>{f.conflicts.map((c) => <Text key={c.source} size="xs" c="dimmed">{c.source}: {show(c.value)}</Text>)}</Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </ScrollRegion>
+        <Row justify="between"><Heading level={2}>Administrator tools</Heading><Badge>edition revision {report.data.revision}</Badge></Row>
+        <Table label="Metadata table" data-testid="metadata-table">
+          <THead><TR><TH>Field</TH><TH>Effective value</TH><TH>Source</TH><TH>Other evidence</TH></TR></THead>
+          <TBody>
+            {report.data.fields.map((f) => (
+              <TR key={f.field}>
+                <TD>{f.field}</TD>
+                <TD>{f.cleared ? <Text size="sm" tone="dim">(deliberately empty)</Text> : show(f.value)}</TD>
+                <TD><Badge tone={sourceTone(f.source)}>{f.source}</Badge></TD>
+                <TD>{f.conflicts?.map((c) => <Text key={c.source} size="xs" tone="dim">{c.source}: {show(c.value)}</Text>)}</TD>
+              </TR>
+            ))}
+          </TBody>
+        </Table>
 
-        <Group align="flex-end" gap="xs">
-          <Select size="xs" label="Field" allowDeselect={false} value={field} onChange={setField} data={FIELDS} />
-          <TextInput size="xs" label={LISTS.has(field ?? "") ? "Values (comma or line separated)" : "Value"} value={text} onChange={(e) => setText(e.currentTarget.value)} style={{ flex: 1, minWidth: 160 }} />
-          <Button size="xs" disabled={!text.trim()} loading={write.isPending} onClick={() => write.mutate({ clear: false })}>Set (protected)</Button>
-          <Button size="xs" variant="default" disabled={field === "title"} loading={write.isPending} onClick={() => write.mutate({ clear: true })}>Protected clear</Button>
-          <Button size="xs" variant="default" loading={remove.isPending} onClick={() => remove.mutate()}>Remove my override</Button>
-        </Group>
-        <Text size="xs" c="dimmed">A protected edit or clear survives rescans. Removing the override lets embedded and other sources apply again. Metadata edits never change the book file.</Text>
+        <Row align="end" wrap>
+          <SelectField label="Field" value={field} onValue={setField} items={FIELDS} />
+          <Grow><TextField label={LISTS.has(field ?? "") ? "Values (comma or line separated)" : "Value"} value={text} onValue={setText} /></Grow>
+          <Button variant="primary" size="sm" disabled={!text.trim()} loading={write.isPending} onClick={() => write.mutate({ clear: false })} icon={icons.save}>Set (protected)</Button>
+          <Button size="sm" disabled={field === "title"} loading={write.isPending} onClick={() => write.mutate({ clear: true })} icon={icons.check}>Protected clear</Button>
+          <Button size="sm" loading={remove.isPending} onClick={() => remove.mutate()} icon={icons.trash}>Remove my override</Button>
+        </Row>
+        <Text size="xs" tone="dim">A protected edit or clear survives rescans. Removing the override lets embedded and other sources apply again. Metadata edits never change the book file.</Text>
 
-        <Title order={5}>Title link</Title>
-        <Group align="flex-end" gap="xs">
-          <TextInput size="xs" label="Find a title in this library" value={q} onChange={(e) => setQ(e.currentTarget.value)} />
-          <Select size="xs" placeholder="Choose title" searchable value={target} onChange={setTarget}
-            data={(titles.data?.items ?? []).filter((t) => t.id !== edition.titleId).map((t) => ({ value: t.id, label: `${t.title} — ${t.authors.join(", ")}` }))} />
-          <Button size="xs" disabled={!target} loading={link.isPending} onClick={() => link.mutate(target)}>Link to this title</Button>
-          <Button size="xs" variant="default" loading={link.isPending} onClick={() => link.mutate(null)}>Separate into its own title</Button>
-        </Group>
-        <Text size="xs" c="dimmed">Linking changes only which title lists this edition. Files and every account&apos;s reading state stay as they are.</Text>
-        {staleMsg ? <Text size="sm" c="orange" role="alert">The edition changed elsewhere; the list was refreshed. Try again.</Text> : <ErrorBox error={mutationError} />}
+        <Heading level={3}>Title link</Heading>
+        <Row align="end" wrap>
+          <TextField label="Find a title in this library" value={q} onValue={setQ} />
+          <SelectField label="Matching titles" placeholder="Choose title" value={target} onValue={setTarget}
+            items={(titles.data?.items ?? []).filter((t) => t.id !== edition.titleId).map((t) => ({ value: t.id, label: `${t.title} — ${t.authors.join(", ")}` }))} />
+          <Button variant="primary" size="sm" disabled={!target} loading={link.isPending} onClick={() => link.mutate(target)} icon={icons.plus}>Link to this title</Button>
+          <Button size="sm" loading={link.isPending} onClick={() => link.mutate(null)} icon={icons.plus}>Separate into its own title</Button>
+        </Row>
+        <Text size="xs" tone="dim">Linking changes only which title lists this edition. Files and every account&apos;s reading state stay as they are.</Text>
+        {staleMsg ? <Text size="sm" tone="warning" role="alert">The edition changed elsewhere; the list was refreshed. Try again.</Text> : <ErrorBox error={mutationError} />}
       </Stack>
     </Card>
   );

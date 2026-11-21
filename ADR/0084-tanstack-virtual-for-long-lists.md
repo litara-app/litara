@@ -1,6 +1,6 @@
 # ADR-0084: Use TanStack Virtual to window long lists and grids
 
-Status: Proposed
+Status: Accepted
 Date: 2026-11-20
 Decision owner: Repository owner
 
@@ -10,11 +10,11 @@ The library page loads titles with endless scroll (24 per request) and renders e
 
 ## Decision
 
-Recommendation, not approval: add `@tanstack/react-virtual` to `apps/web` and use it for the library table (row virtualization) and the cover grid (row-based virtualization with a column count taken from the container width).
+On 2026-11-20 the repository owner chose to implement virtualization now: add `@tanstack/react-virtual` to `apps/web` and use it for the library table (row virtualization) and the cover grid (row-based virtualization, with the column count taken from the container width the way an auto-fill grid would).
 
-- The server keeps paging; virtualization only limits what is in the DOM. The "load the next page near the end" trigger moves from the current intersection marker to the virtualizer's last visible index.
-- Rows need a fixed or measured height; the table's expanded states (an Inspector or open menu) must not change a row's height.
-- Keyboard and assistive technology: the list keeps `role` semantics from the table markup, total row count is exposed through `aria-rowcount` and `aria-rowindex`, and focus movement past the rendered window scrolls and renders the target row. This must be verified, not assumed.
+- The server keeps paging and the page keeps endless scroll; virtualization only limits what is in the DOM. The "load the next page" marker stays below the list.
+- Table rows are one fixed height (56 px) so only rows near the viewport are drawn; spacer rows keep the scroll height exact. The table exposes `aria-rowcount` (total titles plus the header) and each drawn row its `aria-rowindex`. The cover grid measures its rows.
+- Before the first measurement, and where there is no layout (tests), the first rows are drawn instead of nothing.
 - The headless library renders nothing, so ADR-0079 is not affected.
 
 ## Alternatives
@@ -30,10 +30,9 @@ Adds a dependency (MIT, headless). Scrolling and memory stay flat at thousands o
 
 ## Verification
 
-Planned, after acceptance: with a seeded library of at least 5,000 titles, the number of mounted rows stays bounded while scrolling to the end; the next page loads before the end is visible; keyboard navigation reaches every row; `aria-rowcount` equals the total; screen-reader and Ctrl+F limits are recorded in the handoff; `tsc`, `vitest` and `npm run build` pass. Nothing is verified yet.
+Checked on 2026-11-20 against the demo library (72 titles, in the in-app browser): the table draws 16 of 72 rows at the end of the list, its scrolled height equals rows times row height exactly, and scrolling back shows the first rows; the cover grid draws about 15 of 72 tiles and keeps loading pages until all 72 are in; `tsc`, `vitest` (81) and the build pass. Not verified: a library of 5,000 or more titles, keyboard navigation to every row, screen reader output for `aria-rowcount`/`aria-rowindex`, and in-page find (Ctrl+F), which only sees drawn rows.
 
 ## Open questions
 
-- Accept, reject or defer virtualization until libraries are large enough to need it?
-- Is losing Ctrl+F across unrendered rows acceptable, or should the filter bar be the only way to find titles?
-- Should the cover grid and the table be virtualized together, or the table first?
+- Is losing in-page find across undrawn rows acceptable, or should the filter bar be the only way to find titles? The filter builder and search already cover this.
+- Keyboard focus movement past the drawn window needs a check with real keyboard use.

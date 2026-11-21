@@ -1,10 +1,9 @@
-import { ActionIcon, Alert, Badge, Button, Drawer, Group, Modal, NavLink, SegmentedControl, Slider, Stack, Tabs, Text, Textarea, Tooltip } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import { get } from "../api/client";
-import type { Annotation, AnnotationData, Locator, Page, ReaderSnapshot } from "../api/types";
-import { Busy, ErrorBox } from "../ui/common";
+import type { Annotation, AnnotationData, Locator, Page as Paged, ReaderSnapshot } from "../api/types";
+import { icons, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, ErrorBox, IconButton, Modal, Page, RangeSlider, Row, SegmentedField, Stack, Tabs, Text, TextAreaField, TextLink, Tip } from "../ui";
 import { ComicReader } from "./ComicReader";
 import { remoteSource } from "./fileSource";
 import { FinishControl } from "./FinishControl";
@@ -29,15 +28,19 @@ function loadStyle(): ReaderStyle {
 }
 
 function TocList({ items, onPick }: { items: TocItem[]; onPick: (href: string) => void }) {
+  const [open, setOpen] = useState<Record<number, boolean>>({});
   return (
-    <>
+    <ul className="lt-toc">
       {items.map((i, n) => (
-        <NavLink key={`${n}-${i.label}`} label={i.label || "(untitled)"} defaultOpened={false} childrenOffset={14}
-          onClick={() => i.href && onPick(i.href)}>
-          {i.items.length > 0 && <TocList items={i.items} onPick={onPick} />}
-        </NavLink>
+        <li key={`${n}-${i.label}`}>
+          <Row gap="xs">
+            {i.items.length > 0 && <IconButton variant="subtle" aria-label={`${open[n] ? "Collapse" : "Expand"} ${i.label || "(untitled)"}`} aria-expanded={!!open[n]} onClick={() => setOpen({ ...open, [n]: !open[n] })}>{open[n] ? "▾" : "▸"}</IconButton>}
+            <Button variant="subtle" disabled={!i.href} onClick={() => i.href && onPick(i.href)}>{i.label || "(untitled)"}</Button>
+          </Row>
+          {i.items.length > 0 && open[n] && <TocList items={i.items} onPick={onPick} />}
+        </li>
       ))}
-    </>
+    </ul>
   );
 }
 
@@ -45,17 +48,17 @@ export function ReaderPage() {
   const { editionId = "" } = useParams();
   const snapshot = useQuery({ queryKey: ["reader", editionId], queryFn: () => get<ReaderSnapshot>(`/editions/${editionId}/reader`), staleTime: Infinity, gcTime: 0 });
   if (snapshot.isPending) return <Busy />;
-  if (snapshot.error) return <Stack p="md"><ErrorBox error={snapshot.error} /><Button component={Link} to="/" variant="default">Back to library</Button></Stack>;
+  if (snapshot.error) return <Page><ErrorBox error={snapshot.error} /><Row><Button to="/" icon={icons.arrowLeft}>Back to library</Button></Row></Page>;
   const edition = snapshot.data.edition;
   const damage = edition.capabilities.read.issues.find((i) => i.code === "file_damaged");
   if (damage) {
-    return <Stack p="md" maw={560}>
-      <Alert color="yellow" title="Damaged file">{damage.detail}</Alert>
-      <Group>
-        <Button component={Link} to={`/editions/${edition.id}`} variant="default">Back to edition</Button>
-        {edition.file.contentPath && <Button component="a" href={edition.file.contentPath} download>Download original</Button>}
-      </Group>
-    </Stack>;
+    return <Page>
+      <Alert tone="warning" title="Damaged file">{damage.detail}</Alert>
+      <Row>
+        <Button to={`/editions/${edition.id}`} icon={icons.arrowLeft}>Back to edition</Button>
+        {edition.file.contentPath && <DownloadLink href={edition.file.contentPath}>Download original</DownloadLink>}
+      </Row>
+    </Page>;
   }
   if (["cbz", "cbr", "cb7"].includes(snapshot.data.edition.file.format)) return <ComicReader snapshot={snapshot.data} />;
   return <Reader snapshot={snapshot.data} />;
@@ -86,7 +89,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
 
   // ---- annotations ----------------------------------------------------------
   const annKey = useMemo(() => ["annotations", e.id], [e.id]);
-  const annotations = useQuery({ queryKey: annKey, queryFn: () => get<Page<Annotation>>(`/editions/${e.id}/annotations?includeDeleted=false&size=200`) });
+  const annotations = useQuery({ queryKey: annKey, queryFn: () => get<Paged<Annotation>>(`/editions/${e.id}/annotations?includeDeleted=false&size=200`) });
   // Server state with this account's unsent writes laid over it, so nothing the
   // reader just did disappears, and nothing unsaved is presented as saved.
   const queue = usePendingQueue();
@@ -237,10 +240,10 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
 
   if (!kind) {
     return (
-      <Stack p="md" maw={560}>
-        <Alert color="yellow" title="This format cannot be opened in the browser yet">{e.file.format.toUpperCase()} files are listed but the web reader does not support them. You can still download the original file.</Alert>
-        <Group><Button component={Link} to={`/editions/${e.id}`} variant="default">Back</Button>{e.file.contentPath && <Button component="a" href={e.file.contentPath} download>Download original</Button>}</Group>
-      </Stack>
+      <Page>
+        <Alert tone="warning" title="This format cannot be opened in the browser yet">{e.file.format.toUpperCase()} files are listed but the web reader does not support them. You can still download the original file.</Alert>
+        <Row><Button to={`/editions/${e.id}`} icon={icons.arrowLeft}>Back</Button>{e.file.contentPath && <DownloadLink href={e.file.contentPath}>Download original</DownloadLink>}</Row>
+      </Page>
     );
   }
 
@@ -249,112 +252,116 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const pend = usePendingState();
   const serverPos = saver.conflict?.server.position;
   return (
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
-      <Group px="sm" py={6} justify="space-between" wrap="nowrap" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-        <Group gap="xs" wrap="nowrap">
-          <Button component={Link} to={`/titles/${e.titleId}`} size="compact-sm" variant="default">Back</Button>
-          <Button size="compact-sm" variant="default" onClick={() => setPanel(true)}>Contents &amp; notes</Button>
-        </Group>
-        <Group gap="xs" wrap="nowrap">
-          <Tooltip label="Previous page"><ActionIcon variant="default" aria-label="Previous page" onClick={() => hostRef.current?.nav("prev")}>‹</ActionIcon></Tooltip>
-          <Tooltip label="Next page"><ActionIcon variant="default" aria-label="Next page" onClick={() => hostRef.current?.nav("next")}>›</ActionIcon></Tooltip>
-          <Button size="compact-sm" variant="default" onClick={addBookmark} disabled={!loaded || mismatch}>Bookmark</Button>
-          {kind === "pdf" && <Button size="compact-sm" variant={areaMode ? "filled" : "default"} aria-pressed={areaMode} data-testid="area-tool" disabled={!loaded || mismatch} onClick={() => { const n = !areaMode; setAreaMode(n); hostRef.current?.setPdfMode(n ? "area" : "off"); }}>Highlight area</Button>}
-          <Button size="compact-sm" variant="default" onClick={() => setSettings(true)}>Aa</Button>
-        </Group>
-      </Group>
+    <div className="lt-reader">
+      <h1 className="lt-sr">Reading {e.label || e.file.format.toUpperCase()}</h1>
+      <header className="lt-reader-bar">
+        <Row>
+          <Button size="sm" to={`/titles/${e.titleId}`} icon={icons.arrowLeft}>Back</Button>
+          <Button size="sm" onClick={() => setPanel(true)} icon={icons.list}>Contents &amp; notes</Button>
+        </Row>
+        <Row>
+          <Tip label="Previous page"><IconButton aria-label="Previous page" onClick={() => hostRef.current?.nav("prev")}>‹</IconButton></Tip>
+          <Tip label="Next page"><IconButton aria-label="Next page" onClick={() => hostRef.current?.nav("next")}>›</IconButton></Tip>
+          <Button size="sm" onClick={addBookmark} disabled={!loaded || mismatch} icon={icons.bookmark}>Bookmark</Button>
+          {kind === "pdf" && <Button size="sm" variant={areaMode ? "primary" : "default"} aria-pressed={areaMode} data-testid="area-tool" disabled={!loaded || mismatch} onClick={() => { const n = !areaMode; setAreaMode(n); hostRef.current?.setPdfMode(n ? "area" : "off"); }} icon={icons.highlight}>Highlight area</Button>}
+          <Button size="sm" onClick={() => setSettings(true)} icon={icons.textSize} aria-label="Text settings" title="Text settings">Aa</Button>
+        </Row>
+      </header>
 
-      {pend.offline && pend.items.length > 0 && (
-        <Alert color="yellow" m="xs" role="status" data-testid="offline-banner">
-          The server cannot be reached. {pend.items.length} change{pend.items.length === 1 ? " is" : "s are"} kept on this device{pend.durable ? "" : " (this browser cannot keep them across a reload)"} and will be sent when the connection returns. <Link to="/pending">Details</Link>
-        </Alert>
-      )}
-      {failure && <Alert color="red" role="alert" m="xs">{failure}</Alert>}
-      {notice && <Alert color="yellow" withCloseButton onClose={() => setNotice(null)} m="xs">{notice}</Alert>}
-      {mismatch && <Alert color="orange" m="xs" role="alert" title="Reader version mismatch" data-testid="profile-mismatch">The server expects a different reader engine version ({snapshot.engineProfile}) than this page uses. To avoid saving or restoring a wrong place, your saved position and highlights are not applied and nothing new is saved from here. Reload to get the matching version.</Alert>}
-      {e.readiness !== "ready" && <Alert color="yellow" m="xs" title="Limited support">{e.issues.map((i) => i.detail).join(" ") || "This edition is only partly supported."}</Alert>}
-      {sv === "changed" && <Alert color="orange" m="xs" role="alert" title="This book file changed" >A newer version of the file exists, so your position is no longer being saved. <Button size="compact-xs" onClick={() => location.reload()}>Reload</Button></Alert>}
-      {sv === "conflict" && (
-        <Alert color="orange" m="xs" role="alert" title="Your reading position changed elsewhere">
-          <Group gap="xs">
-            <Text size="sm">{serverPos ? `Saved from ${serverPos.deviceName || "another device"}.` : "A different place was saved."}</Text>
-            {serverPos && <Button size="compact-xs" onClick={async () => { const loc = await saver.useServer(); if (loc?.kind === "foliate-cfi") hostRef.current?.goto({ cfi: loc.cfi }); else if (loc?.kind === "pdf-page") hostRef.current?.goto({ pageIndex: loc.pageIndex, x: loc.x, y: loc.y }); }}>Go to saved place</Button>}
-            <Button size="compact-xs" variant="default" onClick={() => void saver.keepMine()}>Keep my place</Button>
-          </Group>
-          {saver.resolveError && <Text size="sm" c="red" mt={4} data-testid="resolve-error">Not changed: {saver.resolveError} Both places are still kept.</Text>}
-        </Alert>
-      )}
+      <div className="lt-reader-banners">
+        {pend.offline && pend.items.length > 0 && (
+          <Alert tone="warning" role="status" data-testid="offline-banner">
+            The server cannot be reached. {pend.items.length} change{pend.items.length === 1 ? " is" : "s are"} kept on this device{pend.durable ? "" : " (this browser cannot keep them across a reload)"} and will be sent when the connection returns. <TextLink to="/pending">Details</TextLink>
+          </Alert>
+        )}
+        {failure && <Alert tone="danger" role="alert">{failure}</Alert>}
+        {notice && <Alert tone="warning" onClose={() => setNotice(null)}>{notice}</Alert>}
+        {mismatch && <Alert tone="warning" role="alert" title="Reader version mismatch" data-testid="profile-mismatch">The server expects a different reader engine version ({snapshot.engineProfile}) than this page uses. To avoid saving or restoring a wrong place, your saved position and highlights are not applied and nothing new is saved from here. Reload to get the matching version.</Alert>}
+        {e.readiness !== "ready" && <Alert tone="warning" title="Limited support">{e.issues.map((i) => i.detail).join(" ") || "This edition is only partly supported."}</Alert>}
+        {sv === "changed" && <Alert tone="warning" role="alert" title="This book file changed">A newer version of the file exists, so your position is no longer being saved. <Button size="sm" onClick={() => location.reload()} icon={icons.reset}>Reload</Button></Alert>}
+        {sv === "conflict" && (
+          <Alert tone="warning" role="alert" title="Your reading position changed elsewhere">
+            <Row>
+              <Text as="span" size="sm">{serverPos ? `Saved from ${serverPos.deviceName || "another device"}.` : "A different place was saved."}</Text>
+              {serverPos && <Button size="sm" variant="primary" onClick={async () => { const loc = await saver.useServer(); if (loc?.kind === "foliate-cfi") hostRef.current?.goto({ cfi: loc.cfi }); else if (loc?.kind === "pdf-page") hostRef.current?.goto({ pageIndex: loc.pageIndex, x: loc.x, y: loc.y }); }} icon={icons.chevRight}>Go to saved place</Button>}
+              <Button size="sm" onClick={() => void saver.keepMine()} icon={icons.check}>Keep my place</Button>
+            </Row>
+            {saver.resolveError && <Text size="sm" tone="danger" data-testid="resolve-error">Not changed: {saver.resolveError} Both places are still kept.</Text>}
+          </Alert>
+        )}
+      </div>
 
-      <div ref={box} style={{ flex: 1, minHeight: 0, position: "relative" }} data-testid="reader-stage">
-        {!loaded && !failure && <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}><Busy /></div>}
+      <div ref={box} className="lt-reader-stage" data-testid="reader-stage">
+        {!loaded && !failure && <div className="lt-reader-busy"><Busy /></div>}
       </div>
 
       {selection && (
-        <Group p="xs" justify="center" gap="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }} data-testid="selection-bar">
-          <Text size="sm" lineClamp={1} maw={260}>{selection.text ? `“${selection.text}”` : "Selected area"}</Text>
-          <Button size="compact-sm" onClick={() => addHighlight(selection)}>Highlight</Button>
-          <Button size="compact-sm" variant="default" onClick={() => setNoteDraft({ text: "", selection })}>Add note</Button>
-        </Group>
+        <Row justify="center" data-testid="selection-bar">
+          <Text as="span" size="sm" clamp={1}>{selection.text ? `“${selection.text}”` : "Selected area"}</Text>
+          <Button size="sm" variant="primary" onClick={() => addHighlight(selection)} icon={icons.highlight}>Highlight</Button>
+          <Button size="sm" onClick={() => setNoteDraft({ text: "", selection })} icon={icons.pencil}>Add note</Button>
+        </Row>
       )}
-      <Group px="sm" py={4} justify="space-between" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
-        <Text size="xs" c="dimmed" lineClamp={1} maw="60%">{where.tocLabel ?? ""}</Text>
-        <Group gap="xs">
-          <Text size="xs" c="dimmed" data-testid="progress">{where.pageIndex !== undefined ? `Page ${where.pageIndex + 1} of ${where.numPages}` : percent !== null ? `${percent}%` : ""}</Text>
-          <Badge size="xs" variant="light" color={sv === "saving" || sv === "offline" ? "gray" : "green"} data-testid="save-status">{sv === "saving" ? "saving" : sv === "offline" ? "waiting to send" : sv === "saved" ? "position saved" : sv === "conflict" ? "paused" : ""}</Badge>
-        </Group>
-      </Group>
+      <footer className="lt-reader-foot">
+        <Text as="span" size="xs" tone="dim" clamp={1}>{where.tocLabel ?? ""}</Text>
+        <Row gap="xs">
+          <Text as="span" size="xs" tone="dim" data-testid="progress">{where.pageIndex !== undefined ? `Page ${where.pageIndex + 1} of ${where.numPages}` : percent !== null ? `${percent}%` : ""}</Text>
+          <Badge tone={sv === "saving" || sv === "offline" ? "neutral" : "success"} data-testid="save-status">{sv === "saving" ? "saving" : sv === "offline" ? "waiting to send" : sv === "saved" ? "position saved" : sv === "conflict" ? "paused" : ""}</Badge>
+        </Row>
+      </footer>
 
-      <Drawer opened={panel} onClose={() => setPanel(false)} title="Contents & notes" position="right" size="md">
+      <Drawer open={panel} onClose={() => setPanel(false)} title="Contents & notes" side="right">
         <FinishControl edition={e} />
-        <Tabs defaultValue="toc">
-          <Tabs.List><Tabs.Tab value="toc">Contents</Tabs.Tab><Tabs.Tab value="notes">Notes ({live.length})</Tabs.Tab></Tabs.List>
-          <Tabs.Panel value="toc" pt="sm">
-            {toc.length === 0 ? <Text c="dimmed" size="sm">This book has no table of contents.</Text> :
-              <TocList items={toc} onPick={(href) => { hostRef.current?.goto({ href }); setPanel(false); }} />}
-          </Tabs.Panel>
-          <Tabs.Panel value="notes" pt="sm">
-            <Stack gap="xs">
-              <Button size="compact-sm" variant="default" onClick={() => setNoteDraft({ text: "", selection: null })} disabled={!hereLocator()}>Add note for this page</Button>
-              {live.length === 0 && <Text c="dimmed" size="sm">No bookmarks, highlights or notes yet.</Text>}
+        <Tabs label="Contents and notes" tabs={[
+          { value: "toc", label: "Contents", content: toc.length === 0 ? <Text tone="dim" size="sm">This book has no table of contents.</Text> :
+            <TocList items={toc} onPick={(href) => { hostRef.current?.goto({ href }); setPanel(false); }} /> },
+          { value: "notes", label: `Notes (${live.length})`, content: (
+            <Stack gap="sm">
+              <Button size="sm" onClick={() => setNoteDraft({ text: "", selection: null })} disabled={!hereLocator()} icon={icons.pencil}>Add note for this page</Button>
+              {live.length === 0 && <Text tone="dim" size="sm">No bookmarks, highlights or notes yet.</Text>}
               {live.map((a) => {
                 const d = a.data!;
                 const ok = current(a);
                 return (
-                  <Stack key={a.id} gap={2} p="xs" style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 6 }} data-testid="annotation-item">
-                    <Group justify="space-between"><Badge variant="light" color={d.kind === "highlight" ? "yellow" : d.kind === "note" ? "blue" : "gray"}>{d.kind}</Badge>
-                      {!ok && <Badge color="orange" variant="outline">older file version</Badge>}
-                      {a.unsaved === "pending" && <Badge color="gray" variant="outline" data-testid="unsaved">not saved yet</Badge>}
-                      {a.unsaved === "attention" && <Badge color="red" variant="outline" component={Link} to="/pending">needs attention</Badge>}</Group>
-                    {d.quote && <Text size="sm" lineClamp={3}>“{d.quote}”</Text>}
-                    {d.text && <Text size="sm" fw={500}>{d.text}</Text>}
-                    <Group gap="xs">
-                      <Button size="compact-xs" variant="default" disabled={!ok}
-                        onClick={() => { const l = d.anchor.locator; if (l.kind === "foliate-cfi") hostRef.current?.goto({ cfi: l.cfi }); else if (l.kind === "pdf-page") hostRef.current?.goto({ pageIndex: l.pageIndex, x: l.x, y: l.y }); setPanel(false); }}>Go to</Button>
-                      {d.kind === "note" && ok && <Button size="compact-xs" variant="default" onClick={() => setNoteDraft({ id: a.id, text: d.text, selection: null })}>Edit</Button>}
-                      <Button size="compact-xs" color="red" variant="subtle" onClick={() => removeAnnotation(a)}>Delete</Button>
-                    </Group>
-                  </Stack>
+                  <Card key={a.id} pad="sm" data-testid="annotation-item">
+                    <Stack gap="xs">
+                      <Row justify="between">
+                        <Badge tone={d.kind === "highlight" ? "warning" : d.kind === "note" ? "info" : "neutral"}>{d.kind}</Badge>
+                        {!ok && <Badge outline tone="warning">older file version</Badge>}
+                        {a.unsaved === "pending" && <Badge outline tone="neutral" data-testid="unsaved">not saved yet</Badge>}
+                        {a.unsaved === "attention" && <TextLink to="/pending"><Badge outline tone="danger">needs attention</Badge></TextLink>}
+                      </Row>
+                      {d.quote && <Text size="sm" clamp={3}>“{d.quote}”</Text>}
+                      {d.text && <Text size="sm" strong>{d.text}</Text>}
+                      <Row>
+                        <Button size="sm" disabled={!ok} icon={icons.chevRight}
+                          onClick={() => { const l = d.anchor.locator; if (l.kind === "foliate-cfi") hostRef.current?.goto({ cfi: l.cfi }); else if (l.kind === "pdf-page") hostRef.current?.goto({ pageIndex: l.pageIndex, x: l.x, y: l.y }); setPanel(false); }}>Go to</Button>
+                        {d.kind === "note" && ok && <Button size="sm" onClick={() => setNoteDraft({ id: a.id, text: d.text, selection: null })} icon={icons.pencil}>Edit</Button>}
+                        <Button size="sm" variant="danger" onClick={() => removeAnnotation(a)} icon={icons.trash}>Delete</Button>
+                      </Row>
+                    </Stack>
+                  </Card>
                 );
               })}
             </Stack>
-          </Tabs.Panel>
-        </Tabs>
+          ) },
+        ]} />
       </Drawer>
 
-      <Drawer opened={settings} onClose={() => setSettings(false)} title="Reading settings" position="bottom" size="auto">
-        <Stack pb="md">
+      <Drawer open={settings} onClose={() => setSettings(false)} title="Reading settings" side="bottom">
+        <Stack>
           <Text size="sm">Text size {style.fontPct}%</Text>
-          <Slider min={70} max={220} step={10} value={style.fontPct} onChange={(v) => changeStyle({ fontPct: v })} aria-label="Text size" thumbLabel="Text size" />
-          <SegmentedControl value={style.theme} onChange={(v) => changeStyle({ theme: v as ReaderStyle["theme"] })} data={[{ value: "light", label: "Light" }, { value: "sepia", label: "Sepia" }, { value: "dark", label: "Dark" }]} />
-          {kind !== "pdf" && <SegmentedControl value={style.flow} onChange={(v) => changeStyle({ flow: v as ReaderStyle["flow"] })} data={[{ value: "paginated", label: "Pages" }, { value: "scrolled", label: "Scroll" }]} />}
+          <RangeSlider label="Text size" min={70} max={220} step={10} value={style.fontPct} onChange={(v) => changeStyle({ fontPct: v })} />
+          <SegmentedField label="Theme" value={style.theme} onValue={(v) => changeStyle({ theme: v as ReaderStyle["theme"] })} items={[{ value: "light", label: "Light" }, { value: "sepia", label: "Sepia" }, { value: "dark", label: "Dark" }]} />
+          {kind !== "pdf" && <SegmentedField label="Layout" value={style.flow} onValue={(v) => changeStyle({ flow: v as ReaderStyle["flow"] })} items={[{ value: "paginated", label: "Pages" }, { value: "scrolled", label: "Scroll" }]} />}
         </Stack>
       </Drawer>
 
-      <Modal opened={!!noteDraft} onClose={() => setNoteDraft(null)} title={noteDraft?.id ? "Edit note" : "New note"}>
+      <Modal open={!!noteDraft} onClose={() => setNoteDraft(null)} title={noteDraft?.id ? "Edit note" : "New note"}
+        actions={<><Button onClick={() => setNoteDraft(null)} icon={icons.close}>Cancel</Button><Button variant="primary" onClick={submitNote} disabled={!noteDraft?.text.trim()} icon={icons.save}>Save note</Button></>}>
         <Stack>
-          {noteDraft?.selection && <Text size="sm" c="dimmed" lineClamp={3}>{noteDraft.selection.text ? `“${noteDraft.selection.text}”` : "Selected area"}</Text>}
-          <Textarea label="Note" autosize minRows={3} maxLength={65536} data-autofocus value={noteDraft?.text ?? ""} onChange={(ev) => setNoteDraft((d) => d && { ...d, text: ev.currentTarget.value })} />
-          <Group justify="flex-end"><Button variant="default" onClick={() => setNoteDraft(null)}>Cancel</Button><Button onClick={submitNote} disabled={!noteDraft?.text.trim()}>Save note</Button></Group>
+          {noteDraft?.selection && <Text size="sm" tone="dim" clamp={3}>{noteDraft.selection.text ? `“${noteDraft.selection.text}”` : "Selected area"}</Text>}
+          <TextAreaField label="Note" rows={4} maxLength={65536} autoFocus value={noteDraft?.text ?? ""} onValue={(v) => setNoteDraft((d) => d && { ...d, text: v })} />
         </Stack>
       </Modal>
     </div>

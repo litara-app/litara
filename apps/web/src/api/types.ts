@@ -5,7 +5,7 @@
 export interface User { id: string; username: string; displayName: string; isAdmin: boolean; active: boolean }
 export interface BrowserSession { user: User; csrfToken: string }
 export interface Page<T> { items: T[]; total: number; page: number; size: number }
-export interface Library { id: string; name: string }
+export interface Library { id: string; name: string; icon: string | null }
 
 export interface Title {
   id: string; title: string; authors: string[]; series: string[]; languages: string[];
@@ -59,7 +59,7 @@ export interface Annotation { id: string; editionId: string; revision: string; d
 
 export interface MetadataField {
   field: string; source: string; cleared: boolean; value: unknown;
-  conflicts: { source: string; value: unknown }[];
+  conflicts?: { source: string; value: unknown }[];
 }
 export interface MetadataReport { editionId: string; revision: string; fields: MetadataField[] }
 
@@ -97,3 +97,37 @@ export interface AudioPositionState {
   revision: string; position: AudioPosition | null;
   unresolvedConflicts: { id: string; reason: string; candidate: AudioPosition | null; baseRevision: string }[];
 }
+
+export interface ReadingEvent {
+  id: string; titleId: string; editionId?: string; recordingId?: string; fileId: string; contentVersion: string;
+  event: string; capturedAt: string; receivedAt: string;
+}
+
+/** Effective descriptive metadata of one edition (ADR-0081). */
+export interface EditionDetails {
+  editionId: string; addedAt: string;
+  publisher: string | null; published: string | null; pageCount: number | null; isbn: string | null; description: string | null;
+}
+/** The caller's private rating, review and reading dates for a title (ADR-0081). Dates in `data` are overrides. */
+export interface PersonalData { ratingHalves: number | null; review: string; startedAt: string | null; finishedAt: string | null }
+export interface TitlePersonal {
+  titleId: string; revision: string; data: PersonalData;
+  derivedStartedAt: string | null; derivedFinishedAt: string | null; updatedAt: string | null;
+}
+
+export interface RecordingDetails {
+  recordingId: string; addedAt: string;
+  publisher: string | null; published: string | null; isbn: string | null; description: string | null;
+}
+
+/** One row of the library table (GET /titles). */
+export interface TitleRow extends Title {
+  libraryIds: string[]; formats: string[]; addedAt: string; seriesIndex: number | null;
+  publisher: string | null; published: string | null; pageCount: number | null; ratingHalves: number | null;
+  status: "unread" | "reading" | "finished";
+}
+
+/** Where a cover came from (ADR-0086). "none" means the files hold no cover, so the generated placeholder shows. */
+export interface CoverSlot { source: "upload" | "url" | "search" | "extracted" | "none"; version?: string }
+export interface TitleCovers { ebook: CoverSlot; audio: CoverSlot; searchEnabled: boolean }
+export interface CoverSearchResult { provider: string; title: string; author: string; imageUrl: string; thumbUrl: string }

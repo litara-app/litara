@@ -1,27 +1,22 @@
-import { Alert, Stack, Tabs, Title } from "@mantine/core";
-import { Outlet, useLocation, useNavigate } from "react-router";
+import { Outlet } from "react-router";
 import { useAuth } from "../auth/session";
+import { Alert, NavTabs, Page, PageHeader } from "../ui";
 
 // Administration is for administrators only; the server enforces this on every
 // route (administrator AND a library grant), this guard only avoids dead ends.
 export function AdminLayout() {
   const { user } = useAuth();
-  const loc = useLocation();
-  const nav = useNavigate();
-  if (!user?.isAdmin) return <Alert color="red" title="Administrators only">Your account is not an administrator.</Alert>;
-  const tab = loc.pathname.startsWith("/admin/libraries") ? "libraries" : loc.pathname.startsWith("/admin/repairs") ? "repairs" : loc.pathname.startsWith("/admin/integrations") ? "integrations" : "users";
+  if (!user?.isAdmin) return <Page><Alert tone="danger" title="Administrators only">Your account is not an administrator.</Alert></Page>;
   return (
-    <Stack>
-      <Title order={2}>Administration</Title>
-      <Tabs value={tab} onChange={(v) => nav(v === "users" ? "/admin" : `/admin/${v}`)}>
-        <Tabs.List>
-          <Tabs.Tab value="users">Users</Tabs.Tab>
-          <Tabs.Tab value="libraries">Libraries</Tabs.Tab>
-          <Tabs.Tab value="repairs">Recording repair</Tabs.Tab>
-          <Tabs.Tab value="integrations">Integrations</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+    <Page>
+      <PageHeader title="Administration" />
+      <NavTabs label="Administration sections" items={[
+        { to: "/admin", label: "Users", end: true },
+        { to: "/admin/libraries", label: "Libraries" },
+        { to: "/admin/repairs", label: "Recording repair" },
+        { to: "/admin/integrations", label: "Integrations" },
+      ]} />
       <Outlet />
-    </Stack>
+    </Page>
   );
 }

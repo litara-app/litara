@@ -78,7 +78,7 @@ test("keyboard: every primary control is reachable and dialogs trap and release 
   await signIn(page);
   const i = await ids(page);
   await page.goto("/");
-  await expect(page.getByTestId("title-card").first()).toBeVisible();
+  await expect(page.getByTestId("title-item").first()).toBeVisible();
   const seen = new Set<string>();
   for (let n = 0; n < 12; n++) {
     await page.keyboard.press("Tab");

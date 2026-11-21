@@ -1,4 +1,4 @@
-import { MantineProvider } from "@mantine/core";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -28,7 +28,7 @@ function mount(path: string) {
   window.matchMedia ??= (() => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })) as never;
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MantineProvider><QueryClientProvider client={qc}><AuthProvider><PendingProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></PendingProvider></AuthProvider></QueryClientProvider></MantineProvider>,
+    <QueryClientProvider client={qc}><AuthProvider><PendingProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></PendingProvider></AuthProvider></QueryClientProvider>,
   );
 }
 
@@ -59,7 +59,7 @@ test("signing in shows the library and sends the CSRF token on writes only", asy
   fireEvent.change(await screen.findByLabelText(/Username/), { target: { value: "ada" } });
   fireEvent.change(screen.getByLabelText(/Password/), { target: { value: "pw" } });
   fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(await screen.findByText("Second Volume")).toBeTruthy();
+  expect(await screen.findByRole("link", { name: /Second Volume/ })).toBeTruthy();
   expect(screen.getByTestId("whoami").textContent).toBe("Ada");
 
   const login = calls.find((c) => c.url.endsWith("/auth/web/login"))!;

@@ -1,3 +1,0 @@
-/* Secondary text must keep AA contrast (Mantine's default dimmed gray does not). */
-:root[data-mantine-color-scheme="light"] { --mantine-color-dimmed: var(--mantine-color-gray-7); }
-:root[data-mantine-color-scheme="dark"] { --mantine-color-dimmed: var(--mantine-color-dark-2); }

@@ -1,11 +1,9 @@
-import { ActionIcon, Alert, Badge, Button, Drawer, Group, Modal, SegmentedControl, Slider, Stack, Text, Textarea } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
 import { api, ApiError, assertSameSession, get, sessionEpoch } from "../api/client";
-import type { Annotation, AnnotationData, Edition, Locator, Page, ReaderSnapshot } from "../api/types";
+import type { Annotation, AnnotationData, Edition, Locator, Page as Paged, ReaderSnapshot } from "../api/types";
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
-import { Busy } from "../ui/common";
+import { icons, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, IconButton, Modal, Page, RangeSlider, Row, SegmentedField, Stack, Text, TextAreaField, TextLink } from "../ui";
 import { usePositionSaver } from "./usePositionSaver";
 
 interface ComicPage { index: number; entryId: string; mimeType: string; width: number; height: number; contentPath: string }
@@ -57,35 +55,38 @@ export function ComicReader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const manifest = useManifest(e);
   if (manifest.isPending) return <Busy />;
   if (manifest.error) {
-    return <Stack p="md" maw={560}><Alert color="red" title="The pages could not be requested">{(manifest.error as Error).message}</Alert><Button component={Link} to={`/editions/${e.id}`} variant="default">Back</Button></Stack>;
+    return <Page><Alert tone="danger" title="The pages could not be requested">{(manifest.error as Error).message}</Alert><Row><Button to={`/editions/${e.id}`} icon={icons.arrowLeft}>Back</Button></Row></Page>;
   }
   const m = manifest.data;
-  const back = <Button component={Link} to={`/titles/${e.titleId}`} variant="default" size="compact-sm">Back</Button>;
-  const download = e.file.contentPath && <Button component="a" href={e.file.contentPath} download size="compact-sm">Download original</Button>;
+  const back = <Button size="sm" to={`/titles/${e.titleId}`} icon={icons.arrowLeft}>Back</Button>;
+  const download = e.file.contentPath && <DownloadLink href={e.file.contentPath}>Download original</DownloadLink>;
   if (m.state === "processing") {
-    return <Stack p="md" maw={560} data-testid="comic-processing"><Busy /><Text ta="center">Preparing the pages. This happens once per file version.</Text><Group justify="center">{back}</Group></Stack>;
+    return <Page><div data-testid="comic-processing"><Busy /><Text>Preparing the pages. This happens once per file version.</Text><Row justify="center">{back}</Row></div></Page>;
   }
   if (m.state === "unsupported") {
     return (
-      <Stack p="md" maw={560} data-testid="comic-unsupported">
-        <Alert color="orange" title="These pages cannot be shown in the browser">
-          {m.issues.map((i) => i.detail).join(" ") || "This archive cannot be read as comic pages."}{" "}
-          Your original file is untouched{e.file.format !== "cbz" ? ` (${e.file.format.toUpperCase()} extraction is not available yet)` : ""}.
-        </Alert>
-        <Group>{back}{download}</Group>
-      </Stack>
+      <Page>
+        <div data-testid="comic-unsupported">
+          <Alert tone="warning" title="These pages cannot be shown in the browser">
+            {m.issues.map((i) => i.detail).join(" ") || "This archive cannot be read as comic pages."}{" "}
+            Your original file is untouched{e.file.format !== "cbz" ? ` (${e.file.format.toUpperCase()} extraction is not available yet)` : ""}.
+          </Alert>
+          <Row>{back}{download}</Row>
+        </div>
+      </Page>
     );
   }
   if (m.state === "incomplete") {
     return (
-      <Stack p="md" maw={560}>
-        <Alert color="yellow" title="The pages are not ready">{m.issues.map((i) => i.detail).join(" ") || "Extraction did not finish."}</Alert>
-        <Group>{back}<Button size="compact-sm" onClick={() => void manifest.retryPrepare()}>Try again</Button></Group>
-      </Stack>
+      <Page>
+        <Alert tone="warning" title="The pages are not ready">{m.issues.map((i) => i.detail).join(" ") || "Extraction did not finish."}</Alert>
+        <Row>{back}<Button size="sm" onClick={() => void manifest.retryPrepare()} icon={icons.reset}>Try again</Button></Row>
+      </Page>
     );
   }
   return <Pages snapshot={snapshot} manifest={m} />;
 }
+
 
 function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: Manifest }) {
   const e = snapshot.edition;
@@ -165,7 +166,7 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
 
   // ---- bookmarks and page notes (text highlights do not exist for image pages) --------------
   const annKey = ["annotations", e.id];
-  const annotations = useQuery({ queryKey: annKey, queryFn: () => get<Page<Annotation>>(`/editions/${e.id}/annotations?includeDeleted=false&size=200`) });
+  const annotations = useQuery({ queryKey: annKey, queryFn: () => get<Paged<Annotation>>(`/editions/${e.id}/annotations?includeDeleted=false&size=200`) });
   const pendingOps = useEditionPending(e.id).filter((o) => o.kind === "annotation");
   type View = Annotation & { unsaved?: boolean };
   const items: View[] = useMemo(() => {
@@ -193,96 +194,98 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
   const pageOf = (a: Annotation) => { const l = a.data!.anchor.locator; return l.kind === "comic-page" ? m.pages.findIndex((p) => p.entryId === l.entryId) : -1; };
 
   const current = urls[index];
-  const bg = style.dark ? "#111" : "#eee";
   const sv = saver.status;
   const serverPos = saver.conflict?.server.position;
-  const imgStyle = style.fit === "width" ? { width: "100%", height: "auto" } : style.fit === "height" ? { maxHeight: "100%", maxWidth: "100%", objectFit: "contain" as const } : {};
+  const rtl = style.dir === "rtl";
 
   return (
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: bg }}>
-      <Group px="sm" py={6} justify="space-between" wrap="nowrap" style={{ background: "var(--mantine-color-body)", borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-        <Group gap="xs" wrap="nowrap">
-          <Button component={Link} to={`/titles/${e.titleId}`} size="compact-sm" variant="default">Back</Button>
-          <Button size="compact-sm" variant="default" onClick={() => setPanel(true)}>Bookmarks &amp; notes</Button>
-        </Group>
-        <Group gap="xs" wrap="nowrap">
-          <ActionIcon variant="default" aria-label="Previous page" onClick={() => step(-1)}>‹</ActionIcon>
-          <ActionIcon variant="default" aria-label="Next page" onClick={() => step(1)}>›</ActionIcon>
-          <Button size="compact-sm" variant="default" onClick={() => put(crypto.randomUUID(), { kind: "bookmark", anchor: anchor(), selection: null, text: `Page ${index + 1}`, quote: "" }, "Bookmark")}>Bookmark</Button>
-          <Button size="compact-sm" variant="default" onClick={() => setSettings(true)}>View</Button>
-        </Group>
-      </Group>
+    <div className="lt-reader" data-dark={style.dark || undefined}>
+      <h1 className="lt-sr">Reading {e.label || e.file.format.toUpperCase()}</h1>
+      <header className="lt-reader-bar">
+        <Row>
+          <Button size="sm" to={`/titles/${e.titleId}`} icon={icons.arrowLeft}>Back</Button>
+          <Button size="sm" onClick={() => setPanel(true)} icon={icons.bookmark}>Bookmarks &amp; notes</Button>
+        </Row>
+        <Row>
+          <IconButton aria-label="Previous page" onClick={() => step(-1)}>‹</IconButton>
+          <IconButton aria-label="Next page" onClick={() => step(1)}>›</IconButton>
+          <Button size="sm" onClick={() => put(crypto.randomUUID(), { kind: "bookmark", anchor: anchor(), selection: null, text: `Page ${index + 1}`, quote: "" }, "Bookmark")} icon={icons.bookmark}>Bookmark</Button>
+          <Button size="sm" onClick={() => setSettings(true)} icon={icons.sliders}>View</Button>
+        </Row>
+      </header>
 
-      {pend.offline && pend.items.length > 0 && <Alert color="yellow" m="xs" data-testid="offline-banner">The server cannot be reached. Your changes are kept on this device and sent when it returns. <Link to="/pending">Details</Link></Alert>}
-      {notice && <Alert color="yellow" m="xs" withCloseButton onClose={() => setNotice(null)}>{notice}</Alert>}
-      {sv === "changed" && <Alert color="orange" m="xs" role="alert" title="This file changed">A newer version of the file exists, so your page is no longer being saved. <Button size="compact-xs" onClick={() => location.reload()}>Reload</Button></Alert>}
-      {sv === "conflict" && (
-        <Alert color="orange" m="xs" role="alert" title="Your place changed elsewhere">
-          <Group gap="xs"><Text size="sm">{serverPos ? `Saved from ${serverPos.deviceName || "another device"}.` : "A different page was saved."}</Text>
-            {serverPos && <Button size="compact-xs" onClick={async () => { const loc = await saver.useServer(); if (loc?.kind === "comic-page") { const i = m.pages.findIndex((p) => p.entryId === loc.entryId); if (i >= 0) setIndex(i); } }}>Go to saved page</Button>}
-            <Button size="compact-xs" variant="default" onClick={() => void saver.keepMine()}>Keep my page</Button></Group>
-          {saver.resolveError && <Text size="sm" c="red" mt={4} data-testid="resolve-error">Not changed: {saver.resolveError} Both places are still kept.</Text>}
-        </Alert>
-      )}
+      <div className="lt-reader-banners">
+        {pend.offline && pend.items.length > 0 && <Alert tone="warning" data-testid="offline-banner">The server cannot be reached. Your changes are kept on this device and sent when it returns. <TextLink to="/pending">Details</TextLink></Alert>}
+        {notice && <Alert tone="warning" onClose={() => setNotice(null)}>{notice}</Alert>}
+        {sv === "changed" && <Alert tone="warning" role="alert" title="This file changed">A newer version of the file exists, so your page is no longer being saved. <Button size="sm" onClick={() => location.reload()} icon={icons.reset}>Reload</Button></Alert>}
+        {sv === "conflict" && (
+          <Alert tone="warning" role="alert" title="Your place changed elsewhere">
+            <Row><Text as="span" size="sm">{serverPos ? `Saved from ${serverPos.deviceName || "another device"}.` : "A different page was saved."}</Text>
+              {serverPos && <Button size="sm" variant="primary" onClick={async () => { const loc = await saver.useServer(); if (loc?.kind === "comic-page") { const i = m.pages.findIndex((p) => p.entryId === loc.entryId); if (i >= 0) setIndex(i); } }} icon={icons.chevRight}>Go to saved page</Button>}
+              <Button size="sm" onClick={() => void saver.keepMine()} icon={icons.check}>Keep my page</Button></Row>
+            {saver.resolveError && <Text size="sm" tone="danger" data-testid="resolve-error">Not changed: {saver.resolveError} Both places are still kept.</Text>}
+          </Alert>
+        )}
+      </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: style.fit === "height" ? "hidden" : "auto", display: "flex", justifyContent: "center", alignItems: style.fit === "height" ? "center" : "flex-start", position: "relative" }}
-        data-testid="comic-stage"
+      <div className="lt-comic-stage" data-fit={style.fit} data-testid="comic-stage"
         onClick={(ev) => { const r = ev.currentTarget.getBoundingClientRect(); const x = (ev.clientX - r.left) / r.width; if (x < 0.3) step(-1); else if (x > 0.7) step(1); }}>
         {typeof current === "string" && current ? (
-          <img src={current} alt={`Page ${index + 1}`} data-testid="comic-page" data-index={index} data-entry={m.pages[index].entryId} style={imgStyle} draggable={false} />
+          <img className="lt-comic-page" src={current} alt={`Page ${index + 1}`} data-testid="comic-page" data-index={index} data-entry={m.pages[index].entryId} draggable={false} />
         ) : current instanceof Error ? (
-          <Alert color="red" m="md" role="alert" data-testid="page-error">
+          <Alert tone="danger" role="alert" data-testid="page-error">
             {current instanceof ApiError && current.status === 409 ? "This page is not available right now; the pages may need to be prepared again." :
               current instanceof ApiError && current.status === 412 ? "This file was replaced; reload to open the new version." : "This page could not be loaded."}
           </Alert>
         ) : <Busy />}
       </div>
 
-      <div style={{ background: "var(--mantine-color-body)", borderTop: "1px solid var(--mantine-color-default-border)" }}>
-        <Group px="sm" py={6} gap="md" wrap="nowrap">
-          <Slider style={{ flex: 1 }} min={1} max={Math.max(n, 2)} value={index + 1} onChange={(v) => go(v - 1)} disabled={n < 2} aria-label="Page" thumbLabel="Page" label={(v) => `Page ${v}`} inverted={style.dir === "rtl"} />
-          <Text size="sm" ff="monospace" data-testid="comic-progress">Page {index + 1} of {n}</Text>
-          <Badge size="xs" variant="light" color={sv === "saving" || sv === "offline" ? "gray" : "green"} data-testid="save-status">
-            {sv === "saving" ? "saving" : sv === "offline" ? "waiting to send" : sv === "saved" ? "position saved" : sv === "conflict" ? "paused" : ""}</Badge>
-        </Group>
-      </div>
+      <footer className="lt-reader-foot">
+        <div className="lt-grow">
+          <RangeSlider label="Page" min={1} max={Math.max(n, 2)} value={rtl ? n + 1 - (index + 1) : index + 1} disabled={n < 2}
+            onChange={(v) => go(rtl ? n - v : v - 1)} />
+        </div>
+        <Text as="span" size="sm" mono data-testid="comic-progress">Page {index + 1} of {n}</Text>
+        <Badge tone={sv === "saving" || sv === "offline" ? "neutral" : "success"} data-testid="save-status">
+          {sv === "saving" ? "saving" : sv === "offline" ? "waiting to send" : sv === "saved" ? "position saved" : sv === "conflict" ? "paused" : ""}</Badge>
+      </footer>
 
-      <Drawer opened={panel} onClose={() => setPanel(false)} title="Bookmarks & notes" position="right" size="md">
-        <Stack gap="xs">
-          <Button size="compact-sm" variant="default" onClick={() => setNoteDraft("")}>Add note for this page</Button>
-          <Text size="xs" c="dimmed">Text highlights are not available for image pages.</Text>
-          {items.length === 0 && <Text c="dimmed" size="sm">Nothing yet.</Text>}
+      <Drawer open={panel} onClose={() => setPanel(false)} title="Bookmarks & notes" side="right">
+        <Stack gap="sm">
+          <Button size="sm" onClick={() => setNoteDraft("")} icon={icons.pencil}>Add note for this page</Button>
+          <Text size="xs" tone="dim">Text highlights are not available for image pages.</Text>
+          {items.length === 0 && <Text tone="dim" size="sm">Nothing yet.</Text>}
           {items.map((a) => {
             const pi = pageOf(a);
             return (
-              <Stack key={a.id} gap={2} p="xs" style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 6 }} data-testid="annotation-item">
-                <Group justify="space-between"><Badge variant="light" color={a.data!.kind === "note" ? "blue" : "gray"}>{a.data!.kind}</Badge>
-                  <Group gap={4}>{pi >= 0 && <Text size="xs" c="dimmed">page {pi + 1}</Text>}{a.unsaved && <Badge variant="outline" color="gray" data-testid="unsaved">not saved yet</Badge>}</Group></Group>
-                {a.data!.text && <Text size="sm">{a.data!.text}</Text>}
-                <Group gap="xs">
-                  <Button size="compact-xs" variant="default" disabled={pi < 0} onClick={() => { go(pi); setPanel(false); }}>Go to page</Button>
-                  <Button size="compact-xs" color="red" variant="subtle" onClick={() => del(a)}>Delete</Button>
-                </Group>
-              </Stack>
+              <Card key={a.id} pad="sm" data-testid="annotation-item">
+                <Stack gap="xs">
+                  <Row justify="between"><Badge tone={a.data!.kind === "note" ? "info" : "neutral"}>{a.data!.kind}</Badge>
+                    <Row gap="xs">{pi >= 0 && <Text as="span" size="xs" tone="dim">page {pi + 1}</Text>}{a.unsaved && <Badge outline tone="neutral" data-testid="unsaved">not saved yet</Badge>}</Row></Row>
+                  {a.data!.text && <Text size="sm">{a.data!.text}</Text>}
+                  <Row>
+                    <Button size="sm" disabled={pi < 0} onClick={() => { go(pi); setPanel(false); }} icon={icons.chevRight}>Go to page</Button>
+                    <Button size="sm" variant="danger" onClick={() => del(a)} icon={icons.trash}>Delete</Button>
+                  </Row>
+                </Stack>
+              </Card>
             );
           })}
         </Stack>
       </Drawer>
 
-      <Drawer opened={settings} onClose={() => setSettings(false)} title="View" position="bottom" size="auto">
-        <Stack pb="md">
-          <SegmentedControl value={style.fit} onChange={(v) => changeStyle({ fit: v as Style["fit"] })} data={[{ value: "height", label: "Fit page" }, { value: "width", label: "Fit width" }, { value: "original", label: "Actual size" }]} />
-          <SegmentedControl value={style.dir} onChange={(v) => changeStyle({ dir: v as Style["dir"] })} data={[{ value: "ltr", label: "Left to right" }, { value: "rtl", label: "Right to left (manga)" }]} />
-          <SegmentedControl value={style.dark ? "dark" : "light"} onChange={(v) => changeStyle({ dark: v === "dark" })} data={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]} />
+      <Drawer open={settings} onClose={() => setSettings(false)} title="View" side="bottom">
+        <Stack>
+          <SegmentedField label="Fit" value={style.fit} onValue={(v) => changeStyle({ fit: v as Style["fit"] })} items={[{ value: "height", label: "Fit page" }, { value: "width", label: "Fit width" }, { value: "original", label: "Actual size" }]} />
+          <SegmentedField label="Reading direction" value={style.dir} onValue={(v) => changeStyle({ dir: v as Style["dir"] })} items={[{ value: "ltr", label: "Left to right" }, { value: "rtl", label: "Right to left (manga)" }]} />
+          <SegmentedField label="Background" value={style.dark ? "dark" : "light"} onValue={(v) => changeStyle({ dark: v === "dark" })} items={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]} />
         </Stack>
       </Drawer>
 
-      <Modal opened={noteDraft !== null} onClose={() => setNoteDraft(null)} title={`Note for page ${index + 1}`}>
-        <Stack>
-          <Textarea label="Note" autosize minRows={3} maxLength={65536} data-autofocus value={noteDraft ?? ""} onChange={(ev) => setNoteDraft(ev.currentTarget.value)} />
-          <Group justify="flex-end"><Button variant="default" onClick={() => setNoteDraft(null)}>Cancel</Button>
-            <Button disabled={!(noteDraft ?? "").trim()} onClick={() => { put(crypto.randomUUID(), { kind: "note", anchor: anchor(), selection: null, text: noteDraft!, quote: "" }, "Note"); setNoteDraft(null); }}>Save note</Button></Group>
-        </Stack>
+      <Modal open={noteDraft !== null} onClose={() => setNoteDraft(null)} title={`Note for page ${index + 1}`}
+        actions={<><Button onClick={() => setNoteDraft(null)} icon={icons.close}>Cancel</Button>
+          <Button variant="primary" disabled={!(noteDraft ?? "").trim()} onClick={() => { put(crypto.randomUUID(), { kind: "note", anchor: anchor(), selection: null, text: noteDraft!, quote: "" }, "Note"); setNoteDraft(null); }} icon={icons.save}>Save note</Button></>}>
+        <TextAreaField label="Note" rows={4} maxLength={65536} autoFocus value={noteDraft ?? ""} onValue={setNoteDraft} />
       </Modal>
     </div>
   );

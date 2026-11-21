@@ -14,6 +14,7 @@ import { ShelfPage } from "./pages/ShelfPage";
 import { ShelvesPage } from "./pages/ShelvesPage";
 import { TitlePage } from "./pages/TitlePage";
 import { PendingPage } from "./pending/PendingPage";
+import { AppearancePage } from "./settings/AppearancePage";
 import { CredentialsPage } from "./settings/CredentialsPage";
 import { EmailPage } from "./settings/EmailPage";
 import { KoReaderPage } from "./settings/KoReaderPage";
@@ -33,7 +34,7 @@ function RequireAuth({ shell = true }: { shell?: boolean }) {
   const loc = useLocation();
   if (loading) return <Busy />;
   if (!user) return <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />;
-  return <AccessGuard>{shell ? <Shell /> : <Outlet />}</AccessGuard>;
+  return <AccessGuard>{shell ? <Shell /> : <main id="main"><Outlet /></main>}</AccessGuard>;
 }
 
 // The in-browser reader, annotations UI, audio player, administration and
@@ -56,7 +57,8 @@ export function App() {
           <Route path="shelves" element={<ShelvesPage />} />
           <Route path="shelves/:shelfId" element={<ShelfPage />} />
           <Route path="settings" element={<SettingsLayout />}>
-            <Route index element={<CredentialsPage />} />
+            <Route index element={<AppearancePage />} />
+            <Route path="credentials" element={<CredentialsPage />} />
             <Route path="email" element={<EmailPage />} />
             <Route path="koreader" element={<KoReaderPage />} />
           </Route>

@@ -28,7 +28,7 @@ export function ProofPage() {
   });
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className="lt-reader">
       <input
         id="file"
         type="file"
@@ -38,7 +38,7 @@ export function ProofPage() {
           void pick(f, kind);
         }}
       />
-      <div ref={box} style={{ flex: 1 }} />
+      <div ref={box} className="lt-reader-stage" />
     </div>
   );
 }

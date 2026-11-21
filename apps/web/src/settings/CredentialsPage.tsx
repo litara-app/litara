@@ -1,30 +1,30 @@
-import { Alert, Badge, Button, Card, Code, CopyButton, Group, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { api, get } from "../api/client";
 import { newSecret, type Credential, type CredentialKind, type IntegrationSettings } from "../api/t006";
-import { ScrollRegion } from "../ui/ScrollRegion";
-import { Busy, ErrorBox } from "../ui/common";
+import { icons, Alert, Badge, Busy, Button, Card, Code, CopyButton, ErrorBox, Heading, Row, SelectField, Stack, Table, TBody, TD, Text, TextField, TH, THead, TR } from "../ui";
 
 interface Shown { credential: Credential; password: string }
+
+function Line({ label, children }: { label: string; children: ReactNode }) {
+  return <Row><span className="lt-line-label"><Text as="span" size="sm">{label}</Text></span>{children}</Row>;
+}
 
 /** The one place the secret exists. It lives only in the page's React state: dismissing, leaving the page or signing out discards it. */
 function OneTimeSecret({ shown, onDismiss }: { shown: Shown; onDismiss: () => void }) {
   const origin = window.location.origin;
   const c = shown.credential;
   return (
-    <Alert color="green" title="Credential created. Copy the password now; it will not be shown again." data-testid="one-time-secret">
+    <Alert tone="success" title="Credential created. Copy the password now; it will not be shown again." data-testid="one-time-secret">
       <Stack gap="xs">
         <Text size="sm">{c.kind === "opds"
           ? "Enter these in your OPDS reader. Use HTTP Basic authentication."
           : "Set KOReader’s Custom sync server to your Litara server URL followed by /1 (for example, https://books.example.com/1). Then choose Login and enter these credentials. Each device needs its own credential."}</Text>
-        <Group gap="xs"><Text size="sm" w={110}>Catalog address</Text>
-          <Code data-testid="secret-address">{c.kind === "opds" ? `${origin}/opds/v1` : `${origin}/1`}</Code></Group>
-        {c.kind === "opds" && <Group gap="xs"><Text size="sm" w={110}>OPDS 2.0 address</Text><Code>{origin}/opds/v2</Code></Group>}
-        <Group gap="xs"><Text size="sm" w={110}>Username</Text><Code data-testid="secret-username">{c.username}</Code></Group>
-        <Group gap="xs"><Text size="sm" w={110}>Password</Text><Code data-testid="secret-password">{shown.password}</Code>
-          <CopyButton value={shown.password}>{({ copied, copy }) => <Button size="compact-xs" variant="default" onClick={copy}>{copied ? "Copied" : "Copy"}</Button>}</CopyButton></Group>
-        <Group><Button size="xs" onClick={onDismiss}>I have saved it</Button></Group>
+        <Line label="Catalog address"><Code data-testid="secret-address">{c.kind === "opds" ? `${origin}/opds/v1` : `${origin}/1`}</Code></Line>
+        {c.kind === "opds" && <Line label="OPDS 2.0 address"><Code>{origin}/opds/v2</Code></Line>}
+        <Line label="Username"><Code data-testid="secret-username">{c.username}</Code></Line>
+        <Line label="Password"><Code data-testid="secret-password">{shown.password}</Code><CopyButton value={shown.password} /></Line>
+        <Row><Button size="sm" onClick={onDismiss} icon={icons.check}>I have saved it</Button></Row>
       </Stack>
     </Alert>
   );
@@ -58,55 +58,53 @@ export function CredentialsPage() {
   const opdsOff = s && !s.opdsEnabled, koOff = s && !s.koreaderEnabled;
   return (
     <Stack>
-      <Text size="sm" c="dimmed">
+      <Text size="sm" tone="dim">
         App credentials let a reading app use your library without your account password. Each credential works only for its own purpose,
         can be revoked at any time, and cannot sign in to Litara or change anything here.
       </Text>
-      {opdsOff && <Alert color="yellow">OPDS is not enabled by your administrator yet. You can create a credential now; it will work once it is turned on.</Alert>}
-      {koOff && <Alert color="yellow">KOReader sync is not enabled by your administrator yet.</Alert>}
+      {opdsOff && <Alert tone="warning">OPDS is not enabled by your administrator yet. You can create a credential now; it will work once it is turned on.</Alert>}
+      {koOff && <Alert tone="warning">KOReader sync is not enabled by your administrator yet.</Alert>}
       {shown && <OneTimeSecret shown={shown} onDismiss={() => setShown(null)} />}
-      <Card withBorder>
+      <Card framed>
         <form onSubmit={submit}>
-          <Stack gap="xs">
-            <Title order={4}>New credential</Title>
-            <Group grow align="flex-end">
-              <Select label="Used for" value={kind} onChange={(v) => v && setKind(v as CredentialKind)} allowDeselect={false}
-                data={[{ value: "opds", label: "OPDS reader (catalog and downloads)" }, { value: "koreader", label: "KOReader device (progress sync)" }]} />
-              <TextInput label="Name" placeholder={kind === "opds" ? "Phone reader" : "Kobo in the study"} value={label} onChange={(e) => setLabel(e.currentTarget.value)} required maxLength={128} />
-            </Group>
+          <Stack gap="sm">
+            <Heading level={2}>New credential</Heading>
+            <Row grow align="end">
+              <SelectField label="Used for" value={kind} onValue={(v) => v && setKind(v as CredentialKind)}
+                items={[{ value: "opds", label: "OPDS reader (catalog and downloads)" }, { value: "koreader", label: "KOReader device (progress sync)" }]} />
+              <TextField label="Name" placeholder={kind === "opds" ? "Phone reader" : "Kobo in the study"} value={label} onValue={setLabel} required maxLength={128} />
+            </Row>
             <ErrorBox error={create.error} />
-            <Group><Button type="submit" loading={create.isPending} disabled={!label.trim()}>Create credential</Button></Group>
+            <Row><Button type="submit" variant="primary" loading={create.isPending} disabled={!label.trim()} icon={icons.plus}>Create credential</Button></Row>
           </Stack>
         </form>
       </Card>
       <ErrorBox error={list.error ?? revoke.error} />
-      <ScrollRegion label="Credentials table">
-        <Table verticalSpacing="xs" data-testid="credentials-table">
-          <Table.Thead><Table.Tr><Table.Th>Name</Table.Th><Table.Th>Used for</Table.Th><Table.Th>Username</Table.Th><Table.Th>Last used</Table.Th><Table.Th /></Table.Tr></Table.Thead>
-          <Table.Tbody>
-            {list.data?.items.length === 0 && <Table.Tr><Table.Td colSpan={5}><Text size="sm" c="dimmed">No credentials yet.</Text></Table.Td></Table.Tr>}
-            {list.data?.items.map((c) => (
-              <Table.Tr key={c.id}>
-                <Table.Td>{c.label}</Table.Td>
-                <Table.Td><Badge variant="light">{c.kind === "opds" ? "OPDS" : "KOReader"}</Badge></Table.Td>
-                <Table.Td><Code>{c.username}</Code></Table.Td>
-                <Table.Td>{c.lastUsedAt ? new Date(c.lastUsedAt).toLocaleString() : "Never"}</Table.Td>
-                <Table.Td>
-                  <Group justify="flex-end" gap="xs">
-                    {confirm === c.id ? (
-                      <>
-                        <Button size="compact-xs" color="red" loading={revoke.isPending} onClick={() => revoke.mutate(c.id)}>Confirm revoke</Button>
-                        <Button size="compact-xs" variant="default" onClick={() => setConfirm(null)}>Keep</Button>
-                      </>
-                    ) : <Button size="compact-xs" variant="default" aria-label={`Revoke ${c.label}`} onClick={() => setConfirm(c.id)}>Revoke</Button>}
-                  </Group>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </ScrollRegion>
-      <Text size="xs" c="dimmed">Revoking is permanent and takes effect on the next request. Create a new credential to replace one.</Text>
+      <Table label="Credentials table" data-testid="credentials-table">
+        <THead><TR><TH>Name</TH><TH>Used for</TH><TH>Username</TH><TH>Last used</TH><TH><span className="lt-sr">Actions</span></TH></TR></THead>
+        <TBody>
+          {list.data?.items.length === 0 && <TR><TD colSpan={5}><Text size="sm" tone="dim">No credentials yet.</Text></TD></TR>}
+          {list.data?.items.map((c) => (
+            <TR key={c.id}>
+              <TD>{c.label}</TD>
+              <TD><Badge>{c.kind === "opds" ? "OPDS" : "KOReader"}</Badge></TD>
+              <TD><Code>{c.username}</Code></TD>
+              <TD>{c.lastUsedAt ? new Date(c.lastUsedAt).toLocaleString() : "Never"}</TD>
+              <TD>
+                <Row justify="end">
+                  {confirm === c.id ? (
+                    <>
+                      <Button size="sm" variant="danger" solid loading={revoke.isPending} onClick={() => revoke.mutate(c.id)} icon={icons.trash}>Confirm revoke</Button>
+                      <Button size="sm" onClick={() => setConfirm(null)} icon={icons.close}>Keep</Button>
+                    </>
+                  ) : <Button size="sm" aria-label={`Revoke ${c.label}`} onClick={() => setConfirm(c.id)} icon={icons.trash}>Revoke</Button>}
+                </Row>
+              </TD>
+            </TR>
+          ))}
+        </TBody>
+      </Table>
+      <Text size="xs" tone="dim">Revoking is permanent and takes effect on the next request. Create a new credential to replace one.</Text>
     </Stack>
   );
 }
