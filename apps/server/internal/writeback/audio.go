@@ -4,17 +4,15 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 )
 
-// Each writer edits its container's title tag without remuxing. The rest of
+// Each writer edits its container's title and descriptive tags without remuxing. The rest of
 // the input is copied byte-for-byte, including opaque tags and media payloads.
 type audioWriter struct{ format string }
 
@@ -30,17 +28,11 @@ func BuiltInWriters() map[string]Writer {
 
 func (w audioWriter) Format() string { return w.format }
 
-func audioTitle(changes metadata.Fields) (string, error) {
-	var title string
-	if len(changes) != 1 || json.Unmarshal(changes[metadata.FieldTitle], &title) != nil ||
-		strings.TrimSpace(title) == "" || strings.ContainsRune(title, 0) || len(title) > 64<<10 {
-		return "", errors.New("this audio writer accepts only a nonempty title up to 64 KiB")
-	}
-	return title, nil
-}
-
 func (w audioWriter) ValidateFields(changes metadata.Fields) error {
-	_, err := audioTitle(changes)
+	ch, err := parseAudioChanges(changes)
+	if err == nil && ch.cover != nil && w.format == "flac" {
+		return errors.New("writing a cover into a FLAC file is not supported yet")
+	}
 	return err
 }
 
@@ -51,9 +43,12 @@ type audioEdit struct {
 }
 
 func (w audioWriter) rewrite(ctx context.Context, src string, out io.Writer, changes metadata.Fields) error {
-	title, err := audioTitle(changes)
+	ch, err := parseAudioChanges(changes)
 	if err != nil {
 		return err
+	}
+	if ch.cover != nil && w.format == "flac" {
+		return errors.New("writing a cover into a FLAC file is not supported yet")
 	}
 	f, err := os.Open(src)
 	if err != nil {
@@ -68,11 +63,11 @@ func (w audioWriter) rewrite(ctx context.Context, src string, out io.Writer, cha
 	var edit audioEdit
 	switch w.format {
 	case "mp3":
-		edit, err = editID3(f, size, title)
+		edit, err = editID3(f, size, ch)
 	case "flac":
-		edit, err = editFLAC(f, size, title)
+		edit, err = editFLAC(f, size, ch)
 	case "m4a", "m4b":
-		edit, err = editMP4(f, size, title)
+		edit, err = editMP4(f, size, ch)
 	default:
 		return fmt.Errorf("unsupported audio format %q", w.format)
 	}

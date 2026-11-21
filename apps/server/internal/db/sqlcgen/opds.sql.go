@@ -46,9 +46,9 @@ func (q *Queries) CountPublications(ctx context.Context, arg CountPublicationsPa
 }
 
 const getPublication = `-- name: GetPublication :one
-SELECT x.publication_id, x.media_kind, x.library_id, x.title_id, x.title, x.authors, x.series_name, x.series_index, x.language, x.label, x.narrators, x.file_id, x.content_version, x.filename, x.mime_type, x.size_bytes, x.updated_at, x.recording_id, x.file_order, x.file_count, r.cover_locator AS cover_locator, r.cover_mime AS cover_mime
+SELECT x.publication_id, x.media_kind, x.library_id, x.title_id, x.title, x.authors, x.series_name, x.series_index, x.language, x.label, x.narrators, x.file_id, x.content_version, x.filename, x.mime_type, x.size_bytes, x.updated_at, x.recording_id, x.file_order, x.file_count, x.publisher, x.published, x.isbn, x.synopsis, x.page_count, r.cover_locator AS cover_locator, r.cover_mime AS cover_mime
 FROM (
-  SELECT DISTINCT ON (p.publication_id) p.publication_id, p.media_kind, p.library_id, p.title_id, p.title, p.authors, p.series_name, p.series_index, p.language, p.label, p.narrators, p.file_id, p.content_version, p.filename, p.mime_type, p.size_bytes, p.updated_at, p.recording_id, p.file_order, p.file_count
+  SELECT DISTINCT ON (p.publication_id) p.publication_id, p.media_kind, p.library_id, p.title_id, p.title, p.authors, p.series_name, p.series_index, p.language, p.label, p.narrators, p.file_id, p.content_version, p.filename, p.mime_type, p.size_bytes, p.updated_at, p.recording_id, p.file_order, p.file_count, p.publisher, p.published, p.isbn, p.synopsis, p.page_count
   FROM opds_publication_rows p
   JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = $1
   WHERE p.publication_id = $2
@@ -83,6 +83,11 @@ type GetPublicationRow struct {
 	RecordingID    uuid.NullUUID `json:"recording_id"`
 	FileOrder      int32         `json:"file_order"`
 	FileCount      int32         `json:"file_count"`
+	Publisher      *string       `json:"publisher"`
+	Published      *string       `json:"published"`
+	Isbn           *string       `json:"isbn"`
+	Synopsis       *string       `json:"synopsis"`
+	PageCount      *int32        `json:"page_count"`
 	CoverLocator   *string       `json:"cover_locator"`
 	CoverMime      *string       `json:"cover_mime"`
 }
@@ -111,6 +116,11 @@ func (q *Queries) GetPublication(ctx context.Context, arg GetPublicationParams) 
 		&i.RecordingID,
 		&i.FileOrder,
 		&i.FileCount,
+		&i.Publisher,
+		&i.Published,
+		&i.Isbn,
+		&i.Synopsis,
+		&i.PageCount,
 		&i.CoverLocator,
 		&i.CoverMime,
 	)
@@ -145,9 +155,9 @@ func (q *Queries) GetPublicationCover(ctx context.Context, arg GetPublicationCov
 }
 
 const listPublications = `-- name: ListPublications :many
-SELECT x.publication_id, x.media_kind, x.library_id, x.title_id, x.title, x.authors, x.series_name, x.series_index, x.language, x.label, x.narrators, x.file_id, x.content_version, x.filename, x.mime_type, x.size_bytes, x.updated_at, x.recording_id, x.file_order, x.file_count, r.cover_locator AS cover_locator, r.cover_mime AS cover_mime
+SELECT x.publication_id, x.media_kind, x.library_id, x.title_id, x.title, x.authors, x.series_name, x.series_index, x.language, x.label, x.narrators, x.file_id, x.content_version, x.filename, x.mime_type, x.size_bytes, x.updated_at, x.recording_id, x.file_order, x.file_count, x.publisher, x.published, x.isbn, x.synopsis, x.page_count, r.cover_locator AS cover_locator, r.cover_mime AS cover_mime
 FROM (
-  SELECT DISTINCT ON (p.publication_id) p.publication_id, p.media_kind, p.library_id, p.title_id, p.title, p.authors, p.series_name, p.series_index, p.language, p.label, p.narrators, p.file_id, p.content_version, p.filename, p.mime_type, p.size_bytes, p.updated_at, p.recording_id, p.file_order, p.file_count
+  SELECT DISTINCT ON (p.publication_id) p.publication_id, p.media_kind, p.library_id, p.title_id, p.title, p.authors, p.series_name, p.series_index, p.language, p.label, p.narrators, p.file_id, p.content_version, p.filename, p.mime_type, p.size_bytes, p.updated_at, p.recording_id, p.file_order, p.file_count, p.publisher, p.published, p.isbn, p.synopsis, p.page_count
   FROM opds_publication_rows p
   JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = $1
   WHERE ($2::uuid IS NULL OR p.library_id = $2::uuid)
@@ -193,6 +203,11 @@ type ListPublicationsRow struct {
 	RecordingID    uuid.NullUUID `json:"recording_id"`
 	FileOrder      int32         `json:"file_order"`
 	FileCount      int32         `json:"file_count"`
+	Publisher      *string       `json:"publisher"`
+	Published      *string       `json:"published"`
+	Isbn           *string       `json:"isbn"`
+	Synopsis       *string       `json:"synopsis"`
+	PageCount      *int32        `json:"page_count"`
 	CoverLocator   *string       `json:"cover_locator"`
 	CoverMime      *string       `json:"cover_mime"`
 }
@@ -238,6 +253,11 @@ func (q *Queries) ListPublications(ctx context.Context, arg ListPublicationsPara
 			&i.RecordingID,
 			&i.FileOrder,
 			&i.FileCount,
+			&i.Publisher,
+			&i.Published,
+			&i.Isbn,
+			&i.Synopsis,
+			&i.PageCount,
 			&i.CoverLocator,
 			&i.CoverMime,
 		); err != nil {

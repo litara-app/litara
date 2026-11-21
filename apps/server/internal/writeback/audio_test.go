@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
@@ -197,5 +199,112 @@ func TestAudioWritersRefuseUnsupportedAndMalformedInput(t *testing.T) {
 				t.Fatalf("failed write left a stage: %v", err)
 			}
 		})
+	}
+}
+
+func tagOf(tags map[string]string, key string) string {
+	for k, v := range tags {
+		if strings.EqualFold(k, key) {
+			return v
+		}
+	}
+	return ""
+}
+
+func TestAudioWriterDescriptiveFieldsRoundTripAndClear(t *testing.T) {
+	ffmpeg, ffprobe := testutil.Tool(t, "ffmpeg"), testutil.Tool(t, "ffprobe")
+	all := metadata.Fields{
+		metadata.FieldPublisher:   json.RawMessage(`"Audible Studios"`),
+		metadata.FieldPublished:   json.RawMessage(`"2019-03-12"`),
+		metadata.FieldISBN:        json.RawMessage(`"9783161484100"`),
+		metadata.FieldDescription: json.RawMessage(`"A traveller builds a machine.\nIt goes wrong — é 🌍"`),
+	}
+	for _, tc := range []struct {
+		name, format, codec, muxer string
+		flags                      []string
+		date                       string
+	}{
+		{"mp3-id3v23", "mp3", "libmp3lame", "mp3", []string{"-id3v2_version", "3"}, "2019"},
+		{"mp3-id3v24", "mp3", "libmp3lame", "mp3", []string{"-id3v2_version", "4"}, "2019-03-12"},
+		{"flac", "flac", "flac", "flac", nil, "2019-03-12"},
+		{"m4b", "m4b", "aac", "ipod", nil, "2019-03-12"},
+		{"m4b-fast-start", "m4b", "aac", "ipod", []string{"-movflags", "+faststart"}, "2019-03-12"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			src, dst, dst2 := filepath.Join(dir, "source."+tc.format), filepath.Join(dir, "staged.tmp"), filepath.Join(dir, "staged2.tmp")
+			args := []string{"-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-map", "0:a", "-c:a", tc.codec,
+				"-metadata", "title=Old title", "-metadata", "comment=Unrelated metadata", "-metadata", "artist=An author", "-f", tc.muxer}
+			args = append(args, tc.flags...)
+			runTool(t, ffmpeg, append(args, src)...)
+			before := probeTags(t, ffprobe, src)
+
+			w := BuiltInWriters()[tc.format]
+			if err := w.Write(t.Context(), src, dst, all); err != nil {
+				t.Fatal(err)
+			}
+			if err := w.Validate(t.Context(), src, dst, all); err != nil {
+				t.Fatal(err)
+			}
+			after := probeTags(t, ffprobe, dst)
+			want := map[string]string{"publisher": "Audible Studios", "date": tc.date, "isbn": "9783161484100",
+				"description": "A traveller builds a machine.\nIt goes wrong — é 🌍"}
+			if tc.format == "flac" {
+				// ffprobe folds the Vorbis DESCRIPTION field into "comment", so read the comment block's bytes instead.
+				raw, err := os.ReadFile(dst)
+				// ffmpeg stores its "comment" as DESCRIPTION, so the writer correctly replaces that one comment; the others stay.
+				if err != nil || !bytes.Contains(raw, []byte("DESCRIPTION=A traveller builds a machine.\nIt goes wrong")) ||
+					bytes.Contains(raw, []byte("Unrelated metadata")) || !regexp.MustCompile("(?i)artist=An author").Match(raw) {
+					t.Errorf("FLAC comments: %v raw=%q", err, string(raw[:min(len(raw), 500)]))
+				}
+				delete(want, "description")
+			} else if tagOf(after.Format.Tags, "comment") != "Unrelated metadata" {
+				t.Errorf("an unrelated tag changed: %v", after.Format.Tags)
+			}
+			for key, w := range want {
+				if got := tagOf(after.Format.Tags, key); got != w {
+					t.Errorf("%s = %q, want %q (tags %v)", key, got, w, after.Format.Tags)
+				}
+			}
+			if tagOf(after.Format.Tags, "title") != "Old title" {
+				t.Errorf("the title changed: %v", after.Format.Tags)
+			}
+			if !reflect.DeepEqual(before.Packets, after.Packets) || !reflect.DeepEqual(before.Streams, after.Streams) {
+				t.Fatal("audio packets or streams changed")
+			}
+
+			// Replacing one value and clearing the others leaves exactly that.
+			second := metadata.Fields{metadata.FieldPublisher: json.RawMessage(`"New House"`), metadata.FieldISBN: json.RawMessage(`null`),
+				metadata.FieldDescription: json.RawMessage(`null`), metadata.FieldPublished: json.RawMessage(`null`)}
+			if err := w.Write(t.Context(), dst, dst2, second); err != nil {
+				t.Fatal(err)
+			}
+			if err := w.Validate(t.Context(), dst, dst2, second); err != nil {
+				t.Fatal(err)
+			}
+			last := probeTags(t, ffprobe, dst2)
+			if tagOf(last.Format.Tags, "publisher") != "New House" || tagOf(last.Format.Tags, "isbn") != "" ||
+				(tc.format != "flac" && tagOf(last.Format.Tags, "description") != "") || tagOf(last.Format.Tags, "date") != "" || tagOf(last.Format.Tags, "title") != "Old title" {
+				t.Errorf("after replace and clear: %v", last.Format.Tags)
+			}
+			if !reflect.DeepEqual(before.Packets, last.Packets) {
+				t.Fatal("audio packets changed")
+			}
+		})
+	}
+}
+
+func TestAudioWriterRefusesBadDescriptiveValues(t *testing.T) {
+	w := BuiltInWriters()["mp3"].(audioWriter)
+	for name, f := range map[string]metadata.Fields{
+		"bad date":  {metadata.FieldPublished: json.RawMessage(`"1895-13"`)},
+		"bad isbn":  {metadata.FieldISBN: json.RawMessage(`"123"`)},
+		"empty":     {metadata.FieldPublisher: json.RawMessage(`" "`)},
+		"authors":   {metadata.FieldAuthors: json.RawMessage(`["x"]`)},
+		"cleared t": {metadata.FieldTitle: json.RawMessage(`null`)},
+	} {
+		if w.ValidateFields(f) == nil {
+			t.Errorf("%s accepted", name)
+		}
 	}
 }

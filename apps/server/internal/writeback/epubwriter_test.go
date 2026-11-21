@@ -425,3 +425,101 @@ func TestEPUBWriterSeriesNameAndIndexAreIndependent(t *testing.T) {
 		t.Fatalf("clearing the name removes the series and its index: %+v", got)
 	}
 }
+
+func TestEPUBWriterDescriptiveFields(t *testing.T) {
+	src := build(t, opfCalibre(), nil)
+	dst := writeAndValidate(t, src, fields(t, map[string]any{
+		"publisher": "New House", "published": "1895-05", "isbn": "9783161484100", "description": "First line.\n\nSecond line.",
+	}))
+	m, err := ebookmeta.Read(dst, "epub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Publisher != "New House" || m.Published != "1895-05" || m.Identifier != "9783161484100" || m.Description != "First line.\n\nSecond line." {
+		t.Fatalf("%+v", m)
+	}
+	// The package identifier keeps its id and scheme; an unrelated subject and the custom meta stay byte-identical.
+	opf := string(readZip(t, dst)["OEBPS/content.opf"])
+	for _, keep := range []string{`id="uid"`, `<dc:subject>Unknown Subject One</dc:subject>`, `<meta name="calibre:custom" content="keep"/>`} {
+		if !strings.Contains(opf, keep) {
+			t.Fatalf("lost %q:\n%s", keep, opf)
+		}
+	}
+}
+
+func TestEPUBWriterClearsAndInsertsDescriptiveFields(t *testing.T) {
+	src := build(t, opfCalibre(), nil)
+	cleared := writeAndValidate(t, src, fields(t, map[string]any{"publisher": nil, "description": nil}))
+	m, _ := ebookmeta.Read(cleared, "epub")
+	if m.Publisher != "" || m.Description != "" {
+		t.Fatalf("not cleared: %+v", m)
+	}
+	// A file with none of them gets new elements.
+	plain := build(t, opfPlain("<dc:title>P</dc:title>"), nil)
+	added := writeAndValidate(t, plain, fields(t, map[string]any{"publisher": "P House", "published": "2001", "isbn": "9780306406157", "description": "Hi."}))
+	g, _ := ebookmeta.Read(added, "epub")
+	if g.Publisher != "P House" || g.Published != "2001" || g.Identifier != "9780306406157" || g.Description != "Hi." {
+		t.Fatalf("%+v", g)
+	}
+}
+
+func TestEPUBWriterKeepsTheModificationDate(t *testing.T) {
+	opf := strings.Replace(opfEPUB3(), `<dc:language>fr</dc:language>`, `<dc:language>fr</dc:language><dc:date>1895-05-07</dc:date>`, 1)
+	opf = strings.Replace(opf, `<meta property="dcterms:modified">`, `<dc:date opf:event="modification" xmlns:opf="http://www.idpf.org/2007/opf">2026-01-01</dc:date><meta property="dcterms:modified">`, 1)
+	src := build(t, opf, nil)
+	dst := writeAndValidate(t, src, fields(t, map[string]any{"published": "1896"}))
+	m, _ := ebookmeta.Read(dst, "epub")
+	if m.Published != "1896" || !strings.Contains(string(readZip(t, dst)["OEBPS/content.opf"]), ">2026-01-01</dc:date>") {
+		t.Fatalf("%+v", m)
+	}
+}
+
+func TestEPUBWriterRefusesWhatCannotBeWritten(t *testing.T) {
+	src := build(t, opfCalibre(), nil)
+	for name, ch := range map[string]map[string]any{
+		"zero pages":      {"page_count": 0},
+		"bad isbn":        {"isbn": "123"},
+		"bad date":        {"published": "1895-13"},
+		"angle brackets":  {"description": "a <b> c"},
+		"package id gone": {"isbn": nil},
+	} {
+		dst := filepath.Join(t.TempDir(), "x.epub")
+		err := EPUBWriter{}.Write(context.Background(), src, dst, fields(t, ch))
+		if err == nil {
+			t.Errorf("%s: written", name)
+		}
+	}
+}
+
+func TestEPUBWriterPageCount(t *testing.T) {
+	src := build(t, opfCalibre(), nil)
+	set := writeAndValidate(t, src, fields(t, map[string]any{"page_count": 320}))
+	m, _ := ebookmeta.Read(set, "epub")
+	if m.PageCount == nil || *m.PageCount != 320 || !strings.Contains(string(readZip(t, set)["OEBPS/content.opf"]), `<meta name="litara:page_count" content="320"/>`) {
+		t.Fatalf("%+v", m)
+	}
+	again := writeAndValidate(t, set, fields(t, map[string]any{"page_count": 321}))
+	m, _ = ebookmeta.Read(again, "epub")
+	if m.PageCount == nil || *m.PageCount != 321 || strings.Count(string(readZip(t, again)["OEBPS/content.opf"]), "litara:page_count") != 1 {
+		t.Fatalf("a second write must replace, not add: %+v", m)
+	}
+	gone := writeAndValidate(t, again, fields(t, map[string]any{"page_count": nil}))
+	if m, _ = ebookmeta.Read(gone, "epub"); m.PageCount != nil {
+		t.Fatalf("not cleared: %+v", m)
+	}
+
+	// BookOrbit's own meta is kept in step; a Calibre custom column can be read but not cleared.
+	bo := strings.Replace(opfCalibre(), `<meta name="calibre:custom" content="keep"/>`, `<meta name="bookorbit:page_count" content="100"/>`, 1)
+	synced := writeAndValidate(t, build(t, bo, nil), fields(t, map[string]any{"page_count": 250}))
+	if opf := string(readZip(t, synced)["OEBPS/content.opf"]); !strings.Contains(opf, `name="bookorbit:page_count" content="250"`) {
+		t.Fatalf("bookorbit meta not updated: %s", opf)
+	}
+	cal := strings.Replace(opfCalibre(), `<meta name="calibre:custom" content="keep"/>`, `<meta name="calibre:user_metadata:#pagecount" content="{&quot;#value#&quot;: 412}"/>`, 1)
+	cs := build(t, cal, nil)
+	if m, _ = ebookmeta.Read(cs, "epub"); m.PageCount == nil || *m.PageCount != 412 {
+		t.Fatalf("calibre column not read: %+v", m)
+	}
+	if err := (EPUBWriter{}).Write(context.Background(), cs, filepath.Join(t.TempDir(), "x.epub"), fields(t, map[string]any{"page_count": nil})); err == nil {
+		t.Fatal("cleared a Calibre-held page count")
+	}
+}

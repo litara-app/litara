@@ -85,6 +85,21 @@ func embeddedFields(m ebookmeta.Meta) map[string]any {
 	if m.Language != "" {
 		emb["language"] = m.Language
 	}
+	if m.Publisher != "" {
+		emb["publisher"] = m.Publisher
+	}
+	if m.Published != "" {
+		emb["published"] = m.Published
+	}
+	if m.PageCount != nil {
+		emb["page_count"] = *m.PageCount
+	}
+	if m.Identifier != "" {
+		emb["isbn"] = m.Identifier
+	}
+	if m.Description != "" {
+		emb["description"] = m.Description
+	}
 	return emb
 }
 

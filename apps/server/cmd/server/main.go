@@ -23,6 +23,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/app"
 	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/config"
+	"github.com/deranjer/ebooker/apps/server/internal/covers"
 	"github.com/deranjer/ebooker/apps/server/internal/db"
 	"github.com/deranjer/ebooker/apps/server/internal/delivery"
 	"github.com/deranjer/ebooker/apps/server/internal/httpapi"
@@ -196,7 +197,7 @@ func run() error {
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
 		Handler: httpapi.New(httpapi.Deps{Web: appHandler(cfg), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
 			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Reading: rd, Library: library.New(pool), Config: apiCfg, Log: log,
-				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Integrations: integ, Delivery: deliverySvc, KOReader: koreader.New(pool, cat, nil)}}),
+				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Covers: covers.New(pool, cfg.MediaRoot, covers.NewFetcher(false), covers.NewSearcher()), Integrations: integ, Delivery: deliverySvc, KOReader: koreader.New(pool, cat, nil)}}),
 	}
 	errc := make(chan error, 2)
 	go func() {

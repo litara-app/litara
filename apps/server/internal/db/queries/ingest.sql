@@ -197,7 +197,7 @@ UPDATE recordings SET link_state = 'confirmed' WHERE id = $1;
 DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id);
 
 -- name: SetAssociationState :exec
-UPDATE associations SET state = $3, detail = $4, recording_id = $5 WHERE library_id = $1 AND rel_path = $2;
+UPDATE associations SET state = $3, detail = $4, recording_id = $5, edition_id = NULL WHERE library_id = $1 AND rel_path = $2;
 
 -- name: GetResolvedChoice :one
 SELECT COALESCE(resolution->>'path', '')::text FROM review_items

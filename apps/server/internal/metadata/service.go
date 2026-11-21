@@ -118,6 +118,9 @@ func (s *Service) Refresh(ctx context.Context, lib uuid.UUID) error {
 	return nil
 }
 
+// ReadSidecar reads and parses one associated sidecar ("json" for Litara JSON, "opf" for an OPF package) under root.
+func ReadSidecar(root, rel, kind string) (Fields, bool) { return readSidecar(root, rel, kind) }
+
 func readSidecar(root, rel, kind string) (Fields, bool) {
 	if root == "" {
 		return nil, false
@@ -144,7 +147,7 @@ func readSidecar(root, rel, kind string) (Fields, bool) {
 	return out, err == nil
 }
 
-var allFields = []string{FieldTitle, FieldAuthors, FieldSeriesName, FieldSeriesIndex, FieldNarrators}
+var allFields = []string{FieldTitle, FieldAuthors, FieldSeriesName, FieldSeriesIndex, FieldNarrators, FieldPublisher, FieldPublished, FieldISBN, FieldDescription}
 
 // storeSource replaces one source's values (a field missing from fields is removed).
 func (s *Service) storeSource(ctx context.Context, q *sqlcgen.Queries, rec sqlcgen.GetRecordingRowRow, source string, fields Fields) error {
@@ -227,6 +230,15 @@ func (s *Service) Apply(ctx context.Context, recordingID uuid.UUID) error {
 	})
 }
 
+// EffectiveForTitle resolves a title's stored values (user edits, sidecar, embedded, provider) by precedence.
+func EffectiveForTitle(ctx context.Context, q *sqlcgen.Queries, titleID uuid.UUID) (map[string]Effective, error) {
+	rows, err := q.ListMetadataValues(ctx, sqlcgen.ListMetadataValuesParams{SubjectKind: "title", SubjectID: titleID})
+	if err != nil {
+		return nil, err
+	}
+	return Resolve(fromRows(rows)), nil
+}
+
 // validate checks a user-supplied value for its field.
 func validate(field string, raw json.RawMessage) error {
 	switch field {
@@ -250,10 +262,31 @@ func validate(field string, raw json.RawMessage) error {
 		if json.Unmarshal(raw, &v) != nil || v < 0 {
 			return apperr.Validation("series_index must be a non-negative number")
 		}
+	case FieldPublisher:
+		if v, ok := stringOf(raw); !ok || strings.TrimSpace(v) == "" || len([]rune(v)) > 512 {
+			return apperr.Validation("publisher must be a non-empty string of up to 512 characters")
+		}
+	case FieldDescription:
+		if v, ok := stringOf(raw); !ok || strings.TrimSpace(v) == "" || len([]rune(v)) > MaxDescription {
+			return apperr.Validation("description must be a non-empty string of up to 8000 characters")
+		}
+	case FieldPublished:
+		if v, ok := stringOf(raw); !ok || !publishedRe.MatchString(v) {
+			return apperr.Validation("published must be YYYY, YYYY-MM or YYYY-MM-DD")
+		}
+	case FieldISBN:
+		if v, ok := stringOf(raw); !ok || !isbnRe.MatchString(v) {
+			return apperr.Validation("isbn must be 10 or 13 characters (digits, and X for the last of ten) with no hyphens")
+		}
 	default:
 		return apperr.Validation("unknown field " + field)
 	}
 	return nil
+}
+
+func stringOf(raw json.RawMessage) (string, bool) {
+	var v string
+	return v, json.Unmarshal(raw, &v) == nil
 }
 
 // SetUser stores a protected edit (value) or a protected clear (raw == nil).

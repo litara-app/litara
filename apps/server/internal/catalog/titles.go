@@ -3,6 +3,8 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -12,13 +14,27 @@ import (
 )
 
 // TitleListParams: Q is a case-insensitive literal substring over title,
-// authors and series (never SQL or a regular expression).
+// authors and series (never SQL or a regular expression). The other text filters work the same way; Language and
+// Format are exact. Sort is one of the keys in SortKeys.
 type TitleListParams struct {
 	Q          *string
 	LibraryID  *uuid.UUID
 	MediaKind  *string // "ebook" or "audio"
+	Author     *string
+	Series     *string
+	Publisher  *string
+	Language   *string
+	Format     *string // an ebook format such as "epub", or "audio"
+	Status     *string // unread, reading or finished (the caller's own)
+	Rated      *string // rated or unrated (the caller's own)
+	Sort       string
+	Descending bool
+	Filter     *wire.TitleFilter // an optional filter tree (ADR-0085), ANDed with the other filters
 	Page, Size int
 }
+
+// SortKeys are the columns the library list can be ordered by.
+var SortKeys = []string{"title", "author", "series", "series_index", "publisher", "published", "language", "status", "pages", "rating", "editions", "added"}
 
 func titleWire(id uuid.UUID, title string, authors []string, series *string, languages []string, editions, recordings int64) wire.T005Title {
 	auth := make([]wire.Str512, 0, len(authors))
@@ -38,22 +54,174 @@ func titleWire(id uuid.UUID, title string, authors []string, series *string, lan
 		EditionCount: editions, RecordingCount: recordings}
 }
 
+func optStr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 // Titles lists titles that hold at least one edition or recording in a library
-// the caller can read. Counts include only granted libraries.
-func (s *Service) Titles(ctx context.Context, userID uuid.UUID, p TitleListParams) (wire.T005Titles, error) {
-	rows, err := s.q.ListTitlesPage(ctx, sqlcgen.ListTitlesPageParams{UserID: userID, Q: p.Q, LibraryID: nullUUID(p.LibraryID), MediaKind: p.MediaKind, PageSize: int32(p.Size), PageOffset: int32(p.Page * p.Size)})
-	if err != nil {
-		return wire.T005Titles{}, unavailable(err)
+// the caller can read, with the columns the library table shows, filtered and ordered as asked. Counts, formats
+// and libraries include only granted libraries. The single-value filters and the filter tree (ADR-0085) share one
+// compiler, so they cannot disagree.
+func (s *Service) Titles(ctx context.Context, userID uuid.UUID, p TitleListParams) (wire.T009Titles, error) {
+	sort := p.Sort
+	if sort == "" {
+		sort = "title"
 	}
-	total, err := s.q.CountTitlesPage(ctx, sqlcgen.CountTitlesPageParams{UserID: userID, Q: p.Q, LibraryID: nullUUID(p.LibraryID), MediaKind: p.MediaKind})
+	tree := p.tree()
+	rows, total, err := s.queryTitles(ctx, userID, p, sort, tree, p.Page*p.Size, p.Size)
 	if err != nil {
-		return wire.T005Titles{}, unavailable(err)
+		return wire.T009Titles{}, err
 	}
-	out := wire.T005Titles{Items: []wire.T005Title{}, Total: total, Page: int64(p.Page), Size: int64(p.Size)}
+	out := wire.T009Titles{Items: []wire.T009TitleRow{}, Page: int64(p.Page), Size: int64(p.Size), Total: total}
+	if len(rows) == 0 && p.Page > 0 {
+		// A page past the end has no rows to carry the total; ask for the first row of the same set.
+		if first, t, err := s.queryTitles(ctx, userID, p, sort, tree, 0, 1); err == nil && len(first) > 0 {
+			out.Total = t
+		}
+	}
 	for _, r := range rows {
-		out.Items = append(out.Items, titleWire(r.ID, r.Title, r.Authors, r.SeriesName, r.Languages, r.EditionCount, r.RecordingCount))
+		row := wire.T009TitleRow{
+			T005Title:   titleWire(r.id, r.title, r.authors, r.seriesName, r.languages, r.editionCount, r.recordingCount),
+			LibraryIDs:  make([]string, 0, len(r.libraryIDs)),
+			Formats:     append([]string{}, r.formats...),
+			AddedAt:     r.addedAt.UTC().Format(time.RFC3339),
+			SeriesIndex: r.seriesIndex,
+			Publisher:   optStr(r.publisher),
+			Published:   optStr(r.published),
+			Status:      r.status,
+		}
+		for _, l := range r.libraryIDs {
+			row.LibraryIDs = append(row.LibraryIDs, l.String())
+		}
+		if r.pageCount > 0 {
+			n := int64(r.pageCount)
+			row.PageCount = &n
+		}
+		if r.ratingHalves > 0 {
+			n := int64(r.ratingHalves)
+			row.RatingHalves = &n
+		}
+		out.Items = append(out.Items, row)
 	}
 	return out, nil
+}
+
+// tree combines the single-value filters and the optional filter tree into one AND group.
+func (p TitleListParams) tree() *wire.TitleFilter {
+	var rules []wire.TitleFilter
+	add := func(field, op string, v *string) {
+		if v != nil {
+			rules = append(rules, wire.TitleFilter{Type: "rule", Field: field, Operator: op, Value: *v})
+		}
+	}
+	add("author", "contains", p.Author)
+	add("series", "contains", p.Series)
+	add("publisher", "contains", p.Publisher)
+	add("language", "is", p.Language)
+	add("format", "is", p.Format)
+	add("status", "is", p.Status)
+	if p.Rated != nil {
+		op := "is_empty"
+		if *p.Rated == "rated" {
+			op = "not_empty"
+		}
+		rules = append(rules, wire.TitleFilter{Type: "rule", Field: "rating", Operator: op})
+	}
+	if p.Filter != nil {
+		rules = append(rules, *p.Filter)
+	}
+	if len(rules) == 0 {
+		return nil
+	}
+	return &wire.TitleFilter{Type: "group", Join: "AND", Rules: rules}
+}
+
+type titleRow struct {
+	id                           uuid.UUID
+	title                        string
+	authors                      []string
+	seriesName                   *string
+	seriesIndex                  *float64
+	editionCount, recordingCount int64
+	languages, formats           []string
+	libraryIDs                   []uuid.UUID
+	addedAt                      time.Time
+	publisher, published         string
+	pageCount                    int32
+	ratingHalves                 int16
+	status                       string
+}
+
+// queryTitles runs the one list query. Every value is a bound parameter; only the compiled tree's shape, built from the
+// fixed field catalogue, becomes SQL text.
+func (s *Service) queryTitles(ctx context.Context, userID uuid.UUID, p TitleListParams, sort string, tree *wire.TitleFilter, offset, limit int) ([]titleRow, int64, error) {
+	c := &filterCompiler{}
+	c.arg(userID) // $1
+	cond, err := c.compile(tree, 1)
+	if err != nil {
+		return nil, 0, err
+	}
+	where := []string{"b.edition_count + b.recording_count > 0", cond}
+	if p.Q != nil {
+		where = append(where, "position(lower("+c.arg(*p.Q)+"::text) in lower(b.title || chr(10) || array_to_string(b.authors, chr(10)) || chr(10) || COALESCE(b.series_name, ''))) > 0")
+	}
+	if p.LibraryID != nil {
+		where = append(where, c.arg(*p.LibraryID)+"::uuid = ANY (b.library_ids)")
+	}
+	if p.MediaKind != nil {
+		switch *p.MediaKind {
+		case "ebook":
+			where = append(where, "b.edition_count > 0")
+		case "audio":
+			where = append(where, "b.recording_count > 0")
+		}
+	}
+	dir := "ASC"
+	if p.Descending {
+		dir = "DESC"
+	}
+	sql := `WITH base AS (SELECT * FROM title_rows($1)), filtered AS (
+  SELECT b.* FROM base b WHERE ` + strings.Join(where, " AND ") + `
+), keyed AS (
+  SELECT f.*,
+    CASE ` + c.arg(sort) + `::text
+      WHEN 'title' THEN lower(f.title) WHEN 'author' THEN lower(COALESCE(f.authors[1], ''))
+      WHEN 'series' THEN lower(f.series_name) WHEN 'publisher' THEN lower(f.publisher) WHEN 'published' THEN f.published
+      WHEN 'language' THEN f.languages[1] WHEN 'status' THEN f.status END AS sort_text,
+    CASE $` + fmt.Sprint(len(c.args)) + `::text
+      WHEN 'pages' THEN f.page_count::double precision WHEN 'rating' THEN f.rating_halves::double precision
+      WHEN 'series_index' THEN f.series_index WHEN 'editions' THEN f.edition_count::double precision END AS sort_num,
+    CASE $` + fmt.Sprint(len(c.args)) + `::text WHEN 'added' THEN f.added_at END AS sort_ts
+  FROM filtered f
+)
+SELECT k.id, k.title, k.authors, k.series_name, k.series_index, k.edition_count, k.recording_count, k.languages, k.formats, k.library_ids,
+       COALESCE(k.added_at, 'epoch'::timestamptz)::timestamptz, COALESCE(k.publisher, '')::text, COALESCE(k.published, '')::text,
+       COALESCE(k.page_count, 0)::int, COALESCE(k.rating_halves, 0)::smallint, k.status, count(*) OVER ()::bigint
+FROM keyed k
+ORDER BY k.sort_text ` + dir + ` NULLS LAST, k.sort_num ` + dir + ` NULLS LAST, k.sort_ts ` + dir + ` NULLS LAST, lower(k.title), k.id
+LIMIT ` + c.arg(limit) + ` OFFSET ` + c.arg(offset)
+	rs, err := s.pool.Query(ctx, sql, c.args...)
+	if err != nil {
+		return nil, 0, unavailable(err)
+	}
+	defer rs.Close()
+	var out []titleRow
+	var total int64
+	for rs.Next() {
+		var r titleRow
+		if err := rs.Scan(&r.id, &r.title, &r.authors, &r.seriesName, &r.seriesIndex, &r.editionCount, &r.recordingCount, &r.languages, &r.formats,
+			&r.libraryIDs, &r.addedAt, &r.publisher, &r.published, &r.pageCount, &r.ratingHalves, &r.status, &total); err != nil {
+			return nil, 0, unavailable(err)
+		}
+		out = append(out, r)
+	}
+	if err := rs.Err(); err != nil {
+		return nil, 0, unavailable(err)
+	}
+	return out, total, nil
 }
 
 // Title returns one title the caller can see through a granted library.

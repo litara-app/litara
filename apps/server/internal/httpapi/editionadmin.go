@@ -20,7 +20,7 @@ func (a *API) manageEdition(ctx context.Context, id string) error {
 
 type MetadataFieldIn struct {
 	EditionID string `path:"editionId" format:"uuid"`
-	Field     string `path:"field" enum:"title,authors,series_name,series_index,language,tags"`
+	Field     string `path:"field" enum:"title,authors,series_name,series_index,language,tags,publisher,published,page_count,isbn,description"`
 }
 
 func (a *API) registerEditionAdmin(api huma.API) {
