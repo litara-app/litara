@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Litara · Reading Room · gilt folio style variations</title>
+<style>
+@font-face{font-family:Fraunces;src:url(../../apps/web/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2);font-weight:100 900}
+@font-face{font-family:Fraunces;font-style:italic;src:url(../../apps/web/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-italic.woff2);font-weight:100 900}
+@font-face{font-family:"IM Fell";src:url(../../apps/web/node_modules/@fontsource/im-fell-english/files/im-fell-english-latin-400-normal.woff2)}
+@font-face{font-family:"IM Fell";font-style:italic;src:url(../../apps/web/node_modules/@fontsource/im-fell-english/files/im-fell-english-latin-400-italic.woff2)}
+@font-face{font-family:"Source Sans";src:url(../../apps/web/node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2);font-weight:200 900}
+:root{--paper:#fbf6ea;--paper2:#f4ebd6;--desk:#eee2c8;--pline:#d6c7a4;--pink:#2a2018;--pdim:#65553f;--pedge:#85704f;--pri:#1f4f82;--priInk:#fff8e6;--priSoft:#dde6ef;--ribbon:#a8322b;
+ --lea:#3a2a20;--lea2:#271b14;--lea3:#1b120d;--lInk:#f3e8cf;--lDim:#cdbb94;--foil:#dcb85f;--foil2:#a8873a;--ok:#8ad09a;--aud:#c4a3e0;
+ --display:Fraunces,Georgia,serif;--sans:"Source Sans",system-ui,sans-serif;--accent:"IM Fell",Georgia,serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--desk);color:var(--pink);font:15px/1.45 var(--sans)}
+.wrap{max-width:1240px;margin:0 auto;padding:22px 20px 80px}
+h1{font:700 30px var(--display);margin:0 0 4px}.lede{color:var(--pdim);margin:0 0 14px;max-width:820px}
+h2{font:700 21px var(--display);margin:34px 0 4px}.sub{color:var(--pdim);margin:0 0 10px;font-size:14px;max-width:900px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--pdim);margin:8px 0 6px}
+svg.i{width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.fit{width:100%;overflow:hidden;border:2px solid var(--pedge);border-radius:4px;box-shadow:3px 3px 0 var(--pline);margin-top:8px}
+.stage{width:1400px;transform-origin:0 0}
+/* ---------- shared pieces ---------- */
+.cv{position:relative;aspect-ratio:2/3;border-radius:2px 5px 5px 2px;overflow:hidden;color:#fff;display:flex;flex-direction:column;justify-content:space-between;padding:9% 10% 9% 14%;container-type:inline-size;
+ background:linear-gradient(155deg,hsl(var(--h) 52% 38%),hsl(calc(var(--h) + 35) 58% 18%));box-shadow:1px 2px 3px rgba(0,0,0,.35),3px 0 0 -1px #f7f0dc,4px 0 0 -1px #cdbf9c;font-family:var(--display)}
+.cv::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.05) 0 2px,transparent 2px 9px)}
+.cv::after{content:"";position:absolute;left:0;top:0;bottom:0;width:9%;background:linear-gradient(90deg,rgba(0,0,0,.35),rgba(255,255,255,.14) 55%,rgba(0,0,0,.18))}
+.cv b{position:relative;font-size:13cqw;line-height:1.05;font-weight:650}.cv i{position:relative;font-style:normal;font-size:7.5cqw;text-transform:uppercase;letter-spacing:.12em;opacity:.9}
+.tag{display:inline-block;font:700 10px/1 var(--sans);letter-spacing:.06em;padding:3px 5px;border-radius:2px;background:rgba(20,12,6,.78);color:#f6ecd2;border:1px solid rgba(220,184,95,.6)}
+.tag.au{background:rgba(70,36,96,.85);color:#f1e3fa;border-color:rgba(196,163,224,.7)}
+.cvwrap{position:relative}.cvwrap .fm{position:absolute;top:7px;right:7px;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
+/* hover-only menu dots (applies to every cover) */
+.cvwrap .more{position:absolute;right:8px;bottom:8px;width:28px;height:28px;border-radius:50%;border:1px solid rgba(220,184,95,.7);background:rgba(20,12,6,.72);color:#f6ecd2;display:grid;place-items:center;opacity:0;transition:opacity .15s}
+.cvwrap:hover .more{opacity:1}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--pedge);background:var(--paper);color:var(--pink);border-radius:3px;padding:6px 13px;font:600 14px var(--sans);white-space:nowrap}
+.btn.pri{background:var(--pri);color:var(--priInk);border-color:#16385e}
+.btn.ico{padding:6px 8px}
+.btn.sm{padding:3px 9px;font-size:13px}
+.stars{display:inline-flex;gap:2px;color:var(--foil)}.stars svg{width:17px;height:17px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.kvl{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--line,#0003)}
+.kvl span:first-child{color:var(--dm,#888)}.kvl .tag{color:#f6ecd2}.kvl .tag.au{color:#f1e3fa}.kvl span:last-child{text-align:right;font-weight:600}
+.ed{display:inline-flex;gap:3px;color:var(--dm);cursor:pointer}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid var(--foil2);border-radius:999px;padding:1px 10px;font-size:12px}
+.quote{font:16px/1.5 var(--display)}
+.rail{display:flex;gap:14px;overflow:hidden}.rail .cvwrap{width:106px;flex:none}
+.tabsx{display:flex;gap:2px;font-weight:600;font-size:14px}.tabsx a{padding:9px 14px;display:flex;gap:6px;align-items:center}
+/* ============ 1. LEATHER BANNER, DENSE (light paper) ============ */
+.L1{background:var(--desk);color:var(--pink);--line:#d6c7a4;--dm:#65553f}
+.L1 .top{height:34px;background:linear-gradient(var(--lea),var(--lea2));color:var(--lInk);display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:2px solid var(--foil);font-size:14px}
+.L1 .top .sp{flex:1}.L1 .top a{display:flex;gap:6px;align-items:center}
+.L1 .banner{background:linear-gradient(135deg,#4a3224,#2b1c13);color:var(--lInk);padding:20px 26px 20px 26px;display:grid;grid-template-columns:200px 1fr 300px;gap:26px;border-bottom:3px solid var(--foil);position:relative}
+.L1 .banner .cvwrap{margin-bottom:-70px;z-index:2;box-shadow:0 10px 22px rgba(0,0,0,.55)}
+.L1 .banner h3{margin:0;font:700 34px/1.05 var(--display);color:var(--foil)}.L1 .by{font:italic 17px var(--display);color:var(--lDim);margin:2px 0 8px}
+.L1 .banner .btn{background:rgba(251,246,234,.1);color:var(--lInk);border-color:rgba(220,184,95,.7)}.L1 .banner .btn.pri{background:var(--foil);color:#2a1a08;border-color:var(--foil2)}
+.L1 .banner .chip{color:var(--lInk)}
+.L1 .banner .stat{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:13px;align-content:start}.L1 .banner .stat b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--lDim);font-weight:600}
+.L1 .main{display:grid;grid-template-columns:200px 1fr 330px;gap:26px;padding:86px 26px 22px}
+.L1 .tabsx{border-bottom:2px solid var(--pedge);margin-bottom:12px}.L1 .tabsx a{color:var(--pdim)}.L1 .tabsx a.on{color:var(--pink);box-shadow:inset 0 3px 0 var(--ribbon);background:var(--paper);border:1px solid var(--pedge);border-bottom:0;border-radius:4px 4px 0 0;margin-bottom:-2px}
+.L1 .sheet{background:var(--paper);border:1px solid var(--pline);box-shadow:2px 2px 0 var(--pline);padding:13px 16px;margin-bottom:14px}
+.L1 .sheet h4{margin:0 0 6px;font:600 11px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--pdim);display:flex;justify-content:space-between}
+.L1 .shelfrow{padding:0 26px 22px}
+.L1 .shelfrow h4{font:700 16px var(--display);margin:0 0 8px}
+
+/* ============ GILT FOLIO, parametrised ============ */
+.F{background:var(--bg);color:var(--ink);--dm:var(--dim)}
+.F .top{height:38px;display:flex;align-items:center;gap:6px;padding:0 18px;border-bottom:1px solid var(--line);font-size:14px;background:var(--topbg)}
+.F .top .sp{flex:1}.F .top a{padding:9px 13px;display:flex;gap:6px;align-items:center;color:var(--dim)}.F .top a.on{color:var(--foil);box-shadow:inset 0 -2px 0 var(--foil)}.F .top .nav{color:var(--dim);display:flex;gap:10px;align-items:center}
+.F .btn{background:var(--btnbg);color:var(--btnink);border-color:var(--btnbd)}.F .btn.pri{background:var(--foil);color:var(--priink);border-color:var(--foil2)}
+.F .panel .btn{background:var(--pbtnbg);color:var(--pbtnink);border-color:var(--pbtnbd)}
+.F h3.t{margin:0;font:700 34px/1.05 var(--display);color:var(--title)}.F .by{font:italic 17px var(--display);color:var(--by);margin:2px 0 8px}
+.F .panel{position:relative;border:1px solid var(--line);background:var(--panelbg);color:var(--panelink);padding:14px 18px;box-shadow:var(--panelshadow)}
+.F .panel h4{margin:0 0 8px;font:600 11px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--label);display:flex;align-items:center}
+.F .panel h4::after{content:"";flex:1;height:1px;background:var(--line);margin-left:10px}
+.F .panel h4 span{order:3;margin-left:10px;letter-spacing:0;text-transform:none;color:var(--paneldim);font-weight:400}
+.F .quote{color:var(--panelink)}
+.F .chip{color:var(--ink);border-color:var(--foil2)}.F .stars{color:var(--foil)}
+.F .kvl{border-bottom:1px dotted var(--line)}.F .panel{--dm:var(--paneldim)}
+.F .leader span:first-child{color:var(--paneldim)}.F .leader::before{border-bottom-color:var(--line)}
+.F .body{display:grid;grid-template-columns:230px 1fr 340px;gap:22px;padding:22px 24px 8px}
+.F .coll{display:flex;flex-direction:column;gap:10px}.F .acts{display:grid;grid-template-columns:1fr 38px;gap:8px}.F .acts2{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.F .shelfrow{padding:14px 24px 22px}.F .shelfhead{display:flex;align-items:center;gap:10px;font:700 15px var(--display);color:var(--foil);margin-bottom:10px}.F .shelfhead::after{content:"";flex:1;height:1px;background:var(--line)}
+.F .tag{border-color:var(--foil2)}
+.leader{display:flex;align-items:baseline;gap:6px;padding:3px 0}.leader::before{content:"";order:1;flex:1;border-bottom:1px dotted var(--line);transform:translateY(-3px)}.leader span:first-child{order:0}.leader span:last-child{order:2;font-weight:600}
+/* variant 1: midnight gilt */
+.V1{--bg:radial-gradient(1200px 600px at 30% 0%,#2a1d15,#140e0a);--ink:#f3e8cf;--dim:#cdbb94;--topbg:rgba(0,0,0,.28);--line:rgba(220,184,95,.28);--foil:#dcb85f;--foil2:#a8873a;--priink:#241505;--title:#fff4d8;--by:#dcb85f;
+ --btnbg:rgba(251,246,234,.06);--btnink:#f3e8cf;--btnbd:rgba(220,184,95,.6);--panelbg:linear-gradient(rgba(251,246,234,.05),rgba(251,246,234,.02));--panelink:#f1e6cc;--paneldim:#cdbb94;--label:#dcb85f;
+ --pbtnbg:rgba(251,246,234,.06);--pbtnink:#f3e8cf;--pbtnbd:rgba(220,184,95,.6);--panelshadow:inset 0 0 0 4px rgba(20,12,6,.55),inset 0 0 0 5px rgba(220,184,95,.28)}
+/* variant 2: oxblood and vellum */
+.V2{--bg:repeating-linear-gradient(115deg,rgba(255,255,255,.012) 0 2px,transparent 2px 7px),linear-gradient(#3b1714,#1c0a08);--ink:#f6e9d0;--dim:#dcc3a2;--topbg:rgba(0,0,0,.3);--line:rgba(220,184,95,.4);--foil:#e3c26b;--foil2:#a8873a;--priink:#2a1505;--title:#fff1d4;--by:#e3c26b;
+ --btnbg:rgba(251,246,234,.07);--btnink:#f6e9d0;--btnbd:rgba(227,194,107,.65);--panelbg:#f8f0dc;--panelink:#2a2018;--paneldim:#6d5b43;--label:#9b2f28;
+ --pbtnbg:#fbf6ea;--pbtnink:#2a2018;--pbtnbd:#85704f;--panelshadow:0 0 0 3px #1c0a08,0 0 0 4px rgba(227,194,107,.8),2px 6px 14px rgba(0,0,0,.45)}
+.V2 .panel{--line:#cdb98f}.V2 .panel .tag{color:#f6ecd2}.V2 .panel .tag.au{color:#f1e3fa}
+.V2 .panel h4::after{background:#cdb98f}.V2 .panel .kvl,.V2 .panel .leader::before{border-color:#cdb98f}
+/* variant 3: emerald and brass */
+.V3{--bg:radial-gradient(1100px 600px at 70% 0%,#17382d,#08150f);--ink:#e8f0e0;--dim:#a9c2b0;--topbg:rgba(0,0,0,.3);--line:rgba(201,162,77,.35);--foil:#d2ac58;--foil2:#8f7430;--priink:#1a1204;--title:#f5f1de;--by:#d2ac58;
+ --btnbg:rgba(232,240,224,.06);--btnink:#e8f0e0;--btnbd:rgba(210,172,88,.6);--panelbg:rgba(232,240,224,.045);--panelink:#e8f0e0;--paneldim:#a9c2b0;--label:#d2ac58;
+ --pbtnbg:rgba(232,240,224,.06);--pbtnink:#e8f0e0;--pbtnbd:rgba(210,172,88,.6);--panelshadow:none}
+.V3 .panel{border-color:rgba(201,162,77,.18)}
+.V3 .panel::before,.V3 .panel::after{content:"";position:absolute;width:16px;height:16px;border:2px solid var(--foil)}
+.V3 .panel::before{left:-1px;top:-1px;border-right:0;border-bottom:0}.V3 .panel::after{right:-1px;bottom:-1px;border-left:0;border-top:0}
+.V3 h3.t,.V3 .panel h4,.V3 .shelfhead{font-family:var(--accent)}.V3 .panel h4{font-size:13px;letter-spacing:.1em}.V3 .quote{font-family:var(--accent);font-size:17px;line-height:1.55}
+.vlabel{display:flex;gap:12px;align-items:baseline;margin:30px 0 4px}.vlabel h2{margin:0}
+.swatches{display:flex;gap:6px}.swatches i{width:18px;height:18px;border-radius:50%;border:1px solid #0004}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+<symbol id="chev-l" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol><symbol id="chev-r" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+<symbol id="book-open" viewBox="0 0 24 24"><path d="M12 7c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5zM12 7v13"/></symbol>
+<symbol id="headphones" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+<symbol id="shelf" viewBox="0 0 24 24"><path d="M4 5h4v14H4zM10 5h4v14h-4zM16.5 6l3.5 1-3 12-3.5-1z"/></symbol>
+<symbol id="send" viewBox="0 0 24 24"><path d="m21 3-9 18-2-8-8-2zM10 13l11-10"/></symbol>
+<symbol id="eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.5 2.5 4.5-5"/></symbol>
+<symbol id="pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z"/></symbol>
+<symbol id="dots" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="18.5" r="1.6" fill="currentColor"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
+<symbol id="files" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></symbol>
+<symbol id="highlighter" viewBox="0 0 24 24"><path d="m4 20 4-1 10-10-3-3L5 16zM13 7l3 3"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z"/></symbol>
+<symbol id="bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+</defs></svg>
+<div class="wrap">
+<h1>Gilt folio · three style variations</h1>
+<p class="lede">Same layout in all three (the one you chose), with only the skin changed: colour of the ground, how the panels are drawn, what the labels and quotes are set in. Small shared refinements: dotted leaders in the details, tabs as a gold underline, icon rail under the cover. Hover a cover to see the three-dot button.</p>
+<div class="vlabel"><h2>A · Midnight gilt</h2><span class="swatches"><i style="background:#140e0a"></i><i style="background:#dcb85f"></i><i style="background:#f3e8cf"></i></span></div>
+<p class="sub">Today's look, polished: black-brown leather, translucent panels with a double hairline gold frame, Fraunces labels. The most understated.</p>
+<div class="fit"><div class="stage F V1" id="f1"></div></div>
+<div class="vlabel"><h2>B · Oxblood and vellum</h2><span class="swatches"><i style="background:#3b1714"></i><i style="background:#f8f0dc"></i><i style="background:#e3c26b"></i></span></div>
+<p class="sub">Deep red leather ground with the information on vellum pages, set in ink with oxblood labels. Easiest to read in long sessions; the paper panels make the data the brightest thing on screen.</p>
+<div class="fit"><div class="stage F V2" id="f2"></div></div>
+<div class="vlabel"><h2>C · Emerald and brass</h2><span class="swatches"><i style="background:#08150f"></i><i style="background:#d2ac58"></i><i style="background:#e8f0e0"></i></span></div>
+<p class="sub">Library-lamp green with brass. Panels have no box, just two brass corner brackets; labels and synopsis use the old-book typeface (IM Fell). The most distinctive and the most "antique".</p>
+<div class="fit"><div class="stage F V3" id="f3"></div></div>
+<p class="pickline">Pick one (or mix: for instance B's vellum panels with C's brackets).</p>
+</div>
+<script>
+
+const ic=n=>`<svg class="i"><use href="#${n}"/></svg>`;
+const stars=n=>`<span class="stars" aria-label="Rated ${n} of 5">${[1,2,3,4,5].map(k=>`<svg class="i" style="${k<=n?'fill:currentColor':''}"><use href="#star"/></svg>`).join('')}</span>`;
+const cvr=(t,a,h,fm=[])=>`<div class="cvwrap"><div class="cv" style="--h:${h}"><b>${t}</b><i>${a.split(' ').pop()}</i></div><div class="fm">${fm.map(f=>`<span class="tag ${f==='M4B'?'au':''}">${f}</span>`).join('')}</div><div class="more">${ic('dots')}</div></div>`;
+const main=cvr('The Time Machine','H. G. Wells',210,['EPUB +','M4B']);
+const syn='A Victorian scientist builds a machine that carries him through time, and he travels to the year 802,701. There he meets the gentle Eloi, who live above ground in apparent ease, and discovers the Morlocks who tend the machinery below. This edition keeps the revised 1895 text, with a short introduction and notes on the Scientific Romances series. '+'He returns with a strange flower, a few doubting friends and a story nobody believes. The book is short, bleak and still the template for most time travel since.';
+const btn=(i,l,c='')=>`<a class="btn ${c}" title="${l}" aria-label="${l}">${ic(i)}${l}</a>`;
+const ibtn=(i,l,c='')=>`<a class="btn ico ${c}" title="${l}" aria-label="${l}">${ic(i)}</a>`;
+const acts=`${btn('book-open','Read','pri')}${btn('headphones','Listen')}${ibtn('eye','Mark as read')}${ibtn('download','Download')}${ibtn('shelf','Add to shelf')}${ibtn('send','Send to device')}${ibtn('dots','More')}`;
+const status=`<a class="btn sm">${ic('bookmark')}Unread ${ic('chev-r')}</a>`;
+const chipSpans=`<span class="chip">Science fiction</span><span class="chip">Classic</span><span class="chip">Scientific Romances</span>`;const chips=`<div class="chips">${chipSpans}</div>`;
+const details=[['Publisher','William Heinemann'],['Published','1895'],['Language','en'],['Pages','118'],['ISBN','978-1-2345-6789-7'],['File size','1.3 MB'],['Library','Fiction'],['Added','Jun 18, 2026 '+ic('pencil')],['Date started','– '+ic('pencil')],['Date finished','– '+ic('pencil')]];
+const kv=(rows,cls='kvl')=>rows.map(([k,v])=>`<div class="${cls}"><span>${k}</span><span>${v}</span></div>`).join('');
+const editions=`<div class="kvl"><span><span class="tag">EPUB</span> Ebook</span><span>1.3 MB</span></div><div class="kvl"><span><span class="tag au">M4B</span> Audiobook</span><span>3h 12m</span></div><div class="kvl"><span>Files on disk</span><span>4</span></div>`;
+const reading=`<p style="margin:0">No reading sessions yet. Opening this book in the reader tracks time, pace and per-device progress.</p>`;
+const review=`<div class="row" style="justify-content:space-between"><span style="color:var(--dm)">Your review: not written yet</span>${btn('pencil','Write','sm')}</div>`;
+const rail=(n=14)=>{const t=['The Invisible Man','The War of the Worlds','The Island of Doctor Moreau','The First Men in the Moon','Kipps','Tono-Bungay','The Food of the Gods','In the Days of the Comet','The Sleeper Awakes','Ann Veronica','The History of Mr Polly','The Wheels of Chance','Love and Mr Lewisham','The Wonderful Visit'];return `<div class="rail">${t.slice(0,n).map((x,i)=>cvr(x,'H. G. Wells',(i*41+20)%360,[i%3?'EPUB':'EPUB +'])).join('')}</div>`};
+const topnav=`<a>${ic('arrow-left')}Library</a><span style="flex:1"></span>`;
+const tabsTop=(on)=>[['info','Details'],['pencil','Edit metadata'],['files','Files'],['clock','Reading log'],['highlighter','Highlights']].map(([i,l],k)=>`<a class="${k===on?'on':''}">${ic(i)}${l}</a>`).join('');
+const pager=`<span class="nav">14 / 202 ${ic('chev-l')}${ic('chev-r')}</span>`;
+
+const folio=id=>{document.getElementById(id).innerHTML=`<div class="top"><a>${ic('arrow-left')}Library</a>${tabsTop(0)}<span class="sp"></span>${pager}</div>
+<div class="body"><div class="coll">${main}<div class="acts">${btn('book-open','Read','pri')}${ibtn('eye','Mark as read')}</div><div class="acts2">${ibtn('headphones','Listen')}${ibtn('download','Download')}${ibtn('shelf','Add to shelf')}${ibtn('send','Send to device')}</div></div>
+<div style="display:flex;flex-direction:column;gap:14px"><div><h3 class="t">The Time Machine</h3><div class="by">by H. G. Wells · Scientific Romances #1</div><div class="row">${stars(4)}${status}<span class="tag">82% read</span></div><div style="margin-top:10px">${chips}</div></div>
+<div class="panel"><h4>Synopsis <span>Show more</span></h4><div class="quote">${syn}</div></div>
+<div class="panel"><h4>Your review</h4>${review}</div><div class="panel"><h4>Your reading <span>not started</span></h4>${reading}</div></div>
+<div style="display:flex;flex-direction:column;gap:14px"><div class="panel"><h4>Details</h4>${details.map(([k,v])=>`<div class="leader"><span>${k}</span><span>${v}</span></div>`).join('')}</div><div class="panel"><h4>Editions <span>2 files</span></h4>${editions}<div class="row" style="margin-top:8px">${btn('plus','Add audiobook','sm')}</div></div></div></div>
+<div class="shelfrow"><div class="shelfhead">${ic('shelf')}More by H. G. Wells</div>${rail(13)}</div>`};
+['f1','f2','f3'].forEach(folio);
+function fit(){document.querySelectorAll('.fit').forEach(f=>{const s=f.firstElementChild;const k=f.clientWidth/1400;s.style.transform=`scale(${k})`;f.style.height=(s.offsetHeight*k)+'px'})}
+addEventListener('resize',fit);document.fonts.ready.then(fit);fit();
+</script></body></html>

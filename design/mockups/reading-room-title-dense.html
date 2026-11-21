@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Litara · Reading Room · dense title page options</title>
+<style>
+@font-face{font-family:Fraunces;src:url(../../apps/web/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2);font-weight:100 900}
+@font-face{font-family:Fraunces;font-style:italic;src:url(../../apps/web/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-italic.woff2);font-weight:100 900}
+@font-face{font-family:"IM Fell";src:url(../../apps/web/node_modules/@fontsource/im-fell-english/files/im-fell-english-latin-400-normal.woff2)}
+@font-face{font-family:"IM Fell";font-style:italic;src:url(../../apps/web/node_modules/@fontsource/im-fell-english/files/im-fell-english-latin-400-italic.woff2)}
+@font-face{font-family:"Source Sans";src:url(../../apps/web/node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2);font-weight:200 900}
+:root{--paper:#fbf6ea;--paper2:#f4ebd6;--desk:#eee2c8;--pline:#d6c7a4;--pink:#2a2018;--pdim:#65553f;--pedge:#85704f;--pri:#1f4f82;--priInk:#fff8e6;--priSoft:#dde6ef;--ribbon:#a8322b;
+ --lea:#3a2a20;--lea2:#271b14;--lea3:#1b120d;--lInk:#f3e8cf;--lDim:#cdbb94;--foil:#dcb85f;--foil2:#a8873a;--ok:#8ad09a;--aud:#c4a3e0;
+ --display:Fraunces,Georgia,serif;--sans:"Source Sans",system-ui,sans-serif;--accent:"IM Fell",Georgia,serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--desk);color:var(--pink);font:15px/1.45 var(--sans)}
+.wrap{max-width:1240px;margin:0 auto;padding:22px 20px 80px}
+h1{font:700 30px var(--display);margin:0 0 4px}.lede{color:var(--pdim);margin:0 0 14px;max-width:820px}
+h2{font:700 21px var(--display);margin:34px 0 4px}.sub{color:var(--pdim);margin:0 0 10px;font-size:14px;max-width:900px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--pdim);margin:8px 0 6px}
+svg.i{width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.fit{width:100%;overflow:hidden;border:2px solid var(--pedge);border-radius:4px;box-shadow:3px 3px 0 var(--pline);margin-top:8px}
+.stage{width:1400px;transform-origin:0 0}
+/* ---------- shared pieces ---------- */
+.cv{position:relative;aspect-ratio:2/3;border-radius:2px 5px 5px 2px;overflow:hidden;color:#fff;display:flex;flex-direction:column;justify-content:space-between;padding:9% 10% 9% 14%;container-type:inline-size;
+ background:linear-gradient(155deg,hsl(var(--h) 52% 38%),hsl(calc(var(--h) + 35) 58% 18%));box-shadow:1px 2px 3px rgba(0,0,0,.35),3px 0 0 -1px #f7f0dc,4px 0 0 -1px #cdbf9c;font-family:var(--display)}
+.cv::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.05) 0 2px,transparent 2px 9px)}
+.cv::after{content:"";position:absolute;left:0;top:0;bottom:0;width:9%;background:linear-gradient(90deg,rgba(0,0,0,.35),rgba(255,255,255,.14) 55%,rgba(0,0,0,.18))}
+.cv b{position:relative;font-size:13cqw;line-height:1.05;font-weight:650}.cv i{position:relative;font-style:normal;font-size:7.5cqw;text-transform:uppercase;letter-spacing:.12em;opacity:.9}
+.tag{display:inline-block;font:700 10px/1 var(--sans);letter-spacing:.06em;padding:3px 5px;border-radius:2px;background:rgba(20,12,6,.78);color:#f6ecd2;border:1px solid rgba(220,184,95,.6)}
+.tag.au{background:rgba(70,36,96,.85);color:#f1e3fa;border-color:rgba(196,163,224,.7)}
+.cvwrap{position:relative}.cvwrap .fm{position:absolute;top:7px;right:7px;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
+/* hover-only menu dots (applies to every cover) */
+.cvwrap .more{position:absolute;right:8px;bottom:8px;width:28px;height:28px;border-radius:50%;border:1px solid rgba(220,184,95,.7);background:rgba(20,12,6,.72);color:#f6ecd2;display:grid;place-items:center;opacity:0;transition:opacity .15s}
+.cvwrap:hover .more{opacity:1}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--pedge);background:var(--paper);color:var(--pink);border-radius:3px;padding:6px 13px;font:600 14px var(--sans);white-space:nowrap}
+.btn.pri{background:var(--pri);color:var(--priInk);border-color:#16385e}
+.btn.ico{padding:6px 8px}
+.btn.sm{padding:3px 9px;font-size:13px}
+.stars{display:inline-flex;gap:2px;color:var(--foil)}.stars svg{width:17px;height:17px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.kvl{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--line,#0003)}
+.kvl span:first-child{color:var(--dm,#888)}.kvl .tag{color:#f6ecd2}.kvl .tag.au{color:#f1e3fa}.kvl span:last-child{text-align:right;font-weight:600}
+.ed{display:inline-flex;gap:3px;color:var(--dm);cursor:pointer}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid var(--foil2);border-radius:999px;padding:1px 10px;font-size:12px}
+.quote{font:16px/1.5 var(--display)}
+.rail{display:flex;gap:14px;overflow:hidden}.rail .cvwrap{width:106px;flex:none}
+.tabsx{display:flex;gap:2px;font-weight:600;font-size:14px}.tabsx a{padding:9px 14px;display:flex;gap:6px;align-items:center}
+/* ============ 1. LEATHER BANNER, DENSE (light paper) ============ */
+.L1{background:var(--desk);color:var(--pink);--line:#d6c7a4;--dm:#65553f}
+.L1 .top{height:34px;background:linear-gradient(var(--lea),var(--lea2));color:var(--lInk);display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:2px solid var(--foil);font-size:14px}
+.L1 .top .sp{flex:1}.L1 .top a{display:flex;gap:6px;align-items:center}
+.L1 .banner{background:linear-gradient(135deg,#4a3224,#2b1c13);color:var(--lInk);padding:20px 26px 20px 26px;display:grid;grid-template-columns:200px 1fr 300px;gap:26px;border-bottom:3px solid var(--foil);position:relative}
+.L1 .banner .cvwrap{margin-bottom:-70px;z-index:2;box-shadow:0 10px 22px rgba(0,0,0,.55)}
+.L1 .banner h3{margin:0;font:700 34px/1.05 var(--display);color:var(--foil)}.L1 .by{font:italic 17px var(--display);color:var(--lDim);margin:2px 0 8px}
+.L1 .banner .btn{background:rgba(251,246,234,.1);color:var(--lInk);border-color:rgba(220,184,95,.7)}.L1 .banner .btn.pri{background:var(--foil);color:#2a1a08;border-color:var(--foil2)}
+.L1 .banner .chip{color:var(--lInk)}
+.L1 .banner .stat{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:13px;align-content:start}.L1 .banner .stat b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--lDim);font-weight:600}
+.L1 .main{display:grid;grid-template-columns:200px 1fr 330px;gap:26px;padding:86px 26px 22px}
+.L1 .tabsx{border-bottom:2px solid var(--pedge);margin-bottom:12px}.L1 .tabsx a{color:var(--pdim)}.L1 .tabsx a.on{color:var(--pink);box-shadow:inset 0 3px 0 var(--ribbon);background:var(--paper);border:1px solid var(--pedge);border-bottom:0;border-radius:4px 4px 0 0;margin-bottom:-2px}
+.L1 .sheet{background:var(--paper);border:1px solid var(--pline);box-shadow:2px 2px 0 var(--pline);padding:13px 16px;margin-bottom:14px}
+.L1 .sheet h4{margin:0 0 6px;font:600 11px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--pdim);display:flex;justify-content:space-between}
+.L1 .shelfrow{padding:0 26px 22px}
+.L1 .shelfrow h4{font:700 16px var(--display);margin:0 0 8px}
+/* ============ dark gilt base ============ */
+.G{background:radial-gradient(1200px 600px at 30% 0%,#2a1d15,#140e0a);color:var(--lInk);--line:rgba(220,184,95,.28);--dm:var(--lDim)}
+.G .top{height:38px;display:flex;align-items:center;gap:6px;padding:0 18px;border-bottom:1px solid var(--line);font-size:14px;background:rgba(0,0,0,.28)}
+.G .top .sp{flex:1}.G .top a{padding:9px 13px;display:flex;gap:6px;align-items:center;color:var(--lDim)}.G .top a.on{color:var(--foil);box-shadow:inset 0 -2px 0 var(--foil)}.G .top .nav{color:var(--lDim);display:flex;gap:10px;align-items:center}
+.G .btn{background:rgba(251,246,234,.06);color:var(--lInk);border-color:rgba(220,184,95,.6)}.G .btn.pri{background:var(--foil);color:#241505;border-color:var(--foil2)}
+.G h3.t{margin:0;font:700 34px/1.05 var(--display);color:#fff4d8}.G .by{font:italic 17px var(--display);color:var(--foil);margin:2px 0 8px}
+.G .panel{border:1px solid var(--line);background:linear-gradient(rgba(251,246,234,.05),rgba(251,246,234,.02));padding:14px 18px;position:relative;box-shadow:inset 0 0 0 4px rgba(20,12,6,.55),inset 0 0 0 5px var(--line)}
+.G .panel h4{margin:0 0 8px;font:600 11px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--foil);display:flex;justify-content:space-between;align-items:center}
+.G .panel h4::after{content:"";flex:1;height:1px;background:var(--line);margin-left:10px}
+.G .panel h4 span{order:3;margin-left:10px;letter-spacing:0;text-transform:none;color:var(--lDim);font-weight:400}
+.G .quote{color:#f1e6cc}
+.G .chip{color:var(--lInk);border-color:var(--foil2)}.G .kvl{border-bottom:1px dotted var(--line)}
+.G .stars{color:var(--foil)}
+.G .rail{padding:0}.G .shelfhead{display:flex;align-items:center;gap:10px;font:700 15px var(--display);color:var(--foil);margin-bottom:10px}
+.G .shelfhead::after{content:"";flex:1;height:1px;background:var(--line)}
+/* ============ 2. GILT FOLIO ============ */
+.L2 .body{display:grid;grid-template-columns:230px 1fr 340px;gap:22px;padding:22px 24px 8px}
+.L2 .coll{display:flex;flex-direction:column;gap:10px}
+.L2 .acts{display:grid;grid-template-columns:1fr 38px;gap:8px}.L2 .acts2{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.L2 .shelfrow{padding:14px 24px 22px}
+/* dot leaders */
+.leader{display:flex;align-items:baseline;gap:6px;padding:3px 0}.leader::before{content:"";order:1;flex:1;border-bottom:1px dotted var(--line);transform:translateY(-3px)}
+.leader span:first-child{order:0;color:var(--lDim)}.leader span:last-child{order:2;font-weight:600}
+/* ============ 3. GILT DOSSIER ============ */
+.L3 .head{display:grid;grid-template-columns:170px 1fr;gap:24px;padding:20px 24px 14px}
+.L3 .strip{display:grid;grid-template-columns:1.5fr .8fr .6fr .6fr 1.6fr .8fr .8fr 1.1fr 1fr 1fr;border:1px solid var(--line);margin-top:12px;background:rgba(0,0,0,.25)}
+.L3 .strip div{padding:6px 10px;border-right:1px solid var(--line);font-size:13px;font-weight:600;min-width:0}.L3 .strip div:last-child{border:0}
+.L3 .strip small{display:block;font:600 10px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--foil);font-weight:600}
+.L3 .cols{display:grid;grid-template-columns:1fr 1fr 330px;gap:20px;padding:6px 24px 8px}
+.L3 .shelfrow{padding:14px 24px 22px}
+.L3 .titlerow{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+/* ============ 4. GILT MARGINALIA (paper page on leather) ============ */
+.L4{background:linear-gradient(var(--lea),var(--lea3));color:var(--lInk);--line:rgba(220,184,95,.3);--dm:var(--lDim)}
+.L4 .top{height:38px;display:flex;align-items:center;gap:6px;padding:0 18px;font-size:14px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.3)}.L4 .top .sp{flex:1}.L4 .top a{padding:9px 13px;display:flex;gap:6px;align-items:center;color:var(--lDim)}.L4 .top a.on{color:var(--foil);box-shadow:inset 0 -2px 0 var(--foil)}
+.L4 .stage2{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:22px 24px 6px}
+.L4 .gutter{display:flex;flex-direction:column;gap:9px;align-items:center}
+.L4 .gutter .btn{background:rgba(251,246,234,.07);color:var(--lInk);border-color:rgba(220,184,95,.6);width:44px;height:44px;justify-content:center;padding:0}.L4 .gutter .btn.pri{background:var(--foil);color:#241505;border-color:var(--foil2)}
+.L4 .page{background:var(--paper);color:var(--pink);border:1px solid var(--foil2);box-shadow:0 0 0 3px var(--lea2),0 0 0 4px var(--foil2),0 14px 28px rgba(0,0,0,.55);display:grid;grid-template-columns:230px 1fr 300px;gap:0;position:relative;min-height:540px}
+.L4 .page > *{padding:20px 24px}
+.L4 .pcover{background:var(--paper2);border-right:1px solid var(--pline);display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
+.L4 .pcover .cvwrap{width:170px}.L4 .margin .kvl span.tag{color:#f6ecd2}.L4 .margin .kvl span.tag.au{color:#f1e3fa}.L4 .pcover .rule,.L4 .rule{height:1px;background:var(--pedge);width:60%;margin:4px auto}
+.L4 h3.t{margin:0;font:700 31px/1.05 var(--display)}.L4 .by{font:italic 17px var(--display);color:var(--pdim);margin:2px 0 8px}
+.L4 .margin{background:var(--paper2);border-left:1px solid var(--pline);font-family:var(--accent);font-size:15px;color:var(--pdim)}
+.L4 .margin h4,.L4 .page h4{margin:0 0 4px;font:600 11px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ribbon)}
+.L4 .margin .kvl{border-bottom:1px solid var(--pline);--dm:var(--pdim)}.L4 .margin .kvl span:last-child{color:var(--pink)}
+.L4 .page .chip{border-color:var(--pedge);color:var(--pdim)}.L4 .stars{color:#a8822c}
+.L4 .page .btn{background:var(--paper);color:var(--pink);border-color:var(--pedge)}.L4 .page .btn.pri{background:var(--pri);color:var(--priInk)}
+.L4 .shelfrow{padding:16px 24px 22px}.L4 .shelfhead{display:flex;align-items:center;gap:10px;font:700 15px var(--display);color:var(--foil);margin-bottom:10px}.L4 .shelfhead::after{content:"";flex:1;height:1px;background:var(--line)}
+.pickline{margin-top:18px;color:var(--pdim);font-size:14px}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+<symbol id="chev-l" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol><symbol id="chev-r" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+<symbol id="book-open" viewBox="0 0 24 24"><path d="M12 7c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5zM12 7v13"/></symbol>
+<symbol id="headphones" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+<symbol id="shelf" viewBox="0 0 24 24"><path d="M4 5h4v14H4zM10 5h4v14h-4zM16.5 6l3.5 1-3 12-3.5-1z"/></symbol>
+<symbol id="send" viewBox="0 0 24 24"><path d="m21 3-9 18-2-8-8-2zM10 13l11-10"/></symbol>
+<symbol id="eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.5 2.5 4.5-5"/></symbol>
+<symbol id="pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z"/></symbol>
+<symbol id="dots" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="18.5" r="1.6" fill="currentColor"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
+<symbol id="files" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></symbol>
+<symbol id="highlighter" viewBox="0 0 24 24"><path d="m4 20 4-1 10-10-3-3L5 16zM13 7l3 3"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z"/></symbol>
+<symbol id="bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+</defs></svg>
+<div class="wrap">
+<h1>Reading Room · dense title page</h1>
+<p class="lede">Everything on one screen: rating, status, tags, synopsis, review, reading sessions, the full details list (publisher to dates finished), editions and audiobook, files, and a rail of more books by the author. Option 1 is the leather banner, kept on paper. Options 2–4 are new and lean into gilt (dark leather, gold hairlines, double-ruled panels). Each is drawn 1400px wide and shrunk to fit; hover a cover to see the three-dot menu appear.</p>
+<div class="legend"><span>Icon-only buttons (with tooltip and accessible name): mark read, download, add to shelf, send to device, more.</span><span>Labelled buttons: Read, Listen, Write review.</span></div>
+
+<h2>1 · Leather banner, dense</h2>
+<p class="sub">The banner holds identity and actions: title in gold foil, rating, status, tags and the main buttons, with the cover hanging over its edge and a quick stats block on the right. Content below sits on paper in three columns: cover column with the facts, tabs and the prose in the middle, and the details and editions plates on the right.</p>
+<div class="fit"><div class="stage L1" id="s1"></div></div>
+
+<h2>2 · Gilt folio</h2>
+<p class="sub">A dark page of gilt-ruled plates. Left: the cover with the action rail beneath it as icon buttons. Middle: title, rating and status, then the synopsis, review and reading plates. Right: the details as a ledger with dotted leaders, then editions. Tabs run along the top bar like the reference.</p>
+<div class="fit"><div class="stage G L2" id="s2"></div></div>
+
+<h2>3 · Gilt dossier</h2>
+<p class="sub">A horizontal data strip right under the title holds all ten facts at once (publisher, published, language, pages, ISBN, size, library, added, started, finished), so nothing needs a side column. Below it: synopsis and review, then reading sessions and files, then editions with the audiobook.</p>
+<div class="fit"><div class="stage G L3" id="s3"></div></div>
+
+<h2>4 · Gilt marginalia</h2>
+<p class="sub">A paper page set into the dark leather, ruled in gold: cover and facts on the left leaf, the text in the middle, and the details as handwritten-style margin notes on the right. Actions live in a narrow gilt-edged gutter as icon buttons. The most bookish and the quietest to read, with the same information.</p>
+<div class="fit"><div class="stage L4" id="s4"></div></div>
+<p class="pickline">Tell me which one to build (or what to borrow between them). The covers use the Gilt hover from before, and the three-dot button now appears only on hover.</p>
+</div>
+<script>
+const ic=n=>`<svg class="i"><use href="#${n}"/></svg>`;
+const stars=n=>`<span class="stars" aria-label="Rated ${n} of 5">${[1,2,3,4,5].map(k=>`<svg class="i" style="${k<=n?'fill:currentColor':''}"><use href="#star"/></svg>`).join('')}</span>`;
+const cvr=(t,a,h,fm=[])=>`<div class="cvwrap"><div class="cv" style="--h:${h}"><b>${t}</b><i>${a.split(' ').pop()}</i></div><div class="fm">${fm.map(f=>`<span class="tag ${f==='M4B'?'au':''}">${f}</span>`).join('')}</div><div class="more">${ic('dots')}</div></div>`;
+const main=cvr('The Time Machine','H. G. Wells',210,['EPUB +','M4B']);
+const syn='A Victorian scientist builds a machine that carries him through time, and he travels to the year 802,701. There he meets the gentle Eloi, who live above ground in apparent ease, and discovers the Morlocks who tend the machinery below. This edition keeps the revised 1895 text, with a short introduction and notes on the Scientific Romances series. '+'He returns with a strange flower, a few doubting friends and a story nobody believes. The book is short, bleak and still the template for most time travel since.';
+const btn=(i,l,c='')=>`<a class="btn ${c}" title="${l}" aria-label="${l}">${ic(i)}${l}</a>`;
+const ibtn=(i,l,c='')=>`<a class="btn ico ${c}" title="${l}" aria-label="${l}">${ic(i)}</a>`;
+const acts=`${btn('book-open','Read','pri')}${btn('headphones','Listen')}${ibtn('eye','Mark as read')}${ibtn('download','Download')}${ibtn('shelf','Add to shelf')}${ibtn('send','Send to device')}${ibtn('dots','More')}`;
+const status=`<a class="btn sm">${ic('bookmark')}Unread ${ic('chev-r')}</a>`;
+const chipSpans=`<span class="chip">Science fiction</span><span class="chip">Classic</span><span class="chip">Scientific Romances</span>`;const chips=`<div class="chips">${chipSpans}</div>`;
+const details=[['Publisher','William Heinemann'],['Published','1895'],['Language','en'],['Pages','118'],['ISBN','978-1-2345-6789-7'],['File size','1.3 MB'],['Library','Fiction'],['Added','Jun 18, 2026 '+ic('pencil')],['Date started','– '+ic('pencil')],['Date finished','– '+ic('pencil')]];
+const kv=(rows,cls='kvl')=>rows.map(([k,v])=>`<div class="${cls}"><span>${k}</span><span>${v}</span></div>`).join('');
+const editions=`<div class="kvl"><span><span class="tag">EPUB</span> Ebook</span><span>1.3 MB</span></div><div class="kvl"><span><span class="tag au">M4B</span> Audiobook</span><span>3h 12m</span></div><div class="kvl"><span>Files on disk</span><span>4</span></div>`;
+const reading=`<p style="margin:0">No reading sessions yet. Opening this book in the reader tracks time, pace and per-device progress.</p>`;
+const review=`<div class="row" style="justify-content:space-between"><span style="color:var(--dm)">Your review: not written yet</span>${btn('pencil','Write','sm')}</div>`;
+const rail=(n=14)=>{const t=['The Invisible Man','The War of the Worlds','The Island of Doctor Moreau','The First Men in the Moon','Kipps','Tono-Bungay','The Food of the Gods','In the Days of the Comet','The Sleeper Awakes','Ann Veronica','The History of Mr Polly','The Wheels of Chance','Love and Mr Lewisham','The Wonderful Visit'];return `<div class="rail">${t.slice(0,n).map((x,i)=>cvr(x,'H. G. Wells',(i*41+20)%360,[i%3?'EPUB':'EPUB +'])).join('')}</div>`};
+const topnav=`<a>${ic('arrow-left')}Library</a><span style="flex:1"></span>`;
+const tabsTop=(on)=>[['info','Details'],['pencil','Edit metadata'],['files','Files'],['clock','Reading log'],['highlighter','Highlights']].map(([i,l],k)=>`<a class="${k===on?'on':''}">${ic(i)}${l}</a>`).join('');
+const pager=`<span class="nav">14 / 202 ${ic('chev-l')}${ic('chev-r')}</span>`;
+// 1
+document.getElementById('s1').innerHTML=`<div class="top"><a>${ic('arrow-left')}Library</a><span class="sp"></span><span>14 / 202</span>${ic('chev-l')}${ic('chev-r')}</div>
+<div class="banner">${main}<div><h3>The Time Machine</h3><div class="by">H. G. Wells · Scientific Romances #1</div><div class="row" style="margin-bottom:8px">${stars(4)}${status}<span class="tag">82% read</span></div>${chips}<div class="row" style="margin-top:12px">${acts}</div></div>
+<div class="stat"><div><b>Publisher</b>William Heinemann</div><div><b>Published</b>1895</div><div><b>Language</b>en</div><div><b>Pages</b>118</div><div><b>ISBN</b>978-1-2345-6789-7</div><div><b>Library</b>Fiction</div></div></div>
+<div class="main"><div class="sheet" style="align-self:start;margin:0"><h4>Editions <span>2 files</span></h4>${editions}<div class="row" style="margin-top:8px">${btn('plus','Add audiobook','sm')}</div></div>
+<div><div class="tabsx">${tabsTop(0)}</div><div class="sheet"><h4>Synopsis <span>Show more</span></h4><div class="quote">${syn}</div></div><div class="sheet"><h4>Your review</h4>${review}</div><div class="sheet"><h4>Your reading <span>not started</span></h4>${reading}</div></div>
+<div><div class="sheet"><h4>Details</h4>${kv(details)}</div></div></div>
+<div class="shelfrow"><h4>More by H. G. Wells</h4>${rail(13)}</div>`;
+// 2
+document.getElementById('s2').innerHTML=`<div class="top"><a>${ic('arrow-left')}Library</a>${tabsTop(0)}<span class="sp"></span>${pager}</div>
+<div class="body"><div class="coll">${main}<div class="acts">${btn('book-open','Read','pri')}${ibtn('eye','Mark as read')}</div><div class="acts2">${ibtn('headphones','Listen')}${ibtn('download','Download')}${ibtn('shelf','Add to shelf')}${ibtn('send','Send to device')}</div></div>
+<div style="display:flex;flex-direction:column;gap:14px"><div><h3 class="t">The Time Machine</h3><div class="by">by H. G. Wells · Scientific Romances #1</div><div class="row">${stars(4)}${status}<span class="tag">82% read</span></div><div style="margin-top:10px">${chips}</div></div>
+<div class="panel"><h4>Synopsis <span>Show more</span></h4><div class="quote">${syn}</div></div>
+<div class="panel"><h4>Your review</h4>${review}</div><div class="panel"><h4>Your reading <span>not started</span></h4>${reading}</div></div>
+<div style="display:flex;flex-direction:column;gap:14px"><div class="panel"><h4>Details</h4>${details.map(([k,v])=>`<div class="leader"><span>${k}</span><span>${v}</span></div>`).join('')}</div><div class="panel"><h4>Editions <span>2 files</span></h4>${editions}<div class="row" style="margin-top:8px">${btn('plus','Add audiobook','sm')}</div></div></div></div>
+<div class="shelfrow"><div class="shelfhead">${ic('shelf')}More by H. G. Wells</div>${rail(13)}</div>`;
+// 3
+const strip=details.map(([k,v])=>`<div><small>${k}</small>${v.replace(/ ?<svg.*$/,'')}</div>`).join('');
+document.getElementById('s3').innerHTML=`<div class="top"><a>${ic('arrow-left')}Library</a>${tabsTop(0)}<span class="sp"></span>${pager}</div>
+<div class="head">${main}<div><div class="titlerow"><div><h3 class="t">The Time Machine</h3><div class="by">by H. G. Wells · Scientific Romances #1</div><div class="row">${stars(4)}${status}<span class="tag">82% read</span></div></div><div class="row" style="justify-content:flex-end">${acts}</div></div><div style="margin-top:10px">${chips}</div><div class="strip">${strip}</div></div></div>
+<div class="cols"><div style="display:flex;flex-direction:column;gap:14px"><div class="panel"><h4>Synopsis <span>Show more</span></h4><div class="quote">${syn}</div></div><div class="panel"><h4>Your review</h4>${review}</div></div>
+<div style="display:flex;flex-direction:column;gap:14px"><div class="panel"><h4>Your reading <span>not started</span></h4>${reading}<div class="row" style="margin-top:8px">${btn('book-open','Start reading','sm')}</div></div><div class="panel"><h4>Highlights <span>3</span></h4><div class="quote" style="font-size:15px">“Fifteen men on the dead man's chest”</div></div></div>
+<div class="panel"><h4>Editions <span>2 files</span></h4>${editions}<div class="row" style="margin-top:8px">${btn('plus','Add audiobook','sm')}</div></div></div>
+<div class="shelfrow"><div class="shelfhead">${ic('shelf')}By this author</div>${rail(13)}</div>`;
+// 4
+document.getElementById('s4').innerHTML=`<div class="top"><a>${ic('arrow-left')}Library</a>${tabsTop(0)}<span class="sp"></span><span class="nav" style="display:flex;gap:10px;color:var(--lDim)">14 / 202 ${ic('chev-l')}${ic('chev-r')}</span></div>
+<div class="stage2"><div class="gutter">${ibtn('book-open','Read','pri')}${ibtn('headphones','Listen')}${ibtn('eye','Mark as read')}${ibtn('download','Download')}${ibtn('shelf','Add to shelf')}${ibtn('send','Send to device')}${ibtn('dots','More')}</div>
+<div class="page"><div class="pcover">${main}<div class="rule"></div>${stars(4)}${status}<div class="chips" style="justify-content:center">${chipSpans}</div></div>
+<div><h3 class="t">The Time Machine</h3><div class="by">by H. G. Wells · Scientific Romances #1</div><div class="rule" style="margin:8px 0;width:40%;margin-left:0"></div><h4>Synopsis <span style="float:right;color:var(--pri);text-transform:none;letter-spacing:0">Show more</span></h4><div class="quote" style="font-size:17px">${syn}</div><div style="margin-top:14px"><h4>Your review</h4>${review}</div><div style="margin-top:14px"><h4>Your reading · not started</h4>${reading}</div></div>
+<div class="margin"><h4>Details</h4>${kv(details)}<h4 style="margin-top:14px">Editions</h4>${editions}<div class="row" style="margin-top:8px">${btn('plus','Add audiobook','sm')}</div></div></div></div>
+<div class="shelfrow"><div class="shelfhead">${ic('shelf')}More by H. G. Wells</div>${rail(13)}</div>`;
+// scale each stage to its frame
+function fit(){document.querySelectorAll('.fit').forEach(f=>{const s=f.firstElementChild;const k=f.clientWidth/1400;s.style.transform=`scale(${k})`;f.style.height=(s.offsetHeight*k)+'px'})}
+addEventListener('resize',fit);document.fonts.ready.then(fit);fit();
+</script></body></html>

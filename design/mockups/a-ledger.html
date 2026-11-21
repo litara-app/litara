@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Litara · A · Ledger</title>
+<link rel="stylesheet" href="covers.css">
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--line:#e3e6ea;--ink:#1c2128;--dim:#5d6772;--pri:#1971c2;--priL:#e7f1fb;--ok:#2b8a3e;--warn:#b35c00;--bad:#c92a2a;font:13px/1.4 system-ui,Segoe UI,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);height:100vh;display:grid;grid-template-columns:216px 1fr 340px;grid-template-rows:44px 1fr;overflow:hidden}
+header{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;width:192px}.logo svg{width:20px}
+.search{flex:1;max-width:520px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:5px 10px;color:var(--dim);background:var(--bg)}
+kbd{margin-left:auto;border:1px solid var(--line);border-radius:4px;padding:0 5px;font:11px monospace;background:#fff}
+.sync{margin-left:auto;display:flex;gap:10px;align-items:center;color:var(--dim)}
+.pill{border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600;background:var(--priL);color:var(--pri)}
+.pill.warn{background:#fff3e0;color:var(--warn)}.pill.ok{background:#e6f4ea;color:var(--ok)}.pill.bad{background:#fdeaea;color:var(--bad)}
+nav{background:var(--panel);border-right:1px solid var(--line);padding:8px;overflow:auto}
+nav h6{margin:14px 8px 4px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+nav a{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:5px;color:var(--ink);text-decoration:none;cursor:pointer}
+nav a:hover{background:var(--bg)}nav a.on{background:var(--priL);color:var(--pri);font-weight:600}nav a span{color:var(--dim);font-size:11.5px}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;background:var(--ok)}.dot.warn{background:var(--warn)}
+main{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.bar{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.chip{border:1px solid var(--line);border-radius:6px;padding:3px 9px;background:#fff;cursor:pointer;font-size:12px}.chip.on{background:var(--priL);border-color:#a5cdf1;color:var(--pri)}
+.sp{flex:1}
+.tbl{overflow:auto;flex:1}table{border-collapse:collapse;width:100%}
+th{position:sticky;top:0;background:#fafbfc;text-align:left;font-weight:600;font-size:11.5px;color:var(--dim);padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:4px 10px;border-bottom:1px solid #eef0f2;white-space:nowrap}
+tr.r{cursor:pointer;background:var(--panel)}tr.r:hover{background:#f3f8fd}tr.r.sel{background:var(--priL)}
+.t{display:flex;align-items:center;gap:10px}.t .cv{width:26px;flex:none}.t b{font-weight:600}.t small{display:block;color:var(--dim)}
+.fm{display:inline-block;font:600 10px monospace;border:1px solid var(--line);border-radius:3px;padding:0 4px;margin-right:3px;color:var(--dim)}
+.fm.a{background:#f3e8fd;border-color:#dcc3f5;color:#7a2fb5}
+.prog{width:84px;height:5px;background:#e6e9ed;border-radius:3px;display:inline-block;vertical-align:middle;overflow:hidden}.prog i{display:block;height:100%;background:var(--pri)}
+.prog.f i{background:var(--ok)}
+footer{border-top:1px solid var(--line);background:var(--panel);padding:5px 12px;color:var(--dim);display:flex;gap:16px}
+aside{background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:14px}
+aside .cv{width:120px}aside h2{margin:10px 0 2px;font-size:18px;font-family:Georgia,serif}
+.kv{display:grid;grid-template-columns:78px 1fr;gap:3px 8px;margin:10px 0}.kv dt{color:var(--dim)}.kv dd{margin:0}
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;font:inherit}.btn.p{background:var(--pri);color:#fff;border-color:var(--pri)}
+.ed{border:1px solid var(--line);border-radius:8px;padding:9px;margin:8px 0}.ed h4{margin:0 0 4px;display:flex;justify-content:space-between}
+.warnbox{background:#fff8e6;border:1px solid #f1d58a;border-radius:8px;padding:8px 10px;margin:8px 0}
+#detail{display:none;grid-column:2/4;overflow:auto;padding:18px 22px;background:var(--bg)}
+.grid{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}.card h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+.card table td,.card table th{padding:4px 6px}
+body.detail main,body.detail aside{display:none}body.detail #detail{display:block}
+@media(max-width:1250px){body{grid-template-columns:200px 1fr}aside{display:none}#detail{grid-column:2}}
+</style></head><body>
+<header>
+ <div class="logo"><svg viewBox="0 0 256 256"><path fill="#228be6" fill-rule="evenodd" d="M52 16H204A20 20 0 0 1 224 36V234Q224 243 216 238L132 186Q128 183 124 186L40 238Q32 243 32 234V36A20 20 0 0 1 52 16ZM64 66V130Q64 134 68 134C89 134 108 140 124 150V78C111 66 92 60 70 60Q64 60 64 66ZM132 78V150C148 140 167 134 188 134Q192 134 192 130V66Q192 60 186 60C164 60 145 66 132 78Z"/></svg>Litara</div>
+ <div class="search">⌕ Search titles, authors, series, ISBN, notes… <kbd>Ctrl K</kbd></div>
+ <div class="sync"><span class="pill warn">3 pending</span><span class="pill ok">Synced 2 s ago</span><span>deranjer ▾</span></div>
+</header>
+<nav id="nav"></nav>
+<main>
+ <div class="bar" id="bar"></div>
+ <div class="tbl"><table><thead><tr><th>Title</th><th>Series</th><th>Formats</th><th>Progress</th><th>Library</th><th>Year</th><th>Rating</th><th>Notes</th><th>Added</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table></div>
+ <footer><span id="count"></span><span>Selected: <b id="selname"></b></span><span style="margin-left:auto">↑↓ navigate · Enter open · E edit · Space preview</span></footer>
+</main>
+<aside id="insp"></aside>
+<section id="detail"></section>
+<script src="data.js"></script>
+<script>
+const fmt=b=>b.fm.map(f=>`<span class="fm ${f==='M4B'?'a':''}">${f}</span>`).join('');
+const prog=b=>b.status==='Unread'?'<span style="color:var(--dim)">—</span>':`<span class="prog ${b.prog==100?'f':''}"><i style="width:${b.prog}%"></i></span> ${b.prog}%`;
+const st=b=>({Reading:'pill',Listening:'pill',Finished:'pill ok',Unread:'pill',}[b.status]);
+let sel='b1';
+document.getElementById('nav').innerHTML=`
+<a class="on">Home</a><a>All titles <span>7 156</span></a><a>Series <span>412</span></a><a>Authors <span>1 903</span></a><a>Annotations <span>63</span></a>
+<h6>Libraries</h6>${LIT.libraries.map(l=>`<a><div><i class="dot ${l.health}"></i>${l.name}</div><span>${l.titles.toLocaleString()}</span></a>`).join('')}
+<h6>Shelves</h6>${LIT.shelves.map(s=>`<a>${s.n}<span>${s.c}</span></a>`).join('')}
+<h6>Smart shelves</h6>${LIT.smart.map(s=>`<a>${s.n}<span>${s.c}</span></a>`).join('')}
+<h6>Manage</h6><a>Review queue <span>3</span></a><a>Pending sync <span>3</span></a><a>Settings</a><a>Admin</a>`;
+document.getElementById('bar').innerHTML=`<b style="font-size:15px">All titles</b>${['Any status','Any format','Any library','Has audio','Unread'].map((c,i)=>`<span class="chip ${i==3?'on':''}">${c} ▾</span>`).join('')}<span class="sp"></span><span class="chip">Group: none ▾</span><span class="chip">Columns ▾</span><span class="chip on">☰ Table</span><span class="chip">▦ Grid</span>`;
+function draw(){
+ document.getElementById('rows').innerHTML=LIT.books.map(b=>`<tr class="r ${b.id===sel?'sel':''}" data-id="${b.id}"><td><div class="t">${cv(b,'tiny')}<div><b>${b.title}</b><small>${b.author}${b.flag?` · <span style="color:var(--warn)">⚠ ${b.flag}</span>`:''}</small></div></div></td><td>${b.series?b.series+' #'+b.seq:'—'}</td><td>${fmt(b)}</td><td>${prog(b)}</td><td>${b.lib}</td><td>${b.year}</td><td style="color:#e8a317">${b.rating?stars(b.rating):''}</td><td>${b.ann||''}</td><td style="color:var(--dim)">${b.added}</td><td><span class="${st(b)}">${b.status}</span></td></tr>`).join('');
+ document.getElementById('count').textContent=`${LIT.books.length} of 7 156 titles`;
+ const b=byId(sel);document.getElementById('selname').textContent=b.title;
+ document.getElementById('insp').innerHTML=`<div style="display:flex;gap:12px">${cv(b)}<div><span class="pill">${b.status}</span><h2>${b.title}</h2><div style="color:var(--dim)">${b.author} · ${b.year}</div>${b.series?`<div>${b.series} #${b.seq}</div>`:''}</div></div>
+ <div style="display:flex;gap:6px;margin:12px 0"><button class="btn p" onclick="openD()">Open title</button><button class="btn">▶ Read</button><button class="btn">🎧 Listen</button><button class="btn">⋯</button></div>
+ ${b.flag?`<div class="warnbox"><b>⚠ ${b.flag}</b><br>Part 07 file is missing from the recording. Playback stops at 3h 40m. <a href="#">Open repair</a></div>`:''}
+ <div class="ed"><h4>EPUB <span class="pill">${b.prog}%</span></h4><div class="prog" style="width:100%"><i style="width:${b.prog}%"></i></div><div style="color:var(--dim);margin-top:4px">${b.pages} pages · Foliate · last on Kobo yesterday</div></div>
+ ${b.fm.includes('M4B')?`<div class="ed"><h4>Audiobook <span class="pill">38%</span></h4><div class="prog" style="width:100%"><i style="width:38%"></i></div><div style="color:var(--dim);margin-top:4px">${b.dur} · ${b.narr} · 38 chapters</div></div>`:''}
+ <dl class="kv"><dt>Library</dt><dd>${b.lib}</dd><dt>Added</dt><dd>${b.added}</dd><dt>Rating</dt><dd style="color:#e8a317">${b.rating?stars(b.rating):'—'}</dd><dt>Notes</dt><dd>${b.ann} annotations</dd><dt>Tags</dt><dd>Gothic · Classic · Epistolary</dd></dl>`;
+}
+function openD(){
+ const b=byId(sel);document.body.classList.add('detail');
+ document.getElementById('detail').innerHTML=`<a class="btn" onclick="document.body.classList.remove('detail')">← All titles</a>
+ <div style="display:flex;gap:18px;margin:14px 0">${cv(b).replace('class="cv "','class="cv " style="width:140px;--h:'+b.h+'"')}<div><h1 style="margin:0;font-family:Georgia,serif">${b.title}</h1><div style="font-size:15px;color:var(--dim)">${b.author} · ${b.year}</div><div style="margin:8px 0">${fmt(b)}</div><div style="display:flex;gap:6px"><button class="btn p">▶ Continue reading · ch. 11</button><button class="btn">🎧 Continue listening · 5:12:07</button><button class="btn">Edit metadata</button><button class="btn">Send to device</button></div></div></div>
+ <div class="warnbox"><b>Resume conflict.</b> Kobo (KOReader) is at 64% from yesterday; this browser is at 62%. <button class="btn">Use Kobo 64%</button> <button class="btn">Keep 62%</button></div>
+ <div class="grid"><div class="card"><h3>Metadata · source per field</h3><table>${LIT.meta.map(m=>`<tr><td style="color:var(--dim);width:90px">${m[0]}</td><td>${m[1]}</td><td><span class="pill ${m[2].includes('you')?'ok':''}">${m[2]}</span></td></tr>`).join('')}</table></div>
+ <div class="card"><h3>Listening devices</h3><table>${LIT.devices.map(d=>`<tr><td>${d.n}</td><td>${d.p}</td><td style="color:var(--dim)">${d.w}</td></tr>`).join('')}</table><h3 style="margin-top:14px">Annotations (7)</h3><table>${LIT.notes.map(n=>`<tr><td style="color:var(--dim)">${n[0]}</td><td style="white-space:normal">${n[1]}</td><td><span class="pill">${n[2]}</span></td></tr>`).join('')}</table></div>
+ <div class="card"><h3>Chapters · recording 1 of 1</h3><table>${LIT.chapters.map((c,i)=>`<tr><td style="color:var(--dim)">${i+1}</td><td ${c[2]=='now'?'style="font-weight:700;color:var(--pri)"':''}>${c[2]=='now'?'▶ ':''}${c[0]}</td><td>${c[1]}</td></tr>`).join('')}</table></div>
+ <div class="card"><h3>Files &amp; health</h3><table><tr><td>dracula.epub</td><td>2.1 MB</td><td><span class="pill ok">verified</span></td></tr><tr><td>dracula/ (38 × mp3)</td><td>612 MB</td><td><span class="pill ok">complete</span></td></tr><tr><td>dracula.cue</td><td>4 KB</td><td><span class="pill">chapters source</span></td></tr></table><p style="color:var(--dim)">Managed copy in /mnt/nas/books/fiction/Stoker, Bram/Dracula · no write-back pending.</p></div></div>`;
+}
+document.getElementById('rows').onclick=e=>{const r=e.target.closest('tr');if(r){sel=r.dataset.id;draw()}};
+document.getElementById('rows').ondblclick=openD;
+draw();
+</script></body></html>

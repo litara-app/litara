@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Litara · Reading Room · covers and title page options</title>
+<style>
+@font-face{font-family:Fraunces;src:url(../../apps/web/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2);font-weight:100 900}
+@font-face{font-family:Fraunces;font-style:italic;src:url(../../apps/web/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-italic.woff2);font-weight:100 900}
+@font-face{font-family:"IM Fell";src:url(../../apps/web/node_modules/@fontsource/im-fell-english/files/im-fell-english-latin-400-normal.woff2)}
+@font-face{font-family:"IM Fell";font-style:italic;src:url(../../apps/web/node_modules/@fontsource/im-fell-english/files/im-fell-english-latin-400-italic.woff2)}
+@font-face{font-family:"Source Sans";src:url(../../apps/web/node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2);font-weight:200 900}
+:root{--bg:#eee2c8;--surface:#fbf6ea;--surface2:#f4ebd6;--line:#d6c7a4;--ink:#2a2018;--dim:#65553f;--edge:#85704f;--pri:#1f4f82;--priInk:#fff8e6;--priSoft:#dde6ef;--ribbon:#a8322b;--leather:#3a2a20;--leather2:#271b14;--lInk:#f3e8cf;--lDim:#cdbb94;--foil:#dcb85f;--ok:#2f6b3a;--audio:#6b3a8a;--audioSoft:#eadcf0;
+ --display:Fraunces,Georgia,serif;--sans:"Source Sans",system-ui,sans-serif;--accent:"IM Fell",Georgia,serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--sans)}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 80px}
+h1{font:700 30px var(--display);margin:0 0 4px}h2{font:700 22px var(--display);margin:48px 0 6px;border-bottom:2px solid var(--line);padding-bottom:6px}
+.lede{color:var(--dim);margin:0 0 16px;max-width:760px}
+.note{color:var(--dim);font-size:13px;margin:6px 0 0}
+svg.i{width:1.1em;height:1.1em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* buttons: icon first, label always */
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--edge);background:var(--surface);color:var(--ink);border-radius:3px;padding:6px 13px;font:600 14px var(--sans);cursor:pointer;text-decoration:none;box-shadow:inset 0 1px 0 #fff8}
+.btn.pri{background:var(--pri);color:var(--priInk);border-color:#16385e}.btn.sm{padding:4px 10px;font-size:13px}
+.btn.ghost{background:none;border-color:transparent;padding-left:0;color:var(--pri)}
+.tag{display:inline-block;font:700 10px/1 var(--sans);letter-spacing:.06em;padding:3px 5px;border-radius:2px;background:rgba(20,12,6,.78);color:#f6ecd2;border:1px solid rgba(220,184,95,.6)}
+.tag.au{background:rgba(70,36,96,.85);color:#f1e3fa;border-color:rgba(196,163,224,.7)}
+/* generated placeholder cover */
+.cv{position:relative;aspect-ratio:2/3;border-radius:2px 5px 5px 2px;overflow:hidden;color:#fff;display:flex;flex-direction:column;justify-content:space-between;padding:9% 10% 9% 14%;container-type:inline-size;
+ background:linear-gradient(155deg,hsl(var(--h) 52% 38%),hsl(calc(var(--h) + 35) 58% 18%));box-shadow:1px 2px 3px rgba(0,0,0,.35),3px 0 0 -1px #f7f0dc,4px 0 0 -1px #cdbf9c;font-family:var(--display)}
+.cv::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.05) 0 2px,transparent 2px 9px)}
+.cv::after{content:"";position:absolute;left:0;top:0;bottom:0;width:9%;background:linear-gradient(90deg,rgba(0,0,0,.35),rgba(255,255,255,.14) 55%,rgba(0,0,0,.18))}
+.cv b{position:relative;font-size:13cqw;line-height:1.05;font-weight:650}.cv i{position:relative;font-style:normal;font-size:7.5cqw;text-transform:uppercase;letter-spacing:.12em;opacity:.9}
+/* ---------- A. cover cards ---------- */
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px}
+.opt{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:14px;box-shadow:2px 2px 0 var(--line)}
+.opt h3{font:700 16px var(--display);margin:0 0 2px}.opt p{margin:0 0 10px;color:var(--dim);font-size:13px}
+.card{position:relative;cursor:pointer;container-type:inline-size}
+.card .fm{position:absolute;top:7px;right:7px;display:flex;flex-direction:column;gap:3px;align-items:flex-end;z-index:2}
+.card .more{position:absolute;right:8px;bottom:8px;z-index:3;opacity:0;transition:opacity .15s;width:30px;height:30px;border-radius:50%;border:1px solid rgba(220,184,95,.7);background:rgba(20,12,6,.72);color:#f6ecd2;display:grid;place-items:center;cursor:pointer}
+.card .more svg{width:18px;height:18px}
+.card .hov{position:absolute;inset:0;z-index:1;opacity:0;transition:opacity .18s;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:14% 12% 22%;text-align:center;border-radius:2px 5px 5px 2px}
+.card:hover .hov,.card.force .hov{opacity:1}.card:hover .more,.card.force .more{opacity:1}
+.card .hov h4{font:700 15px/1.15 var(--display);margin:0}.card .hov small{font:italic 13px var(--display)}
+.card .hov .rule{height:1px;margin:2px auto;width:44%}
+/* 1 bookplate */
+.o1 .hov{background:rgba(39,27,20,.88);color:var(--lInk);box-shadow:inset 0 0 0 5px rgba(39,27,20,.0),inset 0 0 0 6px rgba(220,184,95,.85)}
+.o1 .hov .rule{background:var(--foil)}.o1 .hov small{color:var(--foil)}
+/* 2 vellum */
+.o2 .hov{background:rgba(251,246,234,.92);color:var(--ink);border-top:6px solid rgba(168,50,43,.9)}
+.o2 .hov .rule{background:var(--edge)}.o2 .hov small{color:var(--dim)}
+.o2 .more{background:rgba(251,246,234,.92);color:var(--ink);border-color:var(--edge)}
+/* 3 gilt frosted */
+.o3 .hov{background:rgba(22,14,9,.62);backdrop-filter:blur(5px);color:#fff7e2;outline:1px solid rgba(220,184,95,.9);outline-offset:-9px}
+.o3 .hov::before,.o3 .hov::after{content:"❦";position:absolute;color:var(--foil);font-size:14px;left:50%;transform:translateX(-50%)}
+.o3 .hov::before{top:13px}.o3 .hov::after{bottom:48px;transform:translateX(-50%) rotate(180deg)}
+.o3 .hov small{color:var(--foil)}
+/* 4 catalog card */
+.o4 .hov{align-items:stretch;text-align:left;background:repeating-linear-gradient(transparent 0 21px,rgba(133,112,79,.35) 21px 22px),rgba(247,239,214,.93);color:#2a2018;border-left:3px double var(--ribbon);padding:16% 10% 22% 14%;font-family:var(--accent)}
+.o4 .hov h4{font:700 15px/22px var(--accent)}.o4 .hov small{font:14px/22px var(--accent);color:var(--dim)}
+.o4 .hov .rule{display:none}
+.o4 .more{background:rgba(247,239,214,.95);color:var(--ink);border-color:var(--edge)}
+/* the three-dot menu */
+.menu{width:178px;background:var(--surface);border:1px solid var(--edge);border-radius:3px;box-shadow:3px 3px 0 var(--line),0 8px 20px rgba(0,0,0,.25);padding:4px;margin-top:10px}
+.menu div{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:2px;font-size:14px}.menu div:first-child{background:var(--priSoft)}
+.formats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:12px}.formats .opt{padding:10px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--dim);margin:8px 0 14px}
+/* ---------- B. title layouts ---------- */
+.stage{background:var(--bg) url('../../apps/web/src/assets/backgrounds/library.webp') center/cover;background-blend-mode:soft-light;border:2px solid var(--edge);border-radius:4px;overflow:hidden;margin:14px 0 6px;box-shadow:3px 3px 0 var(--line)}
+.topbar{height:34px;background:linear-gradient(var(--leather),var(--leather2));color:var(--lInk);display:flex;align-items:center;gap:10px;padding:0 14px;font:italic 700 16px var(--display);border-bottom:2px solid var(--foil)}
+.page{padding:18px 26px 26px}
+.crumb{display:flex;align-items:center;gap:6px;margin-bottom:12px}
+h3.t{font:700 34px/1.05 var(--display);margin:0}.by{font:italic 17px var(--display);color:var(--dim);margin:3px 0 8px}
+.ornament{display:flex;align-items:center;gap:8px;color:var(--edge);margin:4px 0 10px}.ornament::before,.ornament::after{content:"";height:1px;width:70px;background:var(--edge)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;gap:4px;margin:18px 0 0;border-bottom:2px solid var(--edge)}
+.tabs a{padding:7px 14px;border:1px solid var(--line);border-bottom:0;border-radius:4px 4px 0 0;background:var(--surface2);color:var(--dim);font-weight:600;font-size:14px;display:flex;gap:6px;align-items:center}
+.tabs a.on{background:var(--surface);color:var(--ink);border-color:var(--edge);box-shadow:inset 0 3px 0 var(--ribbon);margin-bottom:-2px;padding-bottom:9px}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:2px;padding:16px 18px;box-shadow:2px 2px 0 var(--line)}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;margin:0}.kv dt{color:var(--dim)}.kv dd{margin:0}
+.badge{display:inline-flex;gap:5px;align-items:center;font:600 12px var(--sans);padding:2px 8px;border-radius:999px;background:var(--priSoft);color:#1a4472}
+.badge.ok{background:#e1ead3;color:#25552e}
+.quote{border-left:3px solid var(--pri);background:var(--priSoft);padding:6px 12px;font:17px/1.4 var(--display);margin:6px 0}
+.hl{display:flex;flex-direction:column;gap:10px}
+/* layout A: frontispiece */
+.A .head{display:grid;grid-template-columns:200px 1fr;gap:28px;align-items:start}
+/* layout B: open book */
+.B .spread{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:2px solid #5a3a26;border-radius:4px;box-shadow:0 0 0 3px var(--leather),0 14px 30px rgba(0,0,0,.35);position:relative;min-height:470px}
+.B .spread::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:36px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,rgba(60,40,15,.28) 48%,rgba(60,40,15,.35) 52%,transparent)}
+.B .l{padding:26px 30px 26px 34px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.B .r{padding:20px 34px 26px 30px}
+.B .tabs{margin-top:0}
+/* layout C: catalog drawer */
+.C .wrapc{display:grid;grid-template-columns:260px 1fr;gap:22px}
+.C .card-index{background:repeating-linear-gradient(transparent 0 25px,rgba(133,112,79,.3) 25px 26px),#f7efd6;border:1px solid var(--edge);border-top:5px solid var(--ribbon);padding:16px 16px 18px;box-shadow:3px 3px 0 var(--line);display:flex;flex-direction:column;gap:10px;font-family:var(--accent)}
+.C .card-index .kv{font:15px/26px var(--accent)}.C .card-index h3{font:700 24px/1.1 var(--display);margin:0}
+.C .side-tabs{display:flex;flex-direction:column;gap:6px;position:absolute;right:-1px;top:16px}
+.C .side-tabs a{writing-mode:vertical-rl;padding:12px 7px;background:var(--surface2);border:1px solid var(--line);border-left:0;border-radius:0 5px 5px 0;font-weight:600;font-size:13px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.C .side-tabs a.on{background:var(--ribbon);color:#fff8e6;border-color:#7d211c}
+.C .big{position:relative;padding-right:46px}
+/* layout D: banner */
+.D .banner{background:var(--leather-grain,none),linear-gradient(135deg,#4a3224,#2b1c13);color:var(--lInk);border-bottom:3px solid var(--foil);padding:22px 26px 22px 26px;display:grid;grid-template-columns:170px 1fr;gap:26px;position:relative;margin:-18px -26px 0}
+.D .banner .card{margin-bottom:-60px}.D .banner .cv{box-shadow:0 8px 18px rgba(0,0,0,.55),3px 0 0 -1px #f7f0dc}
+.D .banner h3{color:var(--foil)}.D .banner .by{color:var(--lDim)}.D .banner .btn{background:rgba(251,246,234,.1);color:var(--lInk);border-color:rgba(220,184,95,.7)}.D .banner .btn.pri{background:var(--foil);color:#2a1a08;border-color:#a8873a}
+.D .body{display:grid;grid-template-columns:170px 1fr;gap:26px;padding-top:66px}
+.D .facts{display:flex;flex-direction:column;gap:12px}
+.D .col2 .tabs{margin-top:0}
+.pick{margin:10px 0 0;color:var(--dim);font-size:13px}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+<symbol id="book-open" viewBox="0 0 24 24"><path d="M12 7c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5zM12 7v13"/></symbol>
+<symbol id="headphones" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+<symbol id="shelf" viewBox="0 0 24 24"><path d="M4 5h4v14H4zM10 5h4v14h-4zM16.5 6l3.5 1-3 12-3.5-1z"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.5 2.5 4.5-5"/></symbol>
+<symbol id="pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z"/></symbol>
+<symbol id="dots" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="18.5" r="1.6" fill="currentColor"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
+<symbol id="files" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></symbol>
+<symbol id="highlighter" viewBox="0 0 24 24"><path d="m4 20 4-1 10-10-3-3L5 16zM13 7l3 3"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="tag" viewBox="0 0 24 24"><path d="M4 4h8l8 8-8 8-8-8zM8.5 8.5h.01"/></symbol>
+</defs></svg>
+<div class="wrap">
+<h1>Reading Room · covers and title page</h1>
+<p class="lede">Covers carry only art plus a format tag; the title and author appear on hover. Every action button pairs an icon with its label. Hover any card below (or look at the pinned ones). Covers here are generated placeholders; real covers carry their own title art.</p>
+
+<h2>A. Cover cards: four hover treatments</h2>
+<div class="legend"><span><span class="tag">EPUB +</span> top right, "+" when there is more than one ebook format</span><span><span class="tag au">M4B</span> audiobook sits under the ebook tag</span><span>Bottom right: three-dot menu. Click the card to open the title.</span></div>
+<div class="grid" id="cards"></div>
+
+<h2 style="margin-top:34px">The three-dot menu and format tags</h2>
+<div class="formats">
+ <div class="opt"><h3>Menu</h3><div class="menu">
+  <div><svg class="i"><use href="#book-open"/></svg>Read</div><div><svg class="i"><use href="#headphones"/></svg>Listen</div><div><svg class="i"><use href="#shelf"/></svg>Add to shelf</div><div><svg class="i"><use href="#download"/></svg>Download</div></div>
+  <p class="note">Listen shows only for audiobooks; Read only for readable ebooks. Download offers the formats if there are several.</p></div>
+ <div class="opt"><h3>Ebook only</h3><div style="display:flex;gap:6px;flex-direction:column;align-items:flex-start;margin-top:6px"><span class="tag">EPUB</span></div></div>
+ <div class="opt"><h3>Ebook, several formats</h3><div style="display:flex;gap:6px;flex-direction:column;align-items:flex-start;margin-top:6px"><span class="tag">EPUB +</span></div><p class="note" style="margin-top:8px">Hover the tag to list them.</p></div>
+ <div class="opt"><h3>Both</h3><div style="display:flex;gap:4px;flex-direction:column;align-items:flex-start;margin-top:6px"><span class="tag">PDF +</span><span class="tag au">M4B</span></div></div>
+</div>
+
+<h2>B. Title page: four layouts</h2>
+<p class="lede">Same content in all four: cover, title, author, series, Read / Listen / Download / Add to shelf, then Details, Files, Highlights, Reading log and Edit metadata. Only the arrangement changes.</p>
+
+<div class="opt" style="margin-top:14px"><h3>1 · Frontispiece</h3><p>Cover left, title block right in the style of a title page, tabs across the full width below. The simplest and the most like today's page.</p></div>
+<div class="stage A" id="A"></div>
+<div class="opt" style="margin-top:22px"><h3>2 · Open book</h3><p>A two-page spread. The left page is the cover and facts; the right page holds the tabs. Strongest book metaphor; needs width, so on a phone the pages stack.</p></div>
+<div class="stage B" id="B"></div>
+<div class="opt" style="margin-top:22px"><h3>3 · Catalog drawer</h3><p>A library catalog card holds the cover and facts in typewriter-style ruled lines; the sections are index tabs on the right edge of a big sheet.</p></div>
+<div class="stage C" id="C"></div>
+<div class="opt" style="margin-top:22px"><h3>4 · Leather banner</h3><p>A dark leather banner with the title in gold foil, the cover hanging over its lower edge, then content in two columns: tabs in the middle, a facts column on the right. Best for dense pages.</p></div>
+<div class="stage D" id="D"></div>
+<p class="pick">Tell me which cover hover (1–4) and which layout (1–4) you want, or mix them.</p>
+</div>
+<script>
+const ic=n=>`<svg class="i"><use href="#${n}"/></svg>`;
+const B=(t,a,h,fm)=>({t,a,h,fm});
+const books=[B('Treasure Island','R. L. Stevenson',95,['EPUB']),B('The Time Machine','H. G. Wells',210,['EPUB +','M4B']),B('Dracula','Bram Stoker',350,['M4B']),B('Wuthering Heights','Emily Bronte',30,['PDF +'])];
+const tags=b=>b.fm.map(f=>`<span class="tag ${f.startsWith('M4B')?'au':''}">${f}</span>`).join('');
+const cover=(b,c='')=>`<div class="cv" style="--h:${b.h}"><b>${b.t}</b><i>${b.a.split(' ').pop()}</i></div>`;
+const card=(b,n,force)=>`<div class="card o${n} ${force?'force':''}">${cover(b)}<div class="fm">${tags(b)}</div><div class="hov"><h4>${b.t}</h4><div class="rule"></div><small>${b.a}</small></div><div class="more" title="More">${ic('dots')}</div></div>`;
+const names=['Bookplate','Vellum','Gilt','Catalog card'],desc=['Dark leather with a gold-foil frame. Most dramatic; echoes the sign-in book.','Cream paper with an oxblood ribbon rule. Lightest; matches the page sheets.','Frosted glass over the art with gilt corner ornaments. The cover stays visible through it.','A ruled index card in the old-book typeface. Most playful.'];
+document.getElementById('cards').innerHTML=names.map((n,i)=>`<div class="opt"><h3>${i+1} · ${n}</h3><p>${desc[i]}</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${card(books[0],i+1,true)}${card(books[1],i+1,false)}</div><p class="note">Left: pinned hover. Right: hover it.</p></div>`).join('');
+const tabs=(on)=>`<div class="tabs">${[['info','Details'],['files','Files (2)'],['highlighter','Highlights'],['clock','Reading log'],['pencil','Edit metadata']].map(([i,l],k)=>`<a class="${k===on?'on':''}">${ic(i)}${l}</a>`).join('')}</div>`;
+const facts=`<dl class="kv"><dt>Authors</dt><dd>H. G. Wells</dd><dt>Series</dt><dd>Scientific Romances</dd><dt>Languages</dt><dd>en</dd><dt>Formats</dt><dd><span class="tag" style="background:#3a2a20">EPUB</span> <span class="tag au">M4B</span></dd><dt>Reading</dt><dd><span class="badge ok">${ic('check')}Finished Nov 19</span></dd></dl>`;
+const hl=`<div class="hl"><div class="quote">Fifteen men on the dead man's chest</div><div class="quote">Pieces of eight! Pieces of eight!</div></div>`;
+const actions=`<div class="row"><a class="btn pri">${ic('book-open')}Read</a><a class="btn">${ic('headphones')}Listen</a><a class="btn">${ic('download')}Download</a><a class="btn">${ic('shelf')}Add to shelf</a></div>`;
+const back=`<div class="crumb"><a class="btn ghost">${ic('arrow-left')}Back to library</a></div>`;
+const titleBlock=`<h3 class="t">The Time Machine</h3><div class="by">H. G. Wells · Scientific Romances</div><div class="ornament">❦</div>`;
+const b=books[1];
+const bar='<div class="topbar">Litara</div>';
+document.getElementById('A').innerHTML=bar+`<div class="page">${back}<div class="head"><div class="card" style="width:200px">${cover(b)}<div class="fm">${tags(b)}</div></div><div>${titleBlock}${actions}<div class="sheet" style="margin-top:14px">${facts}</div></div></div>${tabs(2)}<div class="sheet" style="border-top:0">${hl}</div></div>`;
+document.getElementById('B').innerHTML=bar+`<div class="page">${back}<div class="spread"><div class="l"><div class="card" style="width:190px">${cover(b)}<div class="fm">${tags(b)}</div></div><h3 class="t" style="font-size:28px">The Time Machine</h3><div class="by">H. G. Wells<br>Scientific Romances</div><div class="ornament">❦</div>${actions}</div><div class="r">${tabs(2)}<div style="padding-top:14px">${hl}</div></div></div></div>`;
+document.getElementById('C').innerHTML=bar+`<div class="page">${back}<div class="wrapc"><div><div class="card" style="width:170px;margin:0 auto 14px">${cover(b)}<div class="fm">${tags(b)}</div></div><div class="card-index"><h3>The Time Machine</h3><div style="font-style:italic">H. G. Wells</div>${facts.replace(/class="kv"/,'class="kv" style="grid-template-columns:84px 1fr"')}</div><div class="row" style="margin-top:12px;flex-direction:column;align-items:stretch"><a class="btn pri">${ic('book-open')}Read</a><a class="btn">${ic('headphones')}Listen</a><a class="btn">${ic('download')}Download</a><a class="btn">${ic('shelf')}Add to shelf</a></div></div><div class="big sheet"><div class="side-tabs"><a>Details</a><a>Files</a><a class="on">Highlights</a><a>Log</a><a>Edit</a></div><h3 style="font:700 20px var(--display);margin:0 0 8px">Highlights</h3>${hl}</div></div></div>`;
+document.getElementById('D').innerHTML=bar+`<div class="page" style="padding-top:0"><div style="height:18px"></div><div class="banner" style="margin-top:0"><div class="card">${cover(b)}<div class="fm">${tags(b)}</div></div><div><div class="crumb"><a class="btn ghost" style="color:var(--foil)">${ic('arrow-left')}Back to library</a></div><h3 class="t">The Time Machine</h3><div class="by">H. G. Wells · Scientific Romances</div>${actions}</div></div><div class="body"><div class="sheet facts"><h3 style="font:700 16px var(--display);margin:0">At a glance</h3>${facts.replace(/class="kv"/,'class="kv" style="grid-template-columns:70px 1fr"')}</div><div class="col2">${tabs(2)}<div class="sheet" style="border-top:0">${hl}</div></div></div></div>`;
+</script></body></html>

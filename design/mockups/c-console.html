@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Litara · C · Console</title>
+<link rel="stylesheet" href="covers.css">
+<style>
+:root{--bg:#0f1218;--p1:#151a22;--p2:#1b212b;--line:#262e3a;--ink:#e6eaf0;--dim:#8995a6;--acc:#4dabf7;--accD:#16324d;--ok:#51cf66;--warn:#fcc419;--bad:#ff6b6b;--vio:#b197fc;font:13px/1.45 system-ui,Segoe UI,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);height:100vh;display:grid;grid-template-columns:56px 260px 1fr 380px;grid-template-rows:1fr 74px;overflow:hidden}
+.rail{background:#0b0e13;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0;grid-row:1}
+.rail a{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--dim);cursor:pointer;font-size:17px;position:relative}.rail a:hover{background:var(--p2)}.rail a.on{background:var(--accD);color:var(--acc)}
+.rail a b{position:absolute;top:2px;right:2px;background:var(--warn);color:#000;font-size:9px;border-radius:8px;padding:0 4px}
+.rail svg{width:24px;margin-bottom:8px}
+.list{background:var(--p1);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;grid-row:1}
+.list h3{margin:0;padding:14px 14px 6px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.cmd{margin:10px 12px 4px;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px;color:var(--dim);display:flex}.cmd kbd{margin-left:auto;font:11px monospace;border:1px solid var(--line);padding:0 5px;border-radius:4px}
+.scroll{overflow:auto;flex:1;padding:0 6px 10px}
+.item{display:flex;justify-content:space-between;padding:5px 9px;border-radius:6px;color:#c3cbd6;cursor:pointer}.item:hover{background:var(--p2)}.item.on{background:var(--accD);color:#fff}.item span{color:var(--dim)}
+.item i{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:8px}.item i.w{background:var(--warn)}
+.mid{display:flex;flex-direction:column;min-width:0;min-height:0;grid-row:1}
+.top{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.top h2{margin:0;font-size:16px;margin-right:8px}
+.chip{background:var(--p2);border:1px solid var(--line);border-radius:6px;padding:2px 9px;color:#c3cbd6;cursor:pointer}.chip.on{background:var(--accD);border-color:#2b5a85;color:var(--acc)}
+.cards{overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.card{display:grid;grid-template-columns:54px 1fr 150px 110px 70px;gap:14px;align-items:center;background:var(--p1);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer}
+.card:hover{border-color:#34465c}.card.sel{border-color:var(--acc);background:#14202e}
+.card .cv{width:54px}.card h4{margin:0;font-size:14px}.card small{color:var(--dim);display:block}
+.tag{display:inline-block;font:600 10px monospace;border-radius:4px;padding:1px 5px;margin-right:4px;background:var(--p2);color:var(--dim)}.tag.a{color:var(--vio)}.tag.w{color:var(--warn);background:#3a2f0b}.tag.f{color:var(--ok)}
+.pb{height:5px;background:var(--p2);border-radius:3px;overflow:hidden}.pb i{display:block;height:100%;background:var(--acc)}.pb.f i{background:var(--ok)}
+.det{background:var(--p1);border-left:1px solid var(--line);overflow:auto;padding:16px;grid-row:1}
+.det .cv{width:100px}.det h2{margin:10px 0 0;font:700 20px Georgia,serif}
+.tabs{display:flex;gap:2px;margin:14px 0 10px;border-bottom:1px solid var(--line)}.tabs a{padding:6px 10px;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent}.tabs a.on{color:var(--ink);border-color:var(--acc)}
+.btn{background:var(--p2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font:inherit}.btn.p{background:var(--acc);color:#04121f;border-color:var(--acc);font-weight:600}
+.sec{background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:10px;margin:8px 0}
+.sec h5{margin:0 0 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.ch{display:grid;grid-template-columns:22px 1fr auto;padding:4px 2px;color:#a9b3c1;cursor:pointer}.ch.now{color:var(--acc);font-weight:600}.ch.done{color:#5b6677}
+.kv{display:grid;grid-template-columns:84px 1fr auto;gap:3px 8px}.kv span:nth-child(3n+1){color:var(--dim)}.kv span:nth-child(3n){color:#617086;font-size:11px}
+.warn{background:#2c2509;border:1px solid #6b5a12;color:var(--warn);border-radius:8px;padding:8px 10px;margin:8px 0}
+.player{grid-column:1/-1;background:#0b0e13;border-top:1px solid var(--line);display:grid;grid-template-columns:300px 1fr 300px;align-items:center;gap:20px;padding:0 18px}
+.player .cv{width:42px}.pl{display:flex;gap:12px;align-items:center}
+.ctl{display:flex;justify-content:center;gap:16px;align-items:center;font-size:18px}.ctl .play{width:38px;height:38px;border-radius:50%;background:var(--ink);color:#000;display:grid;place-items:center}
+.scr{display:flex;gap:10px;align-items:center;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}.scr .pb{flex:1;height:5px;position:relative}
+.scr .pb u{position:absolute;top:-2px;height:9px;width:1px;background:var(--bg)}
+.right{display:flex;justify-content:flex-end;gap:10px;color:var(--dim);align-items:center}
+#full{display:none;grid-column:2/5;grid-row:1;overflow:auto;padding:20px 26px;background:var(--bg)}
+body.t #full{display:block}body.t .list,body.t .mid,body.t .det{display:none}
+body.t{grid-template-columns:56px 1fr}body.t #full{grid-column:2}
+@media(max-width:1250px){body{grid-template-columns:56px 220px 1fr}.det{display:none}.card{grid-template-columns:44px 1fr 110px;}.card>div:nth-child(4),.card>small{display:none}.card .cv{width:44px}.player{grid-template-columns:200px 1fr}.right{display:none}}
+</style></head><body>
+<nav class="rail"><svg viewBox="0 0 256 256"><path fill="#4dabf7" fill-rule="evenodd" d="M52 16H204A20 20 0 0 1 224 36V234Q224 243 216 238L132 186Q128 183 124 186L40 238Q32 243 32 234V36A20 20 0 0 1 52 16ZM64 66V130Q64 134 68 134C89 134 108 140 124 150V78C111 66 92 60 70 60Q64 60 64 66ZM132 78V150C148 140 167 134 188 134Q192 134 192 130V66Q192 60 186 60C164 60 145 66 132 78Z"/></svg>
+<a class="on" title="Library" onclick="back()">▤</a><a title="Home">⌂</a><a title="Series">≋</a><a title="Authors">☺</a><a title="Annotations">✎</a><a title="Shelves">❑</a><a title="Review">⚑<b>3</b></a><span style="flex:1"></span><a title="Settings">⚙</a><a title="Admin">⛭</a></nav>
+
+<section class="list"><div class="cmd">⌕ Jump to… <kbd>Ctrl K</kbd></div><div class="scroll" id="side"></div></section>
+
+<section class="mid"><div class="top"><h2>Audiobooks &amp; ebooks</h2><span class="chip on">Has audio ✕</span><span class="chip">Status ▾</span><span class="chip">Series ▾</span><span class="chip">+ filter</span><span style="margin-left:auto;color:var(--dim)">20 / 7 156 · sort: added ▾</span></div><div class="cards" id="cards"></div></section>
+
+<aside class="det" id="det"></aside>
+
+<footer class="player"><div class="pl"></div><div><div class="ctl"><span>⏮</span><span>↺ 30</span><span class="play">❚❚</span><span>30 ↻</span><span>⏭</span></div><div class="scr"><span>5:12:07</span><div class="pb"><i style="width:33%"></i><u style="left:12%"></u><u style="left:19%"></u><u style="left:27%"></u><u style="left:33%"></u><u style="left:44%"></u></div><span>−10:29:41</span></div></div><div class="right"><span>1.25×</span><span>☾ Sleep 20m</span><span>☰ Chapters</span><span>⌁ Phone</span></div></footer>
+<section id="full"></section>
+
+<script src="data.js"></script>
+<script>
+const side=document.getElementById('side');
+side.innerHTML=`<h3>Browse</h3><div class="item on">All titles<span>7 156</span></div><div class="item">Recently added<span>87</span></div><div class="item">In progress<span>9</span></div><div class="item">Series<span>412</span></div>
+<h3>Libraries</h3>${LIT.libraries.map(l=>`<div class="item"><div><i class="${l.health=='warn'?'w':''}"></i>${l.name}</div><span>${l.titles.toLocaleString()}</span></div>`).join('')}
+<h3>Shelves</h3>${LIT.shelves.map(s=>`<div class="item">${s.n}<span>${s.c}</span></div>`).join('')}
+<h3>Smart</h3>${LIT.smart.map(s=>`<div class="item">${s.n}<span>${s.c}</span></div>`).join('')}
+<h3>Pending sync · 3</h3>${LIT.pending.map(p=>`<div class="item" style="display:block"><div style="font-size:12px">${p.t}</div><span style="font-size:11px">${p.w} · ${p.s}</span></div>`).join('')}`;
+let sel='b1';
+const tags=b=>b.fm.map(f=>`<span class="tag ${f=='M4B'?'a':''}">${f}</span>`).join('')+(b.flag?`<span class="tag w">⚠ ${b.flag}</span>`:'')+(b.status=='Finished'?'<span class="tag f">✓</span>':'');
+function draw(){
+ document.getElementById('cards').innerHTML=LIT.books.map(b=>`<div class="card ${b.id==sel?'sel':''}" data-id="${b.id}">${cv(b)}<div><h4>${b.title}</h4><small>${b.author}${b.series?' · '+b.series+' #'+b.seq:''}</small></div><div>${tags(b)}</div><div><div class="pb ${b.prog==100?'f':''}"><i style="width:${b.prog}%"></i></div><small style="margin-top:2px">${b.status=='Unread'?'Unread':b.status+' · '+b.prog+'%'}</small></div><small style="text-align:right">${b.dur||b.pages+' p'}</small></div>`).join('');
+ const b=byId(sel);
+ document.querySelector('.pl').innerHTML=`${cv(byId('b1'),'tiny')}<div><b>Dracula</b><div style="color:var(--dim);font-size:11.5px">Mina Murray’s Journal · ch. 5 of 38</div></div>`;
+ document.getElementById('det').innerHTML=`<div style="display:flex;gap:14px">${cv(b)}<div style="flex:1"><div>${tags(b)}</div><h2>${b.title}</h2><div style="color:var(--dim)">${b.author} · ${b.year}</div><div style="margin-top:6px;color:#e8a317">${b.rating?stars(b.rating):''}</div></div></div>
+ <div style="display:flex;gap:6px;margin:12px 0"><button class="btn p" onclick="openT()">Open</button><button class="btn">Read</button><button class="btn">Listen</button><button class="btn">Shelf ▾</button></div>
+ ${b.flag?`<div class="warn"><b>⚠ ${b.flag}</b><br>Part 07 is missing. Playback ends at 3h 40m. <a href="#" style="color:var(--warn)">Repair…</a></div>`:''}
+ <div class="tabs"><a class="on">Overview</a><a>Chapters</a><a>Notes ${b.ann}</a><a>Files</a></div>
+ <div class="sec"><h5>Progress by edition</h5><div class="kv"><span>EPUB</span><span>${b.prog}%</span><span>Kobo · yesterday</span><span>Audio</span><span>${b.fm.includes('M4B')?'33% · 5h 12m':'—'}</span><span>Pixel · 2 h</span></div></div>
+ <div class="sec"><h5>Metadata</h5><div class="kv">${LIT.meta.slice(0,6).map(m=>`<span>${m[0]}</span><span>${m[1]}</span><span>${m[2].split(' ')[0]}</span>`).join('')}</div></div>
+ <div class="sec"><h5>Recent notes</h5>${LIT.notes.slice(0,2).map(n=>`<div style="margin-bottom:6px"><span class="tag">${n[0]}</span>${n[1]}</div>`).join('')}</div>`;
+}
+function openT(){
+ const b=byId(sel);document.body.classList.add('t');
+ document.getElementById('full').innerHTML=`<a class="btn" onclick="back()">← Back</a><div style="display:grid;grid-template-columns:220px 1fr 1fr;gap:24px;margin-top:16px;max-width:1300px">
+ <div>${cv(b)}<div style="margin-top:12px">${tags(b)}</div></div>
+ <div><h1 style="font:700 32px Georgia,serif;margin:0">${b.title}</h1><div style="color:var(--dim);font-size:15px">${b.author} · ${b.year} · ${b.lib}</div>
+  <div class="warn" style="margin-top:14px"><b>Resume conflict</b> · Kobo 64% (yesterday) vs this device 62%.<br><button class="btn p" style="margin-top:6px">Use 64%</button> <button class="btn">Keep 62%</button></div>
+  <div class="sec"><h5>Editions</h5><div class="kv" style="grid-template-columns:60px 1fr auto"><span>EPUB</span><span>dracula.epub · 2.1 MB</span><span>✓ verified</span><span>M4B</span><span>38 files · 612 MB · Alan Cumming</span><span>✓ complete</span><span>PDF</span><span>first-edition.pdf · 31 MB</span><span>✓ verified</span></div></div>
+  <div class="sec"><h5>Metadata (source)</h5><div class="kv">${LIT.meta.map(m=>`<span>${m[0]}</span><span>${m[1]}</span><span>${m[2]}</span>`).join('')}</div></div>
+  <div class="sec"><h5>Devices</h5><div class="kv">${LIT.devices.map(d=>`<span>${d.n.split(' ·')[0]}</span><span>${d.p}</span><span>${d.w}</span>`).join('')}</div></div></div>
+ <div><div class="sec"><h5>Chapters · derived from CUE</h5>${LIT.chapters.map((c,i)=>`<div class="ch ${c[2]}"><span>${i+1}</span><span>${c[2]=='now'?'▶ ':''}${c[0]}</span><span>${c[1]}</span></div>`).join('')}<div class="ch"><span>…</span><span>30 more</span><span></span></div></div>
+ <div class="sec"><h5>Annotations · 7</h5>${LIT.notes.map(n=>`<div style="margin-bottom:8px"><span class="tag">${n[0]}</span><span class="tag">${n[2]}</span>${n[1]}</div>`).join('')}</div></div></div>`;
+}
+function back(){document.body.classList.remove('t')}
+document.getElementById('cards').onclick=e=>{const c=e.target.closest('.card');if(c){sel=c.dataset.id;draw()}};
+document.getElementById('cards').ondblclick=openT;
+draw();
+</script></body></html>
