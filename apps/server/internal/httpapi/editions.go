@@ -62,17 +62,58 @@ func (a *API) registerEditions(api huma.API) {
 			LibraryID string `query:"libraryId" format:"uuid"`
 			Q         string `query:"q" maxLength:"512"`
 			MediaKind string `query:"mediaKind" enum:"ebook,audio"`
-		}) (*bodyOut[wire.T005Titles], error) {
+			Author    string `query:"author" maxLength:"512" doc:"Substring of an author name."`
+			Series    string `query:"series" maxLength:"512" doc:"Substring of the series name."`
+			Publisher string `query:"publisher" maxLength:"512" doc:"Substring of the publisher."`
+			Language  string `query:"language" maxLength:"128" doc:"Exact language code."`
+			Format    string `query:"format" maxLength:"32" doc:"An ebook format such as epub, or audio."`
+			Status    string `query:"status" enum:"unread,reading,finished" doc:"The caller's own reading state."`
+			Rated     string `query:"rated" enum:"rated,unrated" doc:"Whether the caller has rated the title."`
+			Sort      string `query:"sort" enum:"title,author,series,series_index,publisher,published,language,status,pages,rating,editions,added" doc:"Default title."`
+			Order     string `query:"order" enum:"asc,desc" doc:"Default asc."`
+		}) (*bodyOut[wire.T009Titles], error) {
 			q, err := literalQuery(in.Q)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			page, size := in.normalized()
-			out, err := a.Catalog.Titles(ctx, principal(ctx).UserID, catalog.TitleListParams{Q: q, LibraryID: uuidPtr(in.LibraryID), MediaKind: strPtr(in.MediaKind), Page: page, Size: size})
+			lit := func(v string) *string {
+				p, lerr := literalQuery(v)
+				if lerr != nil {
+					err = lerr
+				}
+				return p
+			}
+			author, series, publisher := lit(in.Author), lit(in.Series), lit(in.Publisher)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005Titles]{Body: out}, nil
+			page, size := in.normalized()
+			out, err := a.Catalog.Titles(ctx, principal(ctx).UserID, catalog.TitleListParams{Q: q, LibraryID: uuidPtr(in.LibraryID), MediaKind: strPtr(in.MediaKind),
+				Author: author, Series: series, Publisher: publisher, Language: strPtr(in.Language), Format: strPtr(in.Format), Status: strPtr(in.Status), Rated: strPtr(in.Rated),
+				Sort: in.Sort, Descending: in.Order == "desc", Page: page, Size: size})
+			if err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			return &bodyOut[wire.T009Titles]{Body: out}, nil
+		})
+
+	huma.Register(api, writeOp(op("searchTitles", http.MethodPost, "/titles/search", "Titles matching a filter tree of AND/OR groups", "catalog")),
+		func(ctx context.Context, in *struct{ Body wire.TitleSearchRequest }) (*bodyOut[wire.T009Titles], error) {
+			b := in.Body
+			q, err := literalQuery(b.Q)
+			if err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			page, size := int(b.Page), int(b.Size)
+			if size == 0 {
+				size = 24
+			}
+			out, err := a.Catalog.Titles(ctx, principal(ctx).UserID, catalog.TitleListParams{Q: q, LibraryID: uuidPtr(b.LibraryID), MediaKind: strPtr(b.MediaKind),
+				Filter: b.Filter, Sort: b.Sort, Descending: b.Order == "desc", Page: page, Size: size})
+			if err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			return &bodyOut[wire.T009Titles]{Body: out}, nil
 		})
 
 	huma.Register(api, readOp(op("getTitle", http.MethodGet, "/titles/{titleId}", "One title", "catalog")),

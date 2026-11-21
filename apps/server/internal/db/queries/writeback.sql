@@ -1,6 +1,6 @@
 -- name: CreateWritebackPlan :one
-INSERT INTO writeback_plans (library_id, file_id, base_version, kind, format, diff, recording_id, target_rel, base_sha256)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
+INSERT INTO writeback_plans (library_id, file_id, base_version, kind, format, diff, recording_id, edition_id, target_rel, base_sha256)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;
 
 -- name: GetWritebackPlan :one
 SELECT * FROM writeback_plans WHERE id = $1;

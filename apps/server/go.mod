@@ -14,6 +14,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/ulikunitz/xz v0.5.15
 	golang.org/x/crypto v0.59.0
+	golang.org/x/image v0.48.0
 	golang.org/x/term v0.48.0
 	golang.org/x/text v0.44.0
 )

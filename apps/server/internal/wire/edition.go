@@ -71,6 +71,27 @@ type T005Title struct {
 	LastActivityAt *string  `json:"lastActivityAt" format:"date-time" nullable:"true"`
 }
 
+// T009TitleRow is one row of the library table: the title plus what the table shows and sorts by.
+type T009TitleRow struct {
+	T005Title
+	LibraryIDs   []string `json:"libraryIds" maxItems:"200" doc:"Granted libraries that hold the title." items:"format:uuid"`
+	Formats      []string `json:"formats" maxItems:"32" doc:"Ebook formats such as epub or pdf, and audio when there is a recording."`
+	AddedAt      string   `json:"addedAt" format:"date-time" doc:"When the title first appeared in a granted library."`
+	SeriesIndex  *float64 `json:"seriesIndex" minimum:"0" nullable:"true"`
+	Publisher    *string  `json:"publisher" maxLength:"512" nullable:"true"`
+	Published    *string  `json:"published" pattern:"^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$" nullable:"true"`
+	PageCount    *int64   `json:"pageCount" minimum:"1" maximum:"100000" nullable:"true"`
+	RatingHalves *int64   `json:"ratingHalves" minimum:"1" maximum:"10" nullable:"true" doc:"The caller's own rating in half stars."`
+	Status       string   `json:"status" enum:"unread,reading,finished" doc:"The caller's own reading state."`
+}
+
+type T009Titles struct {
+	Items []T009TitleRow `json:"items" maxItems:"200"`
+	Total int64          `json:"total" minimum:"0" maximum:"9007199254740991"`
+	Page  int64          `json:"page" minimum:"0" maximum:"9007199254740991"`
+	Size  int64          `json:"size" minimum:"1" maximum:"200"`
+}
+
 type T005Titles struct {
 	Items []T005Title `json:"items" maxItems:"200"`
 	Total int64       `json:"total" minimum:"0" maximum:"9007199254740991"`
@@ -114,4 +135,28 @@ type T005Reader struct {
 	Engine        string            `json:"engine" enum:"foliate,pdfjs,image-pages,none"`
 	EngineProfile string            `json:"engineProfile" maxLength:"128"`
 	PageManifest  *string           `json:"pageManifestPath" maxLength:"1024" nullable:"true"`
+}
+
+// TitleFilter is one node of a filter tree (ADR-0085): a group joins its rules with AND or OR, a rule tests one field.
+// A group may hold rules and other groups, to the depth and size the server enforces.
+type TitleFilter struct {
+	Type     string        `json:"type" enum:"group,rule"`
+	Join     string        `json:"join,omitempty" enum:"AND,OR" doc:"For a group: how its rules combine."`
+	Rules    []TitleFilter `json:"rules,omitempty" maxItems:"30" doc:"For a group: its rules and nested groups."`
+	Field    string        `json:"field,omitempty" enum:"title,author,series,publisher,language,format,status,library,rating,published,added,pages,series_index,has_ebook,has_audio,has_description" doc:"For a rule: what to test."`
+	Operator string        `json:"operator,omitempty" enum:"is,is_not,contains,not_contains,is_empty,not_empty,gt,gte,lt,lte,between,before,after" doc:"For a rule; which operators a field accepts is checked by the server."`
+	Value    any           `json:"value,omitempty" doc:"A string, a number, a boolean or a list of up to 20 strings, by field and operator."`
+	ValueTo  any           `json:"valueTo,omitempty" doc:"The upper end for between."`
+}
+
+// TitleSearchRequest asks for a page of titles matching a filter tree.
+type TitleSearchRequest struct {
+	Filter    *TitleFilter `json:"filter,omitempty"`
+	Q         string       `json:"q,omitempty" maxLength:"512" doc:"Literal substring over title, authors and series, applied in addition to the tree."`
+	LibraryID string       `json:"libraryId,omitempty" format:"uuid"`
+	MediaKind string       `json:"mediaKind,omitempty" enum:"ebook,audio"`
+	Sort      string       `json:"sort,omitempty" enum:"title,author,series,series_index,publisher,published,language,status,pages,rating,editions,added" doc:"Default title."`
+	Order     string       `json:"order,omitempty" enum:"asc,desc" doc:"Default asc."`
+	Page      int64        `json:"page,omitempty" minimum:"0" maximum:"9007199254740991"`
+	Size      int64        `json:"size,omitempty" minimum:"1" maximum:"200" doc:"Default 24."`
 }

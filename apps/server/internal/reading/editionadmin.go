@@ -1,6 +1,7 @@
 package reading
 
 import (
+	"regexp"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -23,7 +24,12 @@ import (
 // Callers have already established administrator authority and a grant on
 // EditionLibrary; these functions never touch file bytes or personal state.
 
-var editionFields = []string{"title", "authors", "series_name", "series_index", "language", "tags"}
+var editionFields = []string{"title", "authors", "series_name", "series_index", "language", "tags", "publisher", "published", "page_count", "isbn", "description"}
+
+var (
+	publishedRe = regexp.MustCompile(`^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$`)
+	isbnRe      = regexp.MustCompile(`^(\d{9}[\dX]|\d{13})$`)
+)
 
 func validEditionField(f string) bool {
 	for _, x := range editionFields {
@@ -134,6 +140,31 @@ func editionValue(field string, w wire.T005MetadataWrite) (json.RawMessage, erro
 		if json.Unmarshal(raw, &v) != nil || v < 0 {
 			return nil, apperr.Validation("series_index must be a nonnegative number.")
 		}
+	case "publisher":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || strings.TrimSpace(v) == "" || len([]rune(v)) > 512 {
+			return nil, apperr.Validation("publisher must be a non-empty string of up to 512 characters.")
+		}
+	case "description":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || strings.TrimSpace(v) == "" || len([]rune(v)) > 8000 {
+			return nil, apperr.Validation("description must be a non-empty string of up to 8000 characters.")
+		}
+	case "published":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || !publishedRe.MatchString(v) {
+			return nil, apperr.Validation("published must be YYYY, YYYY-MM or YYYY-MM-DD.")
+		}
+	case "page_count":
+		var v int
+		if json.Unmarshal(raw, &v) != nil || v < 1 || v > 100000 {
+			return nil, apperr.Validation("page_count must be a whole number from 1 to 100000.")
+		}
+	case "isbn":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || !isbnRe.MatchString(v) {
+			return nil, apperr.Validation("isbn must be 10 or 13 characters (digits, and X for the last of ten) with no hyphens.")
+		}
 	}
 	return json.RawMessage(append([]byte(nil), raw...)), nil
 }
@@ -168,35 +199,33 @@ func (s *Service) propagate(ctx context.Context, q *sqlcgen.Queries, ed sqlcgen.
 	if err != nil {
 		return err
 	}
-	name, authors, series, index := t.Title, t.Authors, t.SeriesName, t.SeriesIndex
+	name := t.Title
+	var authors []string
+	var series *string
+	var index *float64
 	if f, ok := eff["title"]; ok && !f.Cleared {
 		var v string
 		if json.Unmarshal(f.Value.Raw, &v) == nil && v != "" {
 			name = v
 		}
 	}
-	if f, ok := eff["authors"]; ok {
-		authors = []string{}
-		if !f.Cleared {
-			_ = json.Unmarshal(f.Value.Raw, &authors)
+	// A field with no effective value at all (its protected edit was just removed and no other source has one)
+	// must clear the title's copy; leaving the old value would keep showing the removed edit.
+	authors = []string{}
+	if f, ok := eff["authors"]; ok && !f.Cleared {
+		_ = json.Unmarshal(f.Value.Raw, &authors)
+	}
+	series, index = nil, nil
+	if f, ok := eff["series_name"]; ok && !f.Cleared {
+		var v string
+		if json.Unmarshal(f.Value.Raw, &v) == nil {
+			series = &v
 		}
 	}
-	if f, ok := eff["series_name"]; ok {
-		series = nil
-		if !f.Cleared {
-			var v string
-			if json.Unmarshal(f.Value.Raw, &v) == nil {
-				series = &v
-			}
-		}
-	}
-	if f, ok := eff["series_index"]; ok {
-		index = nil
-		if !f.Cleared {
-			var v float64
-			if json.Unmarshal(f.Value.Raw, &v) == nil {
-				index = &v
-			}
+	if f, ok := eff["series_index"]; ok && !f.Cleared {
+		var v float64
+		if json.Unmarshal(f.Value.Raw, &v) == nil {
+			index = &v
 		}
 	}
 	return q.UpdateTitleFields(ctx, sqlcgen.UpdateTitleFieldsParams{ID: t.ID, Title: name, Authors: authors, SeriesName: series, SeriesIndex: index})

@@ -54,7 +54,7 @@ func (q *Queries) GetRootHealth(ctx context.Context, libraryID uuid.UUID) (RootH
 }
 
 const insertLibrary = `-- name: InsertLibrary :one
-INSERT INTO libraries (id, name) VALUES ($1, $2) RETURNING id, name, created_at
+INSERT INTO libraries (id, name) VALUES ($1, $2) RETURNING id, name, icon, created_at
 `
 
 type InsertLibraryParams struct {
@@ -65,7 +65,12 @@ type InsertLibraryParams struct {
 func (q *Queries) InsertLibrary(ctx context.Context, arg InsertLibraryParams) (Library, error) {
 	row := q.db.QueryRow(ctx, insertLibrary, arg.ID, arg.Name)
 	var i Library
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Icon,
+		&i.CreatedAt,
+	)
 	return i, err
 }
 

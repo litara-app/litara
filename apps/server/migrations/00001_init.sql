@@ -56,6 +56,8 @@ CREATE TABLE users (
 CREATE TABLE libraries (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name       text NOT NULL UNIQUE,
+    -- A short name from the web app's icon set (null means the default icon).
+    icon       text CHECK (icon IS NULL OR icon ~ '^[a-z0-9-]{1,32}$'),
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -489,6 +491,10 @@ CREATE TABLE editions (
 CREATE INDEX editions_title_idx ON editions (title_id);
 CREATE INDEX editions_library_idx ON editions (library_id);
 
+-- A Litara JSON or OPF sidecar, and a sidecar export plan, can belong to one ebook edition instead of a recording (ADR-0081).
+ALTER TABLE associations ADD COLUMN edition_id uuid REFERENCES editions (id) ON DELETE SET NULL;
+ALTER TABLE writeback_plans ADD COLUMN edition_id uuid REFERENCES editions (id) ON DELETE SET NULL;
+
 -- T005 personal reading state for editions (ADR-0065). Revisions start at 0 (absent row).
 CREATE TABLE edition_position_state (
     user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -624,13 +630,28 @@ CREATE INDEX shelf_titles_order_idx ON shelf_titles (shelf_id, position, title_i
 -- sidecar, embedded and provider values; the file name is a computed lowest fallback.
 CREATE TABLE edition_metadata_values (
     edition_id      uuid NOT NULL REFERENCES editions (id),
-    field           text NOT NULL CHECK (field IN ('title', 'authors', 'series_name', 'series_index', 'language', 'tags')),
+    field           text NOT NULL CHECK (field IN ('title', 'authors', 'series_name', 'series_index', 'language', 'tags', 'publisher', 'published', 'page_count', 'isbn', 'description')),
     source          text NOT NULL CHECK (source IN ('user', 'sidecar', 'embedded', 'provider')),
     value           jsonb,
     protected_clear boolean NOT NULL DEFAULT false,
     updated_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (edition_id, field, source),
     CHECK (source = 'user' OR NOT protected_clear)
+);
+
+-- Personal rating, review and reading-date overrides (ADR-0081). Private to the account; a revisioned whole-row write.
+-- rating_halves counts half stars (1 to 10). Derived dates come from reading history; started_at and finished_at are the
+-- person's own overrides and win until cleared.
+CREATE TABLE title_personal (
+    user_id       uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    title_id      uuid NOT NULL REFERENCES titles (id),
+    revision      bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    rating_halves smallint CHECK (rating_halves BETWEEN 1 AND 10),
+    review        text CHECK (review IS NULL OR char_length(review) <= 20000),
+    started_at    timestamptz,
+    finished_at   timestamptz,
+    updated_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, title_id)
 );
 
 -- T005 comic page extraction (ADR-0067): one durable job and manifest per file
@@ -708,13 +729,29 @@ CREATE INDEX integration_credentials_user_idx ON integration_credentials (user_i
 -- an audio publication is one file of an active recording (its file ID is the
 -- publication ID). Only current, available files with known size appear, so no
 -- advertised link names absent bytes. Grants are joined by the queries.
+-- Effective descriptive value of an edition or a title (ADR-0047 order: user, sidecar, embedded, provider). A protected
+-- clear is a user row with a null value, so it wins and yields null. Used by feeds that list many books at once.
+CREATE FUNCTION effective_edition_field(ed uuid, f text) RETURNS jsonb LANGUAGE sql STABLE AS $$
+    SELECT value FROM edition_metadata_values WHERE edition_id = ed AND field = f
+    ORDER BY CASE source WHEN 'user' THEN 0 WHEN 'sidecar' THEN 1 WHEN 'embedded' THEN 2 ELSE 3 END LIMIT 1
+$$;
+CREATE FUNCTION effective_title_field(tid uuid, f text) RETURNS jsonb LANGUAGE sql STABLE AS $$
+    SELECT value FROM metadata_values WHERE subject_kind = 'title' AND subject_id = tid AND field = f
+    ORDER BY CASE source WHEN 'user' THEN 0 WHEN 'sidecar' THEN 1 WHEN 'embedded' THEN 2 ELSE 3 END LIMIT 1
+$$;
+
 CREATE VIEW opds_publication_rows AS
 SELECT e.id AS publication_id,
        CASE WHEN e.format IN ('cbz', 'cbr', 'cb7') THEN 'comic' ELSE 'ebook' END::text AS media_kind,
        e.library_id, t.id AS title_id, t.title, t.authors, t.series_name, t.series_index,
        e.language, e.label, '{}'::text[] AS narrators,
        e.file_id, fv.content_version, fv.filename, fv.mime_type, fv.size_bytes, fv.created_at AS updated_at,
-       NULL::uuid AS recording_id, 0::int AS file_order, 1::int AS file_count
+       NULL::uuid AS recording_id, 0::int AS file_order, 1::int AS file_count,
+       (effective_edition_field(e.id, 'publisher') #>> '{}')::text AS publisher,
+       (effective_edition_field(e.id, 'published') #>> '{}')::text AS published,
+       (effective_edition_field(e.id, 'isbn') #>> '{}')::text AS isbn,
+       (effective_edition_field(e.id, 'description') #>> '{}')::text AS synopsis,
+       (effective_edition_field(e.id, 'page_count') #>> '{}')::int AS page_count
 FROM editions e
 JOIN titles t ON t.id = e.title_id
 JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current AND fv.available AND fv.size_bytes IS NOT NULL
@@ -724,7 +761,12 @@ SELECT rf.file_id AS publication_id, 'audio'::text AS media_kind,
        NULL::text AS language, ''::text AS label, r.narrators,
        rf.file_id, fv.content_version, fv.filename, fv.mime_type, fv.size_bytes, fv.created_at AS updated_at,
        r.id AS recording_id, (rf.sequence + 1)::int AS file_order,
-       (SELECT count(*)::int FROM recording_files c WHERE c.recording_id = r.id) AS file_count
+       (SELECT count(*)::int FROM recording_files c WHERE c.recording_id = r.id) AS file_count,
+       (effective_title_field(t.id, 'publisher') #>> '{}')::text AS publisher,
+       (effective_title_field(t.id, 'published') #>> '{}')::text AS published,
+       (effective_title_field(t.id, 'isbn') #>> '{}')::text AS isbn,
+       (effective_title_field(t.id, 'description') #>> '{}')::text AS synopsis,
+       NULL::int AS page_count
 FROM recording_files rf
 JOIN active_recordings r ON r.id = rf.recording_id
 JOIN titles t ON t.id = r.title_id
@@ -888,6 +930,67 @@ CREATE TABLE deliveries (
 );
 CREATE INDEX deliveries_user_idx ON deliveries (user_id, created_at, id);
 
+-- The per-title rows the library list and the filter tree read (ADR-0085). One definition, so GET /titles and
+-- POST /titles/search cannot drift. Counts, formats and libraries include only the caller's granted libraries.
+CREATE FUNCTION title_rows(p_user uuid) RETURNS TABLE (
+    id uuid, title text, authors text[], series_name text, series_index double precision,
+    edition_count bigint, recording_count bigint, languages text[], formats text[], library_ids uuid[],
+    added_at timestamptz, publisher text, published text, page_count int, rating_halves smallint, status text,
+    has_description boolean
+) LANGUAGE sql STABLE AS $$
+  SELECT t.id, t.title, t.authors, t.series_name, t.series_index,
+    (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id)::bigint AS edition_count,
+    (SELECT count(*) FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user WHERE r.title_id = t.id)::bigint AS recording_count,
+    COALESCE((SELECT array_agg(DISTINCT e.language) FILTER (WHERE e.language IS NOT NULL)
+              FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id), '{}')::text[] AS languages,
+    (COALESCE((SELECT array_agg(DISTINCT e.format ORDER BY e.format) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id), '{}')::text[]
+      || CASE WHEN EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user WHERE r.title_id = t.id) THEN ARRAY['audio']::text[] ELSE '{}'::text[] END)::text[] AS formats,
+    COALESCE((SELECT array_agg(DISTINCT x.library_id ORDER BY x.library_id) FROM (
+        SELECT e.library_id FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id
+        UNION SELECT r.library_id FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user WHERE r.title_id = t.id) x), '{}')::uuid[] AS library_ids,
+    (SELECT min(x.created_at) FROM (
+        SELECT e.created_at FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id
+        UNION ALL SELECT r.created_at FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user WHERE r.title_id = t.id) x)::timestamptz AS added_at,
+    COALESCE((SELECT s.v FROM (SELECT NULLIF(effective_edition_field(e.id, 'publisher') #>> '{}', '') AS v, e.created_at FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id) s WHERE s.v IS NOT NULL ORDER BY s.created_at LIMIT 1),
+             NULLIF(effective_title_field(t.id, 'publisher') #>> '{}', ''))::text AS publisher,
+    COALESCE((SELECT s.v FROM (SELECT NULLIF(effective_edition_field(e.id, 'published') #>> '{}', '') AS v, e.created_at FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id) s WHERE s.v IS NOT NULL ORDER BY s.created_at LIMIT 1),
+             NULLIF(effective_title_field(t.id, 'published') #>> '{}', ''))::text AS published,
+    (SELECT s.v FROM (SELECT (effective_edition_field(e.id, 'page_count') #>> '{}')::int AS v, e.created_at FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id) s WHERE s.v IS NOT NULL ORDER BY s.created_at LIMIT 1)::int AS page_count,
+    (SELECT p.rating_halves FROM title_personal p WHERE p.user_id = p_user AND p.title_id = t.id)::smallint AS rating_halves,
+    CASE
+      WHEN EXISTS (SELECT 1 FROM edition_completion_state c JOIN editions e ON e.id = c.edition_id WHERE c.user_id = p_user AND e.title_id = t.id AND c.finished)
+        OR EXISTS (SELECT 1 FROM completion_state c JOIN recordings r ON r.id = c.recording_id WHERE c.user_id = p_user AND r.title_id = t.id AND c.finished) THEN 'finished'
+      WHEN EXISTS (SELECT 1 FROM edition_position_state s JOIN editions e ON e.id = s.edition_id WHERE s.user_id = p_user AND e.title_id = t.id AND s.captured_at IS NOT NULL)
+        OR EXISTS (SELECT 1 FROM position_state s JOIN recordings r ON r.id = s.recording_id WHERE s.user_id = p_user AND r.title_id = t.id AND s.captured_at IS NOT NULL) THEN 'reading'
+      ELSE 'unread' END::text AS status
+    ,
+    COALESCE(NULLIF(effective_title_field(t.id, 'description') #>> '{}', '') IS NOT NULL
+      OR EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id AND NULLIF(effective_edition_field(e.id, 'description') #>> '{}', '') IS NOT NULL), false) AS has_description
+  FROM titles t
+$$;
+
+-- Covers chosen for a title (ADR-0086), one per medium. The image is a bounded JPEG re-encoded by the server, so the
+-- table stays small; source "none" records that the files have no cover, so extraction is not retried on every request.
+CREATE TABLE title_covers (
+    title_id   uuid NOT NULL REFERENCES titles (id) ON DELETE CASCADE,
+    medium     text NOT NULL CHECK (medium IN ('ebook', 'audio')),
+    source     text NOT NULL CHECK (source IN ('upload', 'url', 'search', 'extracted', 'none')),
+    image      bytea,
+    version    uuid NOT NULL DEFAULT gen_random_uuid(),
+    updated_by uuid REFERENCES users (id) ON DELETE SET NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (title_id, medium),
+    CHECK ((source = 'none') = (image IS NULL))
+);
+
+-- Whether the server may query third-party sites for covers. Off until an administrator turns it on (ADR-0086).
+CREATE TABLE cover_settings (
+    singleton      boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+    search_enabled boolean NOT NULL DEFAULT false,
+    updated_at     timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO cover_settings (singleton) VALUES (true);
+
 -- +goose Down
 DROP TABLE deliveries;
 DROP TABLE delivery_recipients;
@@ -899,11 +1002,14 @@ DROP TABLE koreader_sources;
 DROP TABLE koreader_bindings;
 DROP TABLE koreader_digests;
 DROP VIEW opds_publication_rows;
+DROP FUNCTION effective_title_field(uuid, text);
+DROP FUNCTION effective_edition_field(uuid, text);
 DROP TABLE integration_credentials;
 DROP TABLE integration_settings;
 DROP TABLE repair_plans;
 DROP VIEW active_recordings;
 DROP TABLE comic_extractions;
+DROP TABLE title_personal;
 DROP TABLE edition_metadata_values;
 DROP TABLE shelf_titles;
 DROP TABLE shelves;
@@ -946,6 +1052,9 @@ DROP TABLE titles;
 DROP TABLE refresh_exchanges;
 DROP TABLE sessions;
 DROP TABLE user_library_grants;
+DROP TABLE IF EXISTS cover_settings;
+DROP TABLE IF EXISTS title_covers;
+DROP FUNCTION IF EXISTS title_rows(uuid);
 DROP TABLE libraries;
 DROP TABLE users;
 DROP TABLE server_identity;

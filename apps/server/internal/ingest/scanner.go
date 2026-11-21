@@ -352,6 +352,9 @@ func (s *Scanner) reconcile(ctx context.Context, run sqlcgen.ScanRun) (Outcome, 
 		if err := s.Associate(ctx, run.LibraryID, listing); err != nil {
 			return out, fmt.Errorf("associate: %w", err)
 		}
+		if err := s.applyEditionSidecars(ctx, run.LibraryID); err != nil {
+			return out, fmt.Errorf("ebook sidecars: %w", err)
+		}
 		if err := metadata.New(s.Pool).Refresh(ctx, run.LibraryID); err != nil {
 			return out, fmt.Errorf("metadata: %w", err)
 		}

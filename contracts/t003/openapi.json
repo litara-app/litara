@@ -2326,11 +2326,18 @@
         "additionalProperties": false
       },
       "Library": {
-        "type": "object",
+        "additionalProperties": false,
         "properties": {
+          "icon": {
+            "pattern": "^[a-z0-9-]{1,32}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
-            "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "type": "string"
           },
           "name": {
             "type": "string"
@@ -2338,9 +2345,10 @@
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "icon"
         ],
-        "additionalProperties": false
+        "type": "object"
       },
       "Session": {
         "type": "object",
@@ -2409,7 +2417,11 @@
             "pattern": "^/"
           },
           "stability": {
-            "const": "development"
+            "type": "string",
+            "enum": [
+              "development",
+              "stable"
+            ]
           },
           "capabilities": {
             "type": "array",
@@ -2425,12 +2437,18 @@
           },
           "registration": {
             "const": "admin-only"
+          },
+          "apiVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-development)?$",
+            "description": "The full API version, for example 1.2.0 or 1.0.0-development."
           }
         },
         "required": [
           "serverId",
           "product",
           "apiVersions",
+          "apiVersion",
           "apiBasePath",
           "stability",
           "capabilities",

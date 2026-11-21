@@ -43,7 +43,7 @@ type T005MetadataEvidence struct {
 }
 
 type T005MetadataField struct {
-	Field     string                 `json:"field" enum:"title,authors,series_name,series_index,language,tags"`
+	Field     string                 `json:"field" enum:"title,authors,series_name,series_index,language,tags,publisher,published,page_count,isbn,description"`
 	Source    string                 `json:"source" enum:"user,sidecar,embedded,provider,filename"`
 	Cleared   bool                   `json:"cleared"`
 	Value     T005MetadataValue      `json:"value"`

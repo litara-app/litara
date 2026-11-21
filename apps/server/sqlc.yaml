@@ -18,6 +18,21 @@ sql:
             go_type:
               import: github.com/google/uuid
               type: NullUUID
+          - column: "opds_publication_rows.publisher"
+            go_type:
+              type: "*string"
+          - column: "opds_publication_rows.published"
+            go_type:
+              type: "*string"
+          - column: "opds_publication_rows.isbn"
+            go_type:
+              type: "*string"
+          - column: "opds_publication_rows.synopsis"
+            go_type:
+              type: "*string"
+          - column: "opds_publication_rows.page_count"
+            go_type:
+              type: "*int32"
           - db_type: timestamptz
             go_type: time.Time
           - db_type: timestamptz

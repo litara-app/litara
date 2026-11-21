@@ -58,6 +58,11 @@ type Pub struct {
 	FileOrder      int
 	FileCount      int
 	CoverMIME      *string // non-nil when artwork exists
+	Publisher      *string
+	Published      *string // YYYY, YYYY-MM or YYYY-MM-DD
+	ISBN           *string
+	Synopsis       *string
+	Pages          *int
 }
 
 // Library is a granted library for navigation.
@@ -126,6 +131,13 @@ func DisplayTitle(p Pub) string {
 	return p.Title
 }
 
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
 // Description is plain text.
 func Description(p Pub) string {
 	var parts []string
@@ -139,6 +151,13 @@ func Description(p Pub) string {
 		parts = append(parts, "Comic original file.")
 	default:
 		parts = append(parts, "Ebook original file.")
+	}
+	if syn := strings.TrimSpace(deref(p.Synopsis)); syn != "" {
+		if p.Kind == "audio" {
+			parts = append(parts, syn) // the file facts above matter for a single audio file
+		} else {
+			parts[0] = syn // an ebook's own synopsis replaces the generic "Ebook original file." line
+		}
 	}
 	if p.Label != "" {
 		parts = append(parts, "Edition: "+p.Label+".")
@@ -199,6 +218,15 @@ func atomEntry(b *bytes.Buffer, l Links, p Pub, indent string) {
 	}
 	if p.Language != nil && *p.Language != "" {
 		fmt.Fprintf(b, "%s<dc:language>%s</dc:language>\n", indent, esc(*p.Language))
+	}
+	if v := deref(p.Publisher); v != "" {
+		fmt.Fprintf(b, "%s<dc:publisher>%s</dc:publisher>\n", indent, esc(v))
+	}
+	if v := deref(p.Published); v != "" {
+		fmt.Fprintf(b, "%s<dc:issued>%s</dc:issued>\n", indent, esc(v))
+	}
+	if v := deref(p.ISBN); v != "" {
+		fmt.Fprintf(b, "%s<dc:identifier>urn:isbn:%s</dc:identifier>\n", indent, esc(v))
 	}
 	fmt.Fprintf(b, `%s<category term="%s" label="%s"/>`+"\n", indent, attr(p.Kind), attr(strings.ToUpper(p.Kind[:1])+p.Kind[1:]))
 	fmt.Fprintf(b, "%s<summary type=\"text\">%s</summary>\n", indent, esc(Description(p)))
@@ -339,6 +367,9 @@ type jPubMeta struct {
 	Language    string         `json:"language,omitempty"`
 	Modified    string         `json:"modified"`
 	Description string         `json:"description,omitempty"`
+	Publisher   string         `json:"publisher,omitempty"`
+	Published   string         `json:"published,omitempty"`
+	Pages       int            `json:"numberOfPages,omitempty"`
 	BelongsTo   *jBelongs      `json:"belongsTo,omitempty"`
 }
 
@@ -370,6 +401,10 @@ func jPublication(l Links, p Pub) jPub {
 		Narrator: contributors(p.Narrators), Modified: rfc(p.Updated), Description: Description(p)}
 	if p.Language != nil {
 		m.Language = *p.Language
+	}
+	m.Publisher, m.Published = deref(p.Publisher), deref(p.Published)
+	if p.Pages != nil {
+		m.Pages = *p.Pages
 	}
 	if p.SeriesName != nil && *p.SeriesName != "" {
 		m.BelongsTo = &jBelongs{Series: []jSeries{{Name: *p.SeriesName, Position: p.SeriesIndex}}}

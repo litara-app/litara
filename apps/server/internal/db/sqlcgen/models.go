@@ -53,6 +53,7 @@ type Association struct {
 	RecordingID uuid.NullUUID `json:"recording_id"`
 	State       string        `json:"state"`
 	Detail      *string       `json:"detail"`
+	EditionID   uuid.NullUUID `json:"edition_id"`
 }
 
 type ChapterSource struct {
@@ -112,6 +113,12 @@ type Conflict struct {
 	CreatedAt           time.Time     `json:"created_at"`
 	ResolvedAt          *time.Time    `json:"resolved_at"`
 	ResolvedOperationID uuid.NullUUID `json:"resolved_operation_id"`
+}
+
+type CoverSetting struct {
+	Singleton     bool      `json:"singleton"`
+	SearchEnabled bool      `json:"search_enabled"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Delivery struct {
@@ -417,6 +424,7 @@ type KoreaderSource struct {
 type Library struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
+	Icon      *string   `json:"icon"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -485,6 +493,11 @@ type OpdsPublicationRow struct {
 	RecordingID    uuid.NullUUID `json:"recording_id"`
 	FileOrder      int32         `json:"file_order"`
 	FileCount      int32         `json:"file_count"`
+	Publisher      *string       `json:"publisher"`
+	Published      *string       `json:"published"`
+	Isbn           *string       `json:"isbn"`
+	Synopsis       *string       `json:"synopsis"`
+	PageCount      *int32        `json:"page_count"`
 }
 
 type OperationReceipt struct {
@@ -710,6 +723,27 @@ type Title struct {
 	Identifier  *string   `json:"identifier"`
 }
 
+type TitleCover struct {
+	TitleID   uuid.UUID     `json:"title_id"`
+	Medium    string        `json:"medium"`
+	Source    string        `json:"source"`
+	Image     []byte        `json:"image"`
+	Version   uuid.UUID     `json:"version"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+type TitlePersonal struct {
+	UserID       uuid.UUID  `json:"user_id"`
+	TitleID      uuid.UUID  `json:"title_id"`
+	Revision     int64      `json:"revision"`
+	RatingHalves *int16     `json:"rating_halves"`
+	Review       *string    `json:"review"`
+	StartedAt    *time.Time `json:"started_at"`
+	FinishedAt   *time.Time `json:"finished_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
 type User struct {
 	ID           uuid.UUID `json:"id"`
 	UsernameKey  string    `json:"username_key"`
@@ -747,6 +781,7 @@ type WritebackPlan struct {
 	Detail       *string       `json:"detail"`
 	CreatedAt    time.Time     `json:"created_at"`
 	UpdatedAt    time.Time     `json:"updated_at"`
+	EditionID    uuid.NullUUID `json:"edition_id"`
 }
 
 type WriterCapability struct {

@@ -102,13 +102,18 @@ func (q *Queries) GetExchangeByOldHash(ctx context.Context, oldRefreshHash []byt
 }
 
 const getLibrary = `-- name: GetLibrary :one
-SELECT id, name, created_at FROM libraries WHERE id = $1
+SELECT id, name, icon, created_at FROM libraries WHERE id = $1
 `
 
 func (q *Queries) GetLibrary(ctx context.Context, id uuid.UUID) (Library, error) {
 	row := q.db.QueryRow(ctx, getLibrary, id)
 	var i Library
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Icon,
+		&i.CreatedAt,
+	)
 	return i, err
 }
 
@@ -469,7 +474,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 }
 
 const listLibrariesForUser = `-- name: ListLibrariesForUser :many
-SELECT l.id, l.name, l.created_at FROM libraries l
+SELECT l.id, l.name, l.icon, l.created_at FROM libraries l
 JOIN user_library_grants g ON g.library_id = l.id
 WHERE g.user_id = $1
 ORDER BY l.name, l.id LIMIT $2 OFFSET $3
@@ -490,7 +495,12 @@ func (q *Queries) ListLibrariesForUser(ctx context.Context, arg ListLibrariesFor
 	var items []Library
 	for rows.Next() {
 		var i Library
-		if err := rows.Scan(&i.ID, &i.Name, &i.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Icon,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -776,7 +786,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 const upsertLibrary = `-- name: UpsertLibrary :one
 INSERT INTO libraries (id, name) VALUES ($1, $2)
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
-RETURNING id, name, created_at
+RETURNING id, name, icon, created_at
 `
 
 type UpsertLibraryParams struct {
@@ -787,6 +797,11 @@ type UpsertLibraryParams struct {
 func (q *Queries) UpsertLibrary(ctx context.Context, arg UpsertLibraryParams) (Library, error) {
 	row := q.db.QueryRow(ctx, upsertLibrary, arg.ID, arg.Name)
 	var i Library
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Icon,
+		&i.CreatedAt,
+	)
 	return i, err
 }

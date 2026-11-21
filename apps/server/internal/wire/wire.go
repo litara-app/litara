@@ -57,6 +57,8 @@ type User struct {
 type Library struct {
 	ID   string `json:"id" format:"uuid"`
 	Name string `json:"name"`
+	// Icon is a short name from the web app's icon set; null means the default.
+	Icon *string `json:"icon" pattern:"^[a-z0-9-]{1,32}$" nullable:"true"`
 }
 
 type Session struct {
@@ -74,7 +76,8 @@ type Discovery struct {
 	Product      string   `json:"product" enum:"Litara"`
 	APIVersions  []string `json:"apiVersions" minItems:"1" enum:"v1"`
 	APIBasePath  string   `json:"apiBasePath" pattern:"^/"`
-	Stability    string   `json:"stability" enum:"development"`
+	APIVersion   string   `json:"apiVersion" pattern:"^[0-9]+\\.[0-9]+\\.[0-9]+(-development)?$" doc:"The full API version, for example 1.2.0 or 1.0.0-development."`
+	Stability    string   `json:"stability" enum:"development,stable"`
 	Capabilities []string `json:"capabilities" enum:"recordings,range-media,position-conflicts,offline-snapshots"`
 	Registration string   `json:"registration" enum:"admin-only"`
 }
@@ -123,6 +126,11 @@ type UserList struct {
 	Total int64  `json:"total" minimum:"0" maximum:"9007199254740991"`
 	Page  int64  `json:"page" minimum:"0" maximum:"9007199254740991"`
 	Size  int64  `json:"size" minimum:"1" maximum:"200"`
+}
+
+// LibraryIcon chooses a library's icon; null returns it to the default.
+type LibraryIcon struct {
+	Icon *string `json:"icon" pattern:"^[a-z0-9-]{1,32}$" nullable:"true"`
 }
 
 type LibraryList struct {

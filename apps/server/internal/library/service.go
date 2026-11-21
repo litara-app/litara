@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -193,7 +194,7 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (wire.LibraryDetail, er
 		order = []string{}
 	}
 	return wire.LibraryDetail{
-		Library: wire.Library{ID: lib.ID.String(), Name: lib.Name},
+		Library: wire.Library{ID: lib.ID.String(), Name: lib.Name, Icon: lib.Icon},
 		Config: wire.LibraryConfig{
 			Mode: cfg.Mode, RootPath: cfg.RootPath, FollowSymlinks: cfg.FollowSymlinks,
 			SentinelPath: cfg.SentinelPath, SentinelSHA256: cfg.SentinelSha256,
@@ -221,3 +222,20 @@ func (s *Service) ListIDs(ctx context.Context) ([]uuid.UUID, error) {
 	}
 	return ids, rows.Err()
 }
+
+// SetIcon records the icon shown for a library. The name must be a short lower-case word; the web app decides what it draws.
+func (s *Service) SetIcon(ctx context.Context, id uuid.UUID, icon *string) (wire.Library, error) {
+	if icon != nil && !iconRe.MatchString(*icon) {
+		return wire.Library{}, apperr.Validation("icon must be 1 to 32 lower-case letters, digits or hyphens.")
+	}
+	row, err := s.q.SetLibraryIcon(ctx, sqlcgen.SetLibraryIconParams{ID: id, Icon: icon})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return wire.Library{}, apperr.ErrNotFound
+	}
+	if err != nil {
+		return wire.Library{}, apperr.ErrUnavailable
+	}
+	return wire.Library{ID: row.ID.String(), Name: row.Name, Icon: row.Icon}, nil
+}
+
+var iconRe = regexp.MustCompile(`^[a-z0-9-]{1,32}$`)

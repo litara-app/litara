@@ -58,4 +58,22 @@ func (a *API) registerLibraries(api huma.API) {
 		}
 		return &bodyOut[wire.LibraryDetail]{Body: d}, nil
 	})
+
+	pi := adminOp(op("putLibraryIcon", http.MethodPut, "/admin/libraries/{libraryId}/icon", "Choose the icon shown for a library", "libraries"))
+	pi.Security = secured
+	huma.Register(api, pi, func(ctx context.Context, in *struct {
+		LibraryID string `path:"libraryId" format:"uuid"`
+		Body      wire.LibraryIcon
+	}) (*bodyOut[wire.Library], error) {
+		id := mustUUID(in.LibraryID)
+		p := principal(ctx)
+		if err := a.Library.Authorize(ctx, p.UserID, p.IsAdmin, id); err != nil {
+			return nil, a.fail(ctx, err)
+		}
+		out, err := a.Library.SetIcon(ctx, id, in.Body.Icon)
+		if err != nil {
+			return nil, a.fail(ctx, err)
+		}
+		return &bodyOut[wire.Library]{Body: out}, nil
+	})
 }

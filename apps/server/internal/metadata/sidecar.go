@@ -5,9 +5,59 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+// Bounds and shapes shared by every place a descriptive field is accepted (ADR-0081).
+const MaxDescription = 8000
+
+var (
+	publishedRe = regexp.MustCompile(`^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$`)
+	isbnRe      = regexp.MustCompile(`^(\d{9}[\dX]|\d{13})$`)
+	dateLead    = regexp.MustCompile(`^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?`)
+)
+
+// normPublished keeps the leading year, month and day of a date as YYYY, YYYY-MM or YYYY-MM-DD, or returns "".
+func normPublished(s string) string {
+	m := dateLead.FindStringSubmatch(strings.TrimSpace(s))
+	if m == nil {
+		return ""
+	}
+	out := m[1]
+	if m[2] != "" {
+		if mo, _ := strconv.Atoi(m[2]); mo >= 1 && mo <= 12 {
+			out += "-" + m[2]
+			if m[3] != "" {
+				if d, _ := strconv.Atoi(m[3]); d >= 1 && d <= 31 {
+					out += "-" + m[3]
+				}
+			}
+		}
+	}
+	return out
+}
+
+// normISBN returns a bare ISBN-10/13 from "urn:isbn:978-..." or "978-..." text, or "".
+func normISBN(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.TrimPrefix(strings.TrimPrefix(s, "urn:isbn:"), "isbn:")
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= '0' && r <= '9', r == 'x':
+			b.WriteRune(r)
+		case r == '-' || r == ' ':
+		default:
+			return ""
+		}
+	}
+	if n := b.Len(); n != 10 && n != 13 {
+		return ""
+	}
+	return strings.ToUpper(b.String())
+}
 
 // MaxSidecarBytes bounds what is read from a sidecar.
 const MaxSidecarBytes = 1 << 20
@@ -34,6 +84,13 @@ func ParseLitaraJSON(data []byte) (Fields, error) {
 			Name  string   `json:"name"`
 			Index *float64 `json:"index"`
 		} `json:"series"`
+		Publisher   *string  `json:"publisher"`
+		Published   *string  `json:"published"`
+		ISBN        *string  `json:"isbn"`
+		Description *string  `json:"description"`
+		Language    *string  `json:"language"`
+		Tags        []string `json:"tags"`
+		PageCount   *int     `json:"pageCount"`
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
@@ -58,6 +115,49 @@ func ParseLitaraJSON(data []byte) (Fields, error) {
 			set(f, FieldSeriesIndex, *in.Series.Index)
 		}
 	}
+	if in.Language != nil && strings.TrimSpace(*in.Language) != "" {
+		if len([]rune(*in.Language)) > 128 {
+			return nil, fmt.Errorf("invalid Litara JSON: language is longer than 128 characters")
+		}
+		set(f, FieldLanguage, strings.TrimSpace(*in.Language))
+	}
+	if t := clean(in.Tags); len(t) > 0 {
+		if len(t) > 100 {
+			return nil, fmt.Errorf("invalid Litara JSON: more than 100 tags")
+		}
+		set(f, FieldTags, t)
+	}
+	if in.PageCount != nil {
+		if *in.PageCount < 1 || *in.PageCount > 100000 {
+			return nil, fmt.Errorf("invalid Litara JSON: pageCount must be 1 to 100000")
+		}
+		set(f, FieldPageCount, *in.PageCount)
+	}
+	if in.Publisher != nil && strings.TrimSpace(*in.Publisher) != "" {
+		if len([]rune(*in.Publisher)) > 512 {
+			return nil, fmt.Errorf("invalid Litara JSON: publisher is longer than 512 characters")
+		}
+		set(f, FieldPublisher, strings.TrimSpace(*in.Publisher))
+	}
+	if in.Published != nil && strings.TrimSpace(*in.Published) != "" {
+		if !publishedRe.MatchString(*in.Published) {
+			return nil, fmt.Errorf("invalid Litara JSON: published must be YYYY, YYYY-MM or YYYY-MM-DD")
+		}
+		set(f, FieldPublished, *in.Published)
+	}
+	if in.ISBN != nil && strings.TrimSpace(*in.ISBN) != "" {
+		isbn := normISBN(*in.ISBN)
+		if isbn == "" {
+			return nil, fmt.Errorf("invalid Litara JSON: isbn must be an ISBN-10 or ISBN-13")
+		}
+		set(f, FieldISBN, isbn)
+	}
+	if in.Description != nil && strings.TrimSpace(*in.Description) != "" {
+		if len([]rune(*in.Description)) > MaxDescription {
+			return nil, fmt.Errorf("invalid Litara JSON: description is longer than %d characters", MaxDescription)
+		}
+		set(f, FieldDescription, strings.TrimSpace(*in.Description))
+	}
 	return f, nil
 }
 
@@ -80,14 +180,22 @@ func ParseOPF(data []byte) (Fields, error) {
 	}
 	var pkg struct {
 		Metadata struct {
-			Titles   []string `xml:"title"`
-			Creators []struct {
+			Titles      []string `xml:"title"`
+			Publishers  []string `xml:"publisher"`
+			Dates       []string `xml:"date"`
+			Identifiers []string `xml:"identifier"`
+			Descs       []string `xml:"description"`
+			Languages   []string `xml:"language"`
+			Subjects    []string `xml:"subject"`
+			Creators    []struct {
 				Role string `xml:"role,attr"`
 				Text string `xml:",chardata"`
 			} `xml:"creator"`
 			Metas []struct {
-				Name    string `xml:"name,attr"`
-				Content string `xml:"content,attr"`
+				Name     string `xml:"name,attr"`
+				Content  string `xml:"content,attr"`
+				Property string `xml:"property,attr"`
+				Text     string `xml:",chardata"`
 			} `xml:"meta"`
 		} `xml:"metadata"`
 	}
@@ -100,6 +208,39 @@ func ParseOPF(data []byte) (Fields, error) {
 			set(f, FieldTitle, t)
 			break
 		}
+	}
+	for _, p := range pkg.Metadata.Publishers {
+		if p = strings.TrimSpace(p); p != "" && len([]rune(p)) <= 512 {
+			set(f, FieldPublisher, p)
+			break
+		}
+	}
+	for _, d := range pkg.Metadata.Dates {
+		if p := normPublished(d); p != "" {
+			set(f, FieldPublished, p)
+			break
+		}
+	}
+	for _, id := range pkg.Metadata.Identifiers {
+		if isbn := normISBN(id); isbn != "" {
+			set(f, FieldISBN, isbn)
+			break
+		}
+	}
+	for _, d := range pkg.Metadata.Descs {
+		if d = strings.TrimSpace(d); d != "" && len([]rune(d)) <= MaxDescription {
+			set(f, FieldDescription, d)
+			break
+		}
+	}
+	for _, l := range pkg.Metadata.Languages {
+		if l = strings.TrimSpace(l); l != "" && len([]rune(l)) <= 128 {
+			set(f, FieldLanguage, l)
+			break
+		}
+	}
+	if t := clean(pkg.Metadata.Subjects); len(t) > 0 && len(t) <= 100 {
+		set(f, FieldTags, t)
 	}
 	var authors, narrators []string
 	for _, c := range pkg.Metadata.Creators {
@@ -129,6 +270,15 @@ func ParseOPF(data []byte) (Fields, error) {
 			if n, err := strconv.ParseFloat(strings.TrimSpace(m.Content), 64); err == nil {
 				set(f, FieldSeriesIndex, n)
 			}
+		case "litara:page_count", "bookorbit:page_count":
+			if n, err := strconv.Atoi(strings.TrimSpace(m.Content)); err == nil && n >= 1 && n <= 100000 {
+				set(f, FieldPageCount, n)
+			}
+		}
+		if m.Property == "litara:page_count" || m.Property == "bookorbit:page_count" {
+			if n, err := strconv.Atoi(strings.TrimSpace(m.Text)); err == nil && n >= 1 && n <= 100000 {
+				set(f, FieldPageCount, n)
+			}
 		}
 	}
 	return f, nil
@@ -156,6 +306,18 @@ func FromTags(tags map[string]string) Fields {
 	}
 	if v := get("narrator"); v != "" {
 		set(f, FieldNarrators, []string{v})
+	}
+	if v := get("publisher"); v != "" && len([]rune(v)) <= 512 {
+		set(f, FieldPublisher, v)
+	}
+	if v := get("description"); v != "" && len([]rune(v)) <= MaxDescription {
+		set(f, FieldDescription, v)
+	}
+	if v := normISBN(get("isbn")); v != "" {
+		set(f, FieldISBN, v)
+	}
+	if v := normPublished(get("date", "year")); v != "" {
+		set(f, FieldPublished, v)
 	}
 	if v := get("series"); v != "" {
 		set(f, FieldSeriesName, v)
