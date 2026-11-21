@@ -10,7 +10,7 @@ import { expect, type Page } from "@playwright/test";
 export async function openTitle(page: Page, title: string) {
   await page.goto("/");
   await page.getByLabel("Search").fill(title);
-  const cards = page.getByTestId("title-card");
+  const cards = page.getByTestId("title-item");
   await expect(cards.filter({ hasText: title }).first()).toBeVisible({ timeout: 15_000 });
   await expect(cards.filter({ hasNotText: title })).toHaveCount(0, { timeout: 15_000 });
   await cards.filter({ hasText: title }).first().getByText(title, { exact: true }).click();

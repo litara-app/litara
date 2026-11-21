@@ -1,10 +1,8 @@
-import { Badge, Button, Card, Checkbox, Group, PasswordInput, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, get } from "../api/client";
 import type { Library, Page, User } from "../api/types";
-import { ScrollRegion } from "../ui/ScrollRegion";
-import { Busy, ErrorBox } from "../ui/common";
+import { icons, Badge, Busy, Button, Card, CheckboxField, CompactSelect, ErrorBox, Heading, PasswordField, Row, Stack, Table, TBody, TD, Text, TextField, TH, THead, TR } from "../ui";
 
 function CreateUser() {
   const qc = useQueryClient();
@@ -15,18 +13,18 @@ function CreateUser() {
   });
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
   return (
-    <Card withBorder>
+    <Card>
       <form onSubmit={submit}>
-        <Stack gap="xs">
-          <Title order={4}>New user</Title>
-          <Group grow align="flex-end">
-            <TextInput label="Username" value={f.username} onChange={(e) => setF({ ...f, username: e.currentTarget.value })} required maxLength={128} />
-            <TextInput label="Display name" value={f.displayName} onChange={(e) => setF({ ...f, displayName: e.currentTarget.value })} maxLength={256} />
-            <PasswordInput label="Password (12+ characters)" value={f.password} onChange={(e) => setF({ ...f, password: e.currentTarget.value })} required minLength={12} autoComplete="new-password" />
-          </Group>
-          <Checkbox label="Administrator" checked={f.isAdmin} onChange={(e) => setF({ ...f, isAdmin: e.currentTarget.checked })} />
+        <Stack gap="sm">
+          <Heading level={2}>New user</Heading>
+          <Row grow align="end">
+            <TextField label="Username" value={f.username} onValue={(v) => setF({ ...f, username: v })} required maxLength={128} />
+            <TextField label="Display name" value={f.displayName} onValue={(v) => setF({ ...f, displayName: v })} maxLength={256} />
+            <PasswordField label="Password (12+ characters)" value={f.password} onValue={(v) => setF({ ...f, password: v })} required minLength={12} autoComplete="new-password" />
+          </Row>
+          <CheckboxField label="Administrator" checked={f.isAdmin} onChange={(v) => setF({ ...f, isAdmin: v })} />
           <ErrorBox error={create.error} />
-          <Group><Button type="submit" loading={create.isPending}>Create user</Button></Group>
+          <Row><Button type="submit" variant="primary" loading={create.isPending} icon={icons.plus}>Create user</Button></Row>
         </Stack>
       </form>
     </Card>
@@ -41,13 +39,13 @@ function Grants({ user, libraries }: { user: User; libraries: Library[] }) {
     onSuccess: (_d, v) => setDone(v.grant ? "Access granted." : "Access removed."),
   });
   return (
-    <Stack gap={4}>
-      <Group gap="xs">
-        <Select size="xs" placeholder="Library" value={lib} onChange={(v) => { setLib(v); setDone(""); }} data={libraries.map((l) => ({ value: l.id, label: l.name }))} aria-label={`Library for ${user.username}`} />
-        <Button size="compact-xs" disabled={!lib} loading={m.isPending} onClick={() => m.mutate({ grant: true })}>Grant</Button>
-        <Button size="compact-xs" variant="default" disabled={!lib} loading={m.isPending} onClick={() => m.mutate({ grant: false })}>Revoke</Button>
-      </Group>
-      {done && <Text size="xs" c="green">{done}</Text>}
+    <Stack gap="xs">
+      <Row>
+        <CompactSelect label={`Library for ${user.username}`} placeholder="Library" value={lib} onValue={(v) => { setLib(v); setDone(""); }} items={libraries.map((l) => ({ value: l.id, label: l.name }))} />
+        <Button size="sm" variant="primary" disabled={!lib} loading={m.isPending} onClick={() => m.mutate({ grant: true })} icon={icons.plus}>Grant</Button>
+        <Button size="sm" disabled={!lib} loading={m.isPending} onClick={() => m.mutate({ grant: false })} icon={icons.trash}>Revoke</Button>
+      </Row>
+      {done && <Text size="xs" tone="success">{done}</Text>}
       <ErrorBox error={m.error} />
     </Stack>
   );
@@ -66,29 +64,27 @@ export function UsersPage() {
     <Stack>
       <CreateUser />
       <ErrorBox error={users.error ?? patch.error} />
-      <Text size="sm" c="dimmed">
+      <Text size="sm" tone="dim">
         Grants are listed here only for libraries you can see. The server does not list another account&apos;s existing grants, so choose a library and grant or revoke.
       </Text>
-      <ScrollRegion label="Users table">
-        <Table verticalSpacing="xs" data-testid="users-table">
-          <Table.Thead><Table.Tr><Table.Th>User</Table.Th><Table.Th>Status</Table.Th><Table.Th>Library access</Table.Th><Table.Th /></Table.Tr></Table.Thead>
-          <Table.Tbody>
-            {users.data?.items.map((u) => (
-              <Table.Tr key={u.id}>
-                <Table.Td><Text fw={500}>{u.displayName || u.username}</Text><Text size="xs" c="dimmed">{u.username}</Text></Table.Td>
-                <Table.Td><Group gap={4}>{u.isAdmin && <Badge>admin</Badge>}<Badge color={u.active ? "green" : "gray"} variant="light">{u.active ? "active" : "disabled"}</Badge></Group></Table.Td>
-                <Table.Td><Grants user={u} libraries={libs.data?.items ?? []} /></Table.Td>
-                <Table.Td>
-                  <Group gap="xs" justify="flex-end">
-                    <Button size="compact-xs" variant="default" onClick={() => patch.mutate({ id: u.id, body: { active: !u.active } })}>{u.active ? "Disable" : "Enable"}</Button>
-                    <Button size="compact-xs" variant="default" onClick={() => patch.mutate({ id: u.id, body: { isAdmin: !u.isAdmin } })}>{u.isAdmin ? "Remove admin" : "Make admin"}</Button>
-                  </Group>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </ScrollRegion>
+      <Table label="Users table" data-testid="users-table">
+        <THead><TR><TH>User</TH><TH>Status</TH><TH>Library access</TH><TH><span className="lt-sr">Actions</span></TH></TR></THead>
+        <TBody>
+          {users.data?.items.map((u) => (
+            <TR key={u.id}>
+              <TD><Text strong>{u.displayName || u.username}</Text><Text size="xs" tone="dim">{u.username}</Text></TD>
+              <TD><Row gap="xs">{u.isAdmin && <Badge>admin</Badge>}<Badge tone={u.active ? "success" : "neutral"}>{u.active ? "active" : "disabled"}</Badge></Row></TD>
+              <TD><Grants user={u} libraries={libs.data?.items ?? []} /></TD>
+              <TD>
+                <Row justify="end">
+                  <Button size="sm" onClick={() => patch.mutate({ id: u.id, body: { active: !u.active } })} icon={icons.close}>{u.active ? "Disable" : "Enable"}</Button>
+                  <Button size="sm" onClick={() => patch.mutate({ id: u.id, body: { isAdmin: !u.isAdmin } })} icon={icons.admin}>{u.isAdmin ? "Remove admin" : "Make admin"}</Button>
+                </Row>
+              </TD>
+            </TR>
+          ))}
+        </TBody>
+      </Table>
     </Stack>
   );
 }

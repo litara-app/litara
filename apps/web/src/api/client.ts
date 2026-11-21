@@ -52,6 +52,20 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
   return data as T;
 }
 
+/** Send a file as the request body (an image upload); the response is read like any other. */
+export async function uploadFile<T>(method: string, path: string, file: File): Promise<T> {
+  const since = epoch;
+  const res = await fetch(API + path, {
+    method, credentials: "same-origin", cache: "no-store", body: file,
+    headers: { Accept: "application/json", "X-CSRF-Token": csrf, "Content-Type": file.type || "application/octet-stream" },
+  });
+  assertSameSession(since);
+  let data: unknown = null;
+  try { data = await res.json(); } catch { /* non-JSON error body */ }
+  if (!res.ok) throw new ApiError(res.status, (data as ProblemBody) ?? {});
+  return data as T;
+}
+
 export const get = <T>(path: string) => api<T>("GET", path);
 
 /** Fields every T005 personal mutation carries. */

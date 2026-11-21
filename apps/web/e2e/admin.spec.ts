@@ -130,7 +130,7 @@ test("a reviewed merge: plan, approve, apply", async ({ page }) => {
 
   // The retired sources no longer appear; the new recording does.
   await page.goto("/?mediaKind=audio");
-  await expect(page.getByTestId("title-card").filter({ hasText: "Generated Fixture Title" })).toBeVisible();
+  await expect(page.getByTestId("title-item").filter({ hasText: "Generated Fixture Title" })).toBeVisible();
   const planPath = page.url();
   expect(planPath).toBeTruthy();
 });

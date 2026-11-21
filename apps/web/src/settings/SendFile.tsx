@@ -1,10 +1,8 @@
-import { Alert, Anchor, Badge, Button, Card, Group, Select, Stack, Text, Title } from "@mantine/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Link } from "react-router";
 import { api, get } from "../api/client";
-import { ACTIVE_STATES, codeLabel, stateColor, stateLabel, type Delivery, type IntegrationSettings, type Recipient, type Transports } from "../api/t006";
-import { Busy, bytes, ErrorBox } from "../ui/common";
+import { ACTIVE_STATES, codeLabel, stateLabel, stateTone, type Delivery, type IntegrationSettings, type Recipient, type Transports } from "../api/t006";
+import { icons, Alert, Badge, Busy, bytes, Button, Card, ErrorBox, Heading, Row, SelectField, Stack, Text, TextLink } from "../ui";
 
 export interface SendTarget { fileId: string; contentVersion: string; sizeBytes: number | null; label: string }
 
@@ -46,30 +44,31 @@ export function SendFile({ target }: { target: SendTarget }) {
   const anyTransport = transports.data?.server.available || transports.data?.personal.available;
   const ready = !!recipient && !!tr?.available && !tooBig;
   return (
-    <Card withBorder>
-      <Stack gap="xs">
-        <Title order={4}>Send by email</Title>
-        <Text size="sm" c="dimmed">Sends this file exactly as it is, as one attachment ({bytes(target.sizeBytes)}). It is not converted.</Text>
-        {tooBig && <Alert color="red">This file is larger than the {bytes(settings.data.maxAttachmentBytes)} attachment limit.</Alert>}
-        {!anyTransport && <Alert color="yellow">No mail transport is available. Set up your own under <Anchor component={Link} to="/settings/email">Settings, Email</Anchor>, or ask an administrator to enable the server one.</Alert>}
-        {recipients.data?.items.length === 0 && <Alert color="yellow">You have no saved recipients. Add one under <Anchor component={Link} to="/settings/email">Settings, Email</Anchor>.</Alert>}
-        <Group grow align="flex-end">
-          <Select label="Recipient" placeholder="Choose a recipient" value={recipientId} onChange={setRecipientId}
-            data={(recipients.data?.items ?? []).map((r) => ({ value: r.id, label: `${r.data?.name} <${r.data?.address}>` }))} />
-          <Select label="Send through" placeholder="Choose a mail transport" value={transport} onChange={(v) => setTransport(v as "server" | "personal" | null)}
-            data={[
+    <Card framed>
+      <Stack gap="sm">
+        <Heading level={2}>Send by email</Heading>
+        <Text size="sm" tone="dim">Sends this file exactly as it is, as one attachment ({bytes(target.sizeBytes)}). It is not converted.</Text>
+        {tooBig && <Alert tone="danger">This file is larger than the {bytes(settings.data.maxAttachmentBytes)} attachment limit.</Alert>}
+        {!anyTransport && <Alert tone="warning">No mail transport is available. Set up your own under <TextLink to="/settings/email">Settings, Email</TextLink>, or ask an administrator to enable the server one.</Alert>}
+        {recipients.data?.items.length === 0 && <Alert tone="warning">You have no saved recipients. Add one under <TextLink to="/settings/email">Settings, Email</TextLink>.</Alert>}
+        <Row grow align="end">
+          <SelectField label="Recipient" placeholder="Choose a recipient" value={recipientId} onValue={setRecipientId}
+            items={(recipients.data?.items ?? []).map((r) => ({ value: r.id, label: `${r.data?.name} <${r.data?.address}>` }))} />
+          <SelectField label="Send through" placeholder="Choose a mail transport" value={transport} onValue={(v) => setTransport(v as "server" | "personal" | null)}
+            items={[
               { value: "server", label: "Server mail", disabled: !transports.data?.server.available },
               { value: "personal", label: "My own mail account", disabled: !transports.data?.personal.available },
             ]} />
-        </Group>
+        </Row>
         <ErrorBox error={send.error} />
-        <Group>
-          <Button disabled={!ready} loading={send.isPending} onClick={() => send.mutate()}>Send file</Button>
-        </Group>
+        <Row>
+          <Button variant="primary" disabled={!ready} loading={send.isPending} onClick={() => send.mutate()} icon={icons.send}>Send file</Button>
+        </Row>
         {sent && status.data && (
-          <Alert color={stateColor(status.data.state)} data-testid="send-status" title={<Group gap="xs"><span>Request for {status.data.recipientName}</span><Badge color={stateColor(status.data.state)} variant="light">{stateLabel(status.data.state)}</Badge></Group>}>
+          <Alert tone={stateTone(status.data.state)} data-testid="send-status"
+            title={<Row><span>Request for {status.data.recipientName}</span><Badge tone={stateTone(status.data.state)}>{stateLabel(status.data.state)}</Badge></Row>}>
             {status.data.code && status.data.state !== "queued" ? codeLabel(status.data.code) : "Waiting for the mail server."}
-            {" "}<Anchor component={Link} to="/settings/email">See all deliveries</Anchor>
+            {" "}<TextLink to="/settings/email">See all deliveries</TextLink>
           </Alert>
         )}
       </Stack>

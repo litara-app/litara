@@ -14,9 +14,10 @@ async function signIn(page: Page, user = "fixture-user-a") {
 async function openComic(page: Page, title: string) {
   await page.goto("/");
   await page.getByLabel("Search").fill(title);
-  await expect(page.getByTestId("title-card").filter({ hasNotText: title })).toHaveCount(0, { timeout: 15_000 }); // only matches remain: the list has settled
+  await expect(page.getByTestId("title-item").filter({ hasNotText: title })).toHaveCount(0, { timeout: 15_000 }); // only matches remain: the list has settled
   await page.getByText(title, { exact: true }).click();
-  await page.getByTestId("edition-card").first().getByRole("link").click();
+  await page.getByRole("tab", { name: /^Files/ }).click();
+  await page.getByRole("table", { name: "Ebook files" }).getByRole("link").first().click();
   await page.getByRole("link", { name: "Read" }).click();
 }
 
