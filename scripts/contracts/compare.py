@@ -28,7 +28,7 @@ if _t4.exists():
 # they are implemented; every other T005 operation is listed as PENDING and its
 # schemas are compared only when an implemented operation reaches them. Never
 # drop a route from the contract to make this pass: add it to IMPLEMENTED_T005.
-IMPLEMENTED_T005 = {'listTitles', 'getTitle', 'listTitleRecordings', 'listEditions', 'getEdition', 'getReaderSnapshot',
+IMPLEMENTED_T005 = {'listTitles', 'searchTitles', 'previewTitleCover', 'getCoverSettings', 'setCoverSettings', 'getTitleCover', 'putTitleCover', 'searchTitleCovers', 'setTitleCoverFromUrl', 'regenerateTitleCover', 'getTitleCovers', 'getTitle', 'listTitleRecordings', 'listEditions', 'getEdition', 'getReaderSnapshot',
                     'getReadingPosition', 'writeReadingPosition', 'getReadingCompletion', 'writeReadingCompletion',
                     'getReadingHistory', 'listPersonalConflicts', 'resolvePersonalConflict',
                     'listAnnotations', 'getAnnotation', 'putAnnotation', 'deleteAnnotation',
@@ -135,6 +135,18 @@ if _t6.exists():
         CONTRACT['components']['schemas'][_n] = _y['components']['schemas'][_n]
     PENDING_T006_SCHEMAS = sorted(set(_y['components']['schemas']) - _seen6)
 
+# T009 additions (ADR-0081): book details and personal rating, review and dates. Every operation is implemented.
+_t9 = ROOT / 'contracts' / 't009' / 'openapi.json'
+if _t9.exists():
+    _z = json.loads(_t9.read_text(encoding='utf-8'))
+    for _p, _item in _z['paths'].items():
+        assert _p not in CONTRACT['paths'] or not set(_item) & set(CONTRACT['paths'][_p]), f'T009 contract overlaps at {_p}'
+        CONTRACT['paths'].setdefault(_p, {}).update(_item)
+    for _n, _sch in _z['components']['schemas'].items():
+        if _n in CONTRACT['components']['schemas']:
+            raise SystemExit(f'T009 schema {_n} collides with an earlier contract')
+        CONTRACT['components']['schemas'][_n] = _sch
+
 if len(sys.argv) > 1:
     GENERATED = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 else:
@@ -164,11 +176,16 @@ def resolve(spec, schema):
 IGNORED = {'description', 'title', 'examples', 'example', '$schema', 'default', 'readOnly', 'x-', 'contentEncoding'}
 
 
-def norm(spec, schema, depth=0):
-    """Reduce a schema to a comparable structure; $ref names are kept for objects."""
+def norm(spec, schema, depth=0, seen=()):
+    """Reduce a schema to a comparable structure; $ref names are kept for objects. A schema that refers back to
+    itself (a recursive filter tree) is reduced to its name where the cycle closes."""
     if schema is None:
         return None
     ref = ref_name(schema['$ref']) if isinstance(schema, dict) and '$ref' in schema else None
+    if ref and ref in seen:
+        return {'$name': ref, 'recursive': True}
+    if ref:
+        seen = seen + (ref,)
     s = resolve(spec, schema)
     out = {}
     nullable = bool(s.get('nullable'))
@@ -176,10 +193,10 @@ def norm(spec, schema, depth=0):
         non_null = [x for x in s['anyOf'] if resolve(spec, x).get('type') != 'null']
         has_null = len(non_null) != len(s['anyOf'])
         if has_null and len(non_null) == 1:
-            inner = norm(spec, non_null[0], depth)
+            inner = norm(spec, non_null[0], depth, seen)
             inner['nullable'] = True
             return inner
-        out['anyOf'] = [norm(spec, x, depth + 1) for x in s['anyOf']]
+        out['anyOf'] = [norm(spec, x, depth + 1, seen) for x in s['anyOf']]
     t = s.get('type')
     if isinstance(t, list):
         if 'null' in t:
@@ -200,11 +217,11 @@ def norm(spec, schema, depth=0):
     if out.get('format') in ('int64', 'int32', 'double', 'float'):
         del out['format']
     if 'properties' in s:
-        out['properties'] = {k: norm(spec, v, depth + 1) for k, v in s['properties'].items()}
+        out['properties'] = {k: norm(spec, v, depth + 1, seen) for k, v in s['properties'].items()}
         out['required'] = sorted(s.get('required', []))
         out['additionalProperties'] = s.get('additionalProperties', None)
     if 'items' in s:
-        out['items'] = norm(spec, s['items'], depth + 1)
+        out['items'] = norm(spec, s['items'], depth + 1, seen)
     if ref and depth > 0:
         out['$name'] = ref
     return out
