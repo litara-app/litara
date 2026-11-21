@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Litara</title>
+  <desc id="desc">A blue bookmark with an open book cut out of its center.</desc>
+  <path fill="#228be6" fill-rule="evenodd" d="M52 16H204A20 20 0 0 1 224 36V234Q224 243 216 238L132 186Q128 183 124 186L40 238Q32 243 32 234V36A20 20 0 0 1 52 16ZM64 66V130Q64 134 68 134C89 134 108 140 124 150V78C111 66 92 60 70 60Q64 60 64 66ZM132 78V150C148 140 167 134 188 134Q192 134 192 130V66Q192 60 186 60C164 60 145 66 132 78Z"/>
+</svg>

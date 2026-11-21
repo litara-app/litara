@@ -1,0 +1,152 @@
+@layer ui-sdk;
+
+/*
+ * Design tokens (design/DESIGN-LANGUAGE.md section 2). Screens and components use these; never raw values.
+ * Theme: "Reading Room". Paper pages on a desk, bookcloth blue, oxblood ribbon, gold foil, dark leather bindings.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Paper */
+  --lt-bg: light-dark(#eee2c8, #14100c);
+  --lt-surface: light-dark(#fbf6ea, #1f1812);
+  --lt-surface-2: light-dark(#f4ebd6, #281f17);
+  --lt-hover: light-dark(#f5e9bb, #33281a);
+  --lt-line: light-dark(#d6c7a4, #4b3c2b);
+  --lt-ink: light-dark(#2a2018, #f0e4ca);
+  --lt-dim: light-dark(#65553f, #b9a98c);
+  --lt-edge: light-dark(#85704f, #8f7d60);
+
+  /* Bookcloth blue (primary) and the ribbon */
+  --lt-pri: light-dark(#1f4f82, #8fb4e0);
+  --lt-pri-ink: light-dark(#fff8e6, #10192a);
+  --lt-pri-soft: light-dark(#dde6ef, #1c2b40);
+  --lt-pri-text: light-dark(#1a4472, #a9c8ec);
+  --lt-ribbon: light-dark(#a8322b, #d6685f);
+  --lt-ring: light-dark(#8c2f2a, #e3b95f);
+
+  /* Leather bindings and gold foil (sidebar, top bar, sign-in cover) */
+  --lt-leather: #3a2a20;
+  --lt-leather-2: #271b14;
+  --lt-leather-ink: #f3e8cf;
+  --lt-leather-dim: #cdbb94;
+  --lt-foil: #dcb85f;
+  --lt-logo: #228be6;
+  --lt-reader-dark: #111418;
+
+  /* Status inks */
+  --lt-ok: light-dark(#2f6b3a, #8ad09a);
+  --lt-ok-text: light-dark(#25552e, #a5deb1);
+  --lt-ok-soft: light-dark(#e1ead3, #1d2e20);
+  --lt-warn: light-dark(#8a4a00, #f0b75a);
+  --lt-warn-soft: light-dark(#f6e3b8, #3a2b0e);
+  --lt-bad: light-dark(#a12a22, #f09088);
+  --lt-bad-text: light-dark(#8f221b, #f5aaa3);
+  --lt-bad-soft: light-dark(#f3d9d2, #3d1d1a);
+  --lt-audio: light-dark(#6b3a8a, #c4a3e0);
+  --lt-audio-soft: light-dark(#eadcf0, #2c2038);
+  --lt-star: light-dark(#8a5a00, #f0b429);
+
+  --lt-s1: 4px;
+  --lt-s2: 8px;
+  --lt-s3: 12px;
+  --lt-s4: 16px;
+  --lt-s5: 24px;
+  --lt-s6: 32px;
+
+  --lt-r: 4px;
+  --lt-r-lg: 6px;
+
+  --lt-text-xs: 13px;
+  --lt-text-sm: 14px;
+  --lt-text-md: 14.5px;
+  --lt-text-lg: 17px;
+  --lt-text-xl: 22px;
+  --lt-text-2xl: 32px;
+
+  /* Type: Fraunces for display, Source Sans 3 for interface text, IM Fell English for old-book accents. */
+  --lt-font-display: "Fraunces Variable", "Iowan Old Style", Georgia, serif;
+  --lt-font-sans: "Source Sans 3 Variable", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --lt-font-accent: "IM Fell English", "Iowan Old Style", Georgia, serif;
+  --lt-font-serif: var(--lt-font-display);
+  --lt-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --lt-topbar: 48px;
+  --lt-side: 240px;
+  --lt-side-collapsed: 58px;
+  --lt-inspector: 340px;
+  --lt-speed: 150ms;
+
+  /* Textures are inline SVG so nothing is fetched (the app CSP allows data: images). */
+  --lt-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .24 0 0 0 0 .13 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --lt-leather-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='l'%3E%3CfeTurbulence type='turbulence' baseFrequency='.45' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
+  --lt-fleuron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16'%3E%3Cpath d='M0 8h44M76 8h44' stroke='black' stroke-width='1' fill='none'/%3E%3Cpath d='M60 2c3 3 3 9 0 12-3-3-3-9 0-12zM52 8c3-3 5-3 8 0-3 3-5 3-8 0zM68 8c-3-3-5-3-8 0 3 3 5 3 8 0z' fill='black'/%3E%3C/svg%3E");
+
+  /* UI SDK theme tokens map onto the Litara tokens. */
+  --ui-background: var(--lt-surface);
+  --ui-foreground: var(--lt-ink);
+  --ui-muted: light-dark(#ecdfc2, #2d2319);
+  --ui-muted-foreground: var(--lt-dim);
+  --ui-border: var(--lt-line);
+  --ui-input: var(--lt-edge);
+  --ui-primary: var(--lt-pri);
+  --ui-primary-foreground: var(--lt-pri-ink);
+  --ui-destructive: var(--lt-bad);
+  --ui-ring: var(--lt-ring);
+  --ui-ring-border: var(--lt-ring);
+  --ui-radius: var(--lt-r);
+  --ui-spacing: 0.235rem;
+  --ui-font-size: var(--lt-text-md);
+  --ui-font-sans: var(--lt-font-sans);
+  --ui-font-mono: var(--lt-font-mono);
+}
+
+/* Clean theme: the plain, compact look. Same token names, system fonts, no decoration (theme.css is skipped). */
+:root[data-theme="clean"] {
+  --lt-bg: light-dark(#f6f7f9, #0f1218);
+  --lt-surface: light-dark(#ffffff, #151a22);
+  --lt-surface-2: light-dark(#fafbfc, #1b212b);
+  --lt-hover: light-dark(#f3f8fd, #1c2633);
+  --lt-line: light-dark(#e3e6ea, #2a3340);
+  --lt-ink: light-dark(#1c2128, #e6eaf0);
+  --lt-dim: light-dark(#5d6772, #9aa6b6);
+  --lt-edge: light-dark(#8a94a0, #6a7586);
+  --lt-pri: light-dark(#1971c2, #4dabf7);
+  --lt-pri-ink: light-dark(#ffffff, #04121f);
+  --lt-pri-soft: light-dark(#e7f1fb, #16324d);
+  --lt-pri-text: light-dark(#14609f, #74c0fc);
+  --lt-ribbon: light-dark(#1971c2, #4dabf7);
+  --lt-ring: light-dark(#1971c2, #74c0fc);
+  --lt-ok: light-dark(#2b8a3e, #69db7c);
+  --lt-ok-text: light-dark(#237032, #8ce99a);
+  --lt-ok-soft: light-dark(#e6f4ea, #15301c);
+  --lt-warn: light-dark(#a24f00, #fcc419);
+  --lt-warn-soft: light-dark(#fff3e0, #3a2f0b);
+  --lt-bad: light-dark(#c92a2a, #ff8787);
+  --lt-bad-text: light-dark(#a82020, #ffa8a8);
+  --lt-bad-soft: light-dark(#fdeaea, #3a1717);
+  --lt-audio: light-dark(#7a2fb5, #b197fc);
+  --lt-audio-soft: light-dark(#f3e8fd, #2a2040);
+  --lt-star: light-dark(#8a5a00, #f0b429);
+  --lt-r: 6px;
+  --lt-r-lg: 10px;
+  --lt-text-xs: 11.5px;
+  --lt-text-sm: 12.5px;
+  --lt-text-md: 13.5px;
+  --lt-text-lg: 16px;
+  --lt-text-xl: 20px;
+  --lt-text-2xl: 28px;
+  --lt-font-display: var(--lt-font-sans);
+  --lt-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --lt-font-accent: var(--lt-font-sans);
+  --lt-font-serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --lt-topbar: 44px;
+  --lt-side: 232px;
+  --lt-side-collapsed: 56px;
+  --ui-muted: light-dark(#eef1f5, #222b38);
+  --ui-spacing: 0.225rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --lt-speed: 0ms; }
+}
