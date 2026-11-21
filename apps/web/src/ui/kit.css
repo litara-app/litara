@@ -443,3 +443,11 @@ th[aria-sort] .lt-sort-icon { opacity: 1; color: var(--lt-pri); }
 .lt-cover-result { display: flex; flex-direction: column; gap: var(--lt-s1); padding: var(--lt-s2); border: 1px solid var(--lt-line); border-radius: var(--lt-r); background: var(--lt-surface); text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .lt-cover-result:hover, .lt-cover-result:focus-visible { border-color: var(--lt-pri); }
 .lt-cover-result img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 3px; background: var(--lt-surface-2); }
+
+/* Virtualized lists (ADR-0084): fixed-height table rows with stand-in spacer rows; a grid drawn a row at a time. */
+.lt-grid-table tbody tr:not(.lt-vpad) { height: 56px; }
+.lt-grid-table tbody td { white-space: nowrap; }
+.lt-vpad { height: var(--lt-h); }
+.lt-vpad td { padding: 0; border: 0; }
+.lt-vgrid { padding-top: var(--lt-top); padding-bottom: var(--lt-bottom); }
+.lt-vgrid-row { display: grid; grid-template-columns: repeat(var(--lt-cols), minmax(0, 1fr)); gap: var(--lt-s4); padding-bottom: var(--lt-s4); }

@@ -7,7 +7,7 @@ import type { Edition, Library, Page as Paged, Shelf, Title as TitleT, TitleRow 
 import {
   Badge, Busy, Button, Card, Cover, CoverTile, EmptyState, ErrorBox, formatLabel, Grow, Heading, icons, KeyValue, MenuButton, Page, PageHeader, Row,
   GridTable, IconAction, SearchField, SegmentedField, SelectField, SortHeader, Stack, TBody, TD, Text, TextLink, THead, Toolbar, TR,
-  useColumnWidths, when, type SortOrder,
+  useColumnWidths, useVirtualRows, VirtualGrid, VirtualPad, when, type SortOrder,
 } from "../ui";
 import { useDebounced } from "../ui/useDebounced";
 import { useTitleActions } from "./useTitleActions";
@@ -96,6 +96,8 @@ const COLUMN_SPECS: { id: string; label: string; width: number; sort?: string; n
   { id: "editions", label: "Content", width: 150, sort: "editions" },
   { id: "actions", label: "Actions", width: 70 },
 ];
+/** Table rows are one fixed height so only the rows near the viewport need to be drawn (ADR-0084). */
+const ROW_HEIGHT = 56;
 const DEFAULT_WIDTHS = Object.fromEntries(COLUMN_SPECS.map((c) => [c.id, c.width]));
 const NUMERIC = new Set(COLUMN_SPECS.filter((c) => c.num).map((c) => c.id));
 
@@ -213,6 +215,9 @@ export function LibraryPage() {
       setParams(n, { replace: true });
     },
   });
+  const rows = table.getRowModel().rows;
+  const tableTop = useRef<HTMLDivElement>(null);
+  const vrows = useVirtualRows(rows.length, ROW_HEIGHT, tableTop);
   const nudge = (id: string, delta: number) => setWidths((w) => ({ ...w, [id]: (w[id] ?? 120) + delta }));
 
   return (
@@ -239,8 +244,8 @@ export function LibraryPage() {
           <Text size="sm" tone="dim" data-testid="total">{total} {total === 1 ? "title" : "titles"}</Text>
           {items.length === 0 && <EmptyState title="No titles match">Change the filters, or add books to a library folder and run a scan.</EmptyState>}
           {(items.length > 0 || activeFilters > 0) && view === "table" && (
-            <div className="lt-split">
-              <GridTable label="Titles" widths={Object.fromEntries(table.getAllLeafColumns().map((c) => [c.id, c.getSize()]))} order={table.getAllLeafColumns().map((c) => c.id)}>
+            <div className="lt-split" ref={tableTop}>
+              <GridTable label="Titles" rowCount={total + 1} widths={Object.fromEntries(table.getAllLeafColumns().map((c) => [c.id, c.getSize()]))} order={table.getAllLeafColumns().map((c) => c.id)}>
                 <THead>
                   {table.getHeaderGroups().map((hg) => (
                     <TR key={hg.id}>
@@ -255,18 +260,23 @@ export function LibraryPage() {
                   ))}
                 </THead>
                 <TBody>
-                  {table.getRowModel().rows.map((row) => (
-                    <TR key={row.id} selected={row.original.id === selected} data-testid="title-item" onClick={() => setSelected(row.original.id)}>
-                      {row.getAllCells().map((c) => <TD key={c.id} num={NUMERIC.has(c.column.id)}><table.FlexRender cell={c} /></TD>)}
-                    </TR>
-                  ))}
+                  <VirtualPad height={vrows.top} columns={COLUMN_SPECS.length} />
+                  {vrows.items.map((vi) => {
+                    const row = rows[vi.index]!;
+                    return (
+                      <TR key={row.id} aria-rowindex={vi.index + 2} selected={row.original.id === selected} data-testid="title-item" onClick={() => setSelected(row.original.id)}>
+                        {row.getAllCells().map((c) => <TD key={c.id} num={NUMERIC.has(c.column.id)}><table.FlexRender cell={c} /></TD>)}
+                      </TR>
+                    );
+                  })}
+                  <VirtualPad height={vrows.bottom} columns={COLUMN_SPECS.length} />
                 </TBody>
               </GridTable>
               {current && <Inspector t={current} list={list} />}
             </div>
           )}
           {items.length > 0 && view === "grid" && (
-            <div className="lt-covers">{items.map((t) => <LibraryTile key={t.id} t={t} list={list} />)}</div>
+            <VirtualGrid items={items} minWidth={150} getKey={(t) => t.id} render={(t) => <LibraryTile t={t} list={list} />} />
           )}
           <div ref={marker} data-testid="scroll-end">{isFetchingNextPage && <Busy />}</div>
         </>

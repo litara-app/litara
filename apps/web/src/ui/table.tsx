@@ -47,11 +47,11 @@ export function useColumnWidths(storeKey: string, defaults: ColumnWidths) {
 }
 
 /** A fixed-layout table whose columns have the given widths. */
-export function GridTable({ label, widths, order, children }: { label: string; widths: ColumnWidths; order: string[]; children: ReactNode }) {
+export function GridTable({ label, widths, order, rowCount, children }: { label: string; widths: ColumnWidths; order: string[]; rowCount?: number; children: ReactNode }) {
   const total = order.reduce((n, id) => n + (widths[id] ?? 120), 0);
   return (
     <ScrollRegion label={label}>
-      <table className="lt-table lt-grid-table" style={{ "--lt-w": `${total}px` } as CSSProperties}>
+      <table className="lt-table lt-grid-table" aria-rowcount={rowCount} style={{ "--lt-w": `${total}px` } as CSSProperties}>
         <colgroup>{order.map((id) => <col key={id} style={{ "--lt-w": `${widths[id]}px` } as CSSProperties} />)}</colgroup>
         {children}
       </table>

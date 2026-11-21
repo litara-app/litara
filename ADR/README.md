@@ -127,7 +127,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0081](0081-book-details-rating-review-and-dates.md) | Add descriptive book details and personal rating, review and reading dates | Accepted |
 | [0082](0082-api-compatibility-policy-and-enforcement.md) | Keep the versioned API compatible, and enforce it mechanically | Accepted |
 | [0083](0083-tanstack-table-for-data-tables.md) | Use TanStack Table for the web app's data tables | Accepted |
-| [0084](0084-tanstack-virtual-for-long-lists.md) | Use TanStack Virtual to window long lists and grids | Proposed |
+| [0084](0084-tanstack-virtual-for-long-lists.md) | Use TanStack Virtual to window long lists and grids | Accepted |
 | [0085](0085-stackable-filter-groups.md) | Let library filters stack into AND/OR groups | Accepted |
 | [0086](0086-cover-replacement.md) | Let administrators replace a title's cover | Accepted |
 
