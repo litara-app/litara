@@ -43,6 +43,16 @@ export function CopyButton({ value }: { value: string }) {
   return <Button size="sm" onClick={() => void copy()}>{copied ? "Copied" : "Copy"}</Button>;
 }
 
+/** A value that is edited in place: it reads as text and turns into a field when activated. The caller supplies the visible content. */
+export function InlineValue({ label, onActivate, disabled, children }: { label: string; onActivate: () => void; disabled?: boolean; children: ReactNode }) {
+  return (
+    <button type="button" className="lt-mf-display" onClick={onActivate} disabled={disabled} aria-label={label}>
+      {children}
+      <span className="lt-mf-pencil" aria-hidden="true">{icons.pencil}</span>
+    </button>
+  );
+}
+
 /** A download link that looks like a button. */
 export function DownloadLink({ href, children, icon }: { href: string; children: ReactNode; icon?: ReactNode }) {
   return <a className="lt-btn" data-variant="default" data-size="md" href={href} download><span className="lt-btn-icon" aria-hidden="true">{icon ?? icons.download}</span>{children}</a>;

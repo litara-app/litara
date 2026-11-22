@@ -34,6 +34,8 @@ export const icons = {
   send: <Svg><path d="m21 3-9 18-2-8-8-2zM10 13l11-10" /></Svg>,
   check: <Svg><circle cx="12" cy="12" r="8.5" /><path d="m8.5 12.3 2.5 2.5 4.5-5" /></Svg>,
   pencil: <Svg><path d="M4 20l1-4L16.5 4.5a2 2 0 0 1 3 3L8 19z" /></Svg>,
+  lock: <Svg><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></Svg>,
+  unlock: <Svg><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 7.5-2" /></Svg>,
   dots: <Svg><circle cx="12" cy="5.5" r="1.6" fill="currentColor" /><circle cx="12" cy="12" r="1.6" fill="currentColor" /><circle cx="12" cy="18.5" r="1.6" fill="currentColor" /></Svg>,
   info: <Svg><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></Svg>,
   files: <Svg><path d="M6 3h8l4 4v14H6zM14 3v4h4" /></Svg>,

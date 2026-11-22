@@ -17,6 +17,7 @@ import { ReadingLogTab } from "./title/ReadingLogTab";
 import { usePersonal } from "./title/usePersonal";
 import { isReadable } from "./useTitleActions";
 import { useShelfActions } from "./useShelves";
+import { useNeighbours } from "./titleList";
 
 const TABS = ["details", "metadata", "files", "log", "highlights"];
 
@@ -26,6 +27,7 @@ export function TitlePage() {
   const { user } = useAuth();
   const shelf = useShelfActions();
   const personal = usePersonal(titleId);
+  const neighbours = useNeighbours(titleId);
   const [sending, setSending] = useState(false);
   const [coverMedium, setCoverMedium] = useState<Medium | null>(null);
   const detail = useQuery({ queryKey: ["title", titleId], queryFn: () => get<TitleDetail>(`/titles/${titleId}`) });
@@ -54,6 +56,9 @@ export function TitlePage() {
   const editingCover = tab === "metadata" && !!user?.isAdmin;
   const shownMedium: Medium = coverMedium && coverMediums(t).includes(coverMedium) ? coverMedium : (coverMediums(t)[0] ?? "ebook");
 
+  /** Moving to another book keeps the tab that is open. */
+  const bookLink = (id: string) => `/titles/${id}${tab === "details" ? "" : `?tab=${tab}`}`;
+
   const tabs = [
     { value: "details", label: "Details", icon: icons.info },
     ...(user?.isAdmin ? [{ value: "metadata", label: "Edit metadata", icon: icons.pencil }] : []),
@@ -69,12 +74,20 @@ export function TitlePage() {
           <div className="lt-folio-bar">
             <Button variant="subtle" size="sm" to="/" icon={icons.arrowLeft}>Library</Button>
             <TabBar label="Title sections" tabs={tabs} />
+            {neighbours && (
+              <nav className="lt-folio-nav" aria-label="Move between books">
+                <IconAction label="Previous book" icon={icons.chevLeft} to={neighbours.prev ? bookLink(neighbours.prev) : undefined} disabled={!neighbours.prev} />
+                <span className="lt-folio-count" data-testid="book-position" aria-label={`Book ${neighbours.position} of ${neighbours.total}`}>{neighbours.position} / {neighbours.total}</span>
+                <IconAction label="Next book" icon={icons.chevRight} to={neighbours.next ? bookLink(neighbours.next) : undefined} disabled={!neighbours.next} />
+              </nav>
+            )}
           </div>
           <div className="lt-folio-body">
             <aside className="lt-folio-side" aria-label="Cover and actions">
               <BookCover title={t.title || "(untitled)"} author={t.authors[0]} titleId={t.id} medium={editingCover ? shownMedium : t.editionCount > 0 ? "ebook" : "audio"} editTo={user?.isAdmin ? `/titles/${t.id}?tab=metadata` : undefined} ebook={formatLabel(eds.map((e) => e.file.format))}
                 audio={audioExts.length > 0 ? (audioExts.length > 1 ? `${audioExts[0]} +` : audioExts[0]) : recs.length > 0 ? "AUDIO" : null} />
               {editingCover && <CoverTools title={t} editions={eds} recordings={recs} medium={shownMedium} onMedium={setCoverMedium} />}
+              {!editingCover && <>
               {readable
                 ? <Button variant="primary" block to={`/read/${readable.id}`} icon={icons.bookOpen}>Read</Button>
                 : <Button block disabled icon={icons.bookOpen} title="No readable ebook">Read</Button>}
@@ -89,6 +102,7 @@ export function TitlePage() {
                 <IconAction label="Send to device" icon={icons.send} disabled={!sendable} onClick={() => setSending(true)} />
               </div>
               <ErrorBox error={shelf.error} />
+              </>}
             </aside>
 
             <div className="lt-folio-main">

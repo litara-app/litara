@@ -3,12 +3,12 @@ import { useState } from "react";
 import { adminOp, api, ApiError, get } from "../../api/client";
 import type { Edition, MetadataField, MetadataReport, RecordingLink, Title } from "../../api/types";
 import { ProviderReview } from "./ProviderReview";
-import { icons, Badge, Busy, Button, ErrorBox, Modal, Row, SegmentedField, Stack, Table, TBody, TD, Text, TextAreaField, TextField, TH, THead, TR, type Tone } from "../../ui";
-import { FIELDS, GROUPS, parseValue, show } from "./metadataFields";
+import { icons, Badge, Busy, Button, ErrorBox, IconAction, InlineValue, SegmentedField, Stack, Text, TextAreaField, TextField, type Tone } from "../../ui";
+import { FIELDS, GROUPS, parseValue, show, type FieldDef } from "./metadataFields";
 
 const sourceTone = (s: string): Tone => (s === "user" ? "info" : s === "filename" ? "neutral" : "success");
 const sourceName = (s: string) =>
-  s === "user" ? "Edited" : s === "embedded" ? "In the file" : s === "sidecar" ? "Sidecar" : s === "provider" ? "Online" : s === "filename" ? "From the file name" : s;
+  s === "user" ? "Locked" : s === "embedded" ? "In the file" : s === "sidecar" ? "Sidecar" : s === "provider" ? "Online" : s === "filename" ? "From the file name" : s;
 
 interface Target { id: string; label: string; kind: "edition" | "recording"; titleId: string }
 
@@ -31,30 +31,29 @@ export function MetadataTab({ editions, recordings = [] }: { title?: Title; edit
   );
 }
 
+interface Change { field: string; clear: boolean; value?: unknown }
+
 function Editor({ target }: { target: Target }) {
   const qc = useQueryClient();
   const edition = target.kind === "edition";
   const base = edition ? `/admin/editions/${target.id}/metadata` : `/admin/recordings/${target.id}/metadata`;
   const key = ["admin", edition ? "edition-metadata" : "recording-metadata", target.id];
   const report = useQuery({ queryKey: key, queryFn: () => get<MetadataReport>(base), retry: false });
-  const [editing, setEditing] = useState<string | null>(null);
-  const [text, setText] = useState("");
   const refresh = () => {
     qc.invalidateQueries({ queryKey: key });
     qc.invalidateQueries({ queryKey: edition ? ["edition", target.id] : ["recording", target.id] });
     qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "title" });
     qc.invalidateQueries({ queryKey: ["titles"] });
   };
+  // Saving, locking and unlocking share the item's revision, so only one change is in flight at a time.
   const save = useMutation({
-    mutationFn: async ({ clear }: { clear: boolean }): Promise<void> => {
-      const value = clear ? null : parseValue(editing!, text);
-      if (edition) await api<MetadataReport>("PUT", `${base}/${editing}`, { ...adminOp(report.data!.revision), clear, value });
-      else await api<void>("PUT", `${base}/${editing}`, clear ? { clear: true } : { value });
+    mutationFn: async (c: Change): Promise<void> => {
+      if (edition) await api<MetadataReport>("PUT", `${base}/${c.field}`, { ...adminOp(report.data!.revision), clear: c.clear, value: c.clear ? null : c.value });
+      else await api<void>("PUT", `${base}/${c.field}`, c.clear ? { clear: true } : { value: c.value });
     },
-    onSuccess: () => setEditing(null),
     onSettled: refresh,
   });
-  const reset = useMutation({
+  const unlock = useMutation({
     mutationFn: (field: string) => (edition ? api("DELETE", `${base}/${field}`, adminOp(report.data!.revision)) : api("DELETE", `${base}/${field}`)),
     onSettled: refresh,
   });
@@ -64,62 +63,91 @@ function Editor({ target }: { target: Target }) {
   if (report.error) return <ErrorBox error={report.error} />;
   const fields = FIELDS.filter((f) => !f.only || f.only === target.kind);
   const byField = new Map<string, MetadataField>(report.data.fields.map((f) => [f.field, f]));
-  const open = (field: string) => { setText(show(byField.get(field)?.value)); setEditing(field); save.reset(); };
-  const def = FIELDS.find((f) => f.field === editing);
-  const failure = save.error ?? reset.error;
+  const busy = save.isPending || unlock.isPending;
+  const failure = save.error ?? unlock.error;
+  const failedField = save.isError ? save.variables?.field : unlock.isError ? unlock.variables : undefined;
   const stale = failure instanceof ApiError && failure.status === 409;
 
   return (
     <Stack>
-      <Text size="sm" tone="dim">An edit is protected: rescans and the files&apos; own tags will not overwrite it. Reset an edit to go back to what the files say.</Text>
-      <Row gap="sm"><ProviderReview subject={{ kind: target.kind, id: target.id }} report={report.data} onApplied={refresh} /></Row>
-      <Table label="Metadata" data-testid="metadata-table">
-        <THead><TR><TH>Field</TH><TH>Value</TH><TH>Source</TH><TH>Actions</TH></TR></THead>
-        <TBody>
-          {GROUPS.map((g) => {
-            const rows = fields.filter((d) => d.group === g);
-            if (rows.length === 0) return null;
-            return [
-              <TR key={`group-${g}`}><TD colSpan={4}><Text as="span" size="sm" tone="dim"><strong>{g}</strong></Text></TD></TR>,
-              ...rows.map((d) => {
-                const f = byField.get(d.field);
-                return (
-                  <TR key={d.field}>
-                    <TD>{d.label}</TD>
-                    <TD>
-                      {f ? (f.cleared ? <Text as="span" size="sm" tone="dim">Deliberately empty</Text> : <span className={d.kind === "multiline" ? "lt-clamp" : undefined}>{show(f.value)}</span>) : <Text as="span" size="sm" tone="dim">Not set</Text>}
-                      {f?.conflicts?.map((c) => <Text key={c.source} size="xs" tone="dim">{sourceName(c.source)} says: {show(c.value)}</Text>)}
-                    </TD>
-                    <TD>{f && <Badge tone={sourceTone(f.source)}>{sourceName(f.source)}</Badge>}</TD>
-                    <TD>
-                      <Row gap="xs">
-                        <Button size="sm" onClick={() => open(d.field)} icon={icons.pencil}>Edit</Button>
-                        {f?.source === "user" && <Button size="sm" loading={reset.isPending && reset.variables === d.field} onClick={() => reset.mutate(d.field)} icon={icons.reset}>Reset</Button>}
-                      </Row>
-                    </TD>
-                  </TR>
-                );
-              }),
-            ];
-          })}
-        </TBody>
-      </Table>
-      {stale ? <Text size="sm" tone="warning" role="alert">This item changed elsewhere, so the table was refreshed. Try again.</Text> : <ErrorBox error={reset.error} />}
-
-      <Modal open={editing !== null} onClose={() => setEditing(null)} title={`Edit ${def?.label.toLowerCase() ?? "field"}`}
-        description="Saved as a protected edit. The files are not changed."
-        actions={
-          <>
-            <Button onClick={() => setEditing(null)} icon={icons.close}>Cancel</Button>
-            {editing !== "title" && <Button loading={save.isPending} onClick={() => save.mutate({ clear: true })} icon={icons.close}>Leave empty</Button>}
-            <Button variant="primary" disabled={!text.trim()} loading={save.isPending} onClick={() => save.mutate({ clear: false })} icon={icons.save}>Save</Button>
-          </>
-        }>
-        {def?.kind === "list" || def?.kind === "multiline"
-          ? <TextAreaField label={def.kind === "list" ? `${def.label} (one per line or comma separated)` : def.label} description={def.hint} value={text} onValue={setText} rows={def.kind === "multiline" ? 8 : 4} />
-          : <TextField label={def?.label ?? "Value"} description={def?.hint} value={text} onValue={setText} inputMode={def?.kind === "integer" || def?.kind === "number" ? "decimal" : undefined} />}
-        {stale ? <Text size="sm" tone="warning" role="alert">This item changed elsewhere. Close and try again.</Text> : <ErrorBox error={save.error} />}
-      </Modal>
+      <div className="lt-mf-bar" data-testid="metadata-actions">
+        <ProviderReview subject={{ kind: target.kind, id: target.id }} report={report.data} onApplied={refresh} />
+        <Text size="sm" tone="dim">Click a value to edit it. A lock keeps a field as it is when the files are rescanned or online results are applied.</Text>
+      </div>
+      {stale && <Text size="sm" tone="warning" role="alert">This item changed elsewhere, so the fields were refreshed. Try again.</Text>}
+      <div className="lt-mf" data-testid="metadata-fields">
+        {GROUPS.map((g) => {
+          const rows = fields.filter((d) => d.group === g);
+          if (rows.length === 0) return null;
+          return (
+            <section key={g} className="lt-mf-group" aria-label={g}>
+              <h3 className="lt-mf-title">{g}</h3>
+              {rows.map((d) => (
+                <FieldRow key={d.field} def={d} f={byField.get(d.field)} busy={busy}
+                  pending={(save.isPending && save.variables?.field === d.field) || (unlock.isPending && unlock.variables === d.field)}
+                  error={!stale && failedField === d.field ? failure : null}
+                  onSave={(c) => save.mutateAsync(c).then(() => true, () => false)}
+                  onUnlock={() => unlock.mutate(d.field)} />
+              ))}
+            </section>
+          );
+        })}
+      </div>
     </Stack>
+  );
+}
+
+function FieldRow({ def, f, busy, pending, error, onSave, onUnlock }: {
+  def: FieldDef; f: MetadataField | undefined; busy: boolean; pending: boolean; error: unknown;
+  onSave: (c: Change) => Promise<boolean>; onUnlock: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  const locked = f?.source === "user";
+  const empty = !f || f.cleared || f.value === null || f.value === undefined || show(f.value) === "";
+  const start = () => { setText(show(f?.value)); setEditing(true); };
+  const commit = async (clear: boolean) => { if (await onSave({ field: def.field, clear, value: clear ? undefined : parseValue(def.field, text) })) setEditing(false); };
+  const toggleLock = () => {
+    if (locked) onUnlock();
+    else void onSave(empty ? { field: def.field, clear: true } : { field: def.field, clear: false, value: f!.value });
+  };
+  const canBeEmpty = def.field !== "title";
+  const sr = <span className="lt-sr">{def.label}</span>;
+  const multi = def.kind === "multiline";
+
+  return (
+    <div className="lt-mf-row" data-testid={`field-${def.field}`} data-locked={locked ? "true" : undefined}>
+      <div className="lt-mf-label">{def.label}</div>
+      <div className="lt-mf-value">
+        {editing ? (
+          <div className="lt-mf-edit">
+            {multi
+              ? <TextAreaField label={sr} value={text} onValue={setText} rows={7} autoFocus
+                  onKeyDown={(e) => { if (e.key === "Escape") setEditing(false); if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && text.trim()) void commit(false); }} />
+              : <TextField label={sr} description={def.kind === "list" ? "Separate several with commas." : def.hint} value={text} onValue={setText} autoFocus
+                  inputMode={def.kind === "integer" || def.kind === "number" ? "decimal" : undefined}
+                  onKeyDown={(e) => { if (e.key === "Escape") setEditing(false); if (e.key === "Enter" && text.trim()) void commit(false); }} />}
+            <div className="lt-mf-edit-actions">
+              <Button size="sm" variant="primary" disabled={!text.trim() || busy} loading={pending} onClick={() => void commit(false)} icon={icons.save}>Save</Button>
+              <Button size="sm" onClick={() => setEditing(false)} icon={icons.close}>Cancel</Button>
+              {canBeEmpty && <Button size="sm" disabled={busy} onClick={() => void commit(true)} icon={icons.trash}>Leave empty</Button>}
+            </div>
+          </div>
+        ) : (
+          <InlineValue label={`Edit ${def.label}`} onActivate={start} disabled={busy}>
+            {f?.cleared ? <span className="lt-mf-dim">Deliberately empty</span>
+              : empty ? <span className="lt-mf-dim">Not set. Click to add.</span>
+              : <span className={multi ? "lt-clamp" : undefined}>{show(f!.value)}</span>}
+          </InlineValue>
+        )}
+        {f?.conflicts?.map((c) => <Text key={c.source} size="xs" tone="dim">{sourceName(c.source)} says: {show(c.value)}</Text>)}
+        {error != null && <ErrorBox error={error} />}
+      </div>
+      <div className="lt-mf-tools">
+        {f && <Badge tone={sourceTone(f.source)}>{sourceName(f.source)}</Badge>}
+        <IconAction label={locked ? `Unlock ${def.label} and go back to the value from the files` : `Lock ${def.label} as it is`} icon={locked ? icons.lock : icons.unlock}
+          disabled={busy || (!locked && empty && !canBeEmpty)} onClick={toggleLock} />
+      </div>
+    </div>
   );
 }
