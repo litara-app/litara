@@ -12,16 +12,20 @@ On 2026-11-22 the owner tried Auto-fill on a test copy of Treasure Island and go
 
 ## Decision
 
-Proposal, not approval. Keep ADR-0060's identifier rule and add one more case. Auto-fill may also apply a result when all of these hold:
+On 2026-11-22 the owner answered the open questions below: the rule is right as proposed, it is a per-library setting that is off by default, and auto-fill may fill every field the match has. The person can then reset single fields or all of them if the match was bad, and saves once it looks right. Not yet chosen is the exact way the draft is held (see Open questions).
+
+Keep ADR-0060's identifier rule and add one more case. When the library's setting is on, auto-fill may also use a result when all of these hold:
 
 - the book has no identifier to match on, or none that any provider recognises;
 - exactly one provider candidate was returned, from one provider, so a second result or a second provider's disagreeing result sends it to review;
 - the candidate's title equals the book's stored title after the normalisation that already exists (case, accents, punctuation), not a partial or similar title;
 - every author in the book's stored list appears among the candidate's authors, and the candidate adds none the book contradicts;
 - the language, when both sides state one, is the same, so a translation is not taken for the original;
-- it fills only fields with no stored value, never replaces a protected edit, a deliberate clear or a value from the files, and stores the provider and candidate as provenance like any other fill.
+- it fills only fields with no stored value, never replaces a protected edit, a deliberate clear or a value from the files.
 
-The result says which rule applied ("matched by title and author, no ISBN") so a person can tell it from an identifier match. The Edit metadata tab keeps search and review for everything else.
+Review before saving (recommended way to meet the owner's wish): Auto-fill on the Edit metadata tab shows the fill as unsaved changes. Each filled field can be reset on its own, there is a Reset all, and Save writes what is left with provider and candidate as provenance. Nothing is stored until Save. This needs auto-fill to be able to return the values without writing them, an additive change under ADR-0082. A fill that is not wanted is discarded without a trace.
+
+The result says which rule applied ("matched by title and author, no ISBN") so a person can tell it from an identifier match. Search and review stay for everything else. The setting lives in each library's settings and is off by default, so ADR-0060's behaviour is unchanged until it is turned on.
 
 ## Alternatives
 
@@ -40,7 +44,5 @@ Planned, not yet done: a single exact title-and-author result without an ISBN is
 
 ## Open questions
 
-- Should this be on for everyone, or a per-library setting that is off by default?
-- Is the equal-title, author-subset and same-language rule right, or should it be stricter or looser?
-- Should one provider agreeing be enough, or must two providers agree before anything is filled?
-- Would the owner prefer the one-click pre-selected review instead of automatic filling?
+- Should the unsaved fill apply to identifier matches too, so every auto-fill is reviewed before saving, or only to the new title-and-author case?
+- Should the unsaved fill survive leaving the page, or be discarded when the tab closes?

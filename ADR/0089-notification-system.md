@@ -17,12 +17,13 @@ Not yet specified by the owner: where the history is stored, how long it is kept
 
 ## Decision
 
-Proposal, not approval. The points above are the owner's stated requirements and are implemented as written. The following are recommendations:
+On 2026-11-22 the owner decided that notification history is stored on the server, not in the browser. The points in the Context are the owner's requirements and are implemented as written. The rest are recommendations, not approval:
 
 - One notification module is the only way a screen reports the outcome of an action. Each call records an entry (tone, title, optional detail, time, read flag, whether the user or the system started it) and shows a toast. Failed actions from the data layer go through it automatically, so a screen does not need its own error text for them.
 - Errors that mean a screen cannot show its content (a page that fails to load) stay on the page. Field-level validation stays next to the field, because the person needs to fix that field.
-- Interim storage: the history is kept in the browser, per account, capped at 100 entries. It is not shared between a user's devices.
-- Recommended next step: store history on the server per user, with an API to list, mark read and clear, so history follows the account and background jobs can add entries. That is an additive API change under ADR-0082 and a schema change under ADR-0030.
+- **Chosen by the owner:** the history is stored on the server per user, so it follows the account across devices and background work can add entries. This needs a notifications table (ADR-0030), an additive API to list, mark read and clear (ADR-0082), and isolation so one user never sees another's entries.
+- Recommended, not yet chosen: keep the newest 500 entries or 90 days, whichever is fewer. The web app loads the latest entries at sign-in, refreshes them about every 60 seconds and when the window regains focus, so no push channel is needed first.
+- Until the server storage is built, the web app keeps its history in the browser as a stopgap. That is temporary and is replaced, not kept alongside.
 
 ## Alternatives
 
@@ -32,7 +33,7 @@ Proposal, not approval. The points above are the owner's stated requirements and
 
 ## Consequences
 
-Responses to actions become consistent and are kept for later reading. Until history is stored on the server, it is lost when browser data is cleared and does not appear on another device, and no background notification can be created. Screen readers still need each toast announced, and a toast must not be the only place important information is shown, which is why the history exists.
+Responses to actions become consistent and are kept for later reading, on every device. Server storage adds a table, an API and a retention rule to maintain, and a notification created while a user is offline waits for them. A toast must not be the only place important information appears, which is why the history exists. Screen readers still need each toast announced.
 
 ## Verification
 
@@ -40,7 +41,7 @@ Planned: a recorded notification appears as a toast and in the bell list; a toas
 
 ## Open questions
 
-- Should history be stored on the server per user now, and for how long is it kept?
-- How should background notifications arrive: fetched on page load and on an interval, or pushed?
-- Which actions may stay as inline text (for example, field validation) beyond the two named above?
+- Is the recommended retention (newest 500 or 90 days) right?
+- Is fetching on sign-in, on an interval and on focus enough for background notifications, or should the server push them?
+- Which actions may stay as inline text beyond the two named above?
 - Should a user be able to turn off toasts for some kinds, or mute them while reading?
