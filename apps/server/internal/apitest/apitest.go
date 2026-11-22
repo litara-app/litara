@@ -33,6 +33,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/koreader"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
+	"github.com/deranjer/ebooker/apps/server/internal/notices"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
 	"github.com/deranjer/ebooker/apps/server/internal/reading"
 	"github.com/deranjer/ebooker/apps/server/internal/seed"
@@ -168,7 +169,7 @@ func New(t *testing.T, opts ...Options) *Env {
 	}
 	e.Indexer = &koreader.Indexer{Pool: pool, MediaRoot: o.Cfg.MediaRoot}
 	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: e.Reading, Library: library.New(pool), Config: o.Cfg,
-		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: providers, CacheTTL: o.ProviderCacheTTL, Now: clock.Now}, Importer: e.Importer, Writeback: e.Writeback, Covers: e.Covers, Integrations: e.Integrations, KOReader: e.KOReader, Delivery: e.Delivery}})
+		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: providers, CacheTTL: o.ProviderCacheTTL, Now: clock.Now}, Importer: e.Importer, Writeback: e.Writeback, Covers: e.Covers, Notices: notices.New(pool), Integrations: e.Integrations, KOReader: e.KOReader, Delivery: e.Delivery}})
 	e.Handler = h
 	srv.Config.Handler = h
 	srv.Start()

@@ -269,6 +269,8 @@ CREATE TABLE library_config (
     writeback_backups   boolean NOT NULL DEFAULT false,
     backup_root         text,
     provider_order      text[] NOT NULL DEFAULT '{}',
+    -- Whether auto-fill may use one clear title-and-author match when a book has no identifier (ADR-0090). Off by default.
+    autofill_title_match boolean NOT NULL DEFAULT false,
     updated_at          timestamptz NOT NULL DEFAULT now(),
     CHECK (NOT writeback_backups OR backup_root IS NOT NULL),
     CHECK (sentinel_path IS NULL OR sentinel_sha256 IS NOT NULL)
@@ -992,7 +994,22 @@ CREATE TABLE cover_settings (
 );
 INSERT INTO cover_settings (singleton) VALUES (true);
 
+-- Each account's notification history (ADR-0089): the results of its own actions, and entries added by background work.
+-- The newest 500 entries or 90 days are kept, whichever is fewer; the service trims on every insert.
+CREATE TABLE notifications (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    tone       text NOT NULL CHECK (tone IN ('success', 'info', 'warning', 'error')),
+    title      text NOT NULL CHECK (char_length(title) BETWEEN 1 AND 300),
+    detail     text CHECK (detail IS NULL OR char_length(detail) <= 2000),
+    source     text NOT NULL CHECK (source IN ('user', 'system')),
+    read_at    timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX notifications_user_recent ON notifications (user_id, created_at DESC, id DESC);
+
 -- +goose Down
+DROP TABLE notifications;
 DROP TABLE deliveries;
 DROP TABLE delivery_recipients;
 DROP TABLE smtp_configs;

@@ -130,15 +130,21 @@ type T005RecordingProviderSearchResults struct {
 type T005AutoFill struct {
 	OperationID  string `json:"operationId" format:"uuid"`
 	BaseRevision string `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
+	// DryRun returns what would be filled without storing anything, so a person can review it and save what they keep (ADR-0090).
+	DryRun bool `json:"dryRun,omitempty"`
 }
 
 // T005AutoFillResult says what auto-fill did. Outcome filled means the listed fields were stored as provider values;
 // the others mean nothing changed: nothing_to_fill (a match but no empty field), needs_review (candidates exist but
 // none was an exact, consistent identifier match), no_match, or disabled (the library has no provider enabled).
 type T005AutoFillResult struct {
-	Outcome  string   `json:"outcome" enum:"filled,nothing_to_fill,needs_review,no_match,disabled"`
+	Outcome  string   `json:"outcome" enum:"filled,proposed,nothing_to_fill,needs_review,no_match,disabled"`
 	Provider string   `json:"provider,omitempty" enum:"open_library,google_books,audnexus,hardcover"`
 	Filled   []string `json:"filled" maxItems:"11"`
+	// Rule is how the match was accepted: identifier (ADR-0060) or title_author (ADR-0090, a per-library setting).
+	Rule string `json:"rule,omitempty" enum:"identifier,title_author"`
+	// Proposed holds the values a dry run would fill, keyed by field. Outcome proposed means nothing was stored.
+	Proposed map[string]T005MetadataValue `json:"proposed,omitempty"`
 	// Revision is the edition's revision after the change (editions only).
 	Revision string `json:"revision,omitempty" pattern:"^(0|[1-9][0-9]*)$"`
 }

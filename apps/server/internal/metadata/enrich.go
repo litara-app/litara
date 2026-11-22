@@ -286,6 +286,8 @@ type ProviderResult struct {
 // none is enabled Enabled is false and no provider was contacted (ADR-0049).
 type SearchOutcome struct {
 	Enabled bool
+	// TitleMatch is the library's setting that lets auto-fill use one clear title-and-author match (ADR-0090).
+	TitleMatch bool
 	Results []ProviderResult
 }
 
@@ -308,7 +310,7 @@ func (e *Enricher) Search(ctx context.Context, lib uuid.UUID, q Query, opts Sear
 	if err != nil {
 		return SearchOutcome{}, err
 	}
-	out := SearchOutcome{Results: []ProviderResult{}}
+	out := SearchOutcome{Results: []ProviderResult{}, TitleMatch: cfg.AutofillTitleMatch}
 	for _, name := range cfg.ProviderOrder {
 		if !knownProviders[name] || (name == ProviderAudnexus && !opts.Audio) {
 			continue
@@ -354,29 +356,104 @@ func (e *Enricher) Search(ctx context.Context, lib uuid.UUID, q Query, opts Sear
 	return out, nil
 }
 
-// PickAutoFill chooses the one match auto-fill may apply (ADR-0060/0087): the first provider, in the library's
-// order, whose only candidate is an exact identifier match that agrees with the stored title and authors.
-// Otherwise the outcome says why nothing was chosen: disabled, no_match or needs_review.
-func PickAutoFill(out SearchOutcome) (Match, string) {
+// How auto-fill accepted a match.
+const (
+	RuleIdentifier  = "identifier"
+	RuleTitleAuthor = "title_author"
+)
+
+// PickAutoFill chooses the one match auto-fill may offer. ADR-0060/0087: the first provider, in the library's order,
+// whose only candidate is an exact identifier match that agrees with the stored title and authors. ADR-0090, only when
+// the library has turned it on: otherwise a single candidate from a single provider that has the same title and all of
+// the stored authors (and the same language when both state one), when no provider failed and none matched by identifier.
+// It returns the match, the outcome (filled, needs_review, no_match or disabled) and the rule that accepted it.
+func PickAutoFill(out SearchOutcome, q Query, language string) (Match, string, string) {
 	if !out.Enabled {
-		return Match{}, "disabled"
+		return Match{}, "disabled", ""
 	}
-	any := false
+	any, failed, total := false, false, 0
+	var only Candidate
 	for _, r := range out.Results {
+		if r.Status == "unavailable" {
+			failed = true
+		}
 		if r.Status != "ok" {
 			continue
 		}
 		if len(r.Candidates) > 0 {
 			any = true
 		}
-		if len(r.Candidates) == 1 && r.Candidates[0].ByIdentifier && r.Candidates[0].Consistent {
-			return r.Candidates[0].Match, "filled"
+		total += len(r.Candidates)
+		if len(r.Candidates) == 1 {
+			only = r.Candidates[0]
+			if only.ByIdentifier && only.Consistent {
+				return only.Match, "filled", RuleIdentifier
+			}
 		}
 	}
-	if any {
-		return Match{}, "needs_review"
+	if out.TitleMatch && !failed && total == 1 && !only.ByIdentifier && titleAuthorMatch(only.Match, q, language) {
+		return only.Match, "filled", RuleTitleAuthor
 	}
-	return Match{}, "no_match"
+	if any {
+		return Match{}, "needs_review", ""
+	}
+	return Match{}, "no_match", ""
+}
+
+// titleAuthorMatch is the ADR-0090 test: the same title after normalisation, every stored author among the candidate's
+// authors, and the same language when both sides state one.
+func titleAuthorMatch(m Match, q Query, language string) bool {
+	var title string
+	if json.Unmarshal(m.Fields[FieldTitle], &title) != nil || norm(title) == "" || norm(title) != norm(q.Title) {
+		return false
+	}
+	var authors []string
+	if json.Unmarshal(m.Fields[FieldAuthors], &authors) != nil || len(authors) == 0 || len(q.Authors) == 0 {
+		return false
+	}
+	have := map[string]bool{}
+	for _, a := range authors {
+		have[norm(a)] = true
+	}
+	for _, a := range q.Authors {
+		if !have[norm(a)] {
+			return false
+		}
+	}
+	var lang string
+	if language != "" && json.Unmarshal(m.Fields[FieldLanguage], &lang) == nil && lang != "" && langKey(lang) != langKey(language) {
+		return false
+	}
+	return true
+}
+
+// langKey reduces en, eng and en-US to the same key.
+func langKey(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if len(s) > 2 {
+		s = s[:2]
+	}
+	return s
+}
+
+// GapFields returns the values of a match a recording has no non-provider value for, which is what auto-fill would
+// store, without storing anything.
+func (e *Enricher) GapFields(ctx context.Context, recID uuid.UUID, m Match) (map[string]json.RawMessage, error) {
+	existing, err := e.Report(ctx, recID)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]json.RawMessage{}
+	for f, v := range m.Fields {
+		if !Valid(f) {
+			continue
+		}
+		if cur, has := existing[f]; has && cur.Source != SourceProvider {
+			continue
+		}
+		out[f] = v
+	}
+	return out, nil
 }
 
 // RecordingQuery builds the lookup for one recording from its effective title, authors and ISBN, and from the

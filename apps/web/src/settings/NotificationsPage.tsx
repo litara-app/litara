@@ -8,7 +8,7 @@ export function NotificationsPage() {
   return (
     <Stack>
       <Row gap="sm" wrap>
-        <Text tone="dim" size="sm">The results of your actions and of background work. Kept in this browser for your account, newest first, up to 100.</Text>
+        <Text tone="dim" size="sm">The results of your actions and of background work. Kept on the server for your account and shown on every device, newest first. The newest 500 or 90 days are kept.</Text>
         <Button size="sm" icon={icons.trash} disabled={items.length === 0} onClick={clear}>Clear history</Button>
       </Row>
       {items.length === 0

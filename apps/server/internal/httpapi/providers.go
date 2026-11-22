@@ -96,6 +96,7 @@ func (a *API) registerRecordingAutoFill(api huma.API) {
 	o.Security = secured
 	huma.Register(api, o, func(ctx context.Context, in *struct {
 		RecordingID string `path:"recordingId" format:"uuid"`
+		DryRun      bool   `query:"dryRun" doc:"Return what would be filled without storing it, so it can be reviewed and saved (ADR-0090)."`
 	}) (*bodyOut[wire.T005AutoFillResult], error) {
 		id := mustUUID(in.RecordingID)
 		lib, err := a.Metadata.LibraryOf(ctx, id)
@@ -113,8 +114,26 @@ func (a *API) registerRecordingAutoFill(api huma.API) {
 		if err != nil {
 			return nil, a.fail(ctx, err)
 		}
-		m, outcome := metadata.PickAutoFill(res)
-		out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}}
+		m, outcome, rule := metadata.PickAutoFill(res, q, "")
+		out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Rule: rule}
+		if outcome == "filled" && in.DryRun {
+			gaps, err := a.Enricher.GapFields(ctx, id, m)
+			if err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			out.Provider = m.Provider
+			out.Proposed = map[string]wire.T005MetadataValue{}
+			for k, v := range gaps {
+				if recordingProviderFields[k] {
+					out.Proposed[k] = wire.T005MetadataValue{Raw: v}
+				}
+			}
+			out.Outcome = "proposed"
+			if len(out.Proposed) == 0 {
+				out.Outcome, out.Proposed = "nothing_to_fill", nil
+			}
+			return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
+		}
 		if outcome == "filled" {
 			out.Provider = m.Provider
 			filled, err := a.Enricher.ApplyMatch(ctx, id, m)

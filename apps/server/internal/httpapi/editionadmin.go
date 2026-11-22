@@ -177,8 +177,14 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			m, outcome := metadata.PickAutoFill(res)
-			out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Revision: rep.Revision}
+			language := ""
+			for _, f := range rep.Fields {
+				if f.Field == "language" && !f.Cleared {
+					_ = json.Unmarshal(f.Value.Raw, &language)
+				}
+			}
+			m, outcome, rule := metadata.PickAutoFill(res, metadata.Query{Title: q.Title, Authors: q.Authors, ISBN: q.ISBN}, language)
+			out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Revision: rep.Revision, Rule: rule}
 			if outcome != "filled" {
 				return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
 			}
@@ -197,10 +203,18 @@ func (a *API) registerEditionAdmin(api huma.API) {
 				out.Outcome, out.Provider = "nothing_to_fill", m.Provider
 				return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
 			}
+			if in.Body.DryRun { // the person reviews the values and saves the ones they keep (ADR-0090); nothing is stored here
+				out.Outcome, out.Provider, out.Proposed = "proposed", m.Provider, map[string]wire.T005MetadataValue{}
+				for k, v := range values {
+					out.Proposed[k] = wire.T005MetadataValue{Raw: v}
+				}
+				return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
+			}
 			done, err := a.Reading.AutoFillEdition(ctx, a.readingActor(ctx), id, in.Body, m.Provider, values)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
+			done.Rule = rule
 			return &bodyOut[wire.T005AutoFillResult]{Body: done}, nil
 		})
 }

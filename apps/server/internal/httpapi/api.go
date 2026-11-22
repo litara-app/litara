@@ -27,6 +27,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/koreader"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
+	"github.com/deranjer/ebooker/apps/server/internal/notices"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
 	"github.com/deranjer/ebooker/apps/server/internal/reading"
 	"github.com/deranjer/ebooker/apps/server/internal/writeback"
@@ -68,7 +69,8 @@ type APIDeps struct {
 	Enricher  *metadata.Enricher
 	Importer  *importer.Service
 	Writeback *writeback.Service
-	Covers    *covers.Service // title covers (ADR-0086); nil only in contract-only builds
+	Covers    *covers.Service  // title covers (ADR-0086); nil only in contract-only builds
+	Notices   *notices.Service // notification history (ADR-0089)
 	// T006 services (nil leaves the T006 management routes unmounted).
 	Integrations *integrations.Service
 	KOReader     *koreader.Service
@@ -129,6 +131,7 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	a.registerRepair(api)
 	a.registerMedia(api)
 	a.registerCovers(api)
+	a.registerNotifications(api)
 	a.registerIntegrations(api)
 	a.registerKOReaderManagement(api)
 	a.registerDelivery(api)

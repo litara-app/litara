@@ -1,6 +1,6 @@
 # ADR-0089: Route responses to actions through a notification system
 
-Status: Proposed
+Status: Accepted
 Date: 2026-11-22
 Decision owner: Repository owner
 

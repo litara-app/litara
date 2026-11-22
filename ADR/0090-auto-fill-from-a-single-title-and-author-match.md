@@ -1,6 +1,6 @@
 # ADR-0090: Let auto-fill use one clear title-and-author match when a book has no identifier
 
-Status: Proposed
+Status: Accepted
 Date: 2026-11-22
 Decision owner: Repository owner
 

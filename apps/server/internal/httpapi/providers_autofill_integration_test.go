@@ -237,3 +237,90 @@ func TestEditionExtraDescriptiveFieldsAreEditableAndValidated(t *testing.T) {
 		t.Fatal("an unknown field must be refused")
 	}
 }
+
+func (r *readingEnv) setTitleMatch(t *testing.T, on bool) {
+	t.Helper()
+	var d wire.LibraryDetail
+	r.e.Do("GET", "/admin/libraries/"+r.lib, r.admin, nil).JSON(t, &d)
+	cfg := d.Config
+	cfg.AutoFillTitleMatch = on
+	if x := r.e.Do("PUT", "/admin/libraries/"+r.lib+"/config", r.admin, cfg); x.StatusCode != 200 {
+		t.Fatalf("set title match: %d %s", x.StatusCode, x.Body)
+	}
+}
+
+func (r *readingEnv) autoFillDry(t *testing.T, base string) (wire.T005AutoFillResult, apitest.Response) {
+	t.Helper()
+	x := r.e.Do("POST", "/admin/editions/"+r.ed.ID+"/metadata/auto-fill", r.admin, map[string]any{"operationId": uuid.NewString(), "baseRevision": base, "dryRun": true})
+	var out wire.T005AutoFillResult
+	if x.StatusCode == 200 {
+		x.JSON(t, &out)
+	}
+	return out, x
+}
+
+// ADR-0090: with the library's setting on, one clear title-and-author match is offered even without an identifier;
+// anything less clear goes to review. A dry run stores nothing.
+func TestEditionAutoFillTitleAndAuthorMatchIsPerLibraryAndReviewedBeforeSaving(t *testing.T) {
+	cand := func(id, title string, authors []string, extra metadata.Fields) metadata.Match {
+		f := metadata.Fields{"title": raw(title), "authors": raw(authors), "publisher": raw("Press"), "description": raw("From the provider.")}
+		for k, v := range extra {
+			f[k] = v
+		}
+		return metadata.Match{Provider: metadata.ProviderOpenLibrary, ID: id, Fields: f}
+	}
+	ol := &fakeProvider{name: metadata.ProviderOpenLibrary}
+	r := newReadingEnvWith(t, apitest.Options{Providers: map[string]metadata.Provider{ol.name: ol}})
+	e := r.e
+	r.setProviderOrder(t, []string{metadata.ProviderOpenLibrary})
+	ol.matches = []metadata.Match{cand("w1", "Second Volume", []string{"Ada Author"}, nil)}
+
+	// Off by default: a title-and-author match is only a candidate for review.
+	if out, x := r.autoFillDry(t, "0"); x.StatusCode != 200 || out.Outcome != "needs_review" || len(out.Proposed) != 0 {
+		t.Fatalf("off by default: %d %s", x.StatusCode, x.Body)
+	}
+	r.setTitleMatch(t, true)
+
+	// On: the dry run offers every empty field it has and stores nothing.
+	out, x := r.autoFillDry(t, "0")
+	if x.StatusCode != 200 || out.Outcome != "proposed" || out.Rule != "title_author" || out.Provider != "open_library" || len(out.Filled) != 0 {
+		t.Fatalf("title and author: %d %s", x.StatusCode, x.Body)
+	}
+	if _, ok := out.Proposed["publisher"]; !ok || out.Proposed["title"].Raw != nil {
+		t.Fatalf("proposed: %+v", out.Proposed)
+	}
+	var rep wire.T005MetadataReport
+	e.Do("GET", "/admin/editions/"+r.ed.ID+"/metadata", r.admin, nil).JSON(t, &rep)
+	if rep.Revision != "0" || field(rep, "publisher") != nil {
+		t.Fatalf("a dry run must store nothing: revision %s", rep.Revision)
+	}
+
+	// Anything less clear goes to review: another title, an author the book does not have listed, a different
+	// language, two candidates, or a failed provider.
+	for name, ms := range map[string][]metadata.Match{
+		"other title":      {cand("w1", "Second Volume: The Sequel", []string{"Ada Author"}, nil)},
+		"missing author":   {cand("w1", "Second Volume", []string{"Someone Else"}, nil)},
+		"no authors":       {cand("w1", "Second Volume", nil, nil)},
+		"other language":   {cand("w1", "Second Volume", []string{"Ada Author"}, metadata.Fields{"language": raw("fr")})},
+		"two candidates":   {cand("w1", "Second Volume", []string{"Ada Author"}, nil), cand("w2", "Second Volume", []string{"Ada Author"}, nil)},
+		"identifier match": {{Provider: metadata.ProviderOpenLibrary, ID: "w1", ByIdentifier: true, Fields: metadata.Fields{"title": raw("Another"), "authors": raw([]string{"Ada Author"})}}},
+	} {
+		ol.matches = ms
+		if out, x := r.autoFillDry(t, "0"); x.StatusCode != 200 || out.Outcome != "needs_review" || len(out.Proposed) != 0 {
+			t.Fatalf("%s: %d %s", name, x.StatusCode, x.Body)
+		}
+	}
+	ol.matches = []metadata.Match{cand("w1", "Second Volume", []string{"Ada Author"}, nil)}
+	ol.err = errors.New("provider returned status 429")
+	if out, _ := r.autoFillDry(t, "0"); out.Outcome != "needs_review" && out.Outcome != "no_match" || len(out.Proposed) != 0 {
+		t.Fatalf("a failed provider must not be accepted: %+v", out)
+	}
+	ol.err = nil
+
+	// An identifier match is also proposed, not stored, and says which rule applied.
+	ol.matches = []metadata.Match{{Provider: metadata.ProviderOpenLibrary, ID: "w1", ByIdentifier: true, Fields: metadata.Fields{
+		"title": raw("Second Volume"), "authors": raw([]string{"Ada Author"}), "publisher": raw("Press")}}}
+	if out, x := r.autoFillDry(t, "0"); x.StatusCode != 200 || out.Outcome != "proposed" || out.Rule != "identifier" {
+		t.Fatalf("identifier match: %d %s", x.StatusCode, x.Body)
+	}
+}

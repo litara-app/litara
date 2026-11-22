@@ -1,55 +1,73 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@ui-sdk/react/popover";
 import { Toast, ToastClose, ToastDescription, ToastRegion, ToastTitle, createToaster } from "@ui-sdk/react/toast";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { ApiError } from "../api/client";
+import { api, ApiError, get } from "../api/client";
 import { useAuth } from "../auth/session";
 import { icons } from "./icons";
 import { Button } from "./controls";
 
 /*
- * Notifications (ADR-0089, proposed). Every response to an action goes through notify(): it is recorded for the
- * notification history and shown as a toast. History is kept in this browser, per account, until the server stores it.
+ * Notifications (ADR-0089). Every response to an action goes through notify(): it shows a toast and is recorded in the
+ * account's notification history on the server, so it follows the person to other devices. Entries that background work
+ * adds on the server arrive when the history is refreshed (at sign-in, about every minute and when the window regains focus).
  */
 
 export type NoticeTone = "success" | "info" | "warning" | "error";
-export interface Notice { id: string; tone: NoticeTone; title: string; detail?: string; at: number; read: boolean; source: "user" | "system" }
+export interface Notice { id: string; tone: NoticeTone; title: string; detail?: string; at: number; read: boolean; source: "user" | "system"; pending?: boolean }
+interface WireNotice { id: string; tone: NoticeTone; title: string; detail?: string; source: "user" | "system"; read: boolean; createdAt: string }
+interface WireNotices { items: WireNotice[]; unread: number }
 
 const SHOWN_FOR_MS = 5000;
-const KEEP = 100;
+const REFRESH_MS = 60_000;
 const BELL_LIST = 5;
 const toaster = createToaster({ duration: SHOWN_FOR_MS });
 
-let owner = "";
+let signedIn = false;
 let notices: Notice[] = [];
+let known = new Set<string>(); // ids the server has already told us about, so a later arrival can be announced
+let baseline = false; // false until the first load after sign-in, which never pops toasts for old entries
 const listeners = new Set<() => void>();
-const storeKey = (o: string) => `litara.notifications.${o}`;
 
 function emit() { for (const l of listeners) l(); }
-function persist() {
-  try { if (owner) localStorage.setItem(storeKey(owner), JSON.stringify(notices)); } catch { /* storage unavailable: history lasts until the page closes */ }
+const fromWire = (n: WireNotice): Notice => ({ id: n.id, tone: n.tone, title: n.title, detail: n.detail || undefined, at: Date.parse(n.createdAt), read: n.read, source: n.source });
+function toast(tone: NoticeTone, title: string, detail?: string) {
+  const show = tone === "error" ? toaster.error : tone === "success" ? toaster.success : tone === "warning" ? toaster.warning : toaster.info;
+  show(title, { description: detail });
 }
-function load(o: string) {
-  owner = o;
-  notices = [];
+
+/** Reloads the history from the server. Entries added by background work since the last load are announced as toasts. */
+export async function refreshNotifications(): Promise<void> {
+  if (!signedIn) return;
   try {
-    const raw = o ? localStorage.getItem(storeKey(o)) : null;
-    if (raw) notices = (JSON.parse(raw) as Notice[]).filter((n) => n && typeof n.title === "string").slice(0, KEEP);
-  } catch { /* an unreadable history starts empty */ }
-  emit();
+    const r = await get<WireNotices>("/notifications?limit=100");
+    if (!signedIn) return;
+    const incoming = r.items.map(fromWire);
+    if (baseline) for (const n of incoming) if (!known.has(n.id) && n.source === "system" && !n.read) toast(n.tone, n.title, n.detail);
+    known = new Set(incoming.map((n) => n.id));
+    baseline = true;
+    notices = [...notices.filter((n) => n.pending), ...incoming];
+    emit();
+  } catch { /* the bell keeps what it has; the next refresh tries again */ }
 }
 
 let counter = 0;
-interface Options { detail?: string; /** "system" is for background work the user did not start; it stays unread until the bell is opened. */ source?: "user" | "system" }
+interface Options { detail?: string }
 
 function send(tone: NoticeTone, title: string, opts: Options = {}): string {
-  const source = opts.source ?? "user";
-  const n: Notice = { id: `${Date.now().toString(36)}-${(counter++).toString(36)}`, tone, title, detail: opts.detail, at: Date.now(), read: source === "user", source };
-  notices = [n, ...notices].slice(0, KEEP);
-  persist();
+  const local: Notice = { id: `local-${Date.now().toString(36)}-${(counter++).toString(36)}`, tone, title, detail: opts.detail, at: Date.now(), read: true, source: "user", pending: true };
+  notices = [local, ...notices];
   emit();
-  const show = tone === "error" ? toaster.error : tone === "success" ? toaster.success : tone === "warning" ? toaster.warning : toaster.info;
-  show(title, { description: opts.detail });
-  return n.id;
+  toast(tone, title, opts.detail);
+  if (signedIn) {
+    api<WireNotice>("POST", "/notifications", { tone, title: title.slice(0, 300), ...(opts.detail ? { detail: opts.detail.slice(0, 2000) } : {}) })
+      .then((saved) => {
+        known.add(saved.id);
+        notices = notices.map((n) => (n.id === local.id ? fromWire(saved) : n));
+        emit();
+      })
+      .catch(() => { notices = notices.map((n) => (n.id === local.id ? { ...n, pending: false } : n)); emit(); }); // kept for this visit only
+  }
+  return local.id;
 }
 
 export const notify = {
@@ -73,10 +91,15 @@ export function notifyError(error: unknown, title = "Something went wrong") {
 function markAllRead() {
   if (!notices.some((n) => !n.read)) return;
   notices = notices.map((n) => (n.read ? n : { ...n, read: true }));
-  persist();
   emit();
+  if (signedIn) void api("POST", "/notifications/read").catch(() => void refreshNotifications());
 }
-function clearAll() { notices = []; persist(); emit(); }
+function clearAll() {
+  notices = [];
+  known = new Set();
+  emit();
+  if (signedIn) void api("DELETE", "/notifications").catch(() => void refreshNotifications());
+}
 
 /** The current history, newest first, for code that is not a component (and for tests). */
 export const currentNotices = (): readonly Notice[] => notices;
@@ -86,11 +109,24 @@ export function useNotices() {
   return { items, unread: items.filter((n) => !n.read).length, markAllRead, clear: clearAll };
 }
 
-/** Loads the signed-in account's history and shows toasts at the bottom right. Mount once, inside the auth provider. */
+/** Loads the signed-in account's history, keeps it fresh and shows toasts at the bottom right. Mount once, inside the auth provider. */
 export function NotificationHost() {
   const { user } = useAuth();
   const id = user?.id ?? "";
-  useEffect(() => { load(id); }, [id]);
+  useEffect(() => {
+    signedIn = !!id;
+    notices = [];
+    known = new Set();
+    baseline = false;
+    emit();
+    if (!id) return;
+    void refreshNotifications();
+    const timer = setInterval(() => void refreshNotifications(), REFRESH_MS);
+    const onShow = () => { if (document.visibilityState === "visible") void refreshNotifications(); };
+    window.addEventListener("focus", onShow);
+    document.addEventListener("visibilitychange", onShow);
+    return () => { clearInterval(timer); window.removeEventListener("focus", onShow); document.removeEventListener("visibilitychange", onShow); };
+  }, [id]);
   return (
     <ToastRegion toaster={toaster} side="bottom" align="end" className="lt-toasts">
       {() => (
