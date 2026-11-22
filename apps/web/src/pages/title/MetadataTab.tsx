@@ -31,7 +31,8 @@ export function MetadataTab({ editions, recordings = [] }: { title?: Title; edit
   );
 }
 
-interface Change { field: string; clear: boolean; value?: unknown }
+interface Change { field: string; clear: boolean; value?: unknown; /** What the notification says once it is saved. */ note: string }
+const labelOf = (field: string) => FIELDS.find((f) => f.field === field)?.label ?? field;
 
 function Editor({ target }: { target: Target }) {
   const qc = useQueryClient();
@@ -51,9 +52,11 @@ function Editor({ target }: { target: Target }) {
       if (edition) await api<MetadataReport>("PUT", `${base}/${c.field}`, { ...adminOp(report.data!.revision), clear: c.clear, value: c.clear ? null : c.value });
       else await api<void>("PUT", `${base}/${c.field}`, c.clear ? { clear: true } : { value: c.value });
     },
+    meta: { success: (_d: unknown, c: Change) => c.note },
     onSettled: refresh,
   });
   const unlock = useMutation({
+    meta: { success: (_d: unknown, field: string) => `${labelOf(field)} unlocked. It will follow the files again.` },
     mutationFn: (field: string) => (edition ? api("DELETE", `${base}/${field}`, adminOp(report.data!.revision)) : api("DELETE", `${base}/${field}`)),
     onSettled: refresh,
   });
@@ -65,7 +68,6 @@ function Editor({ target }: { target: Target }) {
   const byField = new Map<string, MetadataField>(report.data.fields.map((f) => [f.field, f]));
   const busy = save.isPending || unlock.isPending;
   const failure = save.error ?? unlock.error;
-  const failedField = save.isError ? save.variables?.field : unlock.isError ? unlock.variables : undefined;
   const stale = failure instanceof ApiError && failure.status === 409;
 
   return (
@@ -85,7 +87,6 @@ function Editor({ target }: { target: Target }) {
               {rows.map((d) => (
                 <FieldRow key={d.field} def={d} f={byField.get(d.field)} busy={busy}
                   pending={(save.isPending && save.variables?.field === d.field) || (unlock.isPending && unlock.variables === d.field)}
-                  error={!stale && failedField === d.field ? failure : null}
                   onSave={(c) => save.mutateAsync(c).then(() => true, () => false)}
                   onUnlock={() => unlock.mutate(d.field)} />
               ))}
@@ -97,8 +98,8 @@ function Editor({ target }: { target: Target }) {
   );
 }
 
-function FieldRow({ def, f, busy, pending, error, onSave, onUnlock }: {
-  def: FieldDef; f: MetadataField | undefined; busy: boolean; pending: boolean; error: unknown;
+function FieldRow({ def, f, busy, pending, onSave, onUnlock }: {
+  def: FieldDef; f: MetadataField | undefined; busy: boolean; pending: boolean;
   onSave: (c: Change) => Promise<boolean>; onUnlock: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -106,10 +107,13 @@ function FieldRow({ def, f, busy, pending, error, onSave, onUnlock }: {
   const locked = f?.source === "user";
   const empty = !f || f.cleared || f.value === null || f.value === undefined || show(f.value) === "";
   const start = () => { setText(show(f?.value)); setEditing(true); };
-  const commit = async (clear: boolean) => { if (await onSave({ field: def.field, clear, value: clear ? undefined : parseValue(def.field, text) })) setEditing(false); };
+  const commit = async (clear: boolean) => {
+    const note = clear ? `${def.label} left empty and locked` : `${def.label} saved and locked`;
+    if (await onSave({ field: def.field, clear, value: clear ? undefined : parseValue(def.field, text), note })) setEditing(false);
+  };
   const toggleLock = () => {
     if (locked) onUnlock();
-    else void onSave(empty ? { field: def.field, clear: true } : { field: def.field, clear: false, value: f!.value });
+    else void onSave(empty ? { field: def.field, clear: true, note: `${def.label} locked as empty` } : { field: def.field, clear: false, value: f!.value, note: `${def.label} locked` });
   };
   const canBeEmpty = def.field !== "title";
   const sr = <span className="lt-sr">{def.label}</span>;
@@ -141,7 +145,6 @@ function FieldRow({ def, f, busy, pending, error, onSave, onUnlock }: {
           </InlineValue>
         )}
         {f?.conflicts?.map((c) => <Text key={c.source} size="xs" tone="dim">{sourceName(c.source)} says: {show(c.value)}</Text>)}
-        {error != null && <ErrorBox error={error} />}
       </div>
       <div className="lt-mf-tools">
         {f && <Badge tone={sourceTone(f.source)}>{sourceName(f.source)}</Badge>}

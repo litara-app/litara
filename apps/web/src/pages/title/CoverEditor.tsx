@@ -32,12 +32,13 @@ export function CoverTools({ title, editions, recordings, medium, onMedium }: {
   const slot = info.data?.[medium];
 
   const done = () => { setNotice(null); bumpCovers(); void qc.invalidateQueries({ queryKey: key }); };
-  const upload = useMutation({ mutationFn: (f: File) => uploadFile<CoverSlot>("PUT", `/titles/${title.id}/cover?medium=${medium}`, f), onSuccess: done });
+  const upload = useMutation({ mutationFn: (f: File) => uploadFile<CoverSlot>("PUT", `/titles/${title.id}/cover?medium=${medium}`, f), meta: { success: "Cover replaced" }, onSuccess: done });
   const fromUrl = useMutation({
     mutationFn: (v: { url: string; source: "url" | "search" }) => api<CoverSlot>("POST", `/titles/${title.id}/cover/from-url`, { medium, url: v.url, source: v.source }),
+    meta: { success: "Cover replaced" },
     onSuccess: () => { setAddress(""); setSearching(false); done(); },
   });
-  const regenerate = useMutation({ mutationFn: () => api<CoverSlot>("POST", `/titles/${title.id}/cover/regenerate`, { medium }), onSuccess: done });
+  const regenerate = useMutation({ mutationFn: () => api<CoverSlot>("POST", `/titles/${title.id}/cover/regenerate`, { medium }), meta: { success: "Cover regenerated from the file" }, onSuccess: done });
   const busy = upload.isPending || fromUrl.isPending || regenerate.isPending;
 
   return (

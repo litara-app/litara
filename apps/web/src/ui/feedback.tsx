@@ -4,6 +4,7 @@ import { API, ApiError } from "../api/client";
 import type { Capability } from "../api/types";
 import { IconButton } from "./controls";
 import { useCoverRev } from "./coverRev";
+import { wasReported } from "./notify";
 import { Heading, Text } from "./text";
 
 export type Tone = "info" | "neutral" | "success" | "warning" | "danger" | "audio";
@@ -52,7 +53,7 @@ export function Alert({ tone = "info", title, role, onClose, children, ...rest }
 }
 
 export function ErrorBox({ error }: { error: unknown }) {
-  if (!error) return null;
+  if (!error || wasReported(error)) return null; // a failed action is shown as a notification, not twice
   const e = error as Error;
   const code = error instanceof ApiError && error.code ? ` (${error.code})` : "";
   return <Alert tone="danger" title="Something went wrong" role="alert">{e.message}{code}</Alert>;

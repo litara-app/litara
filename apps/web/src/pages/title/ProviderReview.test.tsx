@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { MetadataReport, ProviderCandidate } from "../../api/types";
+import { currentNotices } from "../../ui/notify";
 import { ProviderReview, reviewRows } from "./ProviderReview";
 
 const report: MetadataReport = {
@@ -107,7 +108,8 @@ test("auto-fill posts the loaded revision for an edition and reports what it fil
   api.mockImplementationOnce(async () => ({ outcome: "filled", provider: "open_library", filled: ["publisher", "published"], revision: "5" }));
   const applied = setup();
   fireEvent.click(screen.getByRole("button", { name: "Auto-fill" }));
-  expect((await screen.findByTestId("autofill-result")).textContent).toBe("Filled 2 empty fields from Open Library: publisher, published.");
+  await waitFor(() => expect(currentNotices()[0]?.detail).toBe("Filled 2 empty fields from Open Library: publisher, published."));
+  expect(currentNotices()[0]?.tone).toBe("success");
   const call = api.mock.calls.find((c) => String(c[1]).endsWith("/auto-fill"))!;
   expect(call[0]).toBe("POST");
   expect(call[1]).toBe("/admin/editions/E1/metadata/auto-fill");
@@ -125,7 +127,7 @@ test("auto-fill says when a result needs review and sends no body for an audiobo
     </QueryClientProvider>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Auto-fill" }));
-  expect((await screen.findByTestId("autofill-result")).textContent).toMatch(/No single exact match/);
+  await waitFor(() => expect(currentNotices()[0]?.detail).toMatch(/No single exact match/));
   expect(api).toHaveBeenCalledWith("POST", "/admin/recordings/R1/metadata/auto-fill", undefined);
 });
 

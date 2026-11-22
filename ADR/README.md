@@ -132,6 +132,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0086](0086-cover-replacement.md) | Let administrators replace a title's cover | Accepted |
 | [0087](0087-hardcover-provider-search-cache-and-reviewed-autofill.md) | Add Hardcover, cache provider searches and offer reviewed auto-fill | Accepted |
 | [0088](0088-goodreads-amazon-and-audible-metadata.md) | Decide whether to use Goodreads, Amazon and Audible metadata | Proposed |
+| [0089](0089-notification-system.md) | Route responses to actions through a notification system | Proposed |
 
 ## Workflow
 

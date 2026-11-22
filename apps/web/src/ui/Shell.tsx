@@ -17,6 +17,7 @@ import { IconButton } from "./controls";
 import { icons, libraryIcon, LogoMark } from "./icons";
 import { Text } from "./text";
 import { Tip } from "./overlays";
+import { NotificationBell } from "./notify";
 
 type Leaf = { to: string; label: string; active: boolean; count?: number | string; icon?: ReactNode };
 type Group = { key: string; label: string; icon: ReactNode; to: string; active: boolean; badge?: string; items: Leaf[] };
@@ -206,6 +207,7 @@ export function Shell() {
             </Link>
           )}
           <ModeToggle />
+          <NotificationBell />
         </div>
       </header>
       <nav className="lt-side" aria-label="Main">

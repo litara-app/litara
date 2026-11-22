@@ -12,6 +12,7 @@ export function SettingsLayout() {
         { to: "/settings/credentials", label: "App credentials" },
         { to: "/settings/email", label: "Email" },
         { to: "/settings/koreader", label: "KOReader" },
+        { to: "/settings/notifications", label: "Notifications" },
       ]} />
       <Outlet />
     </Page>

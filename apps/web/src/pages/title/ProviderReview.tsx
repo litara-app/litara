@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { adminOp, api, ApiError } from "../../api/client";
 import type { AutoFillResult, MetadataField, ProviderCandidate, ProviderResult, ProviderSearchResults } from "../../api/types";
-import { Badge, Busy, Button, CheckboxField, ErrorBox, icons, Modal, Row, Stack, Table, TBody, TD, Text, TextField, TH, THead, TR } from "../../ui";
+import { Badge, Busy, Button, CheckboxField, ErrorBox, icons, Modal, notify, Row, Stack, Table, TBody, TD, Text, TextField, TH, THead, TR } from "../../ui";
 import { FIELDS, show } from "./metadataFields";
 
 const PROVIDER_NAME: Record<string, string> = { open_library: "Open Library", google_books: "Google Books", audnexus: "Audnexus", hardcover: "Hardcover" };
@@ -60,13 +60,17 @@ export function ProviderReview({ subject, report, onApplied }: { subject: Review
   const base = `/admin/${edition ? "editions" : "recordings"}/${subject.id}/metadata`;
   const autoFill = useMutation({
     mutationFn: () => api<AutoFillResult>("POST", `${base}/auto-fill`, edition ? adminOp(report.revision ?? "0") : undefined),
+    onSuccess: (r) => {
+      const text = AUTO_FILL_TEXT[r.outcome]?.(r) ?? r.outcome;
+      if (r.outcome === "filled") notify.success("Auto-fill finished", { detail: text });
+      else notify.info("Auto-fill: nothing was filled", { detail: text });
+    },
     onSettled: onApplied,
   });
   return (
     <>
       <Button icon={icons.search} onClick={() => setOpen(true)}>Search online</Button>
       <Button icon={icons.bolt} loading={autoFill.isPending} onClick={() => autoFill.mutate()}>Auto-fill</Button>
-      {autoFill.data && <Text size="sm" role="status" data-testid="autofill-result">{AUTO_FILL_TEXT[autoFill.data.outcome]?.(autoFill.data) ?? autoFill.data.outcome}</Text>}
       {autoFill.error instanceof ApiError && autoFill.error.status === 409
         ? <Text size="sm" tone="warning" role="alert">This item changed elsewhere, so the page was refreshed. Try again.</Text>
         : <ErrorBox error={autoFill.error} />}
@@ -104,6 +108,7 @@ function ProviderDialog({ subject, report, onClose, onApplied }: { subject: Revi
         } else await api<void>("PUT", `${base}/${r.field}`, { value: r.offered });
       }
     },
+    meta: { success: () => `Applied ${chosen.size} ${chosen.size === 1 ? "field" : "fields"} from ${PROVIDER_NAME[picked?.provider ?? ""] ?? "the provider"}` },
     onSuccess: () => { onClose(); },
     onSettled: () => { onApplied(); void qc.invalidateQueries({ queryKey: ["admin", edition ? "edition-metadata" : "recording-metadata", subject.id] }); },
   });
