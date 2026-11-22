@@ -26,7 +26,7 @@ const answers: Record<string, unknown> = {
   "/titles?sort=title&order=asc&page=0&size=24": { items: [{ id: "T1" }, { id: "T2" }, { id: "T3" }], total: 3, page: 0, size: 24 },
   "/admin/editions/E1/metadata": { editionId: "E1", revision: "0", fields: [{ field: "title", source: "embedded", cleared: false, value: "Treasure Island", conflicts: [] }] },
 };
-const api = vi.fn(async (_m: string, _p: string, body?: unknown) => ({ ...(answers["/titles/T1/personal"] as object), revision: "1", data: (body as { data: object }).data }));
+const api = vi.fn(async (_m: string, _p: string, body?: unknown): Promise<unknown> => ({ ...(answers["/titles/T1/personal"] as object), revision: "1", data: (body as { data: object }).data }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), get: async (p: string) => answers[p] ?? { items: [], total: 0, page: 0, size: 50 }, api: (m: string, p: string, b?: unknown) => api(m, p, b) }));
 let admin = true;
 vi.mock("../../auth/session", () => ({ useAuth: () => ({ user: { isAdmin: admin } }) }));
@@ -155,5 +155,51 @@ test("an audiobook-only title shows its recording's details and can be edited as
   } finally {
     answers["/editions?titleId=T1&size=200"] = saved.editions;
     answers["/titles/T1/recordings?size=200"] = saved.recs;
+  }
+});
+
+test("auto-fill shows its fill as unsaved, a field can be reset, and save writes only what is left", async () => {
+  api.mockClear();
+  const original = api.getMockImplementation()!;
+  api.mockImplementation(async (_m: string, p: string) => {
+    if (p.endsWith("/auto-fill")) return { outcome: "proposed", provider: "open_library", rule: "title_author", filled: [], revision: "0", proposed: { publisher: "Press", subtitle: "A Tale" } };
+    return { revision: "1" };
+  });
+  try {
+    setup();
+    fireEvent.click(await screen.findByRole("tab", { name: "Edit metadata" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Auto-fill" }));
+    await screen.findByTestId("autofill-draft");
+    expect(screen.getByTestId("draft-publisher").textContent).toBe("Press");
+    expect(screen.getByTestId("draft-subtitle").textContent).toBe("A Tale");
+    expect(api.mock.calls.some((c) => c[0] === "PUT")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Reset Publisher to what it was" }));
+    expect(screen.queryByTestId("draft-publisher")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 field" }));
+    await vi.waitFor(() => expect(api.mock.calls.some((c) => c[0] === "PUT" && c[1] === "/admin/editions/E1/metadata/subtitle")).toBe(true));
+    expect(api.mock.calls.some((c) => c[1] === "/admin/editions/E1/metadata/publisher")).toBe(false);
+    expect(api.mock.calls.find((c) => c[1] === "/admin/editions/E1/metadata/subtitle")![2]).toMatchObject({ clear: false, value: "A Tale" });
+    await vi.waitFor(() => expect(screen.queryByTestId("autofill-draft")).toBeNull());
+  } finally {
+    api.mockImplementation(original);
+  }
+});
+
+test("Reset all discards the whole unsaved fill without writing anything", async () => {
+  api.mockClear();
+  const original = api.getMockImplementation()!;
+  api.mockImplementation(async (_m: string, p: string) => (p.endsWith("/auto-fill")
+    ? { outcome: "proposed", provider: "hardcover", rule: "identifier", filled: [], revision: "0", proposed: { publisher: "Press" } }
+    : { revision: "1" }));
+  try {
+    setup();
+    fireEvent.click(await screen.findByRole("tab", { name: "Edit metadata" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Auto-fill" }));
+    await screen.findByTestId("autofill-draft");
+    fireEvent.click(screen.getByRole("button", { name: "Reset all" }));
+    expect(screen.queryByTestId("autofill-draft")).toBeNull();
+    expect(api.mock.calls.some((c) => c[0] === "PUT")).toBe(false);
+  } finally {
+    api.mockImplementation(original);
   }
 });

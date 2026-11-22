@@ -45,10 +45,11 @@ const api = vi.fn(async (_method: string, path: string, body?: unknown): Promise
 });
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), api: (m: string, p: string, b?: unknown) => api(m, p, b) }));
 
+const draftSpy = vi.fn();
 function setup(onApplied = vi.fn()) {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ProviderReview subject={{ kind: "edition", id: "E1" }} report={report} onApplied={onApplied} />
+      <ProviderReview subject={{ kind: "edition", id: "E1" }} report={report} onApplied={onApplied} onDraft={draftSpy} />
     </QueryClientProvider>,
   );
   return onApplied;
@@ -87,7 +88,7 @@ test("an audiobook search sends the ASIN and its writes carry no revision", asyn
   const rec = { fields: [{ field: "title", source: "embedded", cleared: false, value: "Off Armageddon Reef", conflicts: [] }] };
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ProviderReview subject={{ kind: "recording", id: "R1" }} report={rec} onApplied={vi.fn()} />
+      <ProviderReview subject={{ kind: "recording", id: "R1" }} report={rec} onApplied={vi.fn()} onDraft={vi.fn()} />
     </QueryClientProvider>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Search online" }));
@@ -103,32 +104,35 @@ test("an audiobook search sends the ASIN and its writes carry no revision", asyn
   expect(Object.keys(put[2] as object)).toEqual(["value"]);
 });
 
-test("auto-fill posts the loaded revision for an edition and reports what it filled", async () => {
+test("auto-fill asks for a dry run with the loaded revision and hands the proposed values over for review without saving", async () => {
   api.mockClear();
-  api.mockImplementationOnce(async () => ({ outcome: "filled", provider: "open_library", filled: ["publisher", "published"], revision: "5" }));
-  const applied = setup();
+  draftSpy.mockClear();
+  api.mockImplementationOnce(async () => ({ outcome: "proposed", provider: "open_library", rule: "title_author", filled: [], revision: "4", proposed: { publisher: "Press", published: "2007-01-09" } }));
+  setup();
   fireEvent.click(screen.getByRole("button", { name: "Auto-fill" }));
-  await waitFor(() => expect(currentNotices()[0]?.detail).toBe("Filled 2 empty fields from Open Library: publisher, published."));
-  expect(currentNotices()[0]?.tone).toBe("success");
+  await waitFor(() => expect(draftSpy).toHaveBeenCalledWith({ provider: "open_library", rule: "title_author", values: { publisher: "Press", published: "2007-01-09" } }));
+  expect(currentNotices()[0]?.detail).toBe("Found 2 fields from Open Library, matched by title and author. Review them, then save.");
   const call = api.mock.calls.find((c) => String(c[1]).endsWith("/auto-fill"))!;
   expect(call[0]).toBe("POST");
   expect(call[1]).toBe("/admin/editions/E1/metadata/auto-fill");
-  expect(call[2]).toMatchObject({ baseRevision: "4" });
+  expect(call[2]).toMatchObject({ baseRevision: "4", dryRun: true });
   expect(typeof (call[2] as { operationId: string }).operationId).toBe("string");
-  await waitFor(() => expect(applied).toHaveBeenCalled());
+  expect(api.mock.calls.some((c) => c[0] === "PUT")).toBe(false); // nothing is stored until the person saves
 });
 
-test("auto-fill says when a result needs review and sends no body for an audiobook", async () => {
+test("auto-fill says when a result needs review and asks an audiobook for a dry run too", async () => {
   api.mockClear();
+  draftSpy.mockClear();
   api.mockImplementationOnce(async () => ({ outcome: "needs_review", filled: [] }));
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ProviderReview subject={{ kind: "recording", id: "R1" }} report={{ fields: [] }} onApplied={vi.fn()} />
+      <ProviderReview subject={{ kind: "recording", id: "R1" }} report={{ fields: [] }} onApplied={vi.fn()} onDraft={draftSpy} />
     </QueryClientProvider>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Auto-fill" }));
   await waitFor(() => expect(currentNotices()[0]?.detail).toMatch(/No single exact match/));
-  expect(api).toHaveBeenCalledWith("POST", "/admin/recordings/R1/metadata/auto-fill", undefined);
+  expect(api).toHaveBeenCalledWith("POST", "/admin/recordings/R1/metadata/auto-fill?dryRun=true", undefined);
+  expect(draftSpy).not.toHaveBeenCalled();
 });
 
 test("saved results are labelled and Search again bypasses the cache; an unconfigured provider is explained", async () => {

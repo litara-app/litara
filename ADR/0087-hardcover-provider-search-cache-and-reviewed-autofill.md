@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-21
 Decision owner: Repository owner
+Amended by: [ADR-0090](0090-auto-fill-from-a-single-title-and-author-match.md) (2026-11-22): adds a per-library title-and-author case and review before saving. The identifier rule stays.
 
 ## Context
 

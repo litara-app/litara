@@ -78,7 +78,7 @@ export interface ScanRun { id: string; trigger: string; state: string; health?: 
 export interface Review { id: string; kind: string; subjectKey: string; candidates: Record<string, unknown>; createdAt: string }
 export interface LibraryDetail {
   library: Library;
-  config: { mode: string; rootPath: string; followSymlinks: boolean; scanIntervalSecs?: number; writebackBackups: boolean; providerOrder: string[] };
+  config: { mode: string; rootPath: string; followSymlinks: boolean; scanIntervalSecs?: number; writebackBackups: boolean; providerOrder: string[]; autoFillTitleMatch?: boolean };
   health: { state: string; detail?: string; checkedAt?: string };
 }
 
@@ -134,5 +134,11 @@ export interface CoverSearchResult { provider: string; title: string; author: st
 
 export interface ProviderCandidate { id: string; byIdentifier: boolean; consistent: boolean; fields: Record<string, unknown> }
 export interface ProviderResult { provider: "open_library" | "google_books" | "audnexus" | "hardcover"; status: "ok" | "no_match" | "unavailable" | "unconfigured"; cached?: boolean; candidates: ProviderCandidate[] }
-export interface AutoFillResult { outcome: "filled" | "nothing_to_fill" | "needs_review" | "no_match" | "disabled"; provider?: string; filled: string[]; revision?: string }
+export interface AutoFillResult {
+  outcome: "filled" | "proposed" | "nothing_to_fill" | "needs_review" | "no_match" | "disabled"; provider?: string; filled: string[]; revision?: string;
+  /** identifier, or title_author when the library lets Auto-fill use one clear title-and-author match (ADR-0090). */
+  rule?: "identifier" | "title_author";
+  /** With outcome proposed: the values Auto-fill would fill, not yet saved. */
+  proposed?: Record<string, unknown>;
+}
 export interface ProviderSearchResults { editionId: string; enabled: boolean; query: { title?: string; authors?: string[]; isbn?: string; asin?: string }; results: ProviderResult[] }

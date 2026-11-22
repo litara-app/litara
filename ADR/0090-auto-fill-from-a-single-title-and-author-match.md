@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-22
 Decision owner: Repository owner
+Amends: [ADR-0060](0060-provider-priority-and-identifier-match-review.md) and [ADR-0087](0087-hardcover-provider-search-cache-and-reviewed-autofill.md); both keep their identifier rule.
 
 ## Context
 

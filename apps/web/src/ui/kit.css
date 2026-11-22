@@ -472,6 +472,7 @@ th[aria-sort] .lt-sort-icon { opacity: 1; color: var(--lt-pri); }
 .lt-mf-display:hover:not(:disabled), .lt-mf-display:focus-visible { border-color: var(--lt-line); background: var(--lt-surface-2); }
 .lt-mf-pencil { opacity: 0; flex: none; }
 .lt-mf-display:hover .lt-mf-pencil, .lt-mf-display:focus-visible .lt-mf-pencil { opacity: 0.6; }
+.lt-mf-draft { cursor: default; border-color: var(--lt-warn); background: var(--lt-warn-soft); }
 .lt-mf-dim { opacity: 0.6; font-style: italic; }
 .lt-mf-edit { display: flex; flex-direction: column; gap: var(--lt-s2); }
 .lt-mf-edit-actions { display: flex; flex-wrap: wrap; gap: var(--lt-s2); }
