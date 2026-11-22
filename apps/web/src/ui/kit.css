@@ -380,6 +380,9 @@ a { color: var(--lt-pri); }
 /* A select with a clear control: the control sits inside the trigger's right edge, drawn as a small close icon. */
 .lt-select-wrap { position: relative; display: flex; }
 .lt-select-wrap > [data-slot="select-trigger"] { flex: 1; min-width: 0; }
+/* Leave room for the clear button so a chosen value is never drawn underneath it. */
+.lt-select-wrap:has([data-slot="select-clear"]) > [data-slot="select-trigger"] { padding-inline-end: 60px; }
+.lt-select-wrap [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lt-select-wrap [data-slot="select-clear"] { position: absolute; inset-block: 0; inset-inline-end: 30px; display: grid; place-items: center; width: 24px; padding: 0; border: 0; background: none; color: var(--lt-dim); cursor: pointer; }
 .lt-select-wrap [data-slot="select-clear"]:hover { color: var(--lt-ink); }
 .lt-select-wrap [data-slot="select-clear"] svg { width: 14px; height: 14px; }
