@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 	"unicode"
 
 	"github.com/google/uuid"
@@ -22,6 +24,72 @@ import (
 type Enricher struct {
 	*Service
 	Providers map[string]Provider
+	// CacheTTL keeps successful provider searches in memory for that long (ADR-0087). Zero turns the cache off.
+	CacheTTL time.Duration
+	// Now is the clock for the cache (tests only; nil means time.Now).
+	Now func() time.Time
+
+	cacheMu sync.Mutex
+	cache   map[string]cachedSearch
+}
+
+type cachedSearch struct {
+	matches []Match
+	expires time.Time
+}
+
+const maxCachedSearches = 256
+
+func (e *Enricher) now() time.Time {
+	if e.Now != nil {
+		return e.Now()
+	}
+	return time.Now()
+}
+
+func searchKey(provider string, q Query) string {
+	return strings.Join([]string{provider, norm(q.Title), norm(strings.Join(q.Authors, ",")), strings.ToUpper(q.ISBN), strings.ToUpper(q.ASIN)}, "\x00")
+}
+
+func (e *Enricher) cached(key string) ([]Match, bool) {
+	if e.CacheTTL <= 0 {
+		return nil, false
+	}
+	e.cacheMu.Lock()
+	defer e.cacheMu.Unlock()
+	c, ok := e.cache[key]
+	if !ok || !e.now().Before(c.expires) {
+		delete(e.cache, key)
+		return nil, false
+	}
+	return c.matches, true
+}
+
+// remember stores a successful lookup. Failures are never stored, so an outage or rate limit is retried at once.
+func (e *Enricher) remember(key string, matches []Match) {
+	if e.CacheTTL <= 0 {
+		return
+	}
+	e.cacheMu.Lock()
+	defer e.cacheMu.Unlock()
+	if e.cache == nil {
+		e.cache = map[string]cachedSearch{}
+	}
+	now := e.now()
+	if len(e.cache) >= maxCachedSearches {
+		for k, c := range e.cache {
+			if !now.Before(c.expires) {
+				delete(e.cache, k)
+			}
+		}
+		for k := range e.cache { // still full: make room by dropping one entry
+			if len(e.cache) < maxCachedSearches {
+				break
+			}
+			delete(e.cache, k)
+		}
+	}
+	e.cache[key] = cachedSearch{matches: matches, expires: now.Add(e.CacheTTL)}
 }
 
 func norm(s string) string {
@@ -120,7 +188,7 @@ func (e *Enricher) enrichOne(ctx context.Context, lib, recID, titleID uuid.UUID,
 		return false, record("no_match", "")
 	}
 	if len(matches) == 1 && matches[0].ByIdentifier && consistent(matches[0], title.Title, title.Authors) {
-		if err := e.ApplyMatch(ctx, recID, matches[0]); err != nil {
+		if _, err := e.ApplyMatch(ctx, recID, matches[0]); err != nil {
 			return false, err
 		}
 		return true, record("applied", matches[0].ID)
@@ -138,24 +206,25 @@ func (e *Enricher) enrichOne(ctx context.Context, lib, recID, titleID uuid.UUID,
 }
 
 // ApplyMatch stores provider values only for fields no other source provides.
-func (e *Enricher) ApplyMatch(ctx context.Context, recID uuid.UUID, m Match) error {
+func (e *Enricher) ApplyMatch(ctx context.Context, recID uuid.UUID, m Match) ([]string, error) {
 	existing, err := e.Report(ctx, recID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	q := sqlcgen.New(e.Pool)
 	rec, err := q.GetRecordingRow(ctx, recID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return apperr.ErrNotFound
+		return nil, apperr.ErrNotFound
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fields := make([]string, 0, len(m.Fields))
 	for f := range m.Fields {
 		fields = append(fields, f)
 	}
 	sort.Strings(fields)
+	var applied []string
 	for _, f := range fields {
 		if !Valid(f) {
 			continue
@@ -165,10 +234,11 @@ func (e *Enricher) ApplyMatch(ctx context.Context, recID uuid.UUID, m Match) err
 		}
 		if err := q.UpsertMetadataValue(ctx, sqlcgen.UpsertMetadataValueParams{SubjectKind: SubjectKind(f), SubjectID: subject(rec, f),
 			Field: f, Source: SourceProvider, Value: m.Fields[f]}); err != nil {
-			return err
+			return nil, err
 		}
+		applied = append(applied, f)
 	}
-	return e.Apply(ctx, recID)
+	return applied, e.Apply(ctx, recID)
 }
 
 // ResolveProvider applies (or rejects) one candidate of a provider review.
@@ -188,7 +258,167 @@ func (e *Enricher) ResolveProvider(ctx context.Context, candidates []byte, actio
 		if err != nil || index == nil || *index < 0 || *index >= len(c.Matches) {
 			return apperr.Validation("index must select one of the offered candidates")
 		}
-		return e.ApplyMatch(ctx, rec, c.Matches[*index])
+		_, err = e.ApplyMatch(ctx, rec, c.Matches[*index])
+		return err
 	}
 	return apperr.Validation("action must be apply or reject")
+}
+
+// Candidate is one provider result for a person to review. Consistent reports
+// whether its title and authors agree with the query; it never authorizes an
+// automatic change.
+type Candidate struct {
+	Match
+	Consistent bool
+}
+
+// ProviderResult is what one enabled provider returned. Status is ok, no_match, unavailable (the provider failed,
+// was rate limited or timed out) or unconfigured (the library lists it but the operator has not set it up).
+// Cached reports that the candidates came from the short-lived search cache.
+type ProviderResult struct {
+	Provider   string
+	Status     string
+	Cached     bool
+	Candidates []Candidate
+}
+
+// SearchOutcome lists the providers a library has enabled, in its order. When
+// none is enabled Enabled is false and no provider was contacted (ADR-0049).
+type SearchOutcome struct {
+	Enabled bool
+	Results []ProviderResult
+}
+
+// SearchOptions select the providers searched and whether the cache is bypassed.
+type SearchOptions struct {
+	// Audio includes Audnexus; an ebook search leaves it out.
+	Audio bool
+	// Fresh ignores cached results and refreshes them.
+	Fresh bool
+}
+
+var knownProviders = map[string]bool{ProviderOpenLibrary: true, ProviderGoogleBooks: true, ProviderAudnexus: true, ProviderHardcover: true}
+
+// Search looks one query up with the library's enabled providers for a person
+// to review (ADR-0060). It stores nothing and changes no value. A cancelled
+// context is returned as an error; any other provider failure becomes an
+// unavailable result for that provider and is not cached.
+func (e *Enricher) Search(ctx context.Context, lib uuid.UUID, q Query, opts SearchOptions) (SearchOutcome, error) {
+	cfg, err := sqlcgen.New(e.Pool).GetLibraryConfig(ctx, lib)
+	if err != nil {
+		return SearchOutcome{}, err
+	}
+	out := SearchOutcome{Results: []ProviderResult{}}
+	for _, name := range cfg.ProviderOrder {
+		if !knownProviders[name] || (name == ProviderAudnexus && !opts.Audio) {
+			continue
+		}
+		out.Enabled = true
+		res := ProviderResult{Provider: name, Status: "ok", Candidates: []Candidate{}}
+		p, ok := e.Providers[name]
+		if !ok {
+			res.Status = "unconfigured"
+			out.Results = append(out.Results, res)
+			continue
+		}
+		key := searchKey(name, q)
+		matches, hit := []Match(nil), false
+		if !opts.Fresh {
+			matches, hit = e.cached(key)
+		}
+		if !hit {
+			var lerr error
+			matches, lerr = p.Lookup(ctx, q)
+			if ctx.Err() != nil {
+				return SearchOutcome{}, ctx.Err()
+			}
+			if lerr != nil {
+				res.Status = "unavailable"
+				out.Results = append(out.Results, res)
+				continue
+			}
+			if len(matches) > 5 {
+				matches = matches[:5]
+			}
+			e.remember(key, matches)
+		}
+		res.Cached = hit
+		if len(matches) == 0 {
+			res.Status = "no_match"
+		}
+		for _, m := range matches {
+			res.Candidates = append(res.Candidates, Candidate{Match: m, Consistent: consistent(m, q.Title, q.Authors)})
+		}
+		out.Results = append(out.Results, res)
+	}
+	return out, nil
+}
+
+// PickAutoFill chooses the one match auto-fill may apply (ADR-0060/0087): the first provider, in the library's
+// order, whose only candidate is an exact identifier match that agrees with the stored title and authors.
+// Otherwise the outcome says why nothing was chosen: disabled, no_match or needs_review.
+func PickAutoFill(out SearchOutcome) (Match, string) {
+	if !out.Enabled {
+		return Match{}, "disabled"
+	}
+	any := false
+	for _, r := range out.Results {
+		if r.Status != "ok" {
+			continue
+		}
+		if len(r.Candidates) > 0 {
+			any = true
+		}
+		if len(r.Candidates) == 1 && r.Candidates[0].ByIdentifier && r.Candidates[0].Consistent {
+			return r.Candidates[0].Match, "filled"
+		}
+	}
+	if any {
+		return Match{}, "needs_review"
+	}
+	return Match{}, "no_match"
+}
+
+// RecordingQuery builds the lookup for one recording from its effective title, authors and ISBN, and from the
+// ASIN or ISBN stored as its title's identifier. It also returns the recording's library.
+func (e *Enricher) RecordingQuery(ctx context.Context, recID uuid.UUID) (uuid.UUID, Query, error) {
+	q := sqlcgen.New(e.Pool)
+	rec, err := q.GetRecordingRow(ctx, recID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, Query{}, apperr.ErrNotFound
+	}
+	if err != nil {
+		return uuid.Nil, Query{}, err
+	}
+	title, err := q.GetTitleRow(ctx, rec.TitleID)
+	if err != nil {
+		return uuid.Nil, Query{}, err
+	}
+	out := Query{Title: title.Title, Authors: title.Authors}
+	if title.Identifier != nil {
+		out.ISBN, out.ASIN = SplitIdentifier(*title.Identifier)
+	}
+	eff, err := e.Report(ctx, recID)
+	if err != nil {
+		return uuid.Nil, Query{}, err
+	}
+	if v, ok := eff[FieldTitle]; ok && !v.Cleared {
+		var s string
+		if json.Unmarshal(v.Raw, &s) == nil && strings.TrimSpace(s) != "" {
+			out.Title = s
+		}
+	}
+	if v, ok := eff[FieldAuthors]; ok && !v.Cleared {
+		var a []string
+		if json.Unmarshal(v.Raw, &a) == nil && len(a) > 0 {
+			out.Authors = a
+		}
+	}
+	if v, ok := eff[FieldISBN]; ok && !v.Cleared {
+		var s string
+		if json.Unmarshal(v.Raw, &s) == nil && s != "" {
+			out.ISBN, _ = SplitIdentifier(s)
+		}
+	}
+	return rec.LibraryID, out, nil
 }

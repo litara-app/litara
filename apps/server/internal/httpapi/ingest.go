@@ -221,6 +221,8 @@ func (a *API) registerIngest(api huma.API) {
 		return nil, a.fail2(ctx, a.Metadata.RemoveUser(ctx, id, in.Field))
 	})
 
+	a.registerRecordingProviders(api)
+	a.registerRecordingAutoFill(api)
 	a.registerImports(api)
 	a.registerWriteback(api)
 }

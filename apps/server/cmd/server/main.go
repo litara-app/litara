@@ -117,7 +117,8 @@ func run() error {
 	running.Store(true)
 	log.Info("workers started", "inspect_workers", cfg.InspectWorkers)
 	meta := metadata.New(pool)
-	enricher := &metadata.Enricher{Service: meta, Providers: metadata.NewProviders(cfg.OpenLibraryContact, cfg.GoogleBooksAPIKey)}
+	enricher := &metadata.Enricher{Service: meta, Providers: metadata.NewProvidersWithHardcover(cfg.OpenLibraryContact, cfg.GoogleBooksAPIKey, cfg.HardcoverToken),
+		CacheTTL: time.Duration(cfg.ProviderSearchCacheMinutes) * time.Minute}
 	// Only writers with retained fidelity evidence are built in (ADR-0052). A writer stays disabled until an
 	// operator records its evidence with `ctl writers enable`.
 	wb := &writeback.Service{Pool: pool, Inspector: scanInsp, Scanner: scanner, Metadata: meta,

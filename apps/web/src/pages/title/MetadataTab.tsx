@@ -3,6 +3,7 @@ import { useState } from "react";
 import { adminOp, api, ApiError, get } from "../../api/client";
 import type { Edition, MetadataField, MetadataReport, RecordingLink, Title } from "../../api/types";
 import { CoverEditor } from "./CoverEditor";
+import { ProviderReview } from "./ProviderReview";
 import { icons, Badge, Busy, Button, ErrorBox, Modal, Row, SegmentedField, Stack, Table, TBody, TD, Text, TextAreaField, TextField, TH, THead, TR, type Tone } from "../../ui";
 import { FIELDS, parseValue, show } from "./metadataFields";
 
@@ -73,6 +74,7 @@ function Editor({ target }: { target: Target }) {
   return (
     <Stack>
       <Text size="sm" tone="dim">An edit is protected: rescans and the files&apos; own tags will not overwrite it. Reset an edit to go back to what the files say.</Text>
+      <Row gap="sm"><ProviderReview subject={{ kind: target.kind, id: target.id }} report={report.data} onApplied={refresh} /></Row>
       <Table label="Metadata" data-testid="metadata-table">
         <THead><TR><TH>Field</TH><TH>Value</TH><TH>Source</TH><TH>Actions</TH></TR></THead>
         <TBody>

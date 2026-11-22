@@ -24,7 +24,7 @@ import (
 )
 
 // Known metadata provider identifiers (ADR-0049).
-var providers = map[string]bool{"open_library": true, "google_books": true, "audnexus": true}
+var providers = map[string]bool{"open_library": true, "google_books": true, "audnexus": true, "hardcover": true}
 
 type Service struct {
 	pool *pgxpool.Pool

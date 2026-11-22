@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -432,5 +433,71 @@ func (s *Service) LinkEditionTitle(ctx context.Context, a Actor, id uuid.UUID, w
 		return wire.T005Edition{}, err
 	}
 	var out wire.T005Edition
+	return out, json.Unmarshal(body, &out)
+}
+
+// AutoFillEdition stores provider values for fields the edition has no value for. The caller has chosen the match
+// (ADR-0060/0087); this applies it only if the edition is still at base, and only to empty fields. Values are stored
+// as provider evidence, so they never outrank a user edit, a sidecar or the file's own tags.
+func (s *Service) AutoFillEdition(ctx context.Context, a Actor, id uuid.UUID, w wire.T005AutoFill, provider string, values map[string]json.RawMessage) (wire.T005AutoFillResult, error) {
+	op, err := parseUUID("operationId", w.OperationID)
+	if err != nil {
+		return wire.T005AutoFillResult{}, err
+	}
+	base, err := parseRev(w.BaseRevision)
+	if err != nil {
+		return wire.T005AutoFillResult{}, err
+	}
+	fields := make([]string, 0, len(values))
+	for f := range values {
+		fields = append(fields, f)
+	}
+	sort.Strings(fields)
+	var filled []string
+	fp := fingerprint(http.MethodPost, "/admin/editions/"+id.String()+"/metadata/auto-fill", w)
+	body, err := s.mutateEdition(ctx, a, id, op, base, fp, func(q *sqlcgen.Queries, ed sqlcgen.Edition) (*apperr.Error, error) {
+		filled = filled[:0]
+		have := map[string]bool{}
+		rows, err := q.ListEditionMetadataValues(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range rows {
+			if r.Source != metadata.SourceProvider {
+				have[r.Field] = true // any non-provider evidence, including a protected clear, is not a gap
+			}
+		}
+		for _, f := range fields {
+			if !validEditionField(f) || f == "title" || have[f] {
+				continue
+			}
+			raw, err := editionValue(f, wire.T005MetadataWrite{Value: wire.T005MetadataValue{Raw: values[f]}})
+			if err != nil {
+				continue // a value the edition would not accept is skipped, never stored
+			}
+			if err := q.UpsertEditionMetadataValue(ctx, sqlcgen.UpsertEditionMetadataValueParams{EditionID: id, Field: f, Source: metadata.SourceProvider, Value: raw}); err != nil {
+				return nil, err
+			}
+			filled = append(filled, f)
+		}
+		if len(filled) == 0 {
+			return nil, nil
+		}
+		return nil, s.propagate(ctx, q, ed)
+	}, func(q *sqlcgen.Queries) ([]byte, error) {
+		ed, err := q.LockEdition(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		outcome := "filled"
+		if len(filled) == 0 {
+			outcome = "nothing_to_fill"
+		}
+		return wire.Raw(wire.T005AutoFillResult{Outcome: outcome, Provider: provider, Filled: append([]string{}, filled...), Revision: strconv.FormatInt(ed.Revision, 10)}), nil
+	})
+	if err != nil {
+		return wire.T005AutoFillResult{}, err
+	}
+	var out wire.T005AutoFillResult
 	return out, json.Unmarshal(body, &out)
 }

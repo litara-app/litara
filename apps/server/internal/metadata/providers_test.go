@@ -15,6 +15,10 @@ import (
 func TestOpenLibraryParsesSearchAndMarksIdentifierMatches(t *testing.T) {
 	var gotUA, gotPath, gotISBN string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/search.json" { // edition and work detail requests are checked in their own test
+			http.NotFound(w, r)
+			return
+		}
 		gotUA, gotPath, gotISBN = r.Header.Get("User-Agent"), r.URL.Path, r.URL.Query().Get("isbn")
 		_, _ = w.Write([]byte(`{"numFound":1,"docs":[{"key":"/works/OL1W","title":"The Book","author_name":["An Author"]}]}`))
 	}))
@@ -91,4 +95,86 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func TestGoogleBooksMapsEditionFieldsAndDropsInvalidOnes(t *testing.T) {
+	g := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"items":[{"id":"abc","volumeInfo":{"title":"The Book","authors":["An Author"],"publisher":"Press","publishedDate":"2007-01-09","description":"A story.","pageCount":605,"language":"en","industryIdentifiers":[{"type":"ISBN_10","identifier":"0306406152"},{"type":"ISBN_13","identifier":"9780306406157"}]}},
+{"id":"bad","volumeInfo":{"title":"Odd","publishedDate":"January 2007","pageCount":0,"industryIdentifiers":[{"type":"OTHER","identifier":"x"},{"type":"ISBN_13","identifier":"12-34"}]}}]}`))
+	}))
+	defer g.Close()
+	ms, err := metadata.GoogleBooks{HTTP: metadata.HTTP{BaseURL: g.URL}}.Lookup(context.Background(), metadata.Query{Title: "The Book"})
+	if err != nil || len(ms) != 2 {
+		t.Fatalf("%+v %v", ms, err)
+	}
+	want := map[string]string{"publisher": `"Press"`, "published": `"2007-01-09"`, "description": `"A story."`, "page_count": `605`, "language": `"en"`, "isbn": `"9780306406157"`}
+	for k, v := range want {
+		if string(ms[0].Fields[k]) != v {
+			t.Errorf("%s = %s, want %s", k, ms[0].Fields[k], v)
+		}
+	}
+	for _, k := range []string{"published", "page_count", "isbn", "publisher", "language"} {
+		if _, has := ms[1].Fields[k]; has {
+			t.Errorf("invalid %s must be dropped, got %s", k, ms[1].Fields[k])
+		}
+	}
+}
+
+func TestOpenLibraryAddsEditionAndWorkDetailOnlyForOneIdentifierMatch(t *testing.T) {
+	var paths []string
+	one := true
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		switch r.URL.Path {
+		case "/search.json":
+			if one {
+				_, _ = w.Write([]byte(`{"docs":[{"key":"/works/OL1W","title":"The Book","author_name":["An Author"]}]}`))
+			} else {
+				_, _ = w.Write([]byte(`{"docs":[{"key":"/works/OL1W","title":"The Book"},{"key":"/works/OL2W","title":"Other"}]}`))
+			}
+		case "/isbn/9780306406157.json":
+			_, _ = w.Write([]byte(`{"publishers":["Tor Books"],"publish_date":"January 9, 2007","number_of_pages":605}`))
+		case "/works/OL1W.json":
+			_, _ = w.Write([]byte(`{"description":{"type":"/type/text","value":"A long story."}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	p := metadata.OpenLibrary{HTTP: metadata.HTTP{BaseURL: srv.URL}}
+	ms, err := p.Lookup(context.Background(), metadata.Query{ISBN: "9780306406157"})
+	if err != nil || len(ms) != 1 {
+		t.Fatalf("%+v %v", ms, err)
+	}
+	want := map[string]string{"publisher": `"Tor Books"`, "published": `"2007-01-09"`, "page_count": `605`, "description": `"A long story."`}
+	for k, v := range want {
+		if string(ms[0].Fields[k]) != v {
+			t.Errorf("%s = %s, want %s", k, ms[0].Fields[k], v)
+		}
+	}
+	// Two works for one ISBN is ambiguous: no detail is attached to either.
+	one, paths = false, nil
+	ms, _ = p.Lookup(context.Background(), metadata.Query{ISBN: "9780306406157"})
+	if len(ms) != 2 || len(paths) != 1 || len(ms[0].Fields) != 1 {
+		t.Fatalf("ambiguous match must not be enriched: paths=%v %+v", paths, ms)
+	}
+	// A text search never fetches detail.
+	one, paths = true, nil
+	_, _ = p.Lookup(context.Background(), metadata.Query{Title: "The Book"})
+	if len(paths) != 1 {
+		t.Fatalf("text search made extra requests: %v", paths)
+	}
+}
+
+func TestParsePublishDateKeepsPrecisionAndRejectsGuesses(t *testing.T) {
+	for in, want := range map[string]string{"2007": "2007", "Jan 2007": "2007-01", "January 2007": "2007-01", "2007-01-09": "2007-01-09", "Jan 9, 2007": "2007-01-09", "9 January 2007": "2007-01-09"} {
+		if got, ok := metadata.ParsePublishDate(in); !ok || got != want {
+			t.Errorf("%q = %q,%v want %q", in, got, ok, want)
+		}
+	}
+	for _, in := range []string{"", "circa 1900", "1/9/07", "Winter 2007"} {
+		if got, ok := metadata.ParsePublishDate(in); ok {
+			t.Errorf("%q must be rejected, got %q", in, got)
+		}
+	}
 }

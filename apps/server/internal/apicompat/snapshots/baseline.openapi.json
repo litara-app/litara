@@ -2297,6 +2297,67 @@
         ],
         "type": "object"
       },
+      "T005AutoFill": {
+        "additionalProperties": false,
+        "properties": {
+          "baseRevision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "operationId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision"
+        ],
+        "type": "object"
+      },
+      "T005AutoFillResult": {
+        "additionalProperties": false,
+        "properties": {
+          "filled": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 11,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "filled",
+              "nothing_to_fill",
+              "needs_review",
+              "no_match",
+              "disabled"
+            ],
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "open_library",
+              "google_books",
+              "audnexus",
+              "hardcover"
+            ],
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "filled"
+        ],
+        "type": "object"
+      },
       "T005CFI": {
         "additionalProperties": false,
         "properties": {
@@ -3721,6 +3782,153 @@
         ],
         "type": "object"
       },
+      "T005ProviderCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "byIdentifier": {
+            "type": "boolean"
+          },
+          "consistent": {
+            "type": "boolean"
+          },
+          "fields": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/T005MetadataValue"
+            },
+            "maxProperties": 11,
+            "type": "object"
+          },
+          "id": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "byIdentifier",
+          "consistent",
+          "fields"
+        ],
+        "type": "object"
+      },
+      "T005ProviderQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "asin": {
+            "maxLength": 10,
+            "type": "string"
+          },
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "isbn": {
+            "maxLength": 13,
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "T005ProviderResult": {
+        "additionalProperties": false,
+        "properties": {
+          "cached": {
+            "type": "boolean"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/T005ProviderCandidate"
+            },
+            "maxItems": 5,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "provider": {
+            "enum": [
+              "open_library",
+              "google_books",
+              "audnexus",
+              "hardcover"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "no_match",
+              "unavailable",
+              "unconfigured"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "status",
+          "cached",
+          "candidates"
+        ],
+        "type": "object"
+      },
+      "T005ProviderSearch": {
+        "additionalProperties": false,
+        "properties": {
+          "fresh": {
+            "type": "boolean"
+          },
+          "query": {
+            "$ref": "#/components/schemas/T005ProviderQuery"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "T005ProviderSearchResults": {
+        "additionalProperties": false,
+        "properties": {
+          "editionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "query": {
+            "$ref": "#/components/schemas/T005ProviderQuery"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/T005ProviderResult"
+            },
+            "maxItems": 8,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "editionId",
+          "enabled",
+          "query",
+          "results"
+        ],
+        "type": "object"
+      },
       "T005Reader": {
         "additionalProperties": false,
         "properties": {
@@ -3833,6 +4041,38 @@
           "total",
           "page",
           "size"
+        ],
+        "type": "object"
+      },
+      "T005RecordingProviderSearchResults": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "query": {
+            "$ref": "#/components/schemas/T005ProviderQuery"
+          },
+          "recordingId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/T005ProviderResult"
+            },
+            "maxItems": 8,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "recordingId",
+          "enabled",
+          "query",
+          "results"
         ],
         "type": "object"
       },
@@ -7254,6 +7494,288 @@
           }
         ],
         "summary": "Effective edition metadata with provenance",
+        "tags": [
+          "editions"
+        ]
+      }
+    },
+    "/admin/editions/{editionId}/metadata/auto-fill": {
+      "post": {
+        "operationId": "autoFillEditionMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "editionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T005AutoFill"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005AutoFillResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Fill empty fields from an unambiguous identifier match",
+        "tags": [
+          "editions"
+        ]
+      }
+    },
+    "/admin/editions/{editionId}/metadata/provider-search": {
+      "post": {
+        "operationId": "searchEditionProviders",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "editionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T005ProviderSearch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005ProviderSearchResults"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Search the library's enabled metadata providers for candidates to review",
         "tags": [
           "editions"
         ]
@@ -11126,6 +11648,298 @@
           }
         },
         "summary": "Effective metadata with provenance and suppressed conflicts",
+        "tags": [
+          "ingest"
+        ]
+      }
+    },
+    "/admin/recordings/{recordingId}/metadata/auto-fill": {
+      "post": {
+        "operationId": "autoFillRecordingMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recordingId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005AutoFillResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Precondition Failed"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "Fill empty fields from an unambiguous identifier match",
+        "tags": [
+          "ingest"
+        ]
+      }
+    },
+    "/admin/recordings/{recordingId}/metadata/provider-search": {
+      "post": {
+        "operationId": "searchRecordingProviders",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recordingId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T005ProviderSearch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005RecordingProviderSearchResults"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Precondition Failed"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "Search the library's enabled metadata providers for candidates to review",
         "tags": [
           "ingest"
         ]

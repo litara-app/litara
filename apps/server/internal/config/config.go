@@ -51,6 +51,10 @@ type Config struct {
 	// GoogleBooksAPIKey is optional and local; it is only sent to Google Books for libraries that enable it.
 	GoogleBooksAPIKey  string
 	OpenLibraryContact string
+	// HardcoverToken is the operator's Hardcover API token (ADR-0087). It is never logged or returned.
+	HardcoverToken string
+	// ProviderSearchCacheMinutes is how long provider search results are kept in memory (0 turns the cache off).
+	ProviderSearchCacheMinutes int
 	// ScanWorkers bounds concurrent library scans.
 	ScanWorkers int
 	// WebDir is a built web application directory served by the Go process.
@@ -144,6 +148,8 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		ArgonThreads:       uint8(getInt("ARGON2_THREADS", 2)),
 		GoogleBooksAPIKey:  get("GOOGLE_BOOKS_API_KEY", ""),
 		OpenLibraryContact: get("OPEN_LIBRARY_CONTACT", ""),
+		HardcoverToken:     get("HARDCOVER_TOKEN", ""),
+		ProviderSearchCacheMinutes: getInt("PROVIDER_SEARCH_CACHE_MINUTES", 10),
 		ScanWorkers:        getInt("SCAN_WORKERS", 2),
 		WebDir:             get("WEB_DIR", ""),
 		CacheDir:           get("CACHE_DIR", ""),
@@ -164,6 +170,12 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		if err != nil || addr.Address != contact || strings.ContainsAny(contact, "\r\n()") || len(contact) > 254 {
 			errs = append(errs, fmt.Errorf("%sOPEN_LIBRARY_CONTACT must be a single email address", prefix))
 		}
+	}
+	if c.ProviderSearchCacheMinutes < 0 || c.ProviderSearchCacheMinutes > 1440 {
+		errs = append(errs, fmt.Errorf("%sPROVIDER_SEARCH_CACHE_MINUTES must be from 0 to 1440", prefix))
+	}
+	if strings.ContainsAny(c.HardcoverToken, "\r\n") {
+		errs = append(errs, fmt.Errorf("%sHARDCOVER_TOKEN must be a single line", prefix))
 	}
 	if c.PublicPrefix != "" && !strings.HasPrefix(c.PublicPrefix, "/") {
 		errs = append(errs, fmt.Errorf("%sPUBLIC_PATH_PREFIX must start with /", prefix))

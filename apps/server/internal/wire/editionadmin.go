@@ -75,3 +75,70 @@ type T005EditionLink struct {
 }
 
 var _ = reflect.TypeOf
+
+// T005ProviderQuery is the only data sent to a metadata provider (ADR-0049).
+// Omitted or empty members use the edition's effective title, authors and ISBN.
+type T005ProviderQuery struct {
+	Title   string   `json:"title,omitempty" maxLength:"512"`
+	Authors []string `json:"authors,omitempty" maxItems:"20"`
+	ISBN    string   `json:"isbn,omitempty" maxLength:"13"`
+	// ASIN is used for audiobooks only (Audnexus); an edition search ignores it.
+	ASIN string `json:"asin,omitempty" maxLength:"10"`
+}
+
+// T005ProviderSearch asks the library's enabled providers for candidates.
+type T005ProviderSearch struct {
+	Query T005ProviderQuery `json:"query"`
+	// Fresh skips the short-lived search cache and refreshes it.
+	Fresh bool `json:"fresh,omitempty"`
+}
+
+// T005ProviderCandidate is one result to review; Consistent never authorizes an automatic change.
+type T005ProviderCandidate struct {
+	ID           string                       `json:"id" maxLength:"256"`
+	ByIdentifier bool                         `json:"byIdentifier"`
+	Consistent   bool                         `json:"consistent"`
+	Fields       map[string]T005MetadataValue `json:"fields" maxProperties:"11"`
+}
+
+type T005ProviderResult struct {
+	Provider string `json:"provider" enum:"open_library,google_books,audnexus,hardcover"`
+	// Status is unconfigured when the library lists a provider the operator has not set up (for example Hardcover without a token).
+	Status string `json:"status" enum:"ok,no_match,unavailable,unconfigured"`
+	// Cached is true when the candidates came from the short-lived search cache.
+	Cached     bool                    `json:"cached"`
+	Candidates []T005ProviderCandidate `json:"candidates" maxItems:"5"`
+}
+
+// T005ProviderSearchResults reports the query that was sent, whether any provider is enabled for the library, and each provider's result.
+type T005ProviderSearchResults struct {
+	EditionID string               `json:"editionId" format:"uuid"`
+	Enabled   bool                 `json:"enabled"`
+	Query     T005ProviderQuery    `json:"query"`
+	Results   []T005ProviderResult `json:"results" maxItems:"8"`
+}
+
+// T005RecordingProviderSearchResults is the audiobook counterpart of T005ProviderSearchResults.
+type T005RecordingProviderSearchResults struct {
+	RecordingID string               `json:"recordingId" format:"uuid"`
+	Enabled     bool                 `json:"enabled"`
+	Query       T005ProviderQuery    `json:"query"`
+	Results     []T005ProviderResult `json:"results" maxItems:"8"`
+}
+
+// T005AutoFill asks the server to fill an edition's empty fields from an unambiguous identifier match (ADR-0060/0087).
+type T005AutoFill struct {
+	OperationID  string `json:"operationId" format:"uuid"`
+	BaseRevision string `json:"baseRevision" pattern:"^(0|[1-9][0-9]*)$"`
+}
+
+// T005AutoFillResult says what auto-fill did. Outcome filled means the listed fields were stored as provider values;
+// the others mean nothing changed: nothing_to_fill (a match but no empty field), needs_review (candidates exist but
+// none was an exact, consistent identifier match), no_match, or disabled (the library has no provider enabled).
+type T005AutoFillResult struct {
+	Outcome  string   `json:"outcome" enum:"filled,nothing_to_fill,needs_review,no_match,disabled"`
+	Provider string   `json:"provider,omitempty" enum:"open_library,google_books,audnexus,hardcover"`
+	Filled   []string `json:"filled" maxItems:"11"`
+	// Revision is the edition's revision after the change (editions only).
+	Revision string `json:"revision,omitempty" pattern:"^(0|[1-9][0-9]*)$"`
+}

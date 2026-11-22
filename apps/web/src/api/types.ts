@@ -131,3 +131,8 @@ export interface TitleRow extends Title {
 export interface CoverSlot { source: "upload" | "url" | "search" | "extracted" | "none"; version?: string }
 export interface TitleCovers { ebook: CoverSlot; audio: CoverSlot; searchEnabled: boolean }
 export interface CoverSearchResult { provider: string; title: string; author: string; imageUrl: string; thumbUrl: string }
+
+export interface ProviderCandidate { id: string; byIdentifier: boolean; consistent: boolean; fields: Record<string, unknown> }
+export interface ProviderResult { provider: "open_library" | "google_books" | "audnexus" | "hardcover"; status: "ok" | "no_match" | "unavailable" | "unconfigured"; cached?: boolean; candidates: ProviderCandidate[] }
+export interface AutoFillResult { outcome: "filled" | "nothing_to_fill" | "needs_review" | "no_match" | "disabled"; provider?: string; filled: string[]; revision?: string }
+export interface ProviderSearchResults { editionId: string; enabled: boolean; query: { title?: string; authors?: string[]; isbn?: string; asin?: string }; results: ProviderResult[] }

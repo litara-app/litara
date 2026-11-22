@@ -96,6 +96,10 @@ type Options struct {
 	Cfg httpapi.APIConfig
 	// NoSeed skips fixture creation (bootstrap tests).
 	NoSeed bool
+	// Providers replaces the (empty) metadata provider set, so a test can serve candidates without a network.
+	Providers map[string]metadata.Provider
+	// ProviderCacheTTL turns the provider search cache on (it follows the controllable Clock).
+	ProviderCacheTTL time.Duration
 	// Web is mounted at "/" for browser end-to-end runs.
 	Web http.Handler
 	// Comic extraction tuning for tests (zero values use the ADR defaults).
@@ -158,9 +162,13 @@ func New(t *testing.T, opts ...Options) *Env {
 		ConnectTimeout: 3 * time.Second, SendTimeout: 10 * time.Second}, Catalog: cat, Integrations: e.Integrations, Sched: e.DQ,
 		MediaRoot: o.Cfg.MediaRoot, Clock: clock.Now, Hooks: o.DeliveryHooks})
 	e.Covers = covers.New(pool, o.Cfg.MediaRoot, covers.NewFetcher(true), covers.NewSearcher())
+	providers := o.Providers
+	if providers == nil {
+		providers = map[string]metadata.Provider{}
+	}
 	e.Indexer = &koreader.Indexer{Pool: pool, MediaRoot: o.Cfg.MediaRoot}
 	h := httpapi.New(httpapi.Deps{Web: o.Web, Pool: pool, Version: "test", API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: prog, Reading: e.Reading, Library: library.New(pool), Config: o.Cfg,
-		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: map[string]metadata.Provider{}}, Importer: e.Importer, Writeback: e.Writeback, Covers: e.Covers, Integrations: e.Integrations, KOReader: e.KOReader, Delivery: e.Delivery}})
+		Pool: pool, Jobs: e.Queue, Scanner: e.Scanner, Metadata: meta, Enricher: &metadata.Enricher{Service: meta, Providers: providers, CacheTTL: o.ProviderCacheTTL, Now: clock.Now}, Importer: e.Importer, Writeback: e.Writeback, Covers: e.Covers, Integrations: e.Integrations, KOReader: e.KOReader, Delivery: e.Delivery}})
 	e.Handler = h
 	srv.Config.Handler = h
 	srv.Start()
