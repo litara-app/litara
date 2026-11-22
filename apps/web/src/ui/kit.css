@@ -330,7 +330,7 @@ a { color: var(--lt-pri); }
 
 /* Title page: the folio (top tab bar, cover column, panels) */
 .lt-folio { border: 1px solid var(--lt-line); border-radius: var(--lt-r-lg); background: var(--lt-surface); }
-.lt-folio-bar { display: flex; align-items: center; gap: var(--lt-s2); padding: 0 var(--lt-s3); border-bottom: 1px solid var(--lt-line); background: var(--lt-surface-2); overflow-x: auto; }
+.lt-folio-bar { display: flex; align-items: center; gap: var(--lt-s2); padding: 0 var(--lt-s3); border-bottom: 1px solid var(--lt-line); background: var(--lt-surface-2); overflow-x: auto; overflow-y: hidden; }
 .lt-folio-bar .lt-tabs-list { border-bottom: 0; gap: var(--lt-s2); flex: 1; }
 .lt-folio-bar .lt-tab { padding: 11px 10px; }
 .lt-folio-body { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: var(--lt-s5); padding: var(--lt-s5); align-items: start; }
