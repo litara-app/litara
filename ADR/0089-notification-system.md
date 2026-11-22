@@ -22,7 +22,7 @@ On 2026-11-22 the owner decided that notification history is stored on the serve
 - One notification module is the only way a screen reports the outcome of an action. Each call records an entry (tone, title, optional detail, time, read flag, whether the user or the system started it) and shows a toast. Failed actions from the data layer go through it automatically, so a screen does not need its own error text for them.
 - Errors that mean a screen cannot show its content (a page that fails to load) stay on the page. Field-level validation stays next to the field, because the person needs to fix that field.
 - **Chosen by the owner:** the history is stored on the server per user, so it follows the account across devices and background work can add entries. This needs a notifications table (ADR-0030), an additive API to list, mark read and clear (ADR-0082), and isolation so one user never sees another's entries.
-- Recommended, not yet chosen: keep the newest 500 entries or 90 days, whichever is fewer. The web app loads the latest entries at sign-in, refreshes them about every 60 seconds and when the window regains focus, so no push channel is needed first.
+- **Chosen by the owner (2026-11-22):** keep the newest 500 entries or 90 days, whichever is fewer. The web app loads the latest entries at sign-in, refreshes them about every 60 seconds and when the window regains focus, so no push channel is needed first.
 - Until the server storage is built, the web app keeps its history in the browser as a stopgap. That is temporary and is replaced, not kept alongside.
 
 ## Alternatives
@@ -41,7 +41,7 @@ Planned: a recorded notification appears as a toast and in the bell list; a toas
 
 ## Open questions
 
-- Is the recommended retention (newest 500 or 90 days) right?
-- Is fetching on sign-in, on an interval and on focus enough for background notifications, or should the server push them?
-- Which actions may stay as inline text beyond the two named above?
+Deferred, and not needed for the first build:
+
+- Which actions may stay as inline text beyond the two named above (field validation, and pages that fail to load)?
 - Should a user be able to turn off toasts for some kinds, or mute them while reading?
