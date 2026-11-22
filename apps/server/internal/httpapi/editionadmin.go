@@ -18,7 +18,9 @@ var providerISBN = regexp.MustCompile(`^(\d{9}[\dX]|\d{13})$`)
 
 // editionProviderFields are the fields an edition review may offer; others a provider returns are dropped.
 var editionProviderFields = map[string]bool{"title": true, "authors": true, "series_name": true, "series_index": true, "language": true,
-	"tags": true, "publisher": true, "published": true, "page_count": true, "isbn": true, "description": true}
+	"tags": true, "publisher": true, "published": true, "page_count": true, "isbn": true, "description": true,
+	"subtitle": true, "genres": true, "age_rating": true, "open_library_id": true, "google_books_id": true, "hardcover_id": true,
+	"public_rating": true, "public_rating_count": true}
 
 // providerQuery builds the only data sent to providers: the request's members, else the effective title, authors and ISBN.
 func providerQuery(rep wire.T005MetadataReport, in wire.T005ProviderQuery) (wire.T005ProviderQuery, error) {
@@ -58,7 +60,7 @@ func (a *API) manageEdition(ctx context.Context, id string) error {
 
 type MetadataFieldIn struct {
 	EditionID string `path:"editionId" format:"uuid"`
-	Field     string `path:"field" enum:"title,authors,series_name,series_index,language,tags,publisher,published,page_count,isbn,description"`
+	Field     string `path:"field" enum:"title,authors,series_name,series_index,language,tags,publisher,published,page_count,isbn,description,subtitle,genres,moods,age_rating,asin,open_library_id,google_books_id,hardcover_id,goodreads_id,public_rating,public_rating_count"`
 }
 
 func (a *API) registerEditionAdmin(api huma.API) {

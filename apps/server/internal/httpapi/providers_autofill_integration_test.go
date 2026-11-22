@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"errors"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -202,5 +203,37 @@ func TestRecordingAutoFillFillsOnlyGaps(t *testing.T) {
 	}
 	if x := e.Do("POST", path, e.Login(seed.UserAName, "phone").AccessToken, nil); x.StatusCode != 403 {
 		t.Fatalf("non-admin: %d", x.StatusCode)
+	}
+}
+
+// The descriptive fields added beyond the original eleven are editable, validated and kept as protected edits.
+func TestEditionExtraDescriptiveFieldsAreEditableAndValidated(t *testing.T) {
+	r := newReadingEnv(t)
+	good := map[string]any{
+		"subtitle": "A Tale", "genres": []string{"Adventure", "Classics"}, "moods": []string{"Tense"}, "age_rating": "Teen", "asin": "B000TEST01",
+		"open_library_id": "OL262758W", "google_books_id": "abc123", "hardcover_id": "42", "goodreads_id": "5907", "public_rating": 4.25, "public_rating_count": 1200,
+	}
+	rev := 0
+	for name, v := range good {
+		x := r.metaPut(r.admin, r.ed.ID, name, mw(strconv.Itoa(rev), v, false))
+		if x.StatusCode != 200 {
+			t.Fatalf("%s: %d %s", name, x.StatusCode, x.Body)
+		}
+		rev++
+	}
+	var rep wire.T005MetadataReport
+	r.e.Do("GET", "/admin/editions/"+r.ed.ID+"/metadata", r.admin, nil).JSON(t, &rep)
+	for name := range good {
+		if f := field(rep, name); f == nil || f.Source != "user" {
+			t.Fatalf("%s must be a protected edit: %+v", name, f)
+		}
+	}
+	for name, v := range map[string]any{"asin": "short", "public_rating": 6, "public_rating_count": -1, "genres": []string{}, "hardcover_id": "has space", "subtitle": " "} {
+		if x := r.metaPut(r.admin, r.ed.ID, name, mw(strconv.Itoa(rev), v, false)); x.StatusCode != 422 && x.StatusCode != 400 {
+			t.Errorf("%s=%v must be refused: %d %s", name, v, x.StatusCode, x.Body)
+		}
+	}
+	if x := r.metaPut(r.admin, r.ed.ID, "no_such_field", mw(strconv.Itoa(rev), "x", false)); x.StatusCode == 200 {
+		t.Fatal("an unknown field must be refused")
 	}
 }

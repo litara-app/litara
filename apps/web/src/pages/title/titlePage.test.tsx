@@ -72,6 +72,26 @@ test("the metadata tab shows each field with where it came from", async () => {
   expect(await screen.findByText("In the file")).toBeTruthy();
 });
 
+test("the metadata tab has one cover with its tools directly under it, then the actions, and every field group", async () => {
+  setup();
+  fireEvent.click(await screen.findByRole("tab", { name: "Edit metadata" }));
+  const tools = await screen.findByTestId("cover-editor");
+  const side = screen.getByLabelText("Cover and actions");
+  expect(side.contains(tools)).toBe(true);
+  expect(side.querySelectorAll(".lt-cover").length).toBe(1); // the cover is shown once, not again in the editor
+  const read = screen.getByRole("link", { name: "Read" });
+  expect(tools.compareDocumentPosition(read) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // actions come after the cover tools
+  await screen.findByText("Public ratings"); // the table loads after the tools
+  for (const label of ["Description", "Subtitle", "Genres", "Moods", "Age rating", "ASIN", "Hardcover ID", "Average rating"]) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+  for (const group of ["Publishing", "Classification", "Identifiers", "Public ratings"]) expect(screen.getByText(group)).toBeTruthy();
+});
+
+test("the cover tools only appear on the metadata tab", async () => {
+  setup();
+  await screen.findByRole("heading", { name: "Treasure Island" });
+  expect(screen.queryByTestId("cover-editor")).toBeNull();
+});
+
 test("the details tab shows publisher, pages, ISBN and the synopsis", async () => {
   setup();
   expect(await screen.findByText("Old House")).toBeTruthy();

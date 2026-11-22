@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -51,6 +52,18 @@ func main() {
 }
 
 func run() error {
+	// Local settings and provider tokens may live in a Git-ignored .env file; the real environment always wins.
+	envFile := ".env"
+	if v := strings.TrimSpace(os.Getenv(config.EnvFileVariable)); v != "" {
+		envFile = v
+	}
+	loaded, err := config.LoadEnvFile(envFile)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", envFile, err)
+	}
+	if len(loaded) > 0 {
+		fmt.Fprintf(os.Stderr, "read %d setting(s) from %s: %s\n", len(loaded), envFile, strings.Join(loaded, ", "))
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("invalid configuration:\n%w", err)

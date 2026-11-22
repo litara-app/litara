@@ -247,15 +247,23 @@ func (p OpenLibrary) addEditionDetail(ctx context.Context, isbn, workKey string,
 		if ed.NumberOfPages >= 1 && ed.NumberOfPages <= 100000 {
 			set(f, FieldPageCount, ed.NumberOfPages)
 		}
+		if x := strings.TrimSpace(ed.Subtitle); x != "" && len([]rune(x)) <= 4096 {
+			set(f, FieldSubtitle, x)
+		}
 	}
 	if !strings.HasPrefix(workKey, "/works/") || strings.ContainsAny(workKey[len("/works/"):], "/?#") {
 		return
 	}
+	set(f, FieldOpenLibraryID, strings.TrimPrefix(workKey, "/works/"))
 	var work struct {
 		Description json.RawMessage `json:"description"` // a string, or {"type":..., "value":...}
+		Subjects    []string        `json:"subjects"`
 	}
 	if code, err := p.get(ctx, workKey+".json", nil, &work); err != nil || code != http.StatusOK {
 		return
+	}
+	if g := cleanList(work.Subjects, 10); len(g) > 0 {
+		set(f, FieldGenres, g)
 	}
 	var text string
 	if json.Unmarshal(work.Description, &text) != nil {
@@ -324,7 +332,11 @@ func (p GoogleBooks) Lookup(ctx context.Context, q Query) ([]Match, error) {
 			ID         string `json:"id"`
 			VolumeInfo struct {
 				Title               string   `json:"title"`
+				Subtitle            string   `json:"subtitle"`
 				Authors             []string `json:"authors"`
+				Categories          []string `json:"categories"`
+				AverageRating       float64  `json:"averageRating"`
+				RatingsCount        int      `json:"ratingsCount"`
 				Publisher           string   `json:"publisher"`
 				PublishedDate       string   `json:"publishedDate"`
 				Description         string   `json:"description"`
@@ -350,6 +362,19 @@ func (p GoogleBooks) Lookup(ctx context.Context, q Query) ([]Match, error) {
 			set(f, FieldAuthors, it.VolumeInfo.Authors)
 		}
 		v := it.VolumeInfo
+		if x := strings.TrimSpace(v.Subtitle); x != "" && len([]rune(x)) <= 4096 {
+			set(f, FieldSubtitle, x)
+		}
+		if g := cleanList(v.Categories, 20); len(g) > 0 {
+			set(f, FieldGenres, g)
+		}
+		if v.AverageRating > 0 && v.AverageRating <= 5 && v.RatingsCount > 0 {
+			set(f, FieldPublicRating, v.AverageRating)
+			set(f, FieldPublicRatingCount, v.RatingsCount)
+		}
+		if it.ID != "" && len(it.ID) <= 64 {
+			set(f, FieldGoogleBooksID, it.ID)
+		}
 		if x := strings.TrimSpace(v.Publisher); x != "" && len([]rune(x)) <= 512 {
 			set(f, FieldPublisher, x)
 		}
@@ -437,4 +462,23 @@ func (p Audnexus) Lookup(ctx context.Context, q Query) ([]Match, error) {
 		set(f, FieldSeriesName, res.SeriesPrimary.Name)
 	}
 	return []Match{{Provider: ProviderAudnexus, ID: res.ASIN, ByIdentifier: true, Fields: f}}, nil
+}
+
+// cleanList trims, drops blanks and duplicates, and keeps at most max entries of a provider's list.
+func cleanList(in []string, max int) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, x := range in {
+		x = strings.TrimSpace(x)
+		k := strings.ToLower(x)
+		if x == "" || len([]rune(x)) > 200 || seen[k] {
+			continue
+		}
+		seen[k] = true
+		out = append(out, x)
+		if len(out) == max {
+			break
+		}
+	}
+	return out
 }

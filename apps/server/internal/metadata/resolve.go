@@ -25,6 +25,18 @@ const (
 	FieldLanguage  = "language"
 	FieldTags      = "tags"
 	FieldPageCount = "page_count"
+	// Further descriptive edition fields. Identifiers are provider record ids kept so a record can be found again.
+	FieldSubtitle          = "subtitle"
+	FieldGenres            = "genres"
+	FieldMoods             = "moods"
+	FieldAgeRating         = "age_rating"
+	FieldASIN              = "asin"
+	FieldOpenLibraryID     = "open_library_id"
+	FieldGoogleBooksID     = "google_books_id"
+	FieldHardcoverID       = "hardcover_id"
+	FieldGoodreadsID       = "goodreads_id"
+	FieldPublicRating      = "public_rating"
+	FieldPublicRatingCount = "public_rating_count"
 )
 
 // Sources, highest precedence first.

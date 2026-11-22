@@ -3,20 +3,27 @@ import { useState } from "react";
 import { API, api, ApiError, get, uploadFile } from "../../api/client";
 import type { CoverSearchResult, CoverSlot, Edition, RecordingLink, Title, TitleCovers } from "../../api/types";
 import { CoverEmbed } from "./CoverEmbed";
-import { bumpCovers, Busy, Button, Card, Cover, CoverChoice, ErrorBox, Heading, icons, ImageDrop, Modal, Row, SegmentedField, Stack, SwitchField, Text, TextField } from "../../ui";
+import { bumpCovers, Busy, Button, CoverChoice, ErrorBox, icons, ImageDrop, Modal, SegmentedField, Stack, SwitchField, Text, TextField } from "../../ui";
 
 const SOURCE_TEXT: Record<CoverSlot["source"], string> = {
   upload: "an image you uploaded", url: "an image from an address you entered", search: "a result from the online search",
   extracted: "the cover inside the file", none: "nothing: the files hold no cover, so a generated cover is shown",
 };
 
-type Medium = "ebook" | "audio";
+export type Medium = "ebook" | "audio";
 
-/** Replace a title's cover (ADR-0086): upload, enter an address, search online, or regenerate from the file. */
-export function CoverEditor({ title, editions, recordings }: { title: Title; editions: Edition[]; recordings: RecordingLink[] }) {
+/** The cover kinds a title has. */
+export const coverMediums = (title: Title): Medium[] => [...(title.editionCount > 0 ? (["ebook"] as const) : []), ...(title.recordingCount > 0 ? (["audio"] as const) : [])];
+
+/**
+ * Replace a title's cover (ADR-0086): upload, enter an address, search online, or regenerate from the file. It has no
+ * picture of its own: it sits under the title page's cover, which updates as soon as a new cover is stored.
+ */
+export function CoverTools({ title, editions, recordings, medium, onMedium }: {
+  title: Title; editions: Edition[]; recordings: RecordingLink[]; medium: Medium; onMedium: (m: Medium) => void;
+}) {
   const qc = useQueryClient();
-  const mediums: Medium[] = [...(title.editionCount > 0 ? (["ebook"] as const) : []), ...(title.recordingCount > 0 ? (["audio"] as const) : [])];
-  const [medium, setMedium] = useState<Medium>(mediums[0] ?? "ebook");
+  const mediums = coverMediums(title);
   const [address, setAddress] = useState("");
   const [searching, setSearching] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -34,37 +41,27 @@ export function CoverEditor({ title, editions, recordings }: { title: Title; edi
   const busy = upload.isPending || fromUrl.isPending || regenerate.isPending;
 
   return (
-    <Card framed data-testid="cover-editor">
+    <div className="lt-cover-tools" data-testid="cover-editor">
       <Stack gap="sm">
-        <Heading level={3}>Cover</Heading>
-        <div className="lt-cover-editor">
-          <div><Cover title={title.title || "(untitled)"} author={title.authors[0]} titleId={title.id} medium={medium} /></div>
-          <Stack gap="sm">
-            {mediums.length > 1 && (
-              <SegmentedField label="Which cover" value={medium} onValue={(v) => setMedium(v === "audio" ? "audio" : "ebook")}
-                items={[{ value: "ebook", label: "Ebook cover", icon: icons.book }, { value: "audio", label: "Audiobook cover", icon: icons.headphones }]} />
-            )}
-            {info.isPending ? <Busy /> : <Text size="sm" tone="dim">Currently: {slot ? SOURCE_TEXT[slot.source] : "unknown"}.</Text>}
-            <ImageDrop label="Choose an image" disabled={busy} onFile={(f) => upload.mutate(f)} onReject={setNotice} />
-            <Row gap="sm" align="end" wrap>
-              <TextField label="Or use an image address" placeholder="https://example.com/cover.jpg" value={address} onValue={setAddress} type="url" />
-              <Button icon={icons.download} disabled={busy || address.trim().length < 8} loading={fromUrl.isPending && !searching}
-                onClick={() => fromUrl.mutate({ url: address.trim(), source: "url" })}>Use this address</Button>
-            </Row>
-            <Row gap="sm" wrap>
-              <Button icon={icons.search} disabled={busy} onClick={() => setSearching(true)}>Search online</Button>
-              <Button icon={icons.reset} loading={regenerate.isPending} disabled={busy} onClick={() => regenerate.mutate()}>Regenerate from the file</Button>
-            </Row>
-            {notice && <Text size="sm" tone="danger" role="alert">{notice}</Text>}
-            <ErrorBox error={upload.error ?? fromUrl.error ?? regenerate.error ?? info.error} />
-            <Text size="xs" tone="dim">Choosing a cover is stored by Litara and never changes your book files.</Text>
-            <CoverEmbed medium={medium} editions={editions} recordings={recordings} />
-          </Stack>
-        </div>
+        {mediums.length > 1 && (
+          <SegmentedField label="Which cover" value={medium} onValue={(v) => onMedium(v === "audio" ? "audio" : "ebook")}
+            items={[{ value: "ebook", label: "Ebook", icon: icons.book }, { value: "audio", label: "Audiobook", icon: icons.headphones }]} />
+        )}
+        {info.isPending ? <Busy /> : <Text size="sm" tone="dim">Currently: {slot ? SOURCE_TEXT[slot.source] : "unknown"}.</Text>}
+        <ImageDrop label="Choose an image" disabled={busy} onFile={(f) => upload.mutate(f)} onReject={setNotice} />
+        <TextField label="Or use an image address" placeholder="https://example.com/cover.jpg" value={address} onValue={setAddress} type="url" />
+        <Button icon={icons.download} block disabled={busy || address.trim().length < 8} loading={fromUrl.isPending && !searching}
+          onClick={() => fromUrl.mutate({ url: address.trim(), source: "url" })}>Use this address</Button>
+        <Button icon={icons.search} block disabled={busy} onClick={() => setSearching(true)}>Search online</Button>
+        <Button icon={icons.reset} block loading={regenerate.isPending} disabled={busy} onClick={() => regenerate.mutate()}>Regenerate from the file</Button>
+        {notice && <Text size="sm" tone="danger" role="alert">{notice}</Text>}
+        <ErrorBox error={upload.error ?? fromUrl.error ?? regenerate.error ?? info.error} />
+        <Text size="xs" tone="dim">A cover you choose is stored by Litara and never changes your book files.</Text>
+        <CoverEmbed medium={medium} editions={editions} recordings={recordings} />
       </Stack>
       <SearchDialog open={searching} onClose={() => setSearching(false)} title={title} medium={medium} enabled={info.data?.searchEnabled ?? false}
         busy={fromUrl.isPending} onChoose={(url) => fromUrl.mutate({ url, source: "search" })} onEnabled={() => qc.invalidateQueries({ queryKey: key })} />
-    </Card>
+    </div>
   );
 }
 

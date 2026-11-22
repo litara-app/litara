@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -121,6 +122,9 @@ func (h Hardcover) byISBN(ctx context.Context, isbn string) ([]Match, error) {
 				set(f, FieldAuthors, authors)
 			}
 			setDescription(f, e.Book.Description)
+			if e.Book.ID > 0 {
+				set(f, FieldHardcoverID, strconv.Itoa(e.Book.ID))
+			}
 			if len(e.Book.BookSeries) == 1 && e.Book.BookSeries[0].Series != nil && strings.TrimSpace(e.Book.BookSeries[0].Series.Name) != "" {
 				set(f, FieldSeriesName, e.Book.BookSeries[0].Series.Name)
 				if pos := e.Book.BookSeries[0].Position; pos != nil && *pos >= 0 {

@@ -451,3 +451,8 @@ th[aria-sort] .lt-sort-icon { opacity: 1; color: var(--lt-pri); }
 .lt-vpad td { padding: 0; border: 0; }
 .lt-vgrid { padding-top: var(--lt-top); padding-bottom: var(--lt-bottom); }
 .lt-vgrid-row { display: grid; grid-template-columns: repeat(var(--lt-cols), minmax(0, 1fr)); gap: var(--lt-s4); padding-bottom: var(--lt-s4); }
+
+/* Cover tools sit in the title page's narrow side column, directly under the cover (ADR-0086). */
+.lt-cover-tools { display: flex; flex-direction: column; gap: var(--lt-s2); padding: var(--lt-s2) 0 var(--lt-s3); border-bottom: 1px solid var(--lt-line); margin-bottom: var(--lt-s2); }
+.lt-cover-tools .lt-dropzone { padding: var(--lt-s2); }
+.lt-clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }

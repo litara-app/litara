@@ -2,10 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { adminOp, api, ApiError, get } from "../../api/client";
 import type { Edition, MetadataField, MetadataReport, RecordingLink, Title } from "../../api/types";
-import { CoverEditor } from "./CoverEditor";
 import { ProviderReview } from "./ProviderReview";
 import { icons, Badge, Busy, Button, ErrorBox, Modal, Row, SegmentedField, Stack, Table, TBody, TD, Text, TextAreaField, TextField, TH, THead, TR, type Tone } from "../../ui";
-import { FIELDS, parseValue, show } from "./metadataFields";
+import { FIELDS, GROUPS, parseValue, show } from "./metadataFields";
 
 const sourceTone = (s: string): Tone => (s === "user" ? "info" : s === "filename" ? "neutral" : "success");
 const sourceName = (s: string) =>
@@ -14,7 +13,7 @@ const sourceName = (s: string) =>
 interface Target { id: string; label: string; kind: "edition" | "recording"; titleId: string }
 
 /** Edit what Litara shows for an ebook edition or an audiobook recording. Edits are kept across rescans and never change files. */
-export function MetadataTab({ title, editions, recordings = [] }: { title: Title; editions: Edition[]; recordings?: RecordingLink[] }) {
+export function MetadataTab({ editions, recordings = [] }: { title?: Title; editions: Edition[]; recordings?: RecordingLink[] }) {
   const targets: Target[] = [
     ...editions.map((e) => ({ id: e.id, label: e.label || e.file.format.toUpperCase(), kind: "edition" as const, titleId: e.titleId })),
     ...recordings.map((r) => ({ id: r.id, label: r.label || "Audiobook", kind: "recording" as const, titleId: "" })),
@@ -24,7 +23,6 @@ export function MetadataTab({ title, editions, recordings = [] }: { title: Title
   if (!target) return <Text tone="dim">This title has no files to edit.</Text>;
   return (
     <Stack>
-      <CoverEditor title={title} editions={editions} recordings={recordings} />
       {targets.length > 1 && (
         <SegmentedField label="Edit" value={target.id} onValue={setId} items={targets.map((t) => ({ value: t.id, label: t.kind === "recording" ? `Audio: ${t.label}` : t.label }))} />
       )}
@@ -78,24 +76,31 @@ function Editor({ target }: { target: Target }) {
       <Table label="Metadata" data-testid="metadata-table">
         <THead><TR><TH>Field</TH><TH>Value</TH><TH>Source</TH><TH>Actions</TH></TR></THead>
         <TBody>
-          {fields.map((d) => {
-            const f = byField.get(d.field);
-            return (
-              <TR key={d.field}>
-                <TD>{d.label}</TD>
-                <TD>
-                  {f ? (f.cleared ? <Text as="span" size="sm" tone="dim">Deliberately empty</Text> : show(f.value)) : <Text as="span" size="sm" tone="dim">Not set</Text>}
-                  {f?.conflicts?.map((c) => <Text key={c.source} size="xs" tone="dim">{sourceName(c.source)} says: {show(c.value)}</Text>)}
-                </TD>
-                <TD>{f && <Badge tone={sourceTone(f.source)}>{sourceName(f.source)}</Badge>}</TD>
-                <TD>
-                  <Row gap="xs">
-                    <Button size="sm" onClick={() => open(d.field)} icon={icons.pencil}>Edit</Button>
-                    {f?.source === "user" && <Button size="sm" loading={reset.isPending && reset.variables === d.field} onClick={() => reset.mutate(d.field)} icon={icons.reset}>Reset</Button>}
-                  </Row>
-                </TD>
-              </TR>
-            );
+          {GROUPS.map((g) => {
+            const rows = fields.filter((d) => d.group === g);
+            if (rows.length === 0) return null;
+            return [
+              <TR key={`group-${g}`}><TD colSpan={4}><Text as="span" size="sm" tone="dim"><strong>{g}</strong></Text></TD></TR>,
+              ...rows.map((d) => {
+                const f = byField.get(d.field);
+                return (
+                  <TR key={d.field}>
+                    <TD>{d.label}</TD>
+                    <TD>
+                      {f ? (f.cleared ? <Text as="span" size="sm" tone="dim">Deliberately empty</Text> : <span className={d.kind === "multiline" ? "lt-clamp" : undefined}>{show(f.value)}</span>) : <Text as="span" size="sm" tone="dim">Not set</Text>}
+                      {f?.conflicts?.map((c) => <Text key={c.source} size="xs" tone="dim">{sourceName(c.source)} says: {show(c.value)}</Text>)}
+                    </TD>
+                    <TD>{f && <Badge tone={sourceTone(f.source)}>{sourceName(f.source)}</Badge>}</TD>
+                    <TD>
+                      <Row gap="xs">
+                        <Button size="sm" onClick={() => open(d.field)} icon={icons.pencil}>Edit</Button>
+                        {f?.source === "user" && <Button size="sm" loading={reset.isPending && reset.variables === d.field} onClick={() => reset.mutate(d.field)} icon={icons.reset}>Reset</Button>}
+                      </Row>
+                    </TD>
+                  </TR>
+                );
+              }),
+            ];
           })}
         </TBody>
       </Table>

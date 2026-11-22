@@ -3268,7 +3268,18 @@
               "published",
               "page_count",
               "isbn",
-              "description"
+              "description",
+              "subtitle",
+              "genres",
+              "moods",
+              "age_rating",
+              "asin",
+              "open_library_id",
+              "google_books_id",
+              "hardcover_id",
+              "goodreads_id",
+              "public_rating",
+              "public_rating_count"
             ],
             "type": "string"
           },
@@ -7810,7 +7821,18 @@
                 "published",
                 "page_count",
                 "isbn",
-                "description"
+                "description",
+                "subtitle",
+                "genres",
+                "moods",
+                "age_rating",
+                "asin",
+                "open_library_id",
+                "google_books_id",
+                "hardcover_id",
+                "goodreads_id",
+                "public_rating",
+                "public_rating_count"
               ],
               "type": "string"
             }
@@ -7970,7 +7992,18 @@
                 "published",
                 "page_count",
                 "isbn",
-                "description"
+                "description",
+                "subtitle",
+                "genres",
+                "moods",
+                "age_rating",
+                "asin",
+                "open_library_id",
+                "google_books_id",
+                "hardcover_id",
+                "goodreads_id",
+                "public_rating",
+                "public_rating_count"
               ],
               "type": "string"
             }

@@ -25,10 +25,12 @@ import (
 // Callers have already established administrator authority and a grant on
 // EditionLibrary; these functions never touch file bytes or personal state.
 
-var editionFields = []string{"title", "authors", "series_name", "series_index", "language", "tags", "publisher", "published", "page_count", "isbn", "description"}
+var editionFields = []string{"title", "authors", "series_name", "series_index", "language", "tags", "publisher", "published", "page_count", "isbn", "description",
+	"subtitle", "genres", "moods", "age_rating", "asin", "open_library_id", "google_books_id", "hardcover_id", "goodreads_id", "public_rating", "public_rating_count"}
 
 var (
 	publishedRe = regexp.MustCompile(`^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$`)
+	asinRe      = regexp.MustCompile(`^[0-9A-Za-z]{10}$`)
 	isbnRe      = regexp.MustCompile(`^(\d{9}[\dX]|\d{13})$`)
 )
 
@@ -126,7 +128,7 @@ func editionValue(field string, w wire.T005MetadataWrite) (json.RawMessage, erro
 		if json.Unmarshal(raw, &v) != nil || strings.TrimSpace(v) == "" || len([]rune(v)) > 4096 {
 			return nil, apperr.Validation(field + " must be a non-empty string.")
 		}
-	case "authors", "tags":
+	case "authors", "tags", "genres", "moods":
 		var v []string
 		if json.Unmarshal(raw, &v) != nil || len(v) == 0 || len(v) > 100 {
 			return nil, apperr.Validation(field + " must be a non-empty array of up to 100 strings.")
@@ -140,6 +142,31 @@ func editionValue(field string, w wire.T005MetadataWrite) (json.RawMessage, erro
 		var v float64
 		if json.Unmarshal(raw, &v) != nil || v < 0 {
 			return nil, apperr.Validation("series_index must be a nonnegative number.")
+		}
+	case "subtitle":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || strings.TrimSpace(v) == "" || len([]rune(v)) > 4096 {
+			return nil, apperr.Validation("subtitle must be a non-empty string of up to 4096 characters.")
+		}
+	case "age_rating", "open_library_id", "google_books_id", "hardcover_id", "goodreads_id":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || strings.TrimSpace(v) == "" || len([]rune(v)) > 64 || strings.ContainsAny(v, " \t\r\n/?#") {
+			return nil, apperr.Validation(field + " must be a short value without spaces or slashes (up to 64 characters).")
+		}
+	case "asin":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || !asinRe.MatchString(v) {
+			return nil, apperr.Validation("asin must be 10 letters or digits.")
+		}
+	case "public_rating":
+		var v float64
+		if json.Unmarshal(raw, &v) != nil || v < 0 || v > 5 {
+			return nil, apperr.Validation("public_rating must be a number from 0 to 5.")
+		}
+	case "public_rating_count":
+		var v int
+		if json.Unmarshal(raw, &v) != nil || v < 0 || v > 1000000000 {
+			return nil, apperr.Validation("public_rating_count must be a whole number of 0 or more.")
 		}
 	case "publisher":
 		var v string

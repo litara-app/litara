@@ -630,7 +630,8 @@ CREATE INDEX shelf_titles_order_idx ON shelf_titles (shelf_id, position, title_i
 -- sidecar, embedded and provider values; the file name is a computed lowest fallback.
 CREATE TABLE edition_metadata_values (
     edition_id      uuid NOT NULL REFERENCES editions (id),
-    field           text NOT NULL CHECK (field IN ('title', 'authors', 'series_name', 'series_index', 'language', 'tags', 'publisher', 'published', 'page_count', 'isbn', 'description')),
+    field           text NOT NULL CHECK (field IN ('title', 'authors', 'series_name', 'series_index', 'language', 'tags', 'publisher', 'published', 'page_count', 'isbn', 'description',
+                                             'subtitle', 'genres', 'moods', 'age_rating', 'asin', 'open_library_id', 'google_books_id', 'hardcover_id', 'goodreads_id', 'public_rating', 'public_rating_count')),
     source          text NOT NULL CHECK (source IN ('user', 'sidecar', 'embedded', 'provider')),
     value           jsonb,
     protected_clear boolean NOT NULL DEFAULT false,
