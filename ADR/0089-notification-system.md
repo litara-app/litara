@@ -13,7 +13,7 @@ Screens currently answer an action by changing text on the page: an inline statu
 - Notifications may later come from background work that the user did not start, so the bell needs an unread state.
 - Changing text on the page is no longer the first choice for responding to an action. Responses go to the notification system.
 
-Not yet specified by the owner: where the history is stored, how long it is kept, and how background notifications reach the browser.
+The owner then decided that history is stored on the server. Not yet specified: how long it is kept and how background notifications reach the browser.
 
 ## Decision
 
@@ -28,7 +28,7 @@ On 2026-11-22 the owner decided that notification history is stored on the serve
 ## Alternatives
 
 - Keep inline messages and add toasts only for new features: leaves two ways to respond to an action.
-- Server-stored history from the start: needed for background and cross-device history, but is a schema and API decision the owner has not made.
+- Browser-stored history: simpler, but not shared between devices and unable to hold background notifications. Rejected by the owner on 2026-11-22.
 - Real-time delivery (server-sent events or WebSocket) for background notifications, instead of fetching when the page loads or on an interval: lower delay, more moving parts. Not selected.
 
 ## Consequences
