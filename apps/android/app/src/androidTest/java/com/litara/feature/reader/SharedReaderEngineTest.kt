@@ -216,6 +216,31 @@ class SharedReaderEngineTest {
         Thread.sleep(1500)
         val overlay = js("""JSON.stringify(($contents).map(function(c){return c.overlayer?c.overlayer.element.innerHTML:''}).join('|'))""")
         assertTrue("green drawn: ${overlay.take(200)}", overlay.contains("4ade80", ignoreCase = true))
+
+        // Touching the highlight reports it with its rectangle, in WebView pixels, so the popup can be anchored to it.
+        val spot = js("""(function(){var f=document.getElementById('frame').contentDocument;var v=f.querySelector('foliate-view');var x=v.resolveCFI('$cfi');var c=v.renderer.getContents().filter(function(k){return k.index===x.index})[0];var b=x.anchor(c.doc).getClientRects()[0];var o=c.doc.defaultView.frameElement.getBoundingClientRect();return JSON.stringify([b.left+b.width/2+o.left,b.top+b.height/2+o.top])})()""")
+        val (cx, cy) = spot.trim('"').replace("\\", "").removeSurrounding("[", "]").split(",").map { it.toFloat() }
+        val origin = IntArray(2)
+        scenario.onActivity { a -> findWebView(a.window.decorView)?.getLocationOnScreen(origin) }
+        val density = context.resources.displayMetrics.density
+        fresh()
+        val t1 = android.os.SystemClock.uptimeMillis()
+        for ((action, at) in listOf(android.view.MotionEvent.ACTION_DOWN to t1, android.view.MotionEvent.ACTION_UP to t1 + 60)) {
+            val ev = android.view.MotionEvent.obtain(t1, at, action, origin[0] + cx * density, origin[1] + cy * density, 0)
+            ev.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+            instrumentation.sendPointerSync(ev)
+            ev.recycle()
+        }
+        val click = await<SharedEvent.AnnotationClick>()
+        assertEquals(cfi, click.id)
+        val r = click.rect!!
+        assertTrue("rect around the touch: $r vs ($cx,$cy)", r.left <= cx + 1 && cx - 1 <= r.right && r.top <= cy + 1 && cy - 1 <= r.bottom && r.bottom > r.top)
+    }
+
+    private fun findWebView(v: android.view.View): android.webkit.WebView? {
+        if (v is android.webkit.WebView) return v
+        if (v is android.view.ViewGroup) for (i in 0 until v.childCount) findWebView(v.getChildAt(i))?.let { return it }
+        return null
     }
 
     @Test fun pdfOpensOnTheSavedPageAndTurns() {

@@ -264,7 +264,12 @@ async function mountFoliate(book, restore) {
   let lastAnnotationClick = 0;
   view.addEventListener('show-annotation', e => {
     const id = byValue.get(e.detail.value);
-    if (id) { lastAnnotationClick = Date.now(); send({ t: 'annotation-click', generation, id }); }
+    if (!id) return;
+    lastAnnotationClick = Date.now();
+    // Where the highlight is, in the frame's own pixels (same space as a selection's rect), so a host can anchor a popup to it.
+    let rect;
+    try { const r = e.detail.range; rect = r ? rectOf(r, r.startContainer?.ownerDocument?.defaultView?.frameElement) : undefined; } catch { /* no anchor */ }
+    send({ t: 'annotation-click', generation, id, rect });
   });
   view.addEventListener('load', e => {
     const { doc, index } = e.detail;
@@ -308,9 +313,11 @@ async function mountFoliate(book, restore) {
     const cols = clampNum(s.maxColumns, 1, 4);
     const gapPct = clampNum(s.gapPct, 0, 20);
     const inline = clampNum(s.maxInlineSize, 300, 2000);
-    if (cols !== null) view.renderer?.setAttribute?.('max-column-count', String(Math.round(cols)));
-    if (gapPct !== null) view.renderer?.setAttribute?.('gap', `${gapPct}%`);
-    if (inline !== null) view.renderer?.setAttribute?.('max-inline-size', `${Math.round(inline)}px`);
+    // Absent means "the engine's own default": a value the reader sent earlier is withdrawn, not left behind.
+    const setOrClear = (name, v) => (v === null ? view.renderer?.removeAttribute?.(name) : view.renderer?.setAttribute?.(name, v));
+    setOrClear('max-column-count', cols === null ? null : String(Math.round(cols)));
+    setOrClear('gap', gapPct === null ? null : `${gapPct}%`);
+    setOrClear('max-inline-size', inline === null ? null : `${Math.round(inline)}px`);
     const BLOCKS = 'body, body p, body li, body blockquote, body dd, body dt, body div';
     const typo = (lineHeight !== null ? `${BLOCKS} { line-height: ${lineHeight} !important; } ` : '')
       + (s.justify === true ? `${BLOCKS} { text-align: justify !important; } ` : s.justify === false ? `${BLOCKS} { text-align: start !important; } ` : '')
@@ -505,7 +512,10 @@ async function openPdf(size, restore) {
         d.dataset.annotation = it.id;
         d.style.cssText = `position:absolute;left:${Math.min(ax, bx)}px;top:${Math.min(ay, by)}px;width:${Math.abs(bx - ax)}px;height:${Math.abs(by - ay)}px;` +
           `background:${safeColor(it.color) ? `${safeColor(it.color)}66` : it.kind === 'note' ? 'rgba(126,200,255,.4)' : 'rgba(255,213,74,.4)'};pointer-events:auto;cursor:pointer`;
-        d.addEventListener('click', () => send({ t: 'annotation-click', generation, id: it.id }));
+        d.addEventListener('click', () => {
+          const b = d.getBoundingClientRect(), n = v => (Number.isFinite(v) ? Math.round(v) : 0);
+          send({ t: 'annotation-click', generation, id: it.id, rect: { x: n(b.left), y: n(b.top), width: n(b.width), height: n(b.height) } });
+        });
         layer.append(d);
       }
     }

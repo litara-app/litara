@@ -45,7 +45,7 @@ sealed interface SharedEvent {
     data class Chapters(val items: List<Chapter>) : SharedEvent
     data class Selection(val text: String, val cfi: String?, val rect: ViewportRect?) : SharedEvent
     data object SelectionCleared : SharedEvent
-    data class AnnotationClick(val id: String) : SharedEvent
+    data class AnnotationClick(val id: String, val rect: ViewportRect? = null) : SharedEvent
     /** A tap on plain page text: [x] and [y] are 0..1 across the frame. */
     data class Tap(val x: Double, val y: Double) : SharedEvent
     data class SearchResults(val label: String, val hits: List<SearchHit>) : SharedEvent
@@ -108,7 +108,7 @@ object SharedReaderProtocol {
             "selection" ->
                 if ((o["cleared"] as? JsonPrimitive)?.booleanOrNull == true) SharedEvent.SelectionCleared
                 else SharedEvent.Selection(str("text").orEmpty(), str("cfi"), rect(o["rect"]))
-            "annotation-click" -> str("id")?.let { SharedEvent.AnnotationClick(it) } ?: SharedEvent.Other
+            "annotation-click" -> str("id")?.let { SharedEvent.AnnotationClick(it, rect(o["rect"])) } ?: SharedEvent.Other
             "tap" -> SharedEvent.Tap(dbl("x") ?: 0.0, dbl("y") ?: 0.0)
             "search-results" -> SharedEvent.SearchResults(
                 str("label").orEmpty(),

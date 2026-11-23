@@ -110,7 +110,7 @@ class ReaderController {
             is SharedEvent.Relocate -> l(ReaderEvent.Relocate(e.cfi, e.fraction, e.tocLabel))
             is SharedEvent.Selection -> l(ReaderEvent.Selection(e.text, e.cfi, e.rect))
             SharedEvent.SelectionCleared -> l(ReaderEvent.SelectionCleared)
-            is SharedEvent.AnnotationClick -> l(ReaderEvent.AnnotationTap(e.id, null)) // ids are CFIs (see SharedReaderProtocol.annotations)
+            is SharedEvent.AnnotationClick -> l(ReaderEvent.AnnotationTap(e.id, e.rect)) // ids are CFIs (see SharedReaderProtocol.annotations)
             is SharedEvent.Failure -> l(ReaderEvent.Error("${e.code}: ${e.detail}"))
             is SharedEvent.Tap -> l(ReaderEvent.Tap(e.x))
             is SharedEvent.SearchResults -> l(ReaderEvent.SearchResults(e.label, e.hits))

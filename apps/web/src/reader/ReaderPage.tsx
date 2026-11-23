@@ -34,6 +34,13 @@ function loadStyle(): ReaderStyle {
 const THEME_ITEMS = [{ value: "light", label: "Light" }, { value: "sepia", label: "Sepia" }, { value: "dark", label: "Dark" }];
 const FONT_ITEMS = [{ value: "publisher", label: "The book's own" }, { value: "literata", label: "Literata (serif)" }, { value: "atkinson", label: "Atkinson Hyperlegible (sans)" }, { value: "dyslexic", label: "OpenDyslexic" }, { value: "serif", label: "System serif" }, { value: "sans", label: "System sans" }, { value: "mono", label: "Monospace" }];
 const FLOW_ITEMS = [{ value: "paginated", label: "Pages" }, { value: "scrolled", label: "Scroll" }];
+// Typography the reader may override. "auto" leaves the book's own value alone (the field is simply not sent).
+const LINE_ITEMS = [{ value: "auto", label: "The book's own" }, { value: "1.3", label: "Tight" }, { value: "1.6", label: "Normal" }, { value: "2", label: "Loose" }];
+const ALIGN_ITEMS = [{ value: "auto", label: "Book's own" }, { value: "justify", label: "Justified" }, { value: "start", label: "Left" }];
+const HYPHEN_ITEMS = [{ value: "auto", label: "Book's own" }, { value: "on", label: "On" }, { value: "off", label: "Off" }];
+const COLUMN_ITEMS = [{ value: "auto", label: "Automatic" }, { value: "1", label: "One" }, { value: "2", label: "Two" }];
+const MARGIN_ITEMS = [{ value: "auto", label: "Default" }, { value: "3", label: "Narrow" }, { value: "8", label: "Wide" }, { value: "14", label: "Wider" }];
+const triState = (v: boolean | undefined, on: string, off: string) => (v === undefined ? "auto" : v ? on : off);
 
 function TocList({ items, onPick }: { items: TocItem[]; onPick: (href: string) => void }) {
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -337,6 +344,11 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
               <SegmentedField label="Theme" value={style.theme} onValue={(v) => changeStyle({ theme: v as ReaderStyle["theme"] })} items={THEME_ITEMS} />
               {kind !== "pdf" && <SelectField label="Font" value={style.font ?? "publisher"} onValue={(v) => changeStyle({ font: (v || "publisher") as ReaderFont })} items={FONT_ITEMS} />}
               {kind !== "pdf" && <SegmentedField label="Layout" value={style.flow} onValue={(v) => changeStyle({ flow: v as ReaderStyle["flow"] })} items={FLOW_ITEMS} />}
+              {kind !== "pdf" && <SelectField label="Line spacing" value={style.lineHeight === undefined ? "auto" : String(style.lineHeight)} onValue={(v) => changeStyle({ lineHeight: v && v !== "auto" ? Number(v) : undefined })} items={LINE_ITEMS} />}
+              {kind !== "pdf" && <SegmentedField label="Alignment" value={triState(style.justify, "justify", "start")} onValue={(v) => changeStyle({ justify: v === "justify" ? true : v === "start" ? false : undefined })} items={ALIGN_ITEMS} />}
+              {kind !== "pdf" && <SegmentedField label="Hyphenation" value={triState(style.hyphenate, "on", "off")} onValue={(v) => changeStyle({ hyphenate: v === "on" ? true : v === "off" ? false : undefined })} items={HYPHEN_ITEMS} />}
+              {kind !== "pdf" && style.flow === "paginated" && <SegmentedField label="Columns" value={style.maxColumns === undefined ? "auto" : String(style.maxColumns)} onValue={(v) => changeStyle({ maxColumns: v === "1" || v === "2" ? Number(v) : undefined })} items={COLUMN_ITEMS} />}
+              {kind !== "pdf" && style.flow === "paginated" && <SegmentedField label="Margins" value={style.gapPct === undefined ? "auto" : String(style.gapPct)} onValue={(v) => changeStyle({ gapPct: v && v !== "auto" ? Number(v) : undefined })} items={MARGIN_ITEMS} />}
               <SegmentedField label="Toolbar" value={toolbar} onValue={(v) => changeToolbar(v === "always" ? "always" : "auto")} items={[{ value: "auto", label: "Auto-hide" }, { value: "always", label: "Always show" }]} />
             </Stack>
           </AnchoredPanel>

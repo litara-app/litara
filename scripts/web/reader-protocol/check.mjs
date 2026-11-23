@@ -115,6 +115,22 @@ const clear = page => page.evaluate(() => { window.events.length = 0; });
   await page.waitForTimeout(800);
   check('an unsafe colour or unknown style falls back', /ffd54a/i.test(await overlay()));
 
+  // clicking a highlight reports it with where it is, so a host can anchor a popup
+  await page.evaluate(c => window.sendMsg({ t: 'annotations', items: [{ id: 'a', cfi: c, kind: 'highlight' }] }), cfi);
+  await page.waitForTimeout(800);
+  const hit = await page.evaluate(c => {
+    const v = window.view(), x = v.resolveCFI(c), ct = v.renderer.getContents().find(k => k.index === x.index);
+    const b = x.anchor(ct.doc).getClientRects()[0], f = ct.doc.defaultView.frameElement.getBoundingClientRect();
+    return { x: b.left + b.width / 2 + f.left, y: b.top + b.height / 2 + f.top };
+  }, cfi);
+  await clear(page);
+  await page.mouse.click(hit.x, hit.y);
+  await waitFor(page, 'annotation-click').catch(() => {});
+  const ac = await events(page, 'annotation-click');
+  const rc = ac[0]?.rect;
+  check('highlight click carries its rectangle', ac.length === 1 && ac[0].id === 'a' && rc && rc.width > 0 && rc.height > 0 && Math.abs(rc.x + rc.width / 2 - hit.x) < rc.width && Math.abs(rc.y + rc.height / 2 - hit.y) < rc.height + 2, ac);
+  check('a highlight click is not also reported as a tap', (await events(page, 'tap')).length === 0);
+
   // typography
   await page.evaluate(() => window.sendMsg({ t: 'style', fontPct: 100, theme: 'light', flow: 'paginated', lineHeight: 2, justify: true, hyphenate: true, maxColumns: 1, gapPct: 10, maxInlineSize: 600 }));
   await page.waitForTimeout(1200);
@@ -130,6 +146,10 @@ const clear = page => page.evaluate(() => { window.events.length = 0; });
   await page.evaluate(() => window.sendMsg({ t: 'style', fontPct: 100, theme: 'light', flow: 'paginated', justify: false, hyphenate: false }));
   await page.waitForTimeout(800);
   const off = await page.evaluate(() => { const c = window.view().renderer.getContents()[0]; const cs = c.doc.defaultView.getComputedStyle(c.doc.querySelector('p')); return { align: cs.textAlign, hyphens: cs.hyphens }; });
+  await page.evaluate(() => window.sendMsg({ t: 'style', fontPct: 100, theme: 'light', flow: 'paginated' }));
+  await page.waitForTimeout(800);
+  const gone = await page.evaluate(() => { const r = window.view().renderer; return { cols: r.getAttribute('max-column-count'), gap: r.getAttribute('gap'), inline: r.getAttribute('max-inline-size') }; });
+  check('fields left out withdraw earlier layout values', gone.cols === null && gone.gap === null && gone.inline === null, gone);
   check('justify and hyphenation switch off', off.align !== 'justify' && off.hyphens === 'manual', off);
   await page.context().close();
 }

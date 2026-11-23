@@ -32,6 +32,13 @@ class SharedReaderProtocolTest {
     }
 
     @Test
+    fun `a highlight click carries the rect to anchor its popup, and still parses without one`() {
+        val c = p.parse("""{"t":"annotation-click","id":"epubcfi(/6/2)","rect":{"x":5,"y":6,"width":10,"height":4}}""") as SharedEvent.AnnotationClick
+        assertEquals(ViewportRect(5.0, 6.0, 15.0, 10.0), c.rect)
+        assertEquals(null, (p.parse("""{"t":"annotation-click","id":"x"}""") as SharedEvent.AnnotationClick).rect)
+    }
+
+    @Test
     fun `reads the toc, the loaded message and errors`() {
         val toc = p.parse("""{"t":"toc","items":[{"label":"A","href":"a.xhtml","items":[{"label":"A1","href":"a1.xhtml","items":[]}]}]}""") as SharedEvent.Toc
         assertEquals("A1", toc.items.single().subitems.single().label)
