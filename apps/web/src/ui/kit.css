@@ -298,6 +298,9 @@ a { color: var(--lt-pri); }
 .lt-preview .lt-auth { height: 100dvh; }
 .lt-preview-bar { position: fixed; left: 0; right: 0; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; gap: var(--lt-s3); padding: var(--lt-s2) var(--lt-s4); background: rgb(0 0 0 / .72); color: #fff; font-size: var(--lt-text-sm); }
 
+/* Text inputs keep their text clear of the edge. */
+[data-slot="input"], [data-slot="textarea"] { padding-inline: var(--lt-s3); }
+
 /* Top-bar search button and the spotlight */
 .lt-search-trigger { display: flex; align-items: center; gap: var(--lt-s2); width: 100%; height: 30px; padding: 0 var(--lt-s2) 0 var(--lt-s3); border: 1px solid var(--lt-edge); border-radius: 999px; background: var(--lt-surface); color: var(--lt-dim); font: inherit; cursor: text; text-align: left; }
 .lt-search-trigger:hover { border-color: var(--lt-ink); }
@@ -307,7 +310,7 @@ a { color: var(--lt-pri); }
 .lt-spotlight { position: fixed; inset: 0 0 auto 0; margin: 10vh auto 0; width: min(660px, calc(100vw - 24px)); height: fit-content; max-height: 74vh; padding: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--lt-surface); color: var(--lt-ink); border: 1px solid var(--lt-edge); border-radius: var(--lt-r-lg); box-shadow: var(--ui-shadow); }
 .lt-spotlight [data-slot="command"] { width: 100%; display: flex; flex-direction: column; min-height: 0; }
 .lt-spot-input { display: flex; align-items: center; gap: var(--lt-s2); padding: 0 var(--lt-s4); border-bottom: 1px solid var(--lt-line); }
-.lt-spotlight .lt-spot-input [data-slot="command-input"] { border-radius: 0; border: 0; box-shadow: none; background: none; padding: 0; min-width: 0; flex: 1; height: 48px; font-size: var(--lt-text-lg); outline-offset: -2px; }
+.lt-spotlight .lt-spot-input [data-slot="command-input"] { border-radius: 0; border: 0; box-shadow: none; background: none; padding: 0 var(--lt-s3); min-width: 0; flex: 1; height: 48px; font-size: var(--lt-text-lg); outline-offset: -2px; }
 .lt-spot-list { overflow: auto; max-height: 52vh; padding: var(--lt-s2); }
 .lt-spotlight [data-slot="command-group-label"] { padding: 8px 10px 4px; color: var(--lt-dim); font-size: var(--lt-text-xs); text-transform: uppercase; letter-spacing: .08em; }
 .lt-spotlight [data-slot="command-item"] { display: flex; align-items: center; gap: var(--lt-s3); padding: 7px 10px; border-radius: var(--lt-r); cursor: pointer; }
