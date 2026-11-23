@@ -137,6 +137,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0091](0091-bundle-open-licensed-reading-fonts.md) | Bundle open-licensed reading fonts with the app | Accepted |
 | [0092](0092-record-reading-sessions.md) | Record every reading session | Accepted |
 | [0093](0093-android-reader-parity-with-the-web-reader.md) | Bring the web reader's features to the Android reader | Accepted |
+| [0094](0094-highlight-colour-and-style-in-annotations.md) | Store a highlight's colour and style in the annotation | Proposed |
 
 ## Workflow
 
