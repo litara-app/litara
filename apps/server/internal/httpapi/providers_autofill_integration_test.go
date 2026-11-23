@@ -296,13 +296,13 @@ func TestEditionAutoFillTitleAndAuthorMatchIsPerLibraryAndReviewedBeforeSaving(t
 	}
 
 	// Anything less clear goes to review: another title, an author the book does not have listed, a different
-	// language, two candidates, or a failed provider.
+	// language, only partial-title hits, or a failed provider.
 	for name, ms := range map[string][]metadata.Match{
 		"other title":      {cand("w1", "Second Volume: The Sequel", []string{"Ada Author"}, nil)},
 		"missing author":   {cand("w1", "Second Volume", []string{"Someone Else"}, nil)},
 		"no authors":       {cand("w1", "Second Volume", nil, nil)},
 		"other language":   {cand("w1", "Second Volume", []string{"Ada Author"}, metadata.Fields{"language": raw("fr")})},
-		"two candidates":   {cand("w1", "Second Volume", []string{"Ada Author"}, nil), cand("w2", "Second Volume", []string{"Ada Author"}, nil)},
+		"only partial hits": {cand("w1", "Second Volume: The Sequel", []string{"Ada Author"}, nil), cand("w2", "Second Volume Companion", []string{"Ada Author"}, nil)},
 		"identifier match": {{Provider: metadata.ProviderOpenLibrary, ID: "w1", ByIdentifier: true, Fields: metadata.Fields{"title": raw("Another"), "authors": raw([]string{"Ada Author"})}}},
 	} {
 		ol.matches = ms
@@ -316,6 +316,19 @@ func TestEditionAutoFillTitleAndAuthorMatchIsPerLibraryAndReviewedBeforeSaving(t
 		t.Fatalf("a failed provider must not be accepted: %+v", out)
 	}
 	ol.err = nil
+
+	// Several records of the same work: the best-ranked exact one is taken, and partial-title hits ranked above it are
+	// skipped (ADR-0090, revised 2026-11-22).
+	ol.matches = []metadata.Match{
+		cand("w0", "Second Volume: The Sequel", []string{"Ada Author"}, metadata.Fields{"publisher": raw("Wrong Press")}),
+		cand("w1", "Second Volume", []string{"Ada Author"}, nil),
+		cand("w2", "Second Volume", []string{"Ada Author"}, metadata.Fields{"publisher": raw("Other Press")}),
+	}
+	if out, x := r.autoFillDry(t, "0"); x.StatusCode != 200 || out.Outcome != "proposed" || out.Rule != "title_author" {
+		t.Fatalf("several exact records: %d %s", x.StatusCode, x.Body)
+	} else if string(out.Proposed["publisher"].Raw) != `"Press"` {
+		t.Fatalf("the best-ranked exact record must be used: %s", x.Body)
+	}
 
 	// An identifier match is also proposed, not stored, and says which rule applied.
 	ol.matches = []metadata.Match{{Provider: metadata.ProviderOpenLibrary, ID: "w1", ByIdentifier: true, Fields: metadata.Fields{

@@ -364,35 +364,40 @@ const (
 
 // PickAutoFill chooses the one match auto-fill may offer. ADR-0060/0087: the first provider, in the library's order,
 // whose only candidate is an exact identifier match that agrees with the stored title and authors. ADR-0090, only when
-// the library has turned it on: otherwise a single candidate from a single provider that has the same title and all of
-// the stored authors (and the same language when both state one), when no provider failed and none matched by identifier.
+// the library has turned it on and no candidate matched by identifier: the best-ranked candidate that has the same title
+// as the book and all of its stored authors (and the same language when both state one), taken from the first provider in
+// the library's order that has one. A partial title, other authors or a provider that failed never block it.
 // It returns the match, the outcome (filled, needs_review, no_match or disabled) and the rule that accepted it.
 func PickAutoFill(out SearchOutcome, q Query, language string) (Match, string, string) {
 	if !out.Enabled {
 		return Match{}, "disabled", ""
 	}
-	any, failed, total := false, false, 0
-	var only Candidate
+	any, byID := false, false
 	for _, r := range out.Results {
-		if r.Status == "unavailable" {
-			failed = true
-		}
 		if r.Status != "ok" {
 			continue
 		}
 		if len(r.Candidates) > 0 {
 			any = true
 		}
-		total += len(r.Candidates)
-		if len(r.Candidates) == 1 {
-			only = r.Candidates[0]
-			if only.ByIdentifier && only.Consistent {
-				return only.Match, "filled", RuleIdentifier
-			}
+		for _, c := range r.Candidates {
+			byID = byID || c.ByIdentifier
+		}
+		if len(r.Candidates) == 1 && r.Candidates[0].ByIdentifier && r.Candidates[0].Consistent {
+			return r.Candidates[0].Match, "filled", RuleIdentifier
 		}
 	}
-	if out.TitleMatch && !failed && total == 1 && !only.ByIdentifier && titleAuthorMatch(only.Match, q, language) {
-		return only.Match, "filled", RuleTitleAuthor
+	if out.TitleMatch && !byID {
+		for _, r := range out.Results {
+			if r.Status != "ok" {
+				continue
+			}
+			for _, c := range r.Candidates {
+				if titleAuthorMatch(c.Match, q, language) {
+					return c.Match, "filled", RuleTitleAuthor
+				}
+			}
+		}
 	}
 	if any {
 		return Match{}, "needs_review", ""

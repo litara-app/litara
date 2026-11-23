@@ -10,7 +10,7 @@ const PROVIDERS: { value: string; label: string; note: string }[] = [
   { value: "audnexus", label: "Audnexus", note: "Audiobook details by ASIN." },
 ];
 
-/** Which online sources this library may use for Edit metadata, and whether Auto-fill may use one clear title-and-author match (ADR-0049, ADR-0060, ADR-0090). */
+/** Which online sources this library may use for Edit metadata, and whether Auto-fill may use the best title-and-author match (ADR-0049, ADR-0060, ADR-0090). */
 export function ProvidersCard({ libraryId, config }: { libraryId: string; config: LibraryDetail["config"] }) {
   const qc = useQueryClient();
   const save = useMutation({
@@ -28,8 +28,8 @@ export function ProvidersCard({ libraryId, config }: { libraryId: string; config
         {PROVIDERS.map((p) => (
           <SwitchField key={p.value} label={p.label} description={p.note} checked={order.includes(p.value)} disabled={save.isPending} onChange={(on) => toggle(p.value, on)} />
         ))}
-        <SwitchField label="Auto-fill may use one clear title-and-author match"
-          description="For books with no ISBN. Only when one source returns one result with the same title and every listed author. Every Auto-fill is shown for review before anything is saved."
+        <SwitchField label="Auto-fill may use the best title-and-author match"
+          description="For books with no ISBN. Takes the best-ranked result with exactly the same title and every listed author, skipping partial titles and sources that fail. Every Auto-fill is shown for review before anything is saved."
           checked={!!config.autoFillTitleMatch} disabled={save.isPending || order.length === 0} onChange={(on) => save.mutate({ autoFillTitleMatch: on })} />
       </Stack>
     </Card>
