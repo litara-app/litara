@@ -557,6 +557,19 @@ type ProviderLookup struct {
 	LookedUpAt  time.Time `json:"looked_up_at"`
 }
 
+type ReadingSession struct {
+	UserID        uuid.UUID `json:"user_id"`
+	ID            uuid.UUID `json:"id"`
+	EditionID     uuid.UUID `json:"edition_id"`
+	StartedAt     time.Time `json:"started_at"`
+	EndedAt       time.Time `json:"ended_at"`
+	ActiveSeconds int32     `json:"active_seconds"`
+	StartFraction *float32  `json:"start_fraction"`
+	EndFraction   *float32  `json:"end_fraction"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 type Recording struct {
 	ID               uuid.UUID   `json:"id"`
 	TitleID          uuid.UUID   `json:"title_id"`

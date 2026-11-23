@@ -5,6 +5,7 @@ import type { Annotation, AnnotationData, Edition, Locator, Page as Paged, Reade
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
 import { icons, notify, AnchoredPanel, Alert, Badge, BookmarkRibbon, Busy, Button, Card, DownloadLink, Drawer, IconButton, Page, ReadingTimeline, Row, SegmentedField, Stack, Text, TextAreaField, TextLink } from "../ui";
 import type { TimelineMark } from "../ui/feedback";
+import { useReadingSession } from "./useReadingSession";
 import { QuietReveal, useQuietBar } from "./useQuietBar";
 import { usePositionSaver } from "./usePositionSaver";
 
@@ -209,6 +210,7 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
     return [{ id: a.id, at: n > 1 ? pi / (n - 1) : 0, kind, label: `${kind === "note" ? "Note" : "Bookmark"} on page ${pi + 1}${a.data!.kind === "note" && a.data!.text ? `: ${a.data!.text}` : ""}`.slice(0, 120), onPick: () => go(pi) }];
   });
 
+  useReadingSession(e.id, n > 1 ? index / (n - 1) : 0, n > 0);
   const current = urls[index];
   const sv = saver.status;
   const serverPos = saver.conflict?.server.position;

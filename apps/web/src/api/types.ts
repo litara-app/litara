@@ -98,6 +98,8 @@ export interface AudioPositionState {
   unresolvedConflicts: { id: string; reason: string; candidate: AudioPosition | null; baseRevision: string }[];
 }
 
+/** One stretch of reading by this account (ADR-0092). */
+export interface ReadingSession { id: string; editionId: string; titleId: string; startedAt: string; endedAt: string; activeSeconds: number; startFraction: number | null; endFraction: number | null }
 export interface ReadingEvent {
   id: string; titleId: string; editionId?: string; recordingId?: string; fileId: string; contentVersion: string;
   event: string; capturedAt: string; receivedAt: string;

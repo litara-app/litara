@@ -13,6 +13,7 @@ import { loadReaderOrigin, ReaderHost, type PaintedAnnotation, type ReaderEvent,
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
 import { usePositionSaver } from "./usePositionSaver";
 import { isBundledFont, loadFontFaces } from "./fonts";
+import { useReadingSession } from "./useReadingSession";
 import { QuietReveal, useQuietBar } from "./useQuietBar";
 
 interface TocItem { label: string; href: string | null; items: TocItem[] }
@@ -311,6 +312,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
       return [{ id: a.id, at, kind: d.kind, label: `${kindLabel}${d.text ? `: ${d.text}` : d.quote ? `: ${d.quote}` : ""}`.slice(0, 120), onPick: () => gotoAnnotation(a) }];
     }),
   ];
+  useReadingSession(e.id, where.fraction, loaded && !mismatch);
   const percent = where.fraction === null ? null : Math.round(where.fraction * 100);
   const sv = saver.status;
   const pend = usePendingState();

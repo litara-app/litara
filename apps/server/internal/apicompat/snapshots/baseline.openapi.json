@@ -4122,6 +4122,150 @@
         ],
         "type": "object"
       },
+      "T005ReadingSession": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSeconds": {
+            "format": "int64",
+            "maximum": 86400,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "editionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "endFraction": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "endedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "startFraction": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "editionId",
+          "titleId",
+          "startedAt",
+          "endedAt",
+          "activeSeconds",
+          "startFraction",
+          "endFraction"
+        ],
+        "type": "object"
+      },
+      "T005ReadingSessionWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSeconds": {
+            "description": "Seconds the person was actively reading, not the length of the window.",
+            "format": "int64",
+            "maximum": 86400,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "endFraction": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "endedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "startFraction": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startedAt",
+          "endedAt",
+          "activeSeconds"
+        ],
+        "type": "object"
+      },
+      "T005ReadingSessions": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/T005ReadingSession"
+            },
+            "maxItems": 200,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "page": {
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size": {
+            "format": "int64",
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
       "T005RecordingLink": {
         "additionalProperties": false,
         "properties": {
@@ -17985,6 +18129,149 @@
         ]
       }
     },
+    "/editions/{editionId}/reading-sessions/{sessionId}": {
+      "put": {
+        "operationId": "putReadingSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "editionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/T005ReadingSessionWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record or extend one reading session",
+        "tags": [
+          "reading"
+        ]
+      }
+    },
     "/files/{fileId}/versions/{contentVersion}/content": {
       "get": {
         "operationId": "getFileContent",
@@ -27162,6 +27449,161 @@
           }
         ],
         "summary": "Ebook completion history for a title",
+        "tags": [
+          "reading"
+        ]
+      }
+    },
+    "/titles/{titleId}/reading-sessions": {
+      "get": {
+        "operationId": "listReadingSessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "titleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Cap at 200",
+            "explode": false,
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "default": 50,
+              "description": "Cap at 200",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005ReadingSessions"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The caller's own reading sessions for a title",
         "tags": [
           "reading"
         ]

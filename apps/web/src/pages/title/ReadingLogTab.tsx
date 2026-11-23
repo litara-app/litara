@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, get } from "../../api/client";
-import type { Edition, Page, ReadingEvent, RecordingLink } from "../../api/types";
-import { icons, Busy, Button, Card, EmptyState, ErrorBox, Heading, Row, Stack, StatusPill, Text, Timeline, when } from "../../ui";
+import type { Edition, Page, ReadingEvent, ReadingSession, RecordingLink } from "../../api/types";
+import { duration, icons, Busy, Button, Card, EmptyState, ErrorBox, Heading, Row, Stack, StatusPill, Text, Timeline, when } from "../../ui";
 
 const EVENTS: Record<string, { title: string; tone: "success" | "info" | "neutral" | "warning" }> = {
   manual_finish: { title: "Marked finished", tone: "success" },
@@ -15,6 +15,7 @@ const label = (e: string) => EVENTS[e] ?? { title: e.replace(/_/g, " ").replace(
 export function ReadingLogTab({ titleId, editions, recordings }: { titleId: string; editions: Edition[]; recordings: RecordingLink[] }) {
   const qc = useQueryClient();
   const log = useQuery({ queryKey: ["title", titleId, "reading-history"], queryFn: () => get<Page<ReadingEvent>>(`/titles/${titleId}/reading-history?size=100`) });
+  const sessions = useQuery({ queryKey: ["title", titleId, "reading-sessions"], queryFn: () => get<Page<ReadingSession>>(`/titles/${titleId}/reading-sessions?size=50`) });
   const toggle = useMutation({
     mutationFn: (e: Edition) =>
       api("PUT", `/editions/${e.id}/completion`, {
@@ -49,6 +50,17 @@ export function ReadingLogTab({ titleId, editions, recordings }: { titleId: stri
         </Card>
       ))}
       <ErrorBox error={toggle.error} />
+
+      <Heading level={2}>Reading sessions</Heading>
+      <ErrorBox error={sessions.error} />
+      {sessions.isPending ? <Busy /> : sessions.data && sessions.data.items.length === 0 ? (
+        <EmptyState level={3} title="No reading sessions yet">Each time you read, Litara records when and for how long, and where in the book you got to.</EmptyState>
+      ) : sessions.data && (
+        <Timeline label="Reading sessions" items={sessions.data.items.map((s) => ({
+          key: s.id, title: `Read for ${duration(s.activeSeconds * 1000)}`, tone: "info" as const,
+          meta: `${editions.find((x) => x.id === s.editionId)?.label || "Edition"} · ${when(s.startedAt)}${s.startFraction !== null && s.endFraction !== null ? ` · ${Math.round(s.startFraction * 100)}% to ${Math.round(s.endFraction * 100)}%` : ""}`,
+        }))} />
+      )}
 
       <Heading level={2}>History</Heading>
       <ErrorBox error={log.error} />

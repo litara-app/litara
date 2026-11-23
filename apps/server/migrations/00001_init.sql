@@ -1008,7 +1008,27 @@ CREATE TABLE notifications (
 );
 CREATE INDEX notifications_user_recent ON notifications (user_id, created_at DESC, id DESC);
 
+-- One row per reading session (ADR-0092): when an account read an edition, for how long, and from where to where in the
+-- book as a fraction. The browser sends a session by its own id repeatedly, so the row is an idempotent upsert.
+CREATE TABLE reading_sessions (
+    user_id        uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    id             uuid NOT NULL,
+    edition_id     uuid NOT NULL REFERENCES editions (id),
+    started_at     timestamptz NOT NULL,
+    ended_at       timestamptz NOT NULL,
+    active_seconds integer NOT NULL CHECK (active_seconds BETWEEN 0 AND 86400),
+    start_fraction real CHECK (start_fraction IS NULL OR start_fraction BETWEEN 0 AND 1),
+    end_fraction   real CHECK (end_fraction IS NULL OR end_fraction BETWEEN 0 AND 1),
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    updated_at     timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, id),
+    CHECK (ended_at >= started_at)
+);
+CREATE INDEX reading_sessions_user_time ON reading_sessions (user_id, started_at DESC);
+CREATE INDEX reading_sessions_edition ON reading_sessions (edition_id, user_id, started_at DESC);
+
 -- +goose Down
+DROP TABLE reading_sessions;
 DROP TABLE notifications;
 DROP TABLE deliveries;
 DROP TABLE delivery_recipients;
