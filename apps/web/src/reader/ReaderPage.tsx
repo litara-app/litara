@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { get } from "../api/client";
 import type { Annotation, AnnotationData, Locator, Page as Paged, ReaderSnapshot } from "../api/types";
-import { icons, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, ErrorBox, IconButton, Modal, Page, RangeSlider, Row, SegmentedField, Stack, Tabs, Text, TextAreaField, TextLink, Tip } from "../ui";
+import { icons, notify, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, ErrorBox, IconButton, Modal, Page, RangeSlider, Row, SegmentedField, Stack, Tabs, Text, TextAreaField, TextLink, Tip } from "../ui";
 import { ComicReader } from "./ComicReader";
 import { remoteSource } from "./fileSource";
 import { FinishControl } from "./FinishControl";
@@ -135,9 +135,15 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
     if (kind === "pdf") return where.pageIndex === undefined ? null : { kind: "pdf-page", version: 1, pageIndex: where.pageIndex, x: where.x ?? 0, y: where.y ?? 0 };
     return where.cfi ? cfiLoc(where.cfi) : null;
   };
+  // The button says so for a moment after a bookmark is added, and a toast records where.
+  const [marked, setMarked] = useState(false);
+  useEffect(() => { if (!marked) return; const t = setTimeout(() => setMarked(false), 2500); return () => clearTimeout(t); }, [marked]);
   const addBookmark = () => {
     const loc = hereLocator();
-    if (loc) putAnnotation(crypto.randomUUID(), { kind: "bookmark", anchor: anchorAt(loc), selection: null, text: where.tocLabel ?? "", quote: "" }, "Bookmark");
+    if (!loc) return;
+    putAnnotation(crypto.randomUUID(), { kind: "bookmark", anchor: anchorAt(loc), selection: null, text: where.tocLabel ?? "", quote: "" }, "Bookmark");
+    setMarked(true);
+    notify.success("Bookmark added", { detail: where.pageIndex !== undefined ? `Page ${where.pageIndex + 1}` : where.tocLabel || undefined });
   };
   const selData = (s: Sel): { anchor: ReturnType<typeof anchorAt>; selection: AnnotationData["selection"] } => s.pdf
     ? { anchor: anchorAt({ kind: "pdf-page", version: 1, pageIndex: s.pdf.pageIndex, x: s.pdf.rectangles[0].x, y: s.pdf.rectangles[0].y }), selection: { kind: "pdf-rectangles", version: 1, pageIndex: s.pdf.pageIndex, rectangles: s.pdf.rectangles } }
@@ -262,7 +268,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
         <Row>
           <Tip label="Previous page"><IconButton aria-label="Previous page" onClick={() => hostRef.current?.nav("prev")}>‹</IconButton></Tip>
           <Tip label="Next page"><IconButton aria-label="Next page" onClick={() => hostRef.current?.nav("next")}>›</IconButton></Tip>
-          <Button size="sm" onClick={addBookmark} disabled={!loaded || mismatch} icon={icons.bookmark}>Bookmark</Button>
+          <Button size="sm" variant={marked ? "primary" : "default"} aria-live="polite" onClick={addBookmark} disabled={!loaded || mismatch} icon={marked ? icons.check : icons.bookmark}>{marked ? "Bookmarked" : "Bookmark"}</Button>
           {kind === "pdf" && <Button size="sm" variant={areaMode ? "primary" : "default"} aria-pressed={areaMode} data-testid="area-tool" disabled={!loaded || mismatch} onClick={() => { const n = !areaMode; setAreaMode(n); hostRef.current?.setPdfMode(n ? "area" : "off"); }} icon={icons.highlight}>Highlight area</Button>}
           <Button size="sm" onClick={() => setSettings(true)} icon={icons.textSize} aria-label="Text settings" title="Text settings">Aa</Button>
         </Row>
