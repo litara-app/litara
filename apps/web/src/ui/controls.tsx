@@ -282,3 +282,19 @@ export function ImageDrop({ label, onFile, onReject, disabled }: { label: string
     </FileInput>
   );
 }
+
+/** A pill that is on or off, for choosing among a few sources. Several can be on at once. */
+export function ToggleChip({ label, pressed, onChange, disabled }: { label: string; pressed: boolean; onChange: (on: boolean) => void; disabled?: boolean }) {
+  return (
+    <button type="button" className="lt-chip-toggle" aria-pressed={pressed} disabled={disabled} onClick={() => onChange(!pressed)}>
+      <span className="lt-chip-mark" aria-hidden="true">{pressed ? "✓" : ""}</span>{label}
+    </button>
+  );
+}
+
+/** A whole card that picks the thing it shows. The label names it for assistive technology. */
+export function PickCard({ label, selected, onPick, children }: { label: string; selected: boolean; onPick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" className="lt-cand lt-card-pick" aria-label={label} aria-pressed={selected} onClick={onPick}>{children}</button>
+  );
+}

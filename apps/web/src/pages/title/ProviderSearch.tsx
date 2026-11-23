@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { adminOp, api, ApiError } from "../../api/client";
 import type { MetadataField, ProviderCandidate, ProviderResult, ProviderSearchResults } from "../../api/types";
-import { Badge, Busy, Button, CheckboxField, Drawer, ErrorBox, icons, Row, SegmentedField, Text, TextField } from "../../ui";
+import { Badge, Busy, Button, Drawer, ErrorBox, icons, PickCard, Row, SegmentedField, Text, TextField, ToggleChip } from "../../ui";
 import { show } from "./metadataFields";
 import { defaultAction, reviewFields, valueFor, type Action, type ReviewRow } from "./reviewFields";
 
@@ -76,12 +76,13 @@ export function ProviderDialog({ subject, report, onClose, onApplied }: { subjec
   const useAll = () => setPlan((p) => ({ ...p, ...Object.fromEntries(allRows.filter((r) => !r.same).map((r) => [r.field, r.kind === "list" ? "merge" : "use"])) }));
   const keepAll = () => setPlan((p) => ({ ...p, ...Object.fromEntries(allRows.map((r) => [r.field, "keep"])) }));
 
-  const selected = only ?? new Set(known);
   const providers = (): string[] | undefined => (only && only.size > 0 && only.size < known.length ? [...only] : undefined);
-  const toggle = (name: string, on: boolean) => {
-    const next = new Set(selected);
-    if (on) next.add(name); else next.delete(name);
-    setOnly(next.size === known.length ? null : next);
+  // With All on, picking a source narrows the search to just that one; after that, sources are added or removed one by one.
+  // Nothing picked, or every source picked, is All again.
+  const toggle = (name: string) => {
+    const next = only === null ? new Set([name]) : new Set(only);
+    if (only !== null) { if (next.has(name)) next.delete(name); else next.add(name); }
+    setOnly(next.size === 0 || next.size === known.length ? null : next);
   };
   const run = (fresh = false) => search.mutate({
     title: title.trim(), authors: authors.split(/[\n,]/).map((s) => s.trim()).filter(Boolean), isbn: isbn.trim(),
@@ -110,13 +111,15 @@ export function ProviderDialog({ subject, report, onClose, onApplied }: { subjec
             <TextField label="ISBN" description="10 or 13 characters without hyphens." value={isbn} onValue={setIsbn} />
             {!edition && <TextField label="ASIN" description="Audible identifier, 10 characters." value={asin} onValue={setAsin} />}
             {known.length > 1 && (
-              <fieldset className="lt-ps-sources">
-                <legend>Sources</legend>
-                <CheckboxField label="All" checked={selected.size === known.length} onChange={(on) => setOnly(on ? null : new Set())} />
-                {known.map((p) => <CheckboxField key={p} label={PROVIDER_NAME[p] ?? p} checked={selected.has(p)} onChange={(on) => toggle(p, on)} />)}
-              </fieldset>
+              <div className="lt-ps-sources" role="group" aria-label="Sources">
+                <span className="lt-ps-sources-cap">Sources</span>
+                <div className="lt-ps-chips">
+                  <ToggleChip label="All" pressed={only === null} onChange={() => setOnly(null)} />
+                  {known.map((p) => <ToggleChip key={p} label={PROVIDER_NAME[p] ?? p} pressed={only !== null && only.has(p)} onChange={() => toggle(p)} />)}
+                </div>
+              </div>
             )}
-            <Button type="submit" variant="primary" block icon={icons.search} loading={search.isPending} disabled={known.length > 1 && selected.size === 0}>Search</Button>
+            <Button type="submit" variant="primary" block icon={icons.search} loading={search.isPending} >Search</Button>
           </form>
           {search.isPending && !data && <Busy />}
           <ErrorBox error={search.error} />
@@ -169,16 +172,15 @@ function ResultBlock({ result, picked, onChoose }: { result: ProviderResult; pic
     <div className="lt-cand-group">
       <div className="lt-cand-source"><Text strong>{PROVIDER_NAME[result.provider] ?? result.provider}</Text>{result.cached && <Badge tone="neutral">Saved</Badge>}{STATUS_TEXT[result.status] && <Text size="sm" tone="dim">{STATUS_TEXT[result.status]}</Text>}</div>
       {result.candidates.map((c) => (
-        <div key={c.id} className="lt-cand" data-selected={picked === c.id || undefined}>
-          <div className="lt-cand-main">
-            <Text>{show(c.fields.title) || "(untitled)"}{c.fields.authors ? ` · ${show(c.fields.authors)}` : ""}</Text>
-            <Row gap="xs" wrap>
+        <PickCard key={c.id} selected={picked === c.id} onPick={() => onChoose(c)} label={`Review ${show(c.fields.title) || "result"} from ${PROVIDER_NAME[result.provider] ?? result.provider}`}>
+          <span className="lt-cand-main">
+            <span>{show(c.fields.title) || "(untitled)"}{c.fields.authors ? ` · ${show(c.fields.authors)}` : ""}</span>
+            <span className="lt-cand-badges">
               {c.byIdentifier && <Badge tone="success">Exact ISBN match</Badge>}
               <Badge tone={c.consistent ? "info" : "warning"}>{c.consistent ? "Title and authors agree" : "Differs from this edition"}</Badge>
-            </Row>
-          </div>
-          <Button size="sm" icon={icons.check} onClick={() => onChoose(c)} aria-label={`Review ${show(c.fields.title) || "result"} from ${PROVIDER_NAME[result.provider] ?? result.provider}`}>Review</Button>
-        </div>
+            </span>
+          </span>
+        </PickCard>
       ))}
     </div>
   );

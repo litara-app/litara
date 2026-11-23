@@ -155,7 +155,7 @@ test("a search can be limited to some of the providers, and every provider is se
   setup();
   fireEvent.click(screen.getByRole("button", { name: "Search online" }));
   await screen.findByText("Exact ISBN match");
-  fireEvent.click(screen.getByRole("checkbox", { name: "Google Books", hidden: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Open Library", hidden: true }));
   fireEvent.click(screen.getByRole("button", { name: "Search", hidden: true }));
   await waitFor(() => expect(api.mock.calls.filter((c) => String(c[1]).endsWith("/provider-search")).length).toBe(2));
   const second = api.mock.calls.filter((c) => String(c[1]).endsWith("/provider-search"))[1][2] as { providers?: string[] };
