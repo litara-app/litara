@@ -12,6 +12,7 @@ import { profileMismatch } from "./profile";
 import { loadReaderOrigin, ReaderHost, type PaintedAnnotation, type ReaderEvent, type ReaderFont, type ReaderKind, type ReaderStyle } from "./host";
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
 import { usePositionSaver } from "./usePositionSaver";
+import { isBundledFont, loadFontFaces } from "./fonts";
 import { QuietReveal, useQuietBar } from "./useQuietBar";
 
 interface TocItem { label: string; href: string | null; items: TocItem[] }
@@ -30,7 +31,7 @@ function loadStyle(): ReaderStyle {
 }
 
 const THEME_ITEMS = [{ value: "light", label: "Light" }, { value: "sepia", label: "Sepia" }, { value: "dark", label: "Dark" }];
-const FONT_ITEMS = [{ value: "publisher", label: "The book's own" }, { value: "serif", label: "Serif (Georgia)" }, { value: "sans", label: "Sans (system)" }, { value: "humanist", label: "Humanist sans" }, { value: "mono", label: "Monospace" }];
+const FONT_ITEMS = [{ value: "publisher", label: "The book's own" }, { value: "literata", label: "Literata (serif)" }, { value: "atkinson", label: "Atkinson Hyperlegible (sans)" }, { value: "dyslexic", label: "OpenDyslexic" }, { value: "serif", label: "System serif" }, { value: "sans", label: "System sans" }, { value: "mono", label: "Monospace" }];
 const FLOW_ITEMS = [{ value: "paginated", label: "Pages" }, { value: "scrolled", label: "Scroll" }];
 
 function TocList({ items, onPick }: { items: TocItem[]; onPick: (href: string) => void }) {
@@ -264,6 +265,14 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   }, [e.id, e.file.contentVersion]);
 
   useEffect(() => { if (loaded) hostRef.current?.setStyle(style); }, [loaded, style]);
+  // A bundled font is fetched the first time it is picked, then handed to the reader frame.
+  const sentFonts = useRef(new Set<string>());
+  useEffect(() => {
+    const f = style.font;
+    if (!loaded || !isBundledFont(f) || sentFonts.current.has(f)) return;
+    sentFonts.current.add(f);
+    loadFontFaces(f).then((faces) => hostRef.current?.setFonts(f, faces)).catch(() => { sentFonts.current.delete(f); setNotice("That font could not be loaded, so the book's own font is shown."); });
+  }, [loaded, style.font]);
   useEffect(() => { if (loaded) hostRef.current?.setAnnotations(painted); }, [loaded, painted]);
   useEffect(() => {
     if (!loaded || kind === "pdf") return;

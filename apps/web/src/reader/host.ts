@@ -28,7 +28,7 @@ export interface OpenOptions {
 }
 
 export type ReaderTheme = "light" | "sepia" | "dark";
-export type ReaderFont = "publisher" | "serif" | "sans" | "humanist" | "mono";
+export type ReaderFont = "publisher" | "literata" | "atkinson" | "dyslexic" | "serif" | "sans" | "mono";
 export interface ReaderStyle { fontPct: number; theme: ReaderTheme; flow: "paginated" | "scrolled"; font?: ReaderFont }
 export interface PaintedAnnotation { id: string; cfi?: string; pdf?: { pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] }; kind: "highlight" | "note" }
 
@@ -88,6 +88,8 @@ export class ReaderHost {
   nav(dir: "next" | "prev") { this.post({ t: "nav", dir }); }
   setStyle(style: ReaderStyle) { this.post({ t: "style", ...style }); }
   setAnnotations(items: PaintedAnnotation[]) { this.post({ t: "annotations", items }); }
+  /** Hands the frame a bundled font's files (ADR-0091). The frame's policy allows only blob and data fonts, so the bytes travel over the channel. */
+  setFonts(id: string, faces: { weight: number; style: string; buffer: ArrayBuffer }[]) { this.post({ t: "fonts", id, faces }, faces.map((f) => f.buffer)); }
   /** Asks where each annotation sits in the book; the answer arrives as a located event. */
   locate(items: { id: string; cfi: string }[]) { this.post({ t: "locate", items }); }
   setPdfMode(mode: "off" | "area") { this.post({ t: "pdf-mode", mode }); }

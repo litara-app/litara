@@ -58,6 +58,7 @@ function onPortMessage(event) {
     case 'nav': return void session?.nav?.(m.dir === 'prev' ? 'prev' : 'next');
     case 'style': return void session?.style?.(m);
     case 'annotations': return void session?.annotations?.(Array.isArray(m.items) ? m.items : []);
+    case 'fonts': return void session?.fonts?.(m);
     case 'locate': return void session?.locate?.(Array.isArray(m.items) ? m.items : []);
     case 'clear-selection': return void session?.clearSelection?.();
     case 'pdf-mode': return void session?.pdfMode?.(m.mode === 'area' ? 'area' : 'off');
@@ -200,7 +201,10 @@ const THEMES = {
 const FONTS = {
   serif: 'Georgia, "Times New Roman", serif',
   sans: 'system-ui, "Segoe UI", Helvetica, Arial, sans-serif',
-  humanist: '"Gill Sans", "Gill Sans MT", Candara, Calibri, "Trebuchet MS", sans-serif',
+  // Bundled families arrive as bytes over the channel (ADR-0091) and are declared under these names.
+  literata: '"Litara Literata", Georgia, serif',
+  atkinson: '"Litara Atkinson Hyperlegible", system-ui, sans-serif',
+  dyslexic: '"Litara OpenDyslexic", "Comic Sans MS", sans-serif',
   mono: 'ui-monospace, Consolas, "Courier New", monospace',
 };
 // Where a selection sits, in this frame's coordinates, so the parent can put its popup next to the text.
@@ -210,6 +214,7 @@ const rectOf = (range, el) => {
   const n = v => (Number.isFinite(v) ? Math.round(v) : 0);
   return { x: n(r.left + (f?.left ?? 0)), y: n(r.top + (f?.top ?? 0)), width: n(r.width), height: n(r.height) };
 };
+const FAMILY = { literata: 'Litara Literata', atkinson: 'Litara Atkinson Hyperlegible', dyslexic: 'Litara OpenDyslexic' };
 const HIGHLIGHT = { highlight: '#ffd54a', note: '#7ec8ff' };
 
 function toc(items, depth = 0) {
@@ -269,14 +274,19 @@ async function mountFoliate(book, restore) {
   } else await view.init({ showTextStart: true });
   if (!restored) send({ t: 'restore-failed', generation }); // never substitute a percentage for an unresolved CFI
 
-  const applyStyle = ({ fontPct, theme, flow, font }) => {
+  let lastStyle = {};
+  const faceCss = {};
+  const fontUrls = [];
+  const applyStyle = (s = {}) => {
+    lastStyle = s;
+    const { fontPct, theme, flow, font } = s;
     const t = THEMES[theme] ?? THEMES.light;
     const pct = Number.isFinite(fontPct) ? Math.min(250, Math.max(60, fontPct)) : 100;
     document.documentElement.style.background = t.bg;
     view.renderer?.setAttribute?.('flow', flow === 'scrolled' ? 'scrolled' : 'paginated');
     const stack = FONTS[font];
     const face = stack ? `html, body, body :not(pre):not(code):not(kbd):not(samp) { font-family: ${stack} !important; }` : '';
-    view.renderer?.setStyles?.(`html { color: ${t.fg}; background: ${t.bg}; font-size: ${pct}% !important; } a { color: inherit; } ${face}`);
+    view.renderer?.setStyles?.(`${faceCss[font] ?? ''} html { color: ${t.fg}; background: ${t.bg}; font-size: ${pct}% !important; } a { color: inherit; } ${face}`);
   };
   applyStyle({});
   const paint = async next => {
@@ -289,7 +299,7 @@ async function mountFoliate(book, restore) {
     }
   };
   session = {
-    dispose: () => { clearTimeout(selTimer); view.close?.(); view.remove(); },
+    dispose: () => { clearTimeout(selTimer); fontUrls.forEach(u => URL.revokeObjectURL(u)); view.close?.(); view.remove(); },
     async goto(m) {
       if (typeof m.cfi === 'string') return void (await view.goTo(m.cfi));
       if (typeof m.href === 'string') return void (await view.goTo(m.href));
@@ -297,6 +307,20 @@ async function mountFoliate(book, restore) {
     },
     async nav(dir) { await (dir === 'prev' ? view.prev() : view.next()); },
     style: applyStyle,
+    // A bundled font's files: declare the family from blob URLs, then apply the style again.
+    fonts: m => {
+      const family = FAMILY[m.id];
+      if (!family || !Array.isArray(m.faces) || faceCss[m.id]) return;
+      const css = [];
+      for (const f of m.faces.slice(0, 8)) {
+        if (!(f?.buffer instanceof ArrayBuffer) || f.buffer.byteLength > 400000) continue;
+        const url = URL.createObjectURL(new Blob([f.buffer], { type: 'font/woff2' }));
+        fontUrls.push(url);
+        css.push('@font-face{font-family:"' + family + '";font-weight:' + (f.weight === 700 ? 700 : 400) + ';font-style:' + (f.style === 'italic' ? 'italic' : 'normal') + ';src:url(' + url + ') format("woff2");}');
+      }
+      faceCss[m.id] = css.join('');
+      applyStyle(lastStyle);
+    },
     annotations: paint,
     // Where each annotation sits in the book (to the chapter it is in), for the timeline.
     locate: list => {
