@@ -1,6 +1,6 @@
 # ADR-0093: Bring the web reader's features to the Android reader
 
-Status: Proposed
+Status: Accepted
 Date: 2026-11-22
 Decision owner: Repository owner
 
@@ -17,7 +17,16 @@ What exists today, from the code:
 
 ## Decision
 
-Proposed, not accepted. The owner asked for options.
+On 2026-11-23 the owner chose option 3b first: the web reader's engine is shared with Android and the Kotlin chrome stays. Whether to go on to option 3a later was not decided and is left until the cost of rebuilding chrome in Kotlin is known. The options below are kept as the context for that choice.
+
+What the choice means, concretely:
+
+- The web engine (`apps/web/public/reader/`: `bridge.js`, pristine Foliate, PDF.js and the message protocol) is the single source. Android gets it as a build output copied into its assets, not as a second hand-edited copy. A check fails the Android build when the bundled copy differs from the web source or when the engine profile differs from the server's.
+- Android's modified Foliate and its own `bridge.js` are retired for ebooks and PDFs only after shared locator fixtures show that saved positions and annotations resolve at the same place. Where they do not, nothing is relabelled as compatible (see Open questions).
+- The Kotlin chrome stays and is brought to the web layout one feature at a time against the same message protocol: auto-hiding toolbar, ribbon bookmark, timeline marks, fonts (the bundled font files travel over the same channel as on the web), selection popup, text settings.
+- Web code is MIT and may be bundled into the AGPL app. Nothing from the AGPL Android reader is copied back into the web source (ADR-0017).
+
+The options as proposed:
 
 ### Option 1: Port each feature into the Android reader
 
@@ -42,7 +51,7 @@ Build the web reader as a versioned package and ship it in the APK, loaded from 
 - For both: offline works, the reader updates with the app, and release is controlled. The cost is remembering to rebuild and ship the bundle whenever the web reader changes. A check that the bundled engine profile equals the server's can warn when they differ.
 - Against: the first step needs locator fixtures to prove that existing Android positions and annotations still resolve with pristine Foliate. Where they do not, a migration or a fallback is needed.
 
-### Recommendation
+### Recommendation (accepted for the first step)
 
 Do 3b first, then decide on 3a. 3b is the lowest-risk step, it removes the engine divergence that makes the two readers incompatible, and it does not depend on the chrome choice. The shared engine, locator fixtures and bundled fonts are needed under 3a as well. If rebuilding the chrome in Kotlin for each web feature proves too costly, move to 3a on top of the same bundle. Option 1 is not recommended, because it leaves the drift in place. Option 2 is not recommended, because it breaks offline reading.
 
@@ -60,7 +69,7 @@ Planned, not done: shared locator fixtures resolve identically in the bundled en
 
 ## Open questions
 
-- Which option: 1, 2, 3a or 3b, or 3b first with 3a later as recommended.
+- Whether to move on to 3a later, after the first step.
 - What to do with locators from the current Android engine that do not resolve in pristine Foliate.
 - Whether comics stay native.
 - Whether Android sends reading sessions (ADR-0092).
