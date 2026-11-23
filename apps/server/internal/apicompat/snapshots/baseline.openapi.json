@@ -4022,6 +4022,18 @@
           "fresh": {
             "type": "boolean"
           },
+          "providers": {
+            "description": "Search only these providers, which must also be enabled for the library. Omit to search every enabled provider.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "type": [
+              "array",
+              "null"
+            ],
+            "uniqueItems": true
+          },
           "query": {
             "$ref": "#/components/schemas/T005ProviderQuery"
           }

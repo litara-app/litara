@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -288,7 +289,7 @@ type SearchOutcome struct {
 	Enabled bool
 	// TitleMatch is the library's setting that lets auto-fill use one clear title-and-author match (ADR-0090).
 	TitleMatch bool
-	Results []ProviderResult
+	Results    []ProviderResult
 }
 
 // SearchOptions select the providers searched and whether the cache is bypassed.
@@ -297,6 +298,8 @@ type SearchOptions struct {
 	Audio bool
 	// Fresh ignores cached results and refreshes them.
 	Fresh bool
+	// Only limits the search to these providers; empty searches every enabled one.
+	Only []string
 }
 
 var knownProviders = map[string]bool{ProviderOpenLibrary: true, ProviderGoogleBooks: true, ProviderAudnexus: true, ProviderHardcover: true}
@@ -316,6 +319,9 @@ func (e *Enricher) Search(ctx context.Context, lib uuid.UUID, q Query, opts Sear
 			continue
 		}
 		out.Enabled = true
+		if len(opts.Only) > 0 && !slices.Contains(opts.Only, name) {
+			continue
+		}
 		res := ProviderResult{Provider: name, Status: "ok", Candidates: []Candidate{}}
 		p, ok := e.Providers[name]
 		if !ok {

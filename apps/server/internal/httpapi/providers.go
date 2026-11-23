@@ -79,7 +79,7 @@ func (a *API) registerRecordingProviders(api huma.API) {
 			}
 			q.ASIN = x
 		}
-		res, err := a.Enricher.Search(ctx, lib, q, metadata.SearchOptions{Audio: true, Fresh: in.Body.Fresh})
+		res, err := a.Enricher.Search(ctx, lib, q, metadata.SearchOptions{Audio: true, Fresh: in.Body.Fresh, Only: in.Body.Providers})
 		if err != nil {
 			return nil, a.fail(ctx, err)
 		}

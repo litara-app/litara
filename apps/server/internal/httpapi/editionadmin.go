@@ -141,7 +141,7 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			res, err := a.Enricher.Search(ctx, lib, metadata.Query{Title: q.Title, Authors: q.Authors, ISBN: q.ISBN}, metadata.SearchOptions{Fresh: in.Body.Fresh})
+			res, err := a.Enricher.Search(ctx, lib, metadata.Query{Title: q.Title, Authors: q.Authors, ISBN: q.ISBN}, metadata.SearchOptions{Fresh: in.Body.Fresh, Only: in.Body.Providers})
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}

@@ -91,6 +91,8 @@ type T005ProviderSearch struct {
 	Query T005ProviderQuery `json:"query"`
 	// Fresh skips the short-lived search cache and refreshes it.
 	Fresh bool `json:"fresh,omitempty"`
+	// Providers limits the search to some of the library's enabled providers. Empty searches all of them.
+	Providers []string `json:"providers,omitempty" maxItems:"4" uniqueItems:"true" items.enum:"open_library,google_books,audnexus,hardcover" doc:"Search only these providers, which must also be enabled for the library. Omit to search every enabled provider."`
 }
 
 // T005ProviderCandidate is one result to review; Consistent never authorizes an automatic change.

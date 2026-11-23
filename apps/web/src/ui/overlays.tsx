@@ -28,8 +28,8 @@ export function Modal({ open, onClose, title, description, actions, children }: 
  * visible beside it. Actions go in a footer that stays in view while the body scrolls. Use a Modal for a short
  * decision that must be answered first.
  */
-export function Drawer({ open, onClose, title, description, actions, size = "md", side = "right", children }: {
-  open: boolean; onClose: () => void; title: string; description?: ReactNode; actions?: ReactNode; size?: "md" | "lg"; side?: "right" | "bottom"; children: ReactNode;
+export function Drawer({ open, onClose, title, description, actions, size = "md", flush, side = "right", children }: {
+  open: boolean; onClose: () => void; title: string; description?: ReactNode; actions?: ReactNode; size?: "md" | "lg" | "xl"; /** No padding or scrolling of its own: the content lays itself out in panes. */ flush?: boolean; side?: "right" | "bottom"; children: ReactNode;
 }) {
   return (
     <SdkDrawer open={open} onOpenChange={(o) => { if (!o) onClose(); }} side={side}>
@@ -39,7 +39,7 @@ export function Drawer({ open, onClose, title, description, actions, size = "md"
           <DrawerTitle>{title}</DrawerTitle>
           <DrawerClose aria-label={`Close ${title}`} className="lt-btn" data-variant="subtle" data-size="sm">Close</DrawerClose>
         </div>
-        <div className="lt-drawer-body">
+        <div className="lt-drawer-body" data-flush={flush || undefined}>
           {description && <DrawerDescription className="lt-drawer-desc">{description}</DrawerDescription>}
           {children}
         </div>

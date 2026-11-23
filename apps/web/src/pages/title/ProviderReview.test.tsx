@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { MetadataReport, ProviderCandidate } from "../../api/types";
 import { currentNotices } from "../../ui/notify";
@@ -142,10 +142,45 @@ test("saved results are labelled and Search again bypasses the cache; an unconfi
   setup();
   fireEvent.click(screen.getByRole("button", { name: "Search online" }));
   expect(await screen.findByText("Saved")).toBeTruthy();
-  expect(screen.getByText("Hardcover")).toBeTruthy();
+  expect(screen.getAllByText("Hardcover").length).toBeGreaterThan(0);
   expect(screen.getByText(/needs to add its access token/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Search again", hidden: true }));
   await waitFor(() => expect(api.mock.calls.filter((c) => String(c[1]).endsWith("/provider-search")).length).toBe(2));
   const second = api.mock.calls.filter((c) => String(c[1]).endsWith("/provider-search"))[1][2] as { fresh?: boolean };
   expect(second.fresh).toBe(true);
+});
+
+test("a search can be limited to some of the providers, and every provider is searched by default", async () => {
+  api.mockClear();
+  setup();
+  fireEvent.click(screen.getByRole("button", { name: "Search online" }));
+  await screen.findByText("Exact ISBN match");
+  fireEvent.click(screen.getByRole("checkbox", { name: "Google Books", hidden: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Search", hidden: true }));
+  await waitFor(() => expect(api.mock.calls.filter((c) => String(c[1]).endsWith("/provider-search")).length).toBe(2));
+  const second = api.mock.calls.filter((c) => String(c[1]).endsWith("/provider-search"))[1][2] as { providers?: string[] };
+  expect(second.providers).toEqual(["open_library"]);
+});
+
+test("every offered field can be seen, and a list field can be merged or replaced", async () => {
+  api.mockClear();
+  const withList = { ...candidate, fields: { ...candidate.fields, genres: ["Fantasy", "Fiction"] } };
+  const rep = { editionId: "E1", revision: "4", fields: [...report.fields, { field: "genres", source: "embedded", cleared: false, value: ["Fiction", "Magic"], conflicts: [] }] };
+  api.mockImplementationOnce(async () => ({ ...results, results: [{ provider: "open_library", status: "ok", candidates: [withList] }] }));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ProviderReview subject={{ kind: "edition", id: "E1" }} report={rep} onApplied={vi.fn()} onDraft={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Search online" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Review Off Armageddon Reef/, hidden: true }));
+  const review = await screen.findByTestId("provider-review");
+  expect(review.textContent).not.toMatch(/Language/); // identical, so only under All fields
+  fireEvent.click(screen.getByRole("radio", { name: /All fields/, hidden: true }));
+  expect(screen.getByTestId("provider-review").textContent).toMatch(/Language/);
+  fireEvent.click(within(screen.getByRole("radiogroup", { name: "What to do with genres", hidden: true })).getByRole("radio", { name: "Merge", hidden: true }));
+  fireEvent.click(screen.getByRole("button", { name: /^Apply 3 fields/, hidden: true }));
+  await waitFor(() => expect(api.mock.calls.some((c) => c[1] === "/admin/editions/E1/metadata/genres")).toBe(true));
+  const put = api.mock.calls.find((c) => c[1] === "/admin/editions/E1/metadata/genres")!;
+  expect((put[2] as { value: unknown }).value).toEqual(["Fiction", "Magic", "Fantasy"]); // stored items first, new ones added
 });
