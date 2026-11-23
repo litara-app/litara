@@ -134,6 +134,9 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0088](0088-goodreads-amazon-and-audible-metadata.md) | Decide whether to use Goodreads, Amazon and Audible metadata | Proposed |
 | [0089](0089-notification-system.md) | Route responses to actions through a notification system | Accepted |
 | [0090](0090-auto-fill-from-a-single-title-and-author-match.md) | Let auto-fill use one clear title-and-author match when a book has no identifier | Accepted |
+| [0091](0091-bundle-open-licensed-reading-fonts.md) | Bundle open-licensed reading fonts with the app | Accepted |
+| [0092](0092-record-reading-sessions.md) | Record every reading session | Accepted |
+| [0093](0093-android-reader-parity-with-the-web-reader.md) | Bring the web reader's features to the Android reader | Proposed |
 
 ## Workflow
 
