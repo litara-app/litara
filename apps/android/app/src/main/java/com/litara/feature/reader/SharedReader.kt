@@ -46,6 +46,11 @@ sealed interface SharedEvent {
     data class Selection(val text: String, val cfi: String?, val rect: ViewportRect?) : SharedEvent
     data object SelectionCleared : SharedEvent
     data class AnnotationClick(val id: String) : SharedEvent
+    /** A tap on plain page text: [x] and [y] are 0..1 across the frame. */
+    data class Tap(val x: Double, val y: Double) : SharedEvent
+    data class SearchResults(val label: String, val hits: List<SearchHit>) : SharedEvent
+    data class SearchProgress(val progress: Double) : SharedEvent
+    data class SearchDone(val total: Int, val capped: Boolean, val unsupported: Boolean) : SharedEvent
     data object RestoreFailed : SharedEvent
     data class Failure(val code: String, val detail: String) : SharedEvent
     data class Located(val positions: Map<String, Double>) : SharedEvent
@@ -104,6 +109,17 @@ object SharedReaderProtocol {
                 if ((o["cleared"] as? JsonPrimitive)?.booleanOrNull == true) SharedEvent.SelectionCleared
                 else SharedEvent.Selection(str("text").orEmpty(), str("cfi"), rect(o["rect"]))
             "annotation-click" -> str("id")?.let { SharedEvent.AnnotationClick(it) } ?: SharedEvent.Other
+            "tap" -> SharedEvent.Tap(dbl("x") ?: 0.0, dbl("y") ?: 0.0)
+            "search-results" -> SharedEvent.SearchResults(
+                str("label").orEmpty(),
+                (o["items"] as? JsonArray)?.mapNotNull {
+                    val h = it as? JsonObject ?: return@mapNotNull null
+                    val cfi = h["cfi"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                    SearchHit(cfi, h["pre"]?.jsonPrimitive?.contentOrNull.orEmpty(), h["match"]?.jsonPrimitive?.contentOrNull.orEmpty(), h["post"]?.jsonPrimitive?.contentOrNull.orEmpty())
+                }.orEmpty(),
+            )
+            "search-progress" -> SharedEvent.SearchProgress(dbl("progress") ?: 0.0)
+            "search-done" -> SharedEvent.SearchDone(int("total") ?: 0, (o["capped"] as? JsonPrimitive)?.booleanOrNull == true, (o["unsupported"] as? JsonPrimitive)?.booleanOrNull == true)
             "restore-failed" -> SharedEvent.RestoreFailed
             "error" -> SharedEvent.Failure(str("code").orEmpty(), str("detail").orEmpty())
             "located" -> SharedEvent.Located(
@@ -137,6 +153,8 @@ object SharedReaderProtocol {
     fun gotoFraction(fraction: Double): String = buildJsonObject { put("t", "goto"); put("fraction", fraction) }.toString()
     fun gotoPage(pageIndex: Int): String = buildJsonObject { put("t", "goto"); put("pageIndex", pageIndex) }.toString()
     fun nav(next: Boolean): String = buildJsonObject { put("t", "nav"); put("dir", if (next) "next" else "prev") }.toString()
+    fun search(query: String, max: Int = 500): String = buildJsonObject { put("t", "search"); put("query", query); put("max", max) }.toString()
+    fun clearSearch(): String = buildJsonObject { put("t", "clear-search") }.toString()
     fun clearSelection(): String = buildJsonObject { put("t", "clear-selection") }.toString()
     fun close(): String = buildJsonObject { put("t", "close") }.toString()
 
@@ -147,6 +165,12 @@ object SharedReaderProtocol {
         put("theme", themeFor(settings))
         put("flow", if (settings.flow == "scrolled") "scrolled" else "paginated")
         fontKeyFor(settings.fontFamily)?.let { put("font", it) }
+        put("lineHeight", settings.lineHeight)
+        put("justify", settings.justify)
+        put("hyphenate", settings.hyphenate)
+        put("maxColumns", settings.maxColumnCount)
+        put("gapPct", (settings.gap * 100).coerceIn(0.0, 20.0))
+        put("maxInlineSize", settings.maxInlineSize)
     }.toString()
 
     fun pdfStyle(fontPct: Int, theme: String): String = buildJsonObject {
@@ -168,14 +192,33 @@ object SharedReaderProtocol {
         else -> null
     }
 
-    /** Highlights to paint. The shared frame paints a fixed colour per kind, so the legacy colour and style are not carried. */
+    private val NAMED = mapOf(
+        "yellow" to "#facc15", "green" to "#4ade80", "blue" to "#60a5fa", "red" to "#f87171",
+        "pink" to "#f472b6", "orange" to "#fb923c", "purple" to "#c084fc",
+    )
+
+    /** The frame takes only `#hex`; a CSS name from another client maps to a close hex, anything else to the default yellow. */
+    internal fun hexColor(value: String): String =
+        if (Regex("^#[0-9a-fA-F]{6}$").matches(value)) value else NAMED[value.lowercase()] ?: "#facc15"
+
+    internal fun drawStyle(style: String): String = when (style.lowercase()) {
+        "underline" -> "underline"
+        "squiggly", "wavy" -> "squiggly"
+        "strikethrough", "strike" -> "strikethrough"
+        else -> "highlight"
+    }
+
+    /** Highlights to paint, each with its own colour and style. */
     fun annotations(items: List<com.litara.core.model.BookAnnotation>): String = buildJsonObject {
         put("t", "annotations")
         put("items", buildJsonArray {
             for (a in items) {
                 val cfi = a.cfi ?: continue
                 if (a.positionStatus == "failed") continue
-                add(buildJsonObject { put("id", cfi); put("cfi", cfi); put("kind", if (a.note.isNullOrBlank()) "highlight" else "note") })
+                add(buildJsonObject {
+                    put("id", cfi); put("cfi", cfi); put("kind", if (a.note.isNullOrBlank()) "highlight" else "note")
+                    put("color", hexColor(a.color)); put("style", drawStyle(a.style))
+                })
             }
         })
     }.toString()

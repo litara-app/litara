@@ -61,6 +61,8 @@ function onPortMessage(event) {
     case 'fonts': return void session?.fonts?.(m);
     case 'locate': return void session?.locate?.(Array.isArray(m.items) ? m.items : []);
     case 'clear-selection': return void session?.clearSelection?.();
+    case 'search': return void session?.search?.(m);
+    case 'clear-search': return void session?.clearSearch?.();
     case 'pdf-mode': return void session?.pdfMode?.(m.mode === 'area' ? 'area' : 'off');
     default: return;
   }
@@ -216,6 +218,18 @@ const rectOf = (range, el) => {
 };
 const FAMILY = { literata: 'Litara Literata', atkinson: 'Litara Atkinson Hyperlegible', dyslexic: 'Litara OpenDyslexic' };
 const HIGHLIGHT = { highlight: '#ffd54a', note: '#7ec8ff' };
+// Per-annotation appearance is optional: a CSS hex colour and one of the overlay styles. Anything else falls back to the kind's default.
+const DRAW_STYLES = new Set(['highlight', 'underline', 'squiggly', 'strikethrough']);
+const safeColor = c => (typeof c === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : null);
+const safeStyle = s => (DRAW_STYLES.has(s) ? s : 'highlight');
+const MAX_SEARCH_HITS = 500;
+const clampNum = (v, lo, hi) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : null);
+// Where a tap landed, as fractions of this frame, so the parent can map screen zones (edges turn the page, the middle toggles chrome).
+const tapPoint = (e, el) => {
+  const f = el?.getBoundingClientRect?.();
+  const w = window.innerWidth || 1, h = window.innerHeight || 1;
+  return { x: clampNum(((e.clientX ?? 0) + (f?.left ?? 0)) / w, 0, 1) ?? 0, y: clampNum(((e.clientY ?? 0) + (f?.top ?? 0)) / h, 0, 1) ?? 0 };
+};
 
 function toc(items, depth = 0) {
   if (!Array.isArray(items) || depth > 6) return [];
@@ -232,6 +246,7 @@ async function mountFoliate(book, restore) {
   const view = document.createElement('foliate-view');
   document.getElementById('stage').append(view);
   let items = []; // [{id, cfi, kind}] painted highlights
+  let searchToken = 0;
   const byValue = new Map();
   let selTimer = 0;
   // Embedded links must never navigate; report them to the parent instead.
@@ -244,15 +259,24 @@ async function mountFoliate(book, restore) {
   });
   view.addEventListener('draw-annotation', e => {
     const { draw, annotation } = e.detail;
-    draw(Overlayer.highlight, { color: HIGHLIGHT[annotation.kind] ?? HIGHLIGHT.highlight });
+    draw(Overlayer[safeStyle(annotation.style)], { color: safeColor(annotation.color) ?? HIGHLIGHT[annotation.kind] ?? HIGHLIGHT.highlight });
   });
+  let lastAnnotationClick = 0;
   view.addEventListener('show-annotation', e => {
     const id = byValue.get(e.detail.value);
-    if (id) send({ t: 'annotation-click', generation, id });
+    if (id) { lastAnnotationClick = Date.now(); send({ t: 'annotation-click', generation, id }); }
   });
   view.addEventListener('load', e => {
     const { doc, index } = e.detail;
     forwardKeys(doc);
+    // A tap on plain text: not on a link, not ending a selection, not on a highlight. Reported after a beat so the
+    // highlight click (which arrives from the overlay) can claim it first.
+    doc.addEventListener('click', e => {
+      if (e.defaultPrevented || e.button > 0 || e.target?.closest?.('a[href]')) return;
+      if (doc.getSelection()?.isCollapsed === false) return;
+      const at = tapPoint(e, doc.defaultView?.frameElement);
+      setTimeout(() => { if (Date.now() - lastAnnotationClick > 100) send({ t: 'tap', generation, ...at }); }, 30);
+    });
     doc.addEventListener('selectionchange', () => {
       clearTimeout(selTimer);
       selTimer = setTimeout(() => {
@@ -280,13 +304,24 @@ async function mountFoliate(book, restore) {
   const applyStyle = (s = {}) => {
     lastStyle = s;
     const { fontPct, theme, flow, font } = s;
+    const lineHeight = clampNum(s.lineHeight, 0.8, 3);
+    const cols = clampNum(s.maxColumns, 1, 4);
+    const gapPct = clampNum(s.gapPct, 0, 20);
+    const inline = clampNum(s.maxInlineSize, 300, 2000);
+    if (cols !== null) view.renderer?.setAttribute?.('max-column-count', String(Math.round(cols)));
+    if (gapPct !== null) view.renderer?.setAttribute?.('gap', `${gapPct}%`);
+    if (inline !== null) view.renderer?.setAttribute?.('max-inline-size', `${Math.round(inline)}px`);
+    const BLOCKS = 'body, body p, body li, body blockquote, body dd, body dt, body div';
+    const typo = (lineHeight !== null ? `${BLOCKS} { line-height: ${lineHeight} !important; } ` : '')
+      + (s.justify === true ? `${BLOCKS} { text-align: justify !important; } ` : s.justify === false ? `${BLOCKS} { text-align: start !important; } ` : '')
+      + (s.hyphenate === true ? 'html, body, body * { hyphens: auto !important; -webkit-hyphens: auto !important; } ' : s.hyphenate === false ? 'html, body, body * { hyphens: manual !important; -webkit-hyphens: manual !important; } ' : '');
     const t = THEMES[theme] ?? THEMES.light;
     const pct = Number.isFinite(fontPct) ? Math.min(250, Math.max(60, fontPct)) : 100;
     document.documentElement.style.background = t.bg;
     view.renderer?.setAttribute?.('flow', flow === 'scrolled' ? 'scrolled' : 'paginated');
     const stack = FONTS[font];
     const face = stack ? `html, body, body :not(pre):not(code):not(kbd):not(samp) { font-family: ${stack} !important; }` : '';
-    view.renderer?.setStyles?.(`${faceCss[font] ?? ''} html { color: ${t.fg}; background: ${t.bg}; font-size: ${pct}% !important; } a { color: inherit; } ${face}`);
+    view.renderer?.setStyles?.(`${faceCss[font] ?? ''} ${typo}html { color: ${t.fg}; background: ${t.bg}; font-size: ${pct}% !important; } a { color: inherit; } ${face}`);
   };
   applyStyle({});
   const paint = async next => {
@@ -295,11 +330,11 @@ async function mountFoliate(book, restore) {
     byValue.clear();
     for (const i of items) {
       byValue.set(i.cfi, i.id);
-      await view.addAnnotation({ value: i.cfi, kind: i.kind }).catch(() => {}); // an unresolved CFI is simply not painted
+      await view.addAnnotation({ value: i.cfi, kind: i.kind, color: safeColor(i.color), style: safeStyle(i.style) }).catch(() => {}); // an unresolved CFI is simply not painted
     }
   };
   session = {
-    dispose: () => { clearTimeout(selTimer); fontUrls.forEach(u => URL.revokeObjectURL(u)); view.close?.(); view.remove(); },
+    dispose: () => { searchToken++; clearTimeout(selTimer); fontUrls.forEach(u => URL.revokeObjectURL(u)); view.close?.(); view.remove(); },
     async goto(m) {
       if (typeof m.cfi === 'string') return void (await view.goTo(m.cfi));
       if (typeof m.href === 'string') return void (await view.goTo(m.href));
@@ -335,6 +370,28 @@ async function mountFoliate(book, restore) {
       }
       send({ t: 'located', generation, positions: out });
     },
+    // In-book search (Foliate's own matcher). Hits stream per chapter; a newer search or a clear cancels the running one.
+    async search(m) {
+      const query = typeof m.query === 'string' ? m.query.trim().slice(0, 256) : '';
+      const token = ++searchToken;
+      view.clearSearch();
+      if (!query) return send({ t: 'search-done', generation, total: 0, capped: false });
+      let total = 0, capped = false;
+      const cap = Math.round(clampNum(m.max, 1, MAX_SEARCH_HITS) ?? MAX_SEARCH_HITS);
+      for await (const r of view.search({ query, matchCase: m.matchCase === true, wholeWords: m.wholeWords === true, matchDiacritics: m.matchDiacritics === true })) {
+        if (token !== searchToken) return;
+        if (r === 'done') break;
+        if (typeof r.progress === 'number') { send({ t: 'search-progress', generation, progress: clampNum(r.progress, 0, 1) ?? 0 }); continue; }
+        const items = (r.subitems ?? []).filter(x => typeof x?.cfi === 'string' && x.cfi.length <= 16384).slice(0, cap - total).map(x => ({
+          cfi: x.cfi, pre: String(x.excerpt?.pre ?? '').slice(-80), match: String(x.excerpt?.match ?? '').slice(0, 200), post: String(x.excerpt?.post ?? '').slice(0, 80),
+        }));
+        total += items.length;
+        if (items.length) send({ t: 'search-results', generation, label: String(r.label ?? '').slice(0, 256), items });
+        if (total >= cap) { capped = true; break; }
+      }
+      if (token === searchToken) send({ t: 'search-done', generation, total, capped });
+    },
+    clearSearch: () => { searchToken++; view.clearSearch(); },
     clearSelection: () => { for (const c of view.renderer?.getContents?.() ?? []) c.doc?.getSelection?.()?.removeAllRanges(); },
   };
   const opened = view.book ?? book;
@@ -447,7 +504,7 @@ async function openPdf(size, restore) {
         const d = document.createElement('div');
         d.dataset.annotation = it.id;
         d.style.cssText = `position:absolute;left:${Math.min(ax, bx)}px;top:${Math.min(ay, by)}px;width:${Math.abs(bx - ax)}px;height:${Math.abs(by - ay)}px;` +
-          `background:${it.kind === 'note' ? 'rgba(126,200,255,.4)' : 'rgba(255,213,74,.4)'};pointer-events:auto;cursor:pointer`;
+          `background:${safeColor(it.color) ? `${safeColor(it.color)}66` : it.kind === 'note' ? 'rgba(126,200,255,.4)' : 'rgba(255,213,74,.4)'};pointer-events:auto;cursor:pointer`;
         d.addEventListener('click', () => send({ t: 'annotation-click', generation, id: it.id }));
         layer.append(d);
       }
@@ -514,6 +571,12 @@ async function openPdf(size, restore) {
     rubber.style.left = `${Math.min(start[0], x)}px`; rubber.style.top = `${Math.min(start[1], y)}px`;
     rubber.style.width = `${Math.abs(x - start[0])}px`; rubber.style.height = `${Math.abs(y - start[1])}px`;
   });
+  // A tap on the page (not a drag, not a text selection) while area mode is off.
+  wrap.addEventListener('click', e => {
+    if (mode === 'area' || e.button > 0 || document.getSelection()?.isCollapsed === false || e.target?.closest?.('[data-annotation]')) return;
+    const w = window.innerWidth || 1, h = window.innerHeight || 1;
+    send({ t: 'tap', generation, x: clampNum(e.clientX / w, 0, 1) ?? 0, y: clampNum(e.clientY / h, 0, 1) ?? 0 });
+  });
   canvas.addEventListener('pointerup', e => {
     if (!start) return;
     const [x, y] = local(e);
@@ -575,6 +638,8 @@ async function openPdf(size, restore) {
       paint();
     },
     clearSelection: () => { rubber?.remove(); rubber = null; document.getSelection()?.removeAllRanges(); },
+    search: () => send({ t: 'search-done', generation, total: 0, capped: false, unsupported: true }),
+    clearSearch: () => {},
     pdfMode: m => { mode = m; textDiv.style.pointerEvents = m === 'area' ? 'none' : 'auto'; canvas.style.cursor = m === 'area' ? 'crosshair' : 'default'; canvas.style.touchAction = m === 'area' ? 'none' : 'pan-x pan-y'; },
   };
   send({ t: 'toc', generation, items: [] });

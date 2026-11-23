@@ -159,6 +159,65 @@ class SharedReaderEngineTest {
         assertEquals("a Litara Literata face is declared in the book", "true", fontOk)
     }
 
+    @Test fun epubSearchTapAndTextSettings() {
+        assumeTrue("shared reader assets missing", context.assets.list("reader-shared")?.isNotEmpty() == true)
+        await<SharedEvent.Ready>()
+        open(asset("stress.epub"), "epub")
+        await<SharedEvent.Loaded>()
+        await<SharedEvent.Relocate> { it.cfi != null && it.fraction != null }
+        Thread.sleep(800)
+
+        // Search: hits with excerpts, then done; the controller maps them to the legacy search events.
+        val mapped = LinkedBlockingQueue<ReaderEvent>()
+        controller.listener = { mapped.add(it) }
+        controller.search("harbour")
+        val done = await<SharedEvent.SearchDone> { true }
+        assertTrue(done.total > 5)
+        val hits = log.filterIsInstance<SharedEvent.SearchResults>().flatMap { it.hits }
+        assertEquals(done.total, hits.size)
+        assertTrue(hits.all { it.cfi.startsWith("epubcfi(") && it.match.contains("harbour", ignoreCase = true) })
+        assertTrue(generateSequence { mapped.poll(2, TimeUnit.SECONDS) }.any { it is ReaderEvent.SearchDone })
+        // A search hit opens at its place.
+        fresh()
+        controller.clearSearch()
+        controller.goTo(hits.last().cfi)
+        await<SharedEvent.Relocate> { it.cfi != null }
+
+        // A real touch on the page text arrives as a tap with its screen position.
+        Thread.sleep(800)
+        fresh()
+        val dm = context.resources.displayMetrics
+        val x = dm.widthPixels * 0.5f
+        val y = dm.heightPixels * 0.5f
+        val t0 = android.os.SystemClock.uptimeMillis()
+        for ((action, at) in listOf(android.view.MotionEvent.ACTION_DOWN to t0, android.view.MotionEvent.ACTION_UP to t0 + 60)) {
+            val ev = android.view.MotionEvent.obtain(t0, at, action, x, y, 0)
+            ev.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+            instrumentation.sendPointerSync(ev)
+            ev.recycle()
+        }
+        val tap = await<SharedEvent.Tap>()
+        assertEquals(0.5, tap.x, 0.1)
+
+        // Text settings reach the book: line height, justification and hyphenation.
+        controller.applyStyles(ReaderSettings(isDark = false, lineHeight = 2.0, justify = true, hyphenate = true, maxColumnCount = 1))
+        Thread.sleep(1500)
+        val typo = js("""(function(){var c=($contents)[0];var p=c.doc.querySelector('p');var cs=c.doc.defaultView.getComputedStyle(p);return JSON.stringify({lh:parseFloat(cs.lineHeight)/parseFloat(cs.fontSize),al:cs.textAlign,hy:cs.hyphens})})()""")
+        val t = typo.replace("\\", "")
+        assertTrue("typography applied: $typo", t.contains("\"al\":\"justify\"") && t.contains("\"hy\":\"auto\"") && t.contains("\"lh\":2"))
+
+        // Per-highlight colour and style.
+        val cfi = "epubcfi(/6/4!/4/8[c2p3],/11:167,/11:198)"
+        Thread.sleep(800)
+        fresh()
+        controller.goTo(cfi)
+        await<SharedEvent.Relocate> { it.cfi != null && it.cfi!!.contains("/6/4!") }
+        controller.setAnnotations(listOf(BookAnnotation(id = 1, bookId = 1, cfi = cfi, color = "green", style = "underline")))
+        Thread.sleep(1500)
+        val overlay = js("""JSON.stringify(($contents).map(function(c){return c.overlayer?c.overlayer.element.innerHTML:''}).join('|'))""")
+        assertTrue("green drawn: ${overlay.take(200)}", overlay.contains("4ade80", ignoreCase = true))
+    }
+
     @Test fun pdfOpensOnTheSavedPageAndTurns() {
         assumeTrue("shared reader assets missing", context.assets.list("reader-shared")?.isNotEmpty() == true)
         val pdf = asset("edge.pdf")

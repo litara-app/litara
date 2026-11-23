@@ -70,6 +70,34 @@ class SharedReaderProtocolTest {
     }
 
     @Test
+    fun `parses taps and search messages`() {
+        assertEquals(SharedEvent.Tap(0.25, 0.5), p.parse("""{"t":"tap","generation":1,"x":0.25,"y":0.5}"""))
+        val r = p.parse("""{"t":"search-results","label":"Chapter 2","items":[{"cfi":"epubcfi(/6/4!/4/2)","pre":"a ","match":"harbour","post":" wall"}]}""") as SharedEvent.SearchResults
+        assertEquals(SearchHit("epubcfi(/6/4!/4/2)", "a ", "harbour", " wall"), r.hits.single())
+        assertEquals("Chapter 2", r.label)
+        assertEquals(SharedEvent.SearchProgress(0.5), p.parse("""{"t":"search-progress","progress":0.5}"""))
+        assertEquals(SharedEvent.SearchDone(3, true, false), p.parse("""{"t":"search-done","total":3,"capped":true}"""))
+        assertEquals(true, (p.parse("""{"t":"search-done","total":0,"capped":false,"unsupported":true}""") as SharedEvent.SearchDone).unsupported)
+    }
+
+    @Test
+    fun `sends the text settings and per-highlight appearance`() {
+        val s = p.json.parseToJsonElement(p.style(ReaderSettings(lineHeight = 1.8, justify = false, hyphenate = true, maxColumnCount = 1, gap = 0.08, maxInlineSize = 640))).jsonObject
+        assertEquals("1.8", s["lineHeight"]!!.jsonPrimitive.content)
+        assertEquals("false", s["justify"]!!.jsonPrimitive.content)
+        assertEquals("true", s["hyphenate"]!!.jsonPrimitive.content)
+        assertEquals("1", s["maxColumns"]!!.jsonPrimitive.content)
+        assertEquals(8.0, s["gapPct"]!!.jsonPrimitive.content.toDouble(), 0.001)
+        assertEquals("640", s["maxInlineSize"]!!.jsonPrimitive.content)
+        assertEquals("#4ade80", p.hexColor("green"))
+        assertEquals("#123abc", p.hexColor("#123abc"))
+        assertEquals("#facc15", p.hexColor("url(x)"))
+        assertEquals("underline", p.drawStyle("underline"))
+        assertEquals("highlight", p.drawStyle("whatever"))
+        assertEquals("""{"t":"search","query":"a b","max":500}""", p.search("a b"))
+    }
+
+    @Test
     fun `parses book slice paths`() {
         assertEquals(0L to 10L, SharedBookResponder.parseSlice("/litara-book/0-10"))
         assertEquals(40648L to 40670L, SharedBookResponder.parseSlice("/litara-book/40648-40670"))

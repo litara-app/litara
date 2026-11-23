@@ -112,13 +112,12 @@ class ReaderController {
             SharedEvent.SelectionCleared -> l(ReaderEvent.SelectionCleared)
             is SharedEvent.AnnotationClick -> l(ReaderEvent.AnnotationTap(e.id, null)) // ids are CFIs (see SharedReaderProtocol.annotations)
             is SharedEvent.Failure -> l(ReaderEvent.Error("${e.code}: ${e.detail}"))
+            is SharedEvent.Tap -> l(ReaderEvent.Tap(e.x))
+            is SharedEvent.SearchResults -> l(ReaderEvent.SearchResults(e.label, e.hits))
+            is SharedEvent.SearchProgress -> l(ReaderEvent.SearchProgress(e.progress))
+            is SharedEvent.SearchDone -> l(ReaderEvent.SearchDone(e.total, e.capped))
             SharedEvent.RestoreFailed, is SharedEvent.Chapters, is SharedEvent.Located, SharedEvent.Other -> Unit
         }
-    }
-
-    /** A page tap, from the native gesture detector (the shared frame reports none): x is 0..1 across the view. */
-    fun emitTap(x: Double) {
-        listener?.invoke(ReaderEvent.Tap(x))
     }
 
     private fun sharedSend(message: String) = eval(SharedReaderProtocol.jsHost(message))
@@ -177,10 +176,9 @@ class ReaderController {
         command(buildJsonObject { put("type", "setAnnotations"); put("items", arr) }.toString())
     }
 
-    // The shared frame has no in-book search yet (ADR-0093 gap): report "no matches" so the screen does not wait.
-    fun search(query: String) = if (shared) { listener?.invoke(ReaderEvent.SearchDone(0, false)) } else command(buildJsonObject { put("type", "search"); put("query", query) }.toString())
+    fun search(query: String) = if (shared) sharedSend(SharedReaderProtocol.search(query)) else command(buildJsonObject { put("type", "search"); put("query", query) }.toString())
 
-    fun clearSearch() = if (shared) Unit else command(buildJsonObject { put("type", "clearSearch") }.toString())
+    fun clearSearch() = if (shared) sharedSend(SharedReaderProtocol.clearSearch()) else command(buildJsonObject { put("type", "clearSearch") }.toString())
 
     fun clearSelection() = if (shared) sharedSend(SharedReaderProtocol.clearSelection()) else command(buildJsonObject { put("type", "clearSelection") }.toString())
 
@@ -323,14 +321,6 @@ fun ReaderWebView(
                         }
                     }
                     controller.responder = SharedBookResponder(context.applicationContext)
-                    // The shared frame reports no taps; a native detector gives the same edge/centre zones.
-                    val taps = android.view.GestureDetector(context, object : android.view.GestureDetector.SimpleOnGestureListener() {
-                        override fun onSingleTapConfirmed(e: android.view.MotionEvent): Boolean {
-                            if (width > 0) controller.emitTap((e.x / width).toDouble().coerceIn(0.0, 1.0))
-                            return false
-                        }
-                    })
-                    setOnTouchListener { _, ev -> taps.onTouchEvent(ev); false }
                 }
 
                 addJavascriptInterface(
