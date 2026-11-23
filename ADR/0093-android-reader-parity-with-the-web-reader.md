@@ -65,7 +65,21 @@ Whichever option is chosen, the web reader's feature set becomes the reference, 
 
 ## Verification
 
-Planned, not done: shared locator fixtures resolve identically in the bundled engine and in the current Android engine; existing Android positions and annotations open at the same place; the full and F-Droid builds still build; offline reading still works; the reader refuses to save under an engine profile mismatch.
+First increment of option 3b, done 2026-11-23 on branch `claude/adr-0093-shared-engine` (details and limits in `research/android/adr-0093/`).
+
+Done:
+
+- **Shared engine as a build output.** `apps/android/shared-reader.gradle.kts`: `./gradlew syncSharedReader` copies `apps/web/public/reader` into `apps/android/app/src/main/assets/reader-shared/` (checked in, never hand-edited) and writes `ENGINE_PROFILE`; `checkSharedReader` runs before every build and fails when any file differs from the web source or when the web app's engine profiles (`profile.ts`) differ from the server's (`catalog/editions.go`) or from the profile the copy was made for. Tried: clean pass, an edited copied file, a changed profile. The legacy modified reader stays in `assets/reader`; `-Plitara.sharedReader=true` (BuildConfig `SHARED_READER`, default off) selects the shared engine.
+- **Locator fixtures** (`scripts/android/reader-locators`, desktop Chromium): positions, highlight ranges and bookmark points recorded by the legacy Android engine on synthetic EPUB and FB2 books, read back at a different layout in both engines. Every one resolved identically in the shared engine (EPUB 54 positions, 84 ranges, 84 points; FB2 18, 42, 42). PDF page identity (PDF.js, 7-page edge-case file) and the Android percentage round trip agree for all 7 pages. No locator disagreed, so no migration was written and nothing was relabelled. Synthetic books only; KEPUB, MOBI, AZW and AZW3 are not covered and stay on the legacy engine.
+- **Android reading switched behind the flag**: EPUB and FB2 (`ReaderScreen`) and PDF (`PdfReaderScreen` delegating to `SharedPdfReaderScreen`) load the shared frame through `assets/reader-shared-host/index.html`; comics stay native. Cast, Android Auto and the Cast-free flavor were not touched; both flavors build with the flag off and on.
+- **Emulator** (Pixel 9 Pro AVD, Android 17, WebView 154.0.8037.106; `SharedReaderEngineTest`, instrumentation): EPUB opens; a page turn advances; a position recorded by the legacy engine opens in the right chapter; reopening on the engine's own CFI restores the same place (within 1% of the book); a bookmark CFI jumps back; a highlight recorded by the legacy engine is located in the book and drawn; a text selection reaches Kotlin with a CFI and rectangle and clears; a font sent as bytes over the channel is declared in the book; a PDF opens on a saved page, turns and jumps.
+
+Not done, not tested:
+
+- No physical device. The full reader screens (`ReaderScreen`, `SharedPdfReaderScreen`) with the flag on were compiled but not driven: opening a book from a server, position saving through Room and the API, highlight and bookmark creation from the UI and touch gestures (tap zones come from a native detector) were not exercised. The reader's refusal to save under an engine-profile mismatch is not wired on Android (only the build-time check exists).
+- Gaps in the shared protocol that the legacy bridge had: in-book search, page-tap events, highlight colours and styles, line height, margins, columns, justification and hyphenation settings, the annotation tap rectangle. PDF loses the native text search, text layer and settings sheet in the shared path. No fonts are bundled in the Android app yet (the test used a font from the web app's dependencies).
+- A jump issued while a page-turn animation settles was ignored in the emulator test, so the test waits; chrome that jumps right after a turn must expect this.
+- Cast, Android Auto, offline downloads, the F-Droid flavor at runtime, and the 3a decision.
 
 ## Open questions
 

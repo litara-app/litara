@@ -1,0 +1,88 @@
+<!doctype html>
+<!--
+  Litara Android host page for the shared reader engine (ADR-0093). AGPL-3.0, Android-owned; it is NOT part of the copied
+  web engine in ../reader-shared and nothing here is copied into apps/web.
+
+  It plays the part the web app plays for the sandboxed frame (ADR-0067): it embeds ../reader-shared/frame.html, opens one
+  MessageChannel to it, answers its byte-range requests from the local book file through the app's own asset origin (one fetch per range), and
+  relays every other message to Kotlin. The frame holds no credentials and has no network use here either: the book bytes
+  come from the device, not the server.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Litara reader host</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+      iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+    </style>
+  </head>
+  <body>
+    <iframe id="frame" title="reader"></iframe>
+    <script>
+      'use strict';
+      var ORIGIN = location.origin;
+      var BOOK = '/litara-book/';
+      var generation = 1;
+      var port = null;
+      var frame = document.getElementById('frame');
+
+      function toKotlin(m) { AndroidReaderBridge.postMessage(JSON.stringify(m)); }
+
+      frame.addEventListener('load', function () {
+        if (port) return;
+        var ch = new MessageChannel();
+        port = ch.port1;
+        port.onmessage = onFrame;
+        frame.contentWindow.postMessage({ type: 'litara.reader.hello', channel: 'android', generation: generation }, ORIGIN, [ch.port2]);
+      });
+      frame.src = '/assets/reader-shared/frame.html?parent=' + encodeURIComponent(ORIGIN);
+
+      function onFrame(event) {
+        var m = event.data;
+        if (!m || typeof m.t !== 'string') return;
+        if (m.t === 'range') return void serveRange(m);
+        toKotlin(m);
+      }
+
+      function serveRange(m) {
+        fetch(BOOK + m.start + '-' + m.end)
+          .then(function (r) {
+            if (r.status !== 200) throw new Error('status ' + r.status);
+            return r.arrayBuffer();
+          })
+          .then(function (buffer) { port.postMessage({ t: 'range-data', generation: generation, id: m.id, buffer: buffer }, [buffer]); })
+          .catch(function (err) {
+            toKotlin({ t: 'error', code: 'host_range', detail: 'bytes ' + m.start + '-' + (m.end - 1) + ': ' + String(err && err.message || err) });
+            port.postMessage({ t: 'range-error', generation: generation, id: m.id, code: 'range_failed' });
+          });
+      }
+
+      function b64ToBuffer(b64) {
+        var s = atob(b64);
+        var u = new Uint8Array(s.length);
+        for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+        return u.buffer;
+      }
+
+      // Kotlin -> frame. A message is the frame's own protocol (open, goto, nav, style, annotations, fonts, locate, ...).
+      // Font bytes cross from Kotlin as base64 and reach the frame as transferred ArrayBuffers, as on the web.
+      window.__host = function (json) {
+        if (!port) return false;
+        var m = JSON.parse(json);
+        m.generation = generation;
+        var transfer = [];
+        if (m.t === 'fonts' && Array.isArray(m.faces)) {
+          m.faces = m.faces.map(function (f) {
+            var buffer = b64ToBuffer(f.b64);
+            transfer.push(buffer);
+            return { weight: f.weight, style: f.style, buffer: buffer };
+          });
+        }
+        port.postMessage(m, transfer);
+        return true;
+      };
+    </script>
+  </body>
+</html>

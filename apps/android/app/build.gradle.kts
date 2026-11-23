@@ -129,6 +129,13 @@ android {
         buildConfig = true
     }
 
+    // Shared reader fixtures for the emulator test (ADR-0093): the same synthetic books as scripts/android/reader-locators, plus a
+    // reading font copied from the web app's dependencies when they are installed (not committed here).
+    sourceSets {
+        getByName("androidTest").assets.srcDir(rootProject.file("../../scripts/android/reader-locators/fixtures"))
+        getByName("androidTest").assets.srcDir(layout.buildDirectory.dir("generated/testFonts"))
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -235,3 +242,9 @@ dependencies {
 
 apply(from = "../shared-reader.gradle.kts")
 tasks.named("preBuild") { dependsOn("checkSharedReader") }
+
+val prepareTestFonts = tasks.register<Copy>("prepareTestFonts") {
+    from(rootProject.file("../web/node_modules/@fontsource/literata/files")) { include("literata-latin-400-normal.woff2") }
+    into(layout.buildDirectory.dir("generated/testFonts"))
+}
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("AndroidTestAssets") }.configureEach { dependsOn(prepareTestFonts) }
