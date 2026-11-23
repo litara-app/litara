@@ -265,22 +265,21 @@ body {
   .lt-folio .lt-quote blockquote { font-family: var(--lt-font-accent); font-size: 17px; line-height: 1.55; }
 }
 
-/* Reading Room toasts are a scroll: parchment with a rolled end at the top and bottom. */
+/* Reading Room toasts are bookplates: a ruled paper label with brass corner brackets and a fleuron. */
 :root:not([data-theme="clean"]) .lt-toast {
-  border: 0; border-radius: 2px; margin: 8px 0; padding: 18px var(--lt-s4) 18px var(--lt-s5);
-  background: linear-gradient(90deg, rgb(120 84 30 / 0.16), transparent 7%, transparent 93%, rgb(120 84 30 / 0.16)),
-    color-mix(in srgb, var(--lt-surface-2) 82%, #d9b872);
-  box-shadow: 0 8px 20px rgb(40 24 6 / 0.35);
+  --lt-brass: light-dark(#9c7a2a, #dcb85f);
+  border: 1px solid var(--lt-edge); border-radius: 0; margin: 6px 0; padding: 16px var(--lt-s4) 16px 46px;
+  background: var(--lt-surface);
+  box-shadow: inset 0 0 0 4px var(--lt-surface), inset 0 0 0 5px var(--lt-edge), 2px 2px 0 var(--lt-line), 0 10px 24px rgb(40 24 6 / 0.3);
   font-family: var(--lt-font-serif, "IM Fell English", serif);
 }
 :root:not([data-theme="clean"]) .lt-toast::before,
-:root:not([data-theme="clean"]) .lt-toast::after {
-  content: ""; position: absolute; left: -9px; right: -9px; height: 14px; border-radius: 7px;
-  background: linear-gradient(#7a5a2c, #d9b872 40%, #f0d894 55%, #8d6a3a);
-  box-shadow: 0 2px 4px rgb(40 24 6 / 0.35);
-}
-:root:not([data-theme="clean"]) .lt-toast::before { top: -7px; }
-:root:not([data-theme="clean"]) .lt-toast::after { bottom: -7px; }
+:root:not([data-theme="clean"]) .lt-toast::after { content: ""; position: absolute; width: 14px; height: 14px; border: 2px solid var(--lt-brass); pointer-events: none; }
+:root:not([data-theme="clean"]) .lt-toast::before { left: -1px; top: -1px; border-right: 0; border-bottom: 0; }
+:root:not([data-theme="clean"]) .lt-toast::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
+:root:not([data-theme="clean"]) .lt-toast-body::before { content: "\2766"; position: absolute; left: 15px; top: 11px; font-size: 22px; line-height: 1; color: var(--lt-brass); }
+:root:not([data-theme="clean"]) .lt-toast[data-type="error"] .lt-toast-body::before { color: var(--lt-bad-text); }
+:root:not([data-theme="clean"]) .lt-toast [data-slot="toast-title"] { font-size: 1.05em; }
 :root:not([data-theme="clean"]) .lt-toast[data-type="success"] [data-slot="toast-title"] { color: var(--lt-ok-text); }
 :root:not([data-theme="clean"]) .lt-toast[data-type="error"] [data-slot="toast-title"] { color: var(--lt-bad-text); }
 :root:not([data-theme="clean"]) .lt-toast[data-type="warning"] [data-slot="toast-title"] { color: var(--lt-warn); }

@@ -52,7 +52,7 @@ export interface Draft { provider: string; rule: string; values: Record<string, 
 export const RULE_TEXT: Record<string, string> = { identifier: "matched by ISBN", title_author: "matched by title and author" };
 
 const AUTO_FILL_TEXT: Record<string, (r: AutoFillResult) => string> = {
-  proposed: (r) => `Found ${Object.keys(r.proposed ?? {}).length} fields from ${PROVIDER_NAME[r.provider ?? ""] ?? "a provider"}, ${RULE_TEXT[r.rule ?? ""] ?? "matched"}. Review them, then save.`,
+  proposed: (r) => `Found ${Object.keys(r.proposed ?? {}).length} ${Object.keys(r.proposed ?? {}).length === 1 ? "field" : "fields"} from ${PROVIDER_NAME[r.provider ?? ""] ?? "a provider"}, ${RULE_TEXT[r.rule ?? ""] ?? "matched"}. Review them, then save.`,
   filled: (r) => `Filled ${r.filled.length} empty ${r.filled.length === 1 ? "field" : "fields"} from ${PROVIDER_NAME[r.provider ?? ""] ?? "a provider"}: ${r.filled.join(", ")}.`,
   nothing_to_fill: () => "A match was found, but every field it offers already has a value.",
   needs_review: () => "No single exact match to fill from. Use Search online to review the candidates. For a book with no ISBN, an administrator can let Auto-fill use the best title-and-author match in the library settings.",
