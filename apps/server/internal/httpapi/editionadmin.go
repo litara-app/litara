@@ -183,15 +183,23 @@ func (a *API) registerEditionAdmin(api huma.API) {
 					_ = json.Unmarshal(f.Value.Raw, &language)
 				}
 			}
-			m, outcome, rule := metadata.PickAutoFill(res, metadata.Query{Title: q.Title, Authors: q.Authors, ISBN: q.ISBN}, language)
-			out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Revision: rep.Revision, Rule: rule}
-			if outcome != "filled" {
-				return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
-			}
 			// Only fields with no value at all are offered; the service rechecks them at commit time.
 			has := map[string]bool{}
 			for _, f := range rep.Fields {
 				has[f.Field] = true
+			}
+			fillsSomething := func(m metadata.Match) bool {
+				for k := range m.Fields {
+					if editionProviderFields[k] && !has[k] {
+						return true
+					}
+				}
+				return false
+			}
+			m, outcome, rule := metadata.PickAutoFill(res, metadata.Query{Title: q.Title, Authors: q.Authors, ISBN: q.ISBN}, language, fillsSomething)
+			out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Revision: rep.Revision, Rule: rule}
+			if outcome != "filled" {
+				return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
 			}
 			values := map[string]json.RawMessage{}
 			for k, v := range m.Fields {

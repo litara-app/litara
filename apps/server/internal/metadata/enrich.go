@@ -366,9 +366,10 @@ const (
 // whose only candidate is an exact identifier match that agrees with the stored title and authors. ADR-0090, only when
 // the library has turned it on and no candidate matched by identifier: the best-ranked candidate that has the same title
 // as the book and all of its stored authors (and the same language when both state one), taken from the first provider in
-// the library's order that has one. A partial title, other authors or a provider that failed never block it.
+// the library's order that has one. A partial title, other authors or a provider that failed never block it, and a
+// candidate that would fill nothing (useful reports false) is skipped in favour of the next one.
 // It returns the match, the outcome (filled, needs_review, no_match or disabled) and the rule that accepted it.
-func PickAutoFill(out SearchOutcome, q Query, language string) (Match, string, string) {
+func PickAutoFill(out SearchOutcome, q Query, language string, useful func(Match) bool) (Match, string, string) {
 	if !out.Enabled {
 		return Match{}, "disabled", ""
 	}
@@ -393,7 +394,7 @@ func PickAutoFill(out SearchOutcome, q Query, language string) (Match, string, s
 				continue
 			}
 			for _, c := range r.Candidates {
-				if titleAuthorMatch(c.Match, q, language) {
+				if titleAuthorMatch(c.Match, q, language) && (useful == nil || useful(c.Match)) {
 					return c.Match, "filled", RuleTitleAuthor
 				}
 			}

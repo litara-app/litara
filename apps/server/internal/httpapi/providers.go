@@ -114,7 +114,19 @@ func (a *API) registerRecordingAutoFill(api huma.API) {
 		if err != nil {
 			return nil, a.fail(ctx, err)
 		}
-		m, outcome, rule := metadata.PickAutoFill(res, q, "")
+		fillsSomething := func(m metadata.Match) bool {
+			gaps, err := a.Enricher.GapFields(ctx, id, m)
+			if err != nil {
+				return true
+			}
+			for k := range gaps {
+				if recordingProviderFields[k] {
+					return true
+				}
+			}
+			return false
+		}
+		m, outcome, rule := metadata.PickAutoFill(res, q, "", fillsSomething)
 		out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Rule: rule}
 		if outcome == "filled" && in.DryRun {
 			gaps, err := a.Enricher.GapFields(ctx, id, m)
