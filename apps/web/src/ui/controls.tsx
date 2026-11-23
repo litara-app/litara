@@ -298,3 +298,12 @@ export function PickCard({ label, selected, onPick, children }: { label: string;
     <button type="button" className="lt-cand lt-card-pick" aria-label={label} aria-pressed={selected} onClick={onPick}>{children}</button>
   );
 }
+
+/** A bookmark ribbon that hangs from the top edge of the page. Filled when the place is bookmarked. */
+export function BookmarkRibbon({ on, label, disabled, onToggle }: { on: boolean; label: string; disabled?: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" className="lt-ribbon" aria-label={label} aria-pressed={on} title={label} disabled={disabled} onClick={onToggle}>
+      <span className="lt-ribbon-tail" aria-hidden="true">{on ? "\u2713" : ""}</span>
+    </button>
+  );
+}

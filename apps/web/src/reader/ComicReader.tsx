@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, assertSameSession, get, sessionEpoch } from "../api/client";
 import type { Annotation, AnnotationData, Edition, Locator, Page as Paged, ReaderSnapshot } from "../api/types";
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
-import { icons, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, IconButton, Modal, Page, RangeSlider, Row, SegmentedField, Stack, Text, TextAreaField, TextLink } from "../ui";
+import { icons, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, IconButton, Page, RangeSlider, Row, SegmentedField, Stack, Text, TextAreaField, TextLink } from "../ui";
 import { usePositionSaver } from "./usePositionSaver";
 
 interface ComicPage { index: number; entryId: string; mimeType: string; width: number; height: number; contentPath: string }
@@ -282,11 +282,11 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
         </Stack>
       </Drawer>
 
-      <Modal open={noteDraft !== null} onClose={() => setNoteDraft(null)} title={`Note for page ${index + 1}`}
+      <Drawer open={noteDraft !== null} onClose={() => setNoteDraft(null)} title={`Note for page ${index + 1}`}
         actions={<><Button onClick={() => setNoteDraft(null)} icon={icons.close}>Cancel</Button>
           <Button variant="primary" disabled={!(noteDraft ?? "").trim()} onClick={() => { put(crypto.randomUUID(), { kind: "note", anchor: anchor(), selection: null, text: noteDraft!, quote: "" }, "Note"); setNoteDraft(null); }} icon={icons.save}>Save note</Button></>}>
         <TextAreaField label="Note" rows={4} maxLength={65536} autoFocus value={noteDraft ?? ""} onValue={setNoteDraft} />
-      </Modal>
+      </Drawer>
     </div>
   );
 }

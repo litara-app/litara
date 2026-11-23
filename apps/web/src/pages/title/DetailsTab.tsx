@@ -3,7 +3,7 @@ import { useState } from "react";
 import { get } from "../../api/client";
 import type { Annotation, AudioRecording, Edition, EditionDetails, Library, RecordingDetails, Page as Paged, PositionState, RecordingLink, TitleDetail } from "../../api/types";
 import {
-  Badge, bytes, Button, CapBadge, DateField, dateToIso, duration, ErrorBox, FormatTag, IconAction, icons, isoToDate, Ledger, Modal, Panel, Quote, Row, Stack,
+  Badge, bytes, Button, CapBadge, DateField, dateToIso, duration, ErrorBox, FormatTag, IconAction, icons, isoToDate, Ledger, Drawer, Modal, Panel, Quote, Row, Stack,
   StatusPill, Text, TextAreaField, TextLink, when,
 } from "../../ui";
 import { isReadable } from "../useTitleActions";
@@ -164,7 +164,7 @@ export function DetailsTab({ detail, editions, recordings, onTab }: {
         <ErrorBox error={personal.save.error} />
       </Modal>
 
-      <Modal open={dating} onClose={() => setDating(false)} title="Dates" description="Litara works these out from your reading. Set a date to keep your own; clear it to follow your reading again."
+      <Drawer open={dating} onClose={() => setDating(false)} title="Dates" description="Litara works these out from your reading. Set a date to keep your own; clear it to follow your reading again."
         actions={<>
           <Button onClick={() => setDating(false)} icon={icons.close}>Cancel</Button>
           <Button loading={personal.save.isPending} icon={icons.reset}
@@ -177,7 +177,7 @@ export function DetailsTab({ detail, editions, recordings, onTab }: {
           <DateField label="Date finished" value={finishedOn} onValue={setFinishedOn} />
         </Stack>
         <ErrorBox error={personal.save.error} />
-      </Modal>
+      </Drawer>
     </div>
   );
 }

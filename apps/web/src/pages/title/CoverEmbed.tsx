@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, ApiError, get } from "../../api/client";
 import type { Edition, RecordingLink } from "../../api/types";
-import { Alert, Badge, Button, Modal, Row, Stack, Text, icons } from "../../ui";
+import { Alert, Badge, Button, Drawer, Row, Stack, Text, icons } from "../../ui";
 
 interface Writeback { id: string; kind: string; format?: string; target: string; stage: string; detail?: string; backedUp: boolean; diff: unknown }
 
@@ -55,7 +55,7 @@ function EmbedDialog({ label, start, onClose }: { label: string; start: () => Pr
   const failed = plan.error ?? approve.error ?? run.error;
   const refused = plans.filter((p) => p.stage === "refused" || p.stage === "abandoned");
   return (
-    <Modal open onClose={onClose} title={`Write the cover into ${label}`}
+    <Drawer open onClose={onClose} title={`Write the cover into ${label}`}
       description="This replaces or adds the cover picture inside the file. Everything else in the file stays as it is."
       actions={<Button icon={icons.close} onClick={onClose}>{all("completed") ? "Done" : "Cancel"}</Button>}>
       <Stack gap="sm">
@@ -81,6 +81,6 @@ function EmbedDialog({ label, start, onClose }: { label: string; start: () => Pr
         )}
         {failed && <Alert tone="danger">{words(failed)}</Alert>}
       </Stack>
-    </Modal>
+    </Drawer>
   );
 }

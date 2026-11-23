@@ -2,7 +2,7 @@ import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, get } from "../../api/client";
 import type { Annotation, Edition, Page } from "../../api/types";
-import { icons, Badge, Busy, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Modal, Quote, Row, SegmentedField, Stack, Text, TextAreaField, when } from "../../ui";
+import { icons, Badge, Busy, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Drawer, Quote, Row, SegmentedField, Stack, Text, TextAreaField, when } from "../../ui";
 
 type Kind = "all" | "highlight" | "note" | "bookmark";
 const KIND_LABEL = { highlight: "Highlight", note: "Note", bookmark: "Bookmark" } as const;
@@ -73,12 +73,12 @@ export function HighlightsTab({ editions }: { editions: Edition[] }) {
         );
       })}
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="Note"
+      <Drawer open={!!editing} onClose={() => setEditing(null)} title="Note"
         actions={<><Button onClick={() => setEditing(null)} icon={icons.close}>Cancel</Button><Button variant="primary" loading={saveNote.isPending} onClick={() => editing && saveNote.mutate(editing)} icon={icons.save}>Save</Button></>}>
         {editing?.data?.quote && <Quote>{editing.data.quote}</Quote>}
         <TextAreaField label="Your note" value={text} onValue={setText} rows={4} />
         <ErrorBox error={saveNote.error} />
-      </Modal>
+      </Drawer>
       <ConfirmDialog open={!!removing} title="Delete this entry?" confirmLabel="Delete" danger loading={remove.isPending}
         onConfirm={() => removing && remove.mutate(removing)} onCancel={() => setRemoving(null)}>
         It is removed from every device you read on. This cannot be undone.

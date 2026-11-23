@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { get } from "../api/client";
 import type { Annotation, AnnotationData, Locator, Page as Paged, ReaderSnapshot } from "../api/types";
-import { icons, notify, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, ErrorBox, IconButton, Modal, Page, RangeSlider, Row, SegmentedField, Stack, Tabs, Text, TextAreaField, TextLink, Tip } from "../ui";
+import { icons, notify, AnchoredPanel, ProgressBar, BookmarkRibbon, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, ErrorBox, IconButton, Page, RangeSlider, Row, SegmentedField, Stack, Tabs, Text, TextAreaField, TextLink, Tip } from "../ui";
 import { ComicReader } from "./ComicReader";
 import { remoteSource } from "./fileSource";
 import { FinishControl } from "./FinishControl";
@@ -25,6 +25,17 @@ function loadStyle(): ReaderStyle {
     if (s && typeof s === "object") return { ...DEFAULT_STYLE, ...s };
   } catch { /* storage unavailable: defaults */ }
   return DEFAULT_STYLE;
+}
+
+const THEME_ITEMS = [{ value: "light", label: "Light" }, { value: "sepia", label: "Sepia" }, { value: "dark", label: "Dark" }];
+const FLOW_ITEMS = [{ value: "paginated", label: "Pages" }, { value: "scrolled", label: "Scroll" }];
+
+type ToolbarMode = "auto" | "always";
+const TOOLBAR_KEY = "litara.reader.toolbar";
+/** Automated browsers keep the toolbar up so scripted clicks always find it. */
+function loadToolbar(): ToolbarMode {
+  try { const v = localStorage.getItem(TOOLBAR_KEY); if (v === "auto" || v === "always") return v; } catch { /* storage unavailable */ }
+  return typeof navigator !== "undefined" && navigator.webdriver ? "always" : "auto";
 }
 
 function TocList({ items, onPick }: { items: TocItem[]; onPick: (href: string) => void }) {
@@ -83,7 +94,24 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const [style, setStyle] = useState<ReaderStyle>(loadStyle);
   const [panel, setPanel] = useState(false);
   const [settings, setSettings] = useState(false);
+  // The toolbar hides while you read and comes back on a move to the top edge, a tap there, Escape or focus (layout A).
+  const [toolbar, setToolbar] = useState<ToolbarMode>(loadToolbar);
+  const [barOn, setBarOn] = useState(true);
+  const [barHeld, setBarHeld] = useState(false);
+  const [barTick, setBarTick] = useState(0);
+  const revealBar = () => { setBarOn(true); setBarTick((n) => n + 1); };
   const [noteDraft, setNoteDraft] = useState<{ id?: string; text: string; selection: Sel | null } | null>(null);
+  const keepBar = toolbar === "always" || panel || settings || !!noteDraft || barHeld;
+  useEffect(() => {
+    if (keepBar) { setBarOn(true); return; }
+    const t = setTimeout(() => setBarOn(false), 3500);
+    return () => clearTimeout(t);
+  }, [keepBar, barTick]);
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") revealBar(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const saver = usePositionSaver({ editionId: e.id, fileId: e.file.id, contentVersion: e.file.contentVersion, initialRevision: snapshot.position.revision });
 
@@ -130,19 +158,29 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   };
   const anchorAt = (locator: Locator) => ({ fileId: e.file.id, contentVersion: e.file.contentVersion, locator });
   const cfiLoc = (cfi: string): Locator => ({ kind: "foliate-cfi", version: 1, cfi });
+  const changeToolbar = (m: ToolbarMode) => { setToolbar(m); try { localStorage.setItem(TOOLBAR_KEY, m); } catch { /* optional */ } };
   const hereLocator = (): Locator | null => {
     if (mismatch) return null;
     if (kind === "pdf") return where.pageIndex === undefined ? null : { kind: "pdf-page", version: 1, pageIndex: where.pageIndex, x: where.x ?? 0, y: where.y ?? 0 };
     return where.cfi ? cfiLoc(where.cfi) : null;
   };
-  // The button says so for a moment after a bookmark is added, and a toast records where.
-  const [marked, setMarked] = useState(false);
-  useEffect(() => { if (!marked) return; const t = setTimeout(() => setMarked(false), 2500); return () => clearTimeout(t); }, [marked]);
-  const addBookmark = () => {
+  // The bookmark here, if there is one: the same page of a PDF, or the same place in an ebook.
+  const bookmarkHere = live.find((x) => {
+    const d = x.data!;
+    if (d.kind !== "bookmark" || !current(x)) return false;
+    const l = d.anchor.locator;
+    return l.kind === "pdf-page" ? where.pageIndex === l.pageIndex : l.kind === "foliate-cfi" ? where.cfi === l.cfi : false;
+  });
+  // The ribbon fills when a bookmark is set and empties when it is removed; a toast says which, and where.
+  const toggleBookmark = () => {
+    if (bookmarkHere) {
+      removeAnnotation(bookmarkHere);
+      notify.info("Bookmark removed");
+      return;
+    }
     const loc = hereLocator();
     if (!loc) return;
     putAnnotation(crypto.randomUUID(), { kind: "bookmark", anchor: anchorAt(loc), selection: null, text: where.tocLabel ?? "", quote: "" }, "Bookmark");
-    setMarked(true);
     notify.success("Bookmark added", { detail: where.pageIndex !== undefined ? `Page ${where.pageIndex + 1}` : where.tocLabel || undefined });
   };
   const selData = (s: Sel): { anchor: ReturnType<typeof anchorAt>; selection: AnnotationData["selection"] } => s.pdf
@@ -258,19 +296,28 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const pend = usePendingState();
   const serverPos = saver.conflict?.server.position;
   return (
-    <div className="lt-reader">
+    <div className="lt-reader" data-toolbar={toolbar} data-bar={barOn ? "on" : "off"}>
       <h1 className="lt-sr">Reading {e.label || e.file.format.toUpperCase()}</h1>
-      <header className="lt-reader-bar">
+      <header className="lt-reader-bar" onMouseEnter={() => setBarHeld(true)} onMouseLeave={() => { setBarHeld(false); setBarTick((n) => n + 1); }}
+        onFocusCapture={() => setBarHeld(true)} onBlurCapture={() => { setBarHeld(false); setBarTick((n) => n + 1); }}>
         <Row>
           <Button size="sm" to={`/titles/${e.titleId}`} icon={icons.arrowLeft}>Back</Button>
           <Button size="sm" onClick={() => setPanel(true)} icon={icons.list}>Contents &amp; notes</Button>
         </Row>
+        <span className="lt-reader-title"><Text as="span" size="sm" clamp={1}>{e.label || ""}</Text></span>
         <Row>
           <Tip label="Previous page"><IconButton aria-label="Previous page" onClick={() => hostRef.current?.nav("prev")}>‹</IconButton></Tip>
           <Tip label="Next page"><IconButton aria-label="Next page" onClick={() => hostRef.current?.nav("next")}>›</IconButton></Tip>
-          <Button size="sm" variant={marked ? "primary" : "default"} aria-live="polite" onClick={addBookmark} disabled={!loaded || mismatch} icon={marked ? icons.check : icons.bookmark}>{marked ? "Bookmarked" : "Bookmark"}</Button>
           {kind === "pdf" && <Button size="sm" variant={areaMode ? "primary" : "default"} aria-pressed={areaMode} data-testid="area-tool" disabled={!loaded || mismatch} onClick={() => { const n = !areaMode; setAreaMode(n); hostRef.current?.setPdfMode(n ? "area" : "off"); }} icon={icons.highlight}>Highlight area</Button>}
-          <Button size="sm" onClick={() => setSettings(true)} icon={icons.textSize} aria-label="Text settings" title="Text settings">Aa</Button>
+          <AnchoredPanel open={settings} onOpenChange={setSettings} label="Text settings" icon={icons.textSize} text="Aa">
+            <Stack>
+              <Text size="sm">Text size {style.fontPct}%</Text>
+              <RangeSlider label="Text size" min={70} max={220} step={10} value={style.fontPct} onChange={(v) => changeStyle({ fontPct: v })} />
+              <SegmentedField label="Theme" value={style.theme} onValue={(v) => changeStyle({ theme: v as ReaderStyle["theme"] })} items={THEME_ITEMS} />
+              {kind !== "pdf" && <SegmentedField label="Layout" value={style.flow} onValue={(v) => changeStyle({ flow: v as ReaderStyle["flow"] })} items={FLOW_ITEMS} />}
+              <SegmentedField label="Toolbar" value={toolbar} onValue={(v) => changeToolbar(v === "always" ? "always" : "auto")} items={[{ value: "auto", label: "Auto-hide" }, { value: "always", label: "Always show" }]} />
+            </Stack>
+          </AnchoredPanel>
         </Row>
       </header>
 
@@ -299,6 +346,9 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
 
       <div ref={box} className="lt-reader-stage" data-testid="reader-stage">
         {!loaded && !failure && <div className="lt-reader-busy"><Busy /></div>}
+        <div className="lt-reader-reveal" aria-hidden="true" onMouseEnter={revealBar} onClick={revealBar} />
+        {!barOn && <div className="lt-reader-handle"><IconButton variant="subtle" aria-label="Show toolbar" onClick={revealBar}>{icons.chevDown}</IconButton></div>}
+        <BookmarkRibbon on={!!bookmarkHere} label={bookmarkHere ? "Remove bookmark" : "Bookmark"} disabled={!loaded || mismatch} onToggle={toggleBookmark} />
       </div>
 
       {selection && (
@@ -309,14 +359,15 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
         </Row>
       )}
       <footer className="lt-reader-foot">
-        <Text as="span" size="xs" tone="dim" clamp={1}>{where.tocLabel ?? ""}</Text>
+        <span className="lt-reader-chapter"><Text as="span" size="xs" tone="dim" clamp={1}>{where.tocLabel ?? ""}</Text></span>
+        <div className="lt-reader-track"><ProgressBar value={percent ?? 0} label="Progress through the book" /></div>
         <Row gap="xs">
           <Text as="span" size="xs" tone="dim" data-testid="progress">{where.pageIndex !== undefined ? `Page ${where.pageIndex + 1} of ${where.numPages}` : percent !== null ? `${percent}%` : ""}</Text>
           <Badge tone={sv === "saving" || sv === "offline" ? "neutral" : "success"} data-testid="save-status">{sv === "saving" ? "saving" : sv === "offline" ? "waiting to send" : sv === "saved" ? "position saved" : sv === "conflict" ? "paused" : ""}</Badge>
         </Row>
       </footer>
 
-      <Drawer open={panel} onClose={() => setPanel(false)} title="Contents & notes" side="right">
+      <Drawer open={panel} onClose={() => setPanel(false)} title="Contents & notes" side="left">
         <FinishControl edition={e} />
         <Tabs label="Contents and notes" tabs={[
           { value: "toc", label: "Contents", content: toc.length === 0 ? <Text tone="dim" size="sm">This book has no table of contents.</Text> :
@@ -354,22 +405,13 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
         ]} />
       </Drawer>
 
-      <Drawer open={settings} onClose={() => setSettings(false)} title="Reading settings" side="bottom">
-        <Stack>
-          <Text size="sm">Text size {style.fontPct}%</Text>
-          <RangeSlider label="Text size" min={70} max={220} step={10} value={style.fontPct} onChange={(v) => changeStyle({ fontPct: v })} />
-          <SegmentedField label="Theme" value={style.theme} onValue={(v) => changeStyle({ theme: v as ReaderStyle["theme"] })} items={[{ value: "light", label: "Light" }, { value: "sepia", label: "Sepia" }, { value: "dark", label: "Dark" }]} />
-          {kind !== "pdf" && <SegmentedField label="Layout" value={style.flow} onValue={(v) => changeStyle({ flow: v as ReaderStyle["flow"] })} items={[{ value: "paginated", label: "Pages" }, { value: "scrolled", label: "Scroll" }]} />}
-        </Stack>
-      </Drawer>
-
-      <Modal open={!!noteDraft} onClose={() => setNoteDraft(null)} title={noteDraft?.id ? "Edit note" : "New note"}
+      <Drawer open={!!noteDraft} onClose={() => setNoteDraft(null)} title={noteDraft?.id ? "Edit note" : "New note"}
         actions={<><Button onClick={() => setNoteDraft(null)} icon={icons.close}>Cancel</Button><Button variant="primary" onClick={submitNote} disabled={!noteDraft?.text.trim()} icon={icons.save}>Save note</Button></>}>
         <Stack>
           {noteDraft?.selection && <Text size="sm" tone="dim" clamp={3}>{noteDraft.selection.text ? `“${noteDraft.selection.text}”` : "Selected area"}</Text>}
           <TextAreaField label="Note" rows={4} maxLength={65536} autoFocus value={noteDraft?.text ?? ""} onValue={(v) => setNoteDraft((d) => d && { ...d, text: v })} />
         </Stack>
-      </Modal>
+      </Drawer>
     </div>
   );
 }

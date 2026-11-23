@@ -1,6 +1,7 @@
 import { Dialog, DialogBackdrop, DialogContent, DialogDescription, DialogTitle } from "@ui-sdk/react/dialog";
 import { Drawer as SdkDrawer, DrawerBackdrop, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@ui-sdk/react/drawer";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@ui-sdk/react/menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui-sdk/react/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui-sdk/react/tooltip";
 import type { ReactElement, ReactNode } from "react";
 import { Button } from "./controls";
@@ -29,7 +30,7 @@ export function Modal({ open, onClose, title, description, actions, children }: 
  * decision that must be answered first.
  */
 export function Drawer({ open, onClose, title, description, actions, size = "md", flush, side = "right", children }: {
-  open: boolean; onClose: () => void; title: string; description?: ReactNode; actions?: ReactNode; size?: "md" | "lg" | "xl"; /** No padding or scrolling of its own: the content lays itself out in panes. */ flush?: boolean; side?: "right" | "bottom"; children: ReactNode;
+  open: boolean; onClose: () => void; title: string; description?: ReactNode; actions?: ReactNode; size?: "md" | "lg" | "xl"; /** No padding or scrolling of its own: the content lays itself out in panes. */ flush?: boolean; side?: "left" | "right" | "bottom"; children: ReactNode;
 }) {
   return (
     <SdkDrawer open={open} onOpenChange={(o) => { if (!o) onClose(); }} side={side}>
@@ -87,5 +88,19 @@ export function Tip({ label, children }: { label: string; children: ReactElement
       <TooltipTrigger render={children} />
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
+  );
+}
+
+/** A small panel that opens under its own button, for settings that should not cover the page. Controlled. */
+export function AnchoredPanel({ open, onOpenChange, label, icon, text, children }: {
+  open: boolean; onOpenChange: (o: boolean) => void; label: string; icon?: ReactNode; text?: string; children: ReactNode;
+}) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger className="lt-btn" data-size="sm" aria-label={label} title={label}>
+        {icon && <span className="lt-btn-icon" aria-hidden="true">{icon}</span>}{text}
+      </PopoverTrigger>
+      <PopoverContent className="lt-anchored" align="end">{children}</PopoverContent>
+    </Popover>
   );
 }
