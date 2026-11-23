@@ -85,6 +85,24 @@ export function ProgressBar({ value, label, tone }: { value: number; label: stri
   );
 }
 
+export interface TimelineMark { id: string; at: number; kind: "chapter" | "bookmark" | "note" | "highlight"; label: string; onPick?: () => void }
+
+/** Progress through a book with its chapters, bookmarks, notes and highlights marked along it. A mark with an action jumps there. */
+export function ReadingTimeline({ value, label, marks, onSeek }: { value: number; label: string; marks: TimelineMark[]; onSeek?: (fraction: number) => void }) {
+  return (
+    <div className="lt-timeline" data-seek={onSeek ? "" : undefined}
+      onClick={onSeek ? (ev) => { if ((ev.target as HTMLElement).closest("button")) return; const r = ev.currentTarget.getBoundingClientRect(); onSeek(Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width))); } : undefined}>
+      <ProgressBar value={value} label={label} />
+      {marks.map((m) => {
+        const at = { "--at": `${Math.round(Math.min(1, Math.max(0, m.at)) * 1000) / 10}%` } as CSSProperties;
+        return m.onPick
+          ? <button key={m.id} type="button" className="lt-tl-mark" data-kind={m.kind} style={at} title={m.label} aria-label={`Go to ${m.label}`} onClick={m.onPick} />
+          : <span key={m.id} className="lt-tl-mark" data-kind={m.kind} style={at} title={m.label} />;
+      })}
+    </div>
+  );
+}
+
 function hue(s: string) {
   let h = 0;
   for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360;

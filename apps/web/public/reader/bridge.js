@@ -58,6 +58,7 @@ function onPortMessage(event) {
     case 'nav': return void session?.nav?.(m.dir === 'prev' ? 'prev' : 'next');
     case 'style': return void session?.style?.(m);
     case 'annotations': return void session?.annotations?.(Array.isArray(m.items) ? m.items : []);
+    case 'locate': return void session?.locate?.(Array.isArray(m.items) ? m.items : []);
     case 'clear-selection': return void session?.clearSelection?.();
     case 'pdf-mode': return void session?.pdfMode?.(m.mode === 'area' ? 'area' : 'off');
     default: return;
@@ -195,6 +196,20 @@ const THEMES = {
   sepia: { fg: '#3b2f1e', bg: '#f4ecd8' },
   dark: { fg: '#dddddd', bg: '#1e1e1e' },
 };
+// Reading fonts the reader offers. Publisher keeps the book's own; the others are common system stacks, so nothing is downloaded.
+const FONTS = {
+  serif: 'Georgia, "Times New Roman", serif',
+  sans: 'system-ui, "Segoe UI", Helvetica, Arial, sans-serif',
+  humanist: '"Gill Sans", "Gill Sans MT", Candara, Calibri, "Trebuchet MS", sans-serif',
+  mono: 'ui-monospace, Consolas, "Courier New", monospace',
+};
+// Where a selection sits, in this frame's coordinates, so the parent can put its popup next to the text.
+const rectOf = (range, el) => {
+  const r = range.getBoundingClientRect();
+  const f = el?.getBoundingClientRect?.();
+  const n = v => (Number.isFinite(v) ? Math.round(v) : 0);
+  return { x: n(r.left + (f?.left ?? 0)), y: n(r.top + (f?.top ?? 0)), width: n(r.width), height: n(r.height) };
+};
 const HIGHLIGHT = { highlight: '#ffd54a', note: '#7ec8ff' };
 
 function toc(items, depth = 0) {
@@ -241,7 +256,7 @@ async function mountFoliate(book, restore) {
         const range = sel.getRangeAt(0);
         const text = range.toString();
         if (!text.trim()) return send({ t: 'selection', generation, cleared: true });
-        send({ t: 'selection', generation, cfi: view.getCFI(index, range).slice(0, 16384), text: text.slice(0, 16384) });
+        send({ t: 'selection', generation, cfi: view.getCFI(index, range).slice(0, 16384), text: text.slice(0, 16384), rect: rectOf(range, doc.defaultView?.frameElement) });
       }, 250);
     });
   });
@@ -254,12 +269,14 @@ async function mountFoliate(book, restore) {
   } else await view.init({ showTextStart: true });
   if (!restored) send({ t: 'restore-failed', generation }); // never substitute a percentage for an unresolved CFI
 
-  const applyStyle = ({ fontPct, theme, flow }) => {
+  const applyStyle = ({ fontPct, theme, flow, font }) => {
     const t = THEMES[theme] ?? THEMES.light;
     const pct = Number.isFinite(fontPct) ? Math.min(250, Math.max(60, fontPct)) : 100;
     document.documentElement.style.background = t.bg;
     view.renderer?.setAttribute?.('flow', flow === 'scrolled' ? 'scrolled' : 'paginated');
-    view.renderer?.setStyles?.(`html { color: ${t.fg}; background: ${t.bg}; font-size: ${pct}% !important; } a { color: inherit; }`);
+    const stack = FONTS[font];
+    const face = stack ? `html, body, body :not(pre):not(code):not(kbd):not(samp) { font-family: ${stack} !important; }` : '';
+    view.renderer?.setStyles?.(`html { color: ${t.fg}; background: ${t.bg}; font-size: ${pct}% !important; } a { color: inherit; } ${face}`);
   };
   applyStyle({});
   const paint = async next => {
@@ -281,10 +298,35 @@ async function mountFoliate(book, restore) {
     async nav(dir) { await (dir === 'prev' ? view.prev() : view.next()); },
     style: applyStyle,
     annotations: paint,
+    // Where each annotation sits in the book (to the chapter it is in), for the timeline.
+    locate: list => {
+      const out = {};
+      for (const i of list.slice(0, 2000)) {
+        if (typeof i?.id !== 'string' || typeof i.cfi !== 'string' || !i.cfi || i.cfi.length > 16384) continue;
+        try {
+          const idx = view.resolveCFI(i.cfi)?.index;
+          const a = starts[idx], b = starts[idx + 1];
+          if (Number.isFinite(a)) out[i.id] = Math.min(1, Math.max(0, a + (Number.isFinite(b) ? (b - a) * 0.02 : 0)));
+        } catch { /* unplaceable: no mark */ }
+      }
+      send({ t: 'located', generation, positions: out });
+    },
     clearSelection: () => { for (const c of view.renderer?.getContents?.() ?? []) c.doc?.getSelection?.()?.removeAllRanges(); },
   };
   const opened = view.book ?? book;
   send({ t: 'toc', generation, items: toc(opened.toc) });
+  // Where each chapter starts, as a fraction of the whole book, for the timeline.
+  const starts = view.getSectionFractions();
+  const flat = (xs, d = 0) => (d > 6 || !Array.isArray(xs) ? [] : xs.flatMap(i => [i, ...flat(i.subitems, d + 1)]));
+  const chapters = [];
+  for (const i of flat(opened.toc).slice(0, 500)) {
+    try {
+      const at = typeof i.href === 'string' ? view.resolveNavigation(i.href) : null;
+      const f = Number.isInteger(at?.index) ? starts[at.index] : undefined;
+      if (Number.isFinite(f)) chapters.push({ label: String(i.label ?? '').slice(0, 256), fraction: Math.min(1, Math.max(0, f)) });
+    } catch { /* an unresolved entry has no mark */ }
+  }
+  send({ t: 'chapters', generation, items: chapters });
   send({ t: 'loaded', generation, engine: 'foliate', sections: opened.sections?.length ?? 0, title: typeof opened.metadata?.title === 'string' ? opened.metadata.title : null });
 }
 
@@ -484,7 +526,7 @@ async function openPdf(size, restore) {
         if (rectangles.length >= 256) break;
       }
       if (!rectangles.length) return;
-      send({ t: 'selection', generation, text: text.slice(0, 16384), pdf: { pageIndex: current, rectangles } });
+      send({ t: 'selection', generation, text: text.slice(0, 16384), pdf: { pageIndex: current, rectangles }, rect: rectOf(range, null) });
     }, 200);
   };
   document.addEventListener('selectionchange', onSelection);

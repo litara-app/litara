@@ -281,6 +281,19 @@ a { color: var(--lt-pri); }
 .lt-ribbon[aria-pressed="true"] .lt-ribbon-tail { background: var(--lt-ribbon, #8a2f2a); }
 .lt-ribbon:focus-visible { outline: 2px solid var(--lt-pri); outline-offset: 2px; }
 .lt-ribbon[disabled] { opacity: .4; cursor: default; }
+.lt-timeline { position: relative; width: 100%; height: 18px; display: flex; align-items: center; }
+.lt-timeline[data-seek] { cursor: pointer; }
+.lt-timeline .lt-progress { position: absolute; left: 0; right: 0; top: 7px; }
+.lt-tl-mark { position: absolute; left: var(--at); top: 50%; transform: translate(-50%, -50%); padding: 0; border: 0; background: none; cursor: pointer; display: block; }
+.lt-tl-mark::before { content: ""; display: block; }
+.lt-tl-mark[data-kind="chapter"]::before { width: 2px; height: 11px; background: var(--lt-edge, var(--lt-dim)); }
+.lt-tl-mark[data-kind="bookmark"]::before { width: 9px; height: 13px; background: var(--lt-ribbon, #8a2f2a); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
+.lt-tl-mark[data-kind="note"]::before { width: 9px; height: 9px; border-radius: 50%; background: #3b8fd6; border: 1px solid var(--lt-surface); }
+.lt-tl-mark[data-kind="highlight"]::before { width: 9px; height: 9px; border-radius: 2px; background: #e6b422; border: 1px solid var(--lt-surface); }
+button.lt-tl-mark:hover::before, button.lt-tl-mark:focus-visible::before { outline: 2px solid var(--lt-pri); outline-offset: 2px; }
+.lt-selpop { position: absolute; z-index: 7; left: var(--x); top: var(--y); transform: translate(-50%, -100%); display: flex; gap: var(--lt-s2); padding: var(--lt-s2); background: var(--lt-surface); border: 1px solid var(--lt-edge, var(--lt-line)); box-shadow: 2px 2px 0 var(--lt-line), 0 8px 18px rgb(0 0 0 / .3); }
+.lt-selpop[data-below] { transform: translate(-50%, 0); }
+.lt-selpop[data-fallback] { left: 50%; top: auto; bottom: 12px; transform: translateX(-50%); }
 .lt-reader-track { flex: 1; min-width: 60px; }
 .lt-reader-track .lt-progress [data-slot="progress-indicator"] { background: var(--lt-brass, var(--lt-pri)); }
 .lt-anchored { display: flex; flex-direction: column; gap: var(--lt-s2); width: min(320px, calc(100vw - 24px)); padding: var(--lt-s3); background: var(--lt-surface); color: var(--lt-ink); border: 1px solid var(--lt-edge, var(--lt-line)); box-shadow: 2px 2px 0 var(--lt-line), 0 8px 18px rgb(0 0 0 / .3); }

@@ -28,10 +28,11 @@ export interface OpenOptions {
 }
 
 export type ReaderTheme = "light" | "sepia" | "dark";
-export interface ReaderStyle { fontPct: number; theme: ReaderTheme; flow: "paginated" | "scrolled" }
+export type ReaderFont = "publisher" | "serif" | "sans" | "humanist" | "mono";
+export interface ReaderStyle { fontPct: number; theme: ReaderTheme; flow: "paginated" | "scrolled"; font?: ReaderFont }
 export interface PaintedAnnotation { id: string; cfi?: string; pdf?: { pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] }; kind: "highlight" | "note" }
 
-const INBOUND = new Set(["ready", "range", "loaded", "relocate", "blocked-link", "error", "toc", "selection", "annotation-click", "restore-failed", "key"]);
+const INBOUND = new Set(["ready", "range", "loaded", "relocate", "blocked-link", "error", "toc", "selection", "annotation-click", "restore-failed", "key", "chapters", "located"]);
 
 let generationCounter = 0;
 
@@ -87,6 +88,8 @@ export class ReaderHost {
   nav(dir: "next" | "prev") { this.post({ t: "nav", dir }); }
   setStyle(style: ReaderStyle) { this.post({ t: "style", ...style }); }
   setAnnotations(items: PaintedAnnotation[]) { this.post({ t: "annotations", items }); }
+  /** Asks where each annotation sits in the book; the answer arrives as a located event. */
+  locate(items: { id: string; cfi: string }[]) { this.post({ t: "locate", items }); }
   setPdfMode(mode: "off" | "area") { this.post({ t: "pdf-mode", mode }); }
   clearSelection() { this.post({ t: "clear-selection" }); }
 

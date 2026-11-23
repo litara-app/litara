@@ -1,16 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useParams } from "react-router";
 import { get } from "../api/client";
 import type { Annotation, AnnotationData, Locator, Page as Paged, ReaderSnapshot } from "../api/types";
-import { icons, notify, AnchoredPanel, ProgressBar, BookmarkRibbon, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, ErrorBox, IconButton, Page, RangeSlider, Row, SegmentedField, Stack, Tabs, Text, TextAreaField, TextLink, Tip } from "../ui";
+import type { TimelineMark } from "../ui/feedback";
+import { icons, notify, AnchoredPanel, ReadingTimeline, SelectField, BookmarkRibbon, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, ErrorBox, IconButton, Page, RangeSlider, Row, SegmentedField, Stack, Tabs, Text, TextAreaField, TextLink, Tip } from "../ui";
 import { ComicReader } from "./ComicReader";
 import { remoteSource } from "./fileSource";
 import { FinishControl } from "./FinishControl";
 import { profileMismatch } from "./profile";
-import { loadReaderOrigin, ReaderHost, type PaintedAnnotation, type ReaderEvent, type ReaderKind, type ReaderStyle } from "./host";
+import { loadReaderOrigin, ReaderHost, type PaintedAnnotation, type ReaderEvent, type ReaderFont, type ReaderKind, type ReaderStyle } from "./host";
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
 import { usePositionSaver } from "./usePositionSaver";
+import { QuietReveal, useQuietBar } from "./useQuietBar";
 
 interface TocItem { label: string; href: string | null; items: TocItem[] }
 interface Where { cfi: string | null; fraction: number | null; pageIndex?: number; x?: number; y?: number; numPages?: number; tocLabel: string | null }
@@ -28,15 +30,8 @@ function loadStyle(): ReaderStyle {
 }
 
 const THEME_ITEMS = [{ value: "light", label: "Light" }, { value: "sepia", label: "Sepia" }, { value: "dark", label: "Dark" }];
+const FONT_ITEMS = [{ value: "publisher", label: "The book's own" }, { value: "serif", label: "Serif (Georgia)" }, { value: "sans", label: "Sans (system)" }, { value: "humanist", label: "Humanist sans" }, { value: "mono", label: "Monospace" }];
 const FLOW_ITEMS = [{ value: "paginated", label: "Pages" }, { value: "scrolled", label: "Scroll" }];
-
-type ToolbarMode = "auto" | "always";
-const TOOLBAR_KEY = "litara.reader.toolbar";
-/** Automated browsers keep the toolbar up so scripted clicks always find it. */
-function loadToolbar(): ToolbarMode {
-  try { const v = localStorage.getItem(TOOLBAR_KEY); if (v === "auto" || v === "always") return v; } catch { /* storage unavailable */ }
-  return typeof navigator !== "undefined" && navigator.webdriver ? "always" : "auto";
-}
 
 function TocList({ items, onPick }: { items: TocItem[]; onPick: (href: string) => void }) {
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -88,31 +83,17 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
   const [where, setWhere] = useState<Where>({ cfi: null, fraction: null, tocLabel: null });
-  type Sel = { cfi: string; text: string; pdf?: { pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] } };
+  type Sel = { cfi: string; text: string; rect?: { x: number; y: number; width: number; height: number }; pdf?: { pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] } };
   const [selection, setSelection] = useState<Sel | null>(null);
   const [areaMode, setAreaMode] = useState(false);
   const [style, setStyle] = useState<ReaderStyle>(loadStyle);
   const [panel, setPanel] = useState(false);
   const [settings, setSettings] = useState(false);
-  // The toolbar hides while you read and comes back on a move to the top edge, a tap there, Escape or focus (layout A).
-  const [toolbar, setToolbar] = useState<ToolbarMode>(loadToolbar);
-  const [barOn, setBarOn] = useState(true);
-  const [barHeld, setBarHeld] = useState(false);
-  const [barTick, setBarTick] = useState(0);
-  const revealBar = () => { setBarOn(true); setBarTick((n) => n + 1); };
   const [noteDraft, setNoteDraft] = useState<{ id?: string; text: string; selection: Sel | null } | null>(null);
-  const keepBar = toolbar === "always" || panel || settings || !!noteDraft || barHeld;
-  useEffect(() => {
-    if (keepBar) { setBarOn(true); return; }
-    const t = setTimeout(() => setBarOn(false), 3500);
-    return () => clearTimeout(t);
-  }, [keepBar, barTick]);
-  useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") revealBar(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
+  const quiet = useQuietBar(panel || settings || !!noteDraft);
+  const { toolbar, changeToolbar, barOn, reveal: revealBar } = quiet;
+  const [chapters, setChapters] = useState<{ label: string; fraction: number }[]>([]);
+  const [located, setLocated] = useState<Record<string, number>>({});
   const saver = usePositionSaver({ editionId: e.id, fileId: e.file.id, contentVersion: e.file.contentVersion, initialRevision: snapshot.position.revision });
 
   // ---- annotations ----------------------------------------------------------
@@ -158,7 +139,6 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   };
   const anchorAt = (locator: Locator) => ({ fileId: e.file.id, contentVersion: e.file.contentVersion, locator });
   const cfiLoc = (cfi: string): Locator => ({ kind: "foliate-cfi", version: 1, cfi });
-  const changeToolbar = (m: ToolbarMode) => { setToolbar(m); try { localStorage.setItem(TOOLBAR_KEY, m); } catch { /* optional */ } };
   const hereLocator = (): Locator | null => {
     if (mismatch) return null;
     if (kind === "pdf") return where.pageIndex === undefined ? null : { kind: "pdf-page", version: 1, pageIndex: where.pageIndex, x: where.x ?? 0, y: where.y ?? 0 };
@@ -236,9 +216,18 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
         else if (w.cfi) saver.schedule({ kind: "foliate-cfi", version: 1, cfi: w.cfi });
         break;
       }
-      case "selection":
-        setSelection(m.cleared || mismatch ? null : typeof m.cfi === "string" ? { cfi: m.cfi, text: String(m.text ?? "") }
-          : m.pdf ? { cfi: "", text: typeof m.text === "string" ? m.text : "", pdf: m.pdf as Sel["pdf"] } : null);
+      case "selection": {
+        const r = m.rect as { x?: unknown; y?: unknown; width?: unknown; height?: unknown } | undefined;
+        const rect = r && [r.x, r.y, r.width, r.height].every((v) => typeof v === "number" && Number.isFinite(v)) ? (r as Sel["rect"]) : undefined;
+        setSelection(m.cleared || mismatch ? null : typeof m.cfi === "string" ? { cfi: m.cfi, text: String(m.text ?? ""), rect }
+          : m.pdf ? { cfi: "", text: typeof m.text === "string" ? m.text : "", pdf: m.pdf as Sel["pdf"], rect } : null);
+        break;
+      }
+      case "chapters":
+        setChapters(Array.isArray(m.items) ? (m.items as { label: string; fraction: number }[]).filter((c) => typeof c.fraction === "number") : []);
+        break;
+      case "located":
+        setLocated(m.positions && typeof m.positions === "object" ? (m.positions as Record<string, number>) : {});
         break;
       case "annotation-click": {
         const a = live.find((x) => x.id === m.id);
@@ -276,6 +265,12 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
 
   useEffect(() => { if (loaded) hostRef.current?.setStyle(style); }, [loaded, style]);
   useEffect(() => { if (loaded) hostRef.current?.setAnnotations(painted); }, [loaded, painted]);
+  useEffect(() => {
+    if (!loaded || kind === "pdf") return;
+    const items = live.flatMap((a) => (a.data!.anchor.locator.kind === "foliate-cfi" && current(a) ? [{ id: a.id, cfi: (a.data!.anchor.locator as { cfi: string }).cfi }] : []));
+    hostRef.current?.locate(items);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, live]);
   const changeStyle = (patch: Partial<ReaderStyle>) => {
     const next = { ...style, ...patch };
     setStyle(next);
@@ -291,6 +286,22 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
     );
   }
 
+  const gotoAnnotation = (a: Annotation) => {
+    const l = a.data!.anchor.locator;
+    if (l.kind === "foliate-cfi") hostRef.current?.goto({ cfi: l.cfi });
+    else if (l.kind === "pdf-page") hostRef.current?.goto({ pageIndex: l.pageIndex, x: l.x, y: l.y });
+  };
+  const marks: TimelineMark[] = [
+    ...chapters.map((c, n) => ({ id: `c${n}`, at: c.fraction, kind: "chapter" as const, label: c.label || "Chapter", onPick: () => hostRef.current?.goto({ fraction: c.fraction + 1e-6 }) })),
+    ...live.flatMap((a): TimelineMark[] => {
+      const d = a.data!;
+      const l = d.anchor.locator;
+      const at = l.kind === "pdf-page" ? (where.numPages && where.numPages > 1 ? l.pageIndex / (where.numPages - 1) : undefined) : located[a.id];
+      if (at === undefined || !current(a)) return [];
+      const kindLabel = d.kind === "bookmark" ? "Bookmark" : d.kind === "note" ? "Note" : "Highlight";
+      return [{ id: a.id, at, kind: d.kind, label: `${kindLabel}${d.text ? `: ${d.text}` : d.quote ? `: ${d.quote}` : ""}`.slice(0, 120), onPick: () => gotoAnnotation(a) }];
+    }),
+  ];
   const percent = where.fraction === null ? null : Math.round(where.fraction * 100);
   const sv = saver.status;
   const pend = usePendingState();
@@ -298,8 +309,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   return (
     <div className="lt-reader" data-toolbar={toolbar} data-bar={barOn ? "on" : "off"}>
       <h1 className="lt-sr">Reading {e.label || e.file.format.toUpperCase()}</h1>
-      <header className="lt-reader-bar" onMouseEnter={() => setBarHeld(true)} onMouseLeave={() => { setBarHeld(false); setBarTick((n) => n + 1); }}
-        onFocusCapture={() => setBarHeld(true)} onBlurCapture={() => { setBarHeld(false); setBarTick((n) => n + 1); }}>
+      <header className="lt-reader-bar" {...quiet.barProps}>
         <Row>
           <Button size="sm" to={`/titles/${e.titleId}`} icon={icons.arrowLeft}>Back</Button>
           <Button size="sm" onClick={() => setPanel(true)} icon={icons.list}>Contents &amp; notes</Button>
@@ -314,6 +324,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
               <Text size="sm">Text size {style.fontPct}%</Text>
               <RangeSlider label="Text size" min={70} max={220} step={10} value={style.fontPct} onChange={(v) => changeStyle({ fontPct: v })} />
               <SegmentedField label="Theme" value={style.theme} onValue={(v) => changeStyle({ theme: v as ReaderStyle["theme"] })} items={THEME_ITEMS} />
+              {kind !== "pdf" && <SelectField label="Font" value={style.font ?? "publisher"} onValue={(v) => changeStyle({ font: (v || "publisher") as ReaderFont })} items={FONT_ITEMS} />}
               {kind !== "pdf" && <SegmentedField label="Layout" value={style.flow} onValue={(v) => changeStyle({ flow: v as ReaderStyle["flow"] })} items={FLOW_ITEMS} />}
               <SegmentedField label="Toolbar" value={toolbar} onValue={(v) => changeToolbar(v === "always" ? "always" : "auto")} items={[{ value: "auto", label: "Auto-hide" }, { value: "always", label: "Always show" }]} />
             </Stack>
@@ -346,21 +357,27 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
 
       <div ref={box} className="lt-reader-stage" data-testid="reader-stage">
         {!loaded && !failure && <div className="lt-reader-busy"><Busy /></div>}
-        <div className="lt-reader-reveal" aria-hidden="true" onMouseEnter={revealBar} onClick={revealBar} />
-        {!barOn && <div className="lt-reader-handle"><IconButton variant="subtle" aria-label="Show toolbar" onClick={revealBar}>{icons.chevDown}</IconButton></div>}
+        <QuietReveal barOn={barOn} reveal={revealBar} />
+        {selection && (() => {
+          const r = selection.rect;
+          const width = box.current?.clientWidth ?? 800;
+          const x = r ? Math.min(width - 130, Math.max(130, r.x + r.width / 2)) : 0;
+          const below = !!r && r.y < 70;
+          const y = r ? (below ? r.y + r.height + 10 : r.y - 10) : 0;
+          const at = { "--x": `${x}px`, "--y": `${y}px` } as CSSProperties;
+          return (
+            <div className="lt-selpop" data-testid="selection-bar" data-below={below || undefined} data-fallback={r ? undefined : true} style={at}>
+              <Button size="sm" variant="primary" onClick={() => addHighlight(selection)} icon={icons.highlight}>Highlight</Button>
+              <Button size="sm" onClick={() => setNoteDraft({ text: "", selection })} icon={icons.pencil}>Add note</Button>
+            </div>
+          );
+        })()}
         <BookmarkRibbon on={!!bookmarkHere} label={bookmarkHere ? "Remove bookmark" : "Bookmark"} disabled={!loaded || mismatch} onToggle={toggleBookmark} />
       </div>
 
-      {selection && (
-        <Row justify="center" data-testid="selection-bar">
-          <Text as="span" size="sm" clamp={1}>{selection.text ? `“${selection.text}”` : "Selected area"}</Text>
-          <Button size="sm" variant="primary" onClick={() => addHighlight(selection)} icon={icons.highlight}>Highlight</Button>
-          <Button size="sm" onClick={() => setNoteDraft({ text: "", selection })} icon={icons.pencil}>Add note</Button>
-        </Row>
-      )}
       <footer className="lt-reader-foot">
         <span className="lt-reader-chapter"><Text as="span" size="xs" tone="dim" clamp={1}>{where.tocLabel ?? ""}</Text></span>
-        <div className="lt-reader-track"><ProgressBar value={percent ?? 0} label="Progress through the book" /></div>
+        <div className="lt-reader-track"><ReadingTimeline value={percent ?? 0} label="Progress through the book" marks={marks} /></div>
         <Row gap="xs">
           <Text as="span" size="xs" tone="dim" data-testid="progress">{where.pageIndex !== undefined ? `Page ${where.pageIndex + 1} of ${where.numPages}` : percent !== null ? `${percent}%` : ""}</Text>
           <Badge tone={sv === "saving" || sv === "offline" ? "neutral" : "success"} data-testid="save-status">{sv === "saving" ? "saving" : sv === "offline" ? "waiting to send" : sv === "saved" ? "position saved" : sv === "conflict" ? "paused" : ""}</Badge>
