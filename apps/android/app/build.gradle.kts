@@ -59,6 +59,10 @@ android {
         // Must match the server's whitelisted mobile redirect URI (litara://oauth2-callback,
         // OIDC_MOBILE_REDIRECT_URIS default) and the value used by OidcManager.
         manifestPlaceholders["appAuthRedirectScheme"] = "litara"
+
+        // ADR-0093: -Plitara.sharedReader=true makes ebook/PDF reading use the shared web engine in
+        // assets/reader-shared instead of the legacy modified reader in assets/reader. Off by default.
+        buildConfigField("boolean", "SHARED_READER", providers.gradleProperty("litara.sharedReader").orElse("false").get())
     }
 
     // "full" (default) links Google's proprietary Cast SDK for Chromecast support; "fdroid"
@@ -228,3 +232,6 @@ dependencies {
     androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.okhttp.tls)
 }
+
+apply(from = "../shared-reader.gradle.kts")
+tasks.named("preBuild") { dependsOn("checkSharedReader") }
