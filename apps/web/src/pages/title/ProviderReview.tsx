@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { adminOp, api, ApiError } from "../../api/client";
 import type { AutoFillResult, MetadataField, ProviderCandidate, ProviderResult, ProviderSearchResults } from "../../api/types";
-import { Badge, Busy, Button, CheckboxField, ErrorBox, icons, Modal, notify, Row, Stack, Table, TBody, TD, Text, TextField, TH, THead, TR } from "../../ui";
+import { Badge, Busy, Button, CheckboxField, ErrorBox, Drawer, icons, notify, Row, Stack, Table, TBody, TD, Text, TextField, TH, THead, TR } from "../../ui";
 import { FIELDS, show } from "./metadataFields";
 
 const PROVIDER_NAME: Record<string, string> = { open_library: "Open Library", google_books: "Google Books", audnexus: "Audnexus", hardcover: "Hardcover" };
@@ -134,7 +134,7 @@ function ProviderDialog({ subject, report, onClose, onApplied }: { subject: Revi
 
   if (picked) {
     return (
-      <Modal open onClose={onClose} title={`Review ${PROVIDER_NAME[picked.provider] ?? picked.provider} result`}
+      <Drawer open onClose={onClose} size="lg" title={`Review ${PROVIDER_NAME[picked.provider] ?? picked.provider} result`}
         description="Tick the values to use. Anything you apply becomes a protected edit, like any change you make here. The files are not changed."
         actions={
           <>
@@ -164,13 +164,13 @@ function ProviderDialog({ subject, report, onClose, onApplied }: { subject: Revi
           </Table>
         )}
         {stale ? <Text size="sm" tone="warning" role="alert">This item changed elsewhere. Close this window and search again.</Text> : <ErrorBox error={apply.error} />}
-      </Modal>
+      </Drawer>
     );
   }
 
   const data = search.data;
   return (
-    <Modal open onClose={onClose} title="Search online for metadata"
+    <Drawer open onClose={onClose} size="lg" title="Search online for metadata"
       description="Litara sends only this title, these authors and this ISBN to the providers this library has turned on. Your browser never contacts them, and nothing changes until you apply a result."
       actions={<Button icon={icons.close} onClick={onClose}>Close</Button>}>
       <Stack gap="sm">
@@ -189,26 +189,26 @@ function ProviderDialog({ subject, report, onClose, onApplied }: { subject: Revi
           <Row gap="sm"><Text size="sm" tone="dim">Some results were saved a few minutes ago.</Text><Button size="sm" icon={icons.reset} loading={search.isPending} onClick={() => run(true)}>Search again</Button></Row>
         )}
       </Stack>
-    </Modal>
+    </Drawer>
   );
 }
 
 function ResultBlock({ result, onChoose }: { result: ProviderResult; onChoose: (c: ProviderCandidate) => void }) {
   return (
-    <Stack gap="xs">
-      <Row gap="sm"><Text strong>{PROVIDER_NAME[result.provider] ?? result.provider}</Text>{result.cached && <Badge tone="neutral">Saved</Badge>}{STATUS_TEXT[result.status] && <Text size="sm" tone="dim">{STATUS_TEXT[result.status]}</Text>}</Row>
+    <div className="lt-cand-group">
+      <div className="lt-cand-source"><Text strong>{PROVIDER_NAME[result.provider] ?? result.provider}</Text>{result.cached && <Badge tone="neutral">Saved</Badge>}{STATUS_TEXT[result.status] && <Text size="sm" tone="dim">{STATUS_TEXT[result.status]}</Text>}</div>
       {result.candidates.map((c) => (
-        <Row key={c.id} gap="sm" align="start" wrap>
-          <div>
+        <div key={c.id} className="lt-cand">
+          <div className="lt-cand-main">
             <Text>{show(c.fields.title) || "(untitled)"}{c.fields.authors ? ` · ${show(c.fields.authors)}` : ""}</Text>
-            <Row gap="xs">
+            <Row gap="xs" wrap>
               {c.byIdentifier && <Badge tone="success">Exact ISBN match</Badge>}
               <Badge tone={c.consistent ? "info" : "warning"}>{c.consistent ? "Title and authors agree" : "Differs from this edition"}</Badge>
             </Row>
           </div>
           <Button size="sm" icon={icons.check} onClick={() => onChoose(c)} aria-label={`Review ${show(c.fields.title) || "result"} from ${PROVIDER_NAME[result.provider] ?? result.provider}`}>Review</Button>
-        </Row>
+        </div>
       ))}
-    </Stack>
+    </div>
   );
 }

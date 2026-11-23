@@ -1,5 +1,5 @@
 import { Dialog, DialogBackdrop, DialogContent, DialogDescription, DialogTitle } from "@ui-sdk/react/dialog";
-import { Drawer as SdkDrawer, DrawerBackdrop, DrawerClose, DrawerContent, DrawerTitle } from "@ui-sdk/react/drawer";
+import { Drawer as SdkDrawer, DrawerBackdrop, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@ui-sdk/react/drawer";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@ui-sdk/react/menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui-sdk/react/tooltip";
 import type { ReactElement, ReactNode } from "react";
@@ -23,19 +23,27 @@ export function Modal({ open, onClose, title, description, actions, children }: 
   );
 }
 
-/** A panel from an edge, for secondary content that should not leave the page. */
-export function Drawer({ open, onClose, title, side = "right", children }: {
-  open: boolean; onClose: () => void; title: string; side?: "right" | "bottom"; children: ReactNode;
+/**
+ * A panel from an edge, for work that refers back to the page: searching, comparing and reviewing. The page stays
+ * visible beside it. Actions go in a footer that stays in view while the body scrolls. Use a Modal for a short
+ * decision that must be answered first.
+ */
+export function Drawer({ open, onClose, title, description, actions, size = "md", side = "right", children }: {
+  open: boolean; onClose: () => void; title: string; description?: ReactNode; actions?: ReactNode; size?: "md" | "lg"; side?: "right" | "bottom"; children: ReactNode;
 }) {
   return (
     <SdkDrawer open={open} onOpenChange={(o) => { if (!o) onClose(); }} side={side}>
       <DrawerBackdrop />
-      <DrawerContent className="lt-drawer">
+      <DrawerContent className="lt-drawer" data-size={size}>
         <div className="lt-drawer-head">
           <DrawerTitle>{title}</DrawerTitle>
           <DrawerClose aria-label={`Close ${title}`} className="lt-btn" data-variant="subtle" data-size="sm">Close</DrawerClose>
         </div>
-        <div className="lt-drawer-body">{children}</div>
+        <div className="lt-drawer-body">
+          {description && <DrawerDescription className="lt-drawer-desc">{description}</DrawerDescription>}
+          {children}
+        </div>
+        {actions && <div className="lt-drawer-foot">{actions}</div>}
       </DrawerContent>
     </SdkDrawer>
   );

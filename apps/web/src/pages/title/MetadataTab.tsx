@@ -33,8 +33,7 @@ export function MetadataTab({ editions, recordings = [] }: { title?: Title; edit
 
 const PROVIDER_NAMES: Record<string, string> = { open_library: "Open Library", google_books: "Google Books", audnexus: "Audnexus", hardcover: "Hardcover" };
 
-interface Change { field: string; clear: boolean; value?: unknown; /** What the notification says once it is saved. */ note: string }
-const labelOf = (field: string) => FIELDS.find((f) => f.field === field)?.label ?? field;
+interface Change { field: string; clear: boolean; value?: unknown; /** What the notification says once it is saved. Locking says nothing: the field's colour already shows it. */ note?: string }
 
 function Editor({ target }: { target: Target }) {
   const qc = useQueryClient();
@@ -73,7 +72,7 @@ function Editor({ target }: { target: Target }) {
     onSettled: refresh,
   });
   const unlock = useMutation({
-    meta: { success: (_d: unknown, field: string) => `${labelOf(field)} unlocked. It will follow the files again.` },
+    meta: { quiet: true },
     mutationFn: (field: string) => (edition ? api("DELETE", `${base}/${field}`, adminOp(report.data!.revision)) : api("DELETE", `${base}/${field}`)),
     onSettled: refresh,
   });
@@ -143,7 +142,7 @@ function FieldRow({ def, f, busy, pending, draft, onSave, onUnlock }: {
   };
   const toggleLock = () => {
     if (locked) onUnlock();
-    else void onSave(empty ? { field: def.field, clear: true, note: `${def.label} locked as empty` } : { field: def.field, clear: false, value: f!.value, note: `${def.label} locked` });
+    else void onSave(empty ? { field: def.field, clear: true } : { field: def.field, clear: false, value: f!.value });
   };
   const canBeEmpty = def.field !== "title";
   const sr = <span className="lt-sr">{def.label}</span>;

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { API, api, ApiError, get, uploadFile } from "../../api/client";
 import type { CoverSearchResult, CoverSlot, Edition, RecordingLink, Title, TitleCovers } from "../../api/types";
 import { CoverEmbed } from "./CoverEmbed";
-import { bumpCovers, Busy, Button, CoverChoice, ErrorBox, icons, ImageDrop, Modal, SegmentedField, Stack, SwitchField, Text, TextField } from "../../ui";
+import { bumpCovers, Busy, Button, CoverChoice, ErrorBox, icons, Drawer, ImageDrop, SegmentedField, Stack, SwitchField, Text, TextField } from "../../ui";
 
 const SOURCE_TEXT: Record<CoverSlot["source"], string> = {
   upload: "an image you uploaded", url: "an image from an address you entered", search: "a result from the online search",
@@ -75,7 +75,7 @@ function SearchDialog({ open, onClose, title, medium, enabled, busy, onChoose, o
     queryFn: () => get<{ items: CoverSearchResult[] }>(`/titles/${title.id}/cover-search?medium=${medium}`),
   });
   return (
-    <Modal open={open} onClose={onClose} title="Search online for a cover"
+    <Drawer open={open} onClose={onClose} title="Search online for a cover" size="lg"
       description="Litara sends only the title and author to Open Library and iTunes. Your browser never contacts those sites."
       actions={<Button icon={icons.close} onClick={onClose}>Close</Button>}>
       {!enabled ? (
@@ -94,6 +94,6 @@ function SearchDialog({ open, onClose, title, medium, enabled, busy, onChoose, o
           ))}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
