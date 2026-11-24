@@ -14,6 +14,7 @@ export function usePersonal(titleId: string) {
         operationId: crypto.randomUUID(), baseRevision: cur.revision, capturedAt: new Date().toISOString(), data: { ...cur.data, ...patch },
       });
     },
+    meta: { success: (_d: unknown, v: Partial<PersonalData>) => ("ratingHalves" in v ? (v.ratingHalves == null ? "Rating cleared" : `Rated ${v.ratingHalves / 2} of 5`) : "Saved") },
     onSuccess: (p) => qc.setQueryData(key, p),
     // A stale revision means another device changed it first; show what the server has and let the person try again.
     onError: (e) => { if (e instanceof ApiError && e.status === 409) void qc.invalidateQueries({ queryKey: key }); },

@@ -28,10 +28,20 @@ export interface OpenOptions {
 }
 
 export type ReaderTheme = "light" | "sepia" | "dark";
-export interface ReaderStyle { fontPct: number; theme: ReaderTheme; flow: "paginated" | "scrolled" }
-export interface PaintedAnnotation { id: string; cfi?: string; pdf?: { pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] }; kind: "highlight" | "note" }
+export type ReaderFont = "publisher" | "literata" | "atkinson" | "dyslexic" | "serif" | "sans" | "mono";
+export interface ReaderStyle {
+  fontPct: number; theme: ReaderTheme; flow: "paginated" | "scrolled"; font?: ReaderFont;
+  /** Optional typography; absent means the frame leaves the book's own value alone. */
+  lineHeight?: number; justify?: boolean; hyphenate?: boolean;
+  /** Paginated layout: columns (1..4), gap between them as a percentage of the page (0..20), widest text column in px (300..2000). */
+  maxColumns?: number; gapPct?: number; maxInlineSize?: number;
+}
+export type AnnotationDrawStyle = "highlight" | "underline" | "squiggly" | "strikethrough";
+export interface PaintedAnnotation { id: string; cfi?: string; pdf?: { pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] }; kind: "highlight" | "note";
+  /** Optional appearance: a CSS hex colour and an overlay style (ebooks); a colour only for PDF rectangles. */
+  color?: string; style?: AnnotationDrawStyle }
 
-const INBOUND = new Set(["ready", "range", "loaded", "relocate", "blocked-link", "error", "toc", "selection", "annotation-click", "restore-failed", "key"]);
+const INBOUND = new Set(["ready", "range", "loaded", "relocate", "blocked-link", "error", "toc", "selection", "annotation-click", "restore-failed", "key", "chapters", "located", "tap", "search-results", "search-progress", "search-done"]);
 
 let generationCounter = 0;
 
@@ -87,8 +97,15 @@ export class ReaderHost {
   nav(dir: "next" | "prev") { this.post({ t: "nav", dir }); }
   setStyle(style: ReaderStyle) { this.post({ t: "style", ...style }); }
   setAnnotations(items: PaintedAnnotation[]) { this.post({ t: "annotations", items }); }
+  /** Hands the frame a bundled font's files (ADR-0091). The frame's policy allows only blob and data fonts, so the bytes travel over the channel. */
+  setFonts(id: string, faces: { weight: number; style: string; buffer: ArrayBuffer }[]) { this.post({ t: "fonts", id, faces }, faces.map((f) => f.buffer)); }
+  /** Asks where each annotation sits in the book; the answer arrives as a located event. */
+  locate(items: { id: string; cfi: string }[]) { this.post({ t: "locate", items }); }
   setPdfMode(mode: "off" | "area") { this.post({ t: "pdf-mode", mode }); }
   clearSelection() { this.post({ t: "clear-selection" }); }
+  /** In-book search (ebooks). Hits arrive as search-results batches, then search-done; a new search or clearSearch cancels the last. */
+  search(query: string, opts: { matchCase?: boolean; wholeWords?: boolean; matchDiacritics?: boolean; /** Stop after this many hits (1..500, default 500). */ max?: number } = {}) { this.post({ t: "search", query, ...opts }); }
+  clearSearch() { this.post({ t: "clear-search" }); }
 
   private post(msg: Record<string, unknown>, transfer: Transferable[] = []) {
     if (!this.disposed) this.port?.postMessage({ ...msg, generation: this.generation }, transfer);

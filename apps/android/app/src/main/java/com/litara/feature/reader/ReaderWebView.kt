@@ -60,8 +60,23 @@ class ReaderController {
     /** Set by the screen to receive parsed reader events. */
     var listener: ((ReaderEvent) -> Unit)? = null
 
-    fun attach(webView: WebView) {
+    /** Shared-engine mode (ADR-0093): the page is the host page and speaks the web reader's frame protocol. */
+    @Volatile
+    var shared: Boolean = false
+        private set
+
+    /** Raw shared-engine events (the PDF screen and tests use these; ebooks get [listener] events mapped from them). */
+    var sharedListener: ((SharedEvent) -> Unit)? = null
+
+    /** Serves the book bytes to the shared host page; set by [ReaderWebView] when it creates the shared page. */
+    var responder: SharedBookResponder? = null
+
+    private var sharedToc: List<TocItem> = emptyList()
+    private var pendingFraction: Double? = null
+
+    fun attach(webView: WebView, shared: Boolean = false) {
         this.webView = webView
+        this.shared = shared
     }
 
     fun detach(view: WebView) {
@@ -71,11 +86,71 @@ class ReaderController {
     /** Called from the JS interface (binder thread); marshals events to the main thread. */
     fun handleMessage(view: WebView, data: String) {
         if (webView !== view) return
+        if (shared) {
+            val event = SharedReaderProtocol.parse(data) ?: return
+            Handler(Looper.getMainLooper()).post { if (webView === view) onSharedEvent(event) }
+            return
+        }
         val event = ReaderBridge.parseEvent(data) ?: return
         Handler(Looper.getMainLooper()).post {
             if (webView === view) listener?.invoke(event)
         }
     }
+
+    private fun onSharedEvent(e: SharedEvent) {
+        sharedListener?.invoke(e)
+        val l = listener ?: return
+        when (e) {
+            SharedEvent.Ready -> l(ReaderEvent.Ready)
+            is SharedEvent.Toc -> sharedToc = e.items
+            is SharedEvent.Loaded -> {
+                l(ReaderEvent.Loaded(sharedToc, e.title))
+                pendingFraction?.let { f -> pendingFraction = null; sharedSend(SharedReaderProtocol.gotoFraction(f)) }
+            }
+            is SharedEvent.Relocate -> l(ReaderEvent.Relocate(e.cfi, e.fraction, e.tocLabel))
+            is SharedEvent.Selection -> l(ReaderEvent.Selection(e.text, e.cfi, e.rect))
+            SharedEvent.SelectionCleared -> l(ReaderEvent.SelectionCleared)
+            is SharedEvent.AnnotationClick -> l(ReaderEvent.AnnotationTap(e.id, e.rect)) // ids are CFIs (see SharedReaderProtocol.annotations)
+            is SharedEvent.Failure -> l(ReaderEvent.Error("${e.code}: ${e.detail}"))
+            is SharedEvent.Tap -> l(ReaderEvent.Tap(e.x))
+            is SharedEvent.SearchResults -> l(ReaderEvent.SearchResults(e.label, e.hits))
+            is SharedEvent.SearchProgress -> l(ReaderEvent.SearchProgress(e.progress))
+            is SharedEvent.SearchDone -> l(ReaderEvent.SearchDone(e.total, e.capped))
+            SharedEvent.RestoreFailed, is SharedEvent.Chapters, is SharedEvent.Located, SharedEvent.Other -> Unit
+        }
+    }
+
+    private fun sharedSend(message: String) = eval(SharedReaderProtocol.jsHost(message))
+
+    /** Runs JavaScript in the page and passes back its JSON result. For instrumentation tests. */
+    @androidx.annotation.VisibleForTesting
+    internal fun evaluateForTest(js: String, onResult: (String) -> Unit) {
+        val wv = webView ?: return
+        wv.post { wv.evaluateJavascript(js) { onResult(it) } }
+    }
+
+    /** Sends one frame-protocol message (JSON object) to the shared engine. */
+    fun sendShared(message: String) = sharedSend(message)
+
+    /**
+     * Opens a book in the shared engine (EPUB, FB2 or PDF). Ranges are fetched by the host page from [SharedBookResponder];
+     * the position restores by [cfi], or by [fraction] once the book is loaded when only a fraction is known.
+     */
+    fun openShared(params: OpenParams, context: Context, kind: String, pageIndex: Int? = null, x: Double? = null, y: Double? = null) {
+        val r = responder ?: return
+        r.ref = params.ref
+        val size = r.size()
+        if (size <= 0) {
+            listener?.invoke(ReaderEvent.Error("Book file is empty or unreadable"))
+            return
+        }
+        pendingFraction = if (params.cfi == null) params.fraction else null
+        sharedSend(SharedReaderProtocol.open(kind, size, refName(params.ref), params.cfi, pageIndex, x, y))
+        if (kind != "pdf") sharedSend(SharedReaderProtocol.style(params.settings))
+    }
+
+    /** A bundled reading font's faces (ADR-0091), as bytes over the channel. */
+    fun setFont(id: String, faces: List<FontFace>) = sharedSend(SharedReaderProtocol.fonts(id, faces))
 
     /**
      * Streams the book into foliate. Safe to call off the main thread (it reads the file and
@@ -83,13 +158,14 @@ class ReaderController {
      */
     fun open(params: OpenParams, context: Context) = runOpen(params, context)
 
-    fun goTo(target: String) = command(buildJsonObject { put("type", "goTo"); put("target", target) }.toString())
-    fun goToFraction(value: Double) = command(buildJsonObject { put("type", "goToFraction"); put("value", value) }.toString())
-    fun next() = command(buildJsonObject { put("type", "next") }.toString())
-    fun prev() = command(buildJsonObject { put("type", "prev") }.toString())
+    fun goTo(target: String) = if (shared) sharedSend(SharedReaderProtocol.gotoCfiOrHref(target)) else command(buildJsonObject { put("type", "goTo"); put("target", target) }.toString())
+    fun goToFraction(value: Double) = if (shared) sharedSend(SharedReaderProtocol.gotoFraction(value)) else command(buildJsonObject { put("type", "goToFraction"); put("value", value) }.toString())
+    fun next() = if (shared) sharedSend(SharedReaderProtocol.nav(true)) else command(buildJsonObject { put("type", "next") }.toString())
+    fun prev() = if (shared) sharedSend(SharedReaderProtocol.nav(false)) else command(buildJsonObject { put("type", "prev") }.toString())
 
     /** Replace the set of highlights drawn in the page. Only CFI-anchored, resolvable ones are drawn. */
     fun setAnnotations(items: List<BookAnnotation>) {
+        if (shared) return sharedSend(SharedReaderProtocol.annotations(items))
         val arr = kotlinx.serialization.json.buildJsonArray {
             for (a in items) {
                 val cfi = a.cfi ?: continue
@@ -100,13 +176,14 @@ class ReaderController {
         command(buildJsonObject { put("type", "setAnnotations"); put("items", arr) }.toString())
     }
 
-    fun search(query: String) = command(buildJsonObject { put("type", "search"); put("query", query) }.toString())
+    fun search(query: String) = if (shared) sharedSend(SharedReaderProtocol.search(query)) else command(buildJsonObject { put("type", "search"); put("query", query) }.toString())
 
-    fun clearSearch() = command(buildJsonObject { put("type", "clearSearch") }.toString())
+    fun clearSearch() = if (shared) sharedSend(SharedReaderProtocol.clearSearch()) else command(buildJsonObject { put("type", "clearSearch") }.toString())
 
-    fun clearSelection() = command(buildJsonObject { put("type", "clearSelection") }.toString())
+    fun clearSelection() = if (shared) sharedSend(SharedReaderProtocol.clearSelection()) else command(buildJsonObject { put("type", "clearSelection") }.toString())
 
     fun applyStyles(settings: ReaderSettings) {
+        if (shared) return sharedSend(SharedReaderProtocol.style(settings))
         val cmd = buildJsonObject {
             put("type", "applyStyles")
             put("settings", ReaderBridge.json.encodeToJsonElement(ReaderSettings.serializer(), settings))
@@ -148,6 +225,11 @@ class ReaderController {
     }
 }
 
+private fun refName(ref: com.litara.core.storage.LocalRef): String = when (ref) {
+    is com.litara.core.storage.LocalRef.PlainFile -> ref.file.name
+    is com.litara.core.storage.LocalRef.ContentDoc -> ref.uri.lastPathSegment.orEmpty()
+}.takeLast(80)
+
 /**
  * WebView that suppresses the system Copy/Select-all toolbar. The page shows its own highlight
  * toolbar instead; the native selection handles are unaffected.
@@ -186,6 +268,8 @@ private class EmptyActionModeCallback(private val delegate: android.view.ActionM
 fun ReaderWebView(
     controller: ReaderController,
     modifier: Modifier = Modifier,
+    /** ADR-0093: load the host page for the shared web engine instead of the legacy reader. */
+    shared: Boolean = false,
     onRendererGone: () -> Unit,
 ) {
     val destroyedViews = androidx.compose.runtime.remember { mutableSetOf<WebView>() }
@@ -222,7 +306,21 @@ fun ReaderWebView(
                     override fun shouldInterceptRequest(
                         view: WebView,
                         request: WebResourceRequest,
-                    ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
+                    ): WebResourceResponse? {
+                        val book = controller.responder
+                        if (shared && book != null && book.matches(request.url.path)) return book.respond(request.url.path ?: "")
+                        return assetLoader.shouldInterceptRequest(request.url)
+                    }
+                }
+
+                if (shared) {
+                    if (com.litara.BuildConfig.DEBUG) webChromeClient = object : android.webkit.WebChromeClient() {
+                        override fun onConsoleMessage(m: android.webkit.ConsoleMessage): Boolean {
+                            Log.d("LitaraSharedReader", "${m.messageLevel()} ${m.message()} (${m.sourceId()}:${m.lineNumber()})")
+                            return true
+                        }
+                    }
+                    controller.responder = SharedBookResponder(context.applicationContext)
                 }
 
                 addJavascriptInterface(
@@ -233,8 +331,11 @@ fun ReaderWebView(
                     "AndroidReaderBridge",
                 )
 
-                controller.attach(this)
-                loadUrl("https://appassets.androidplatform.net/assets/reader/index.html")
+                controller.attach(this, shared)
+                loadUrl(
+                    if (shared) "https://appassets.androidplatform.net/assets/reader-shared-host/index.html"
+                    else "https://appassets.androidplatform.net/assets/reader/index.html",
+                )
             }
         },
         onRelease = { view ->

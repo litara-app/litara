@@ -12,6 +12,9 @@ Runtime (production) npm dependencies bundled into the built web application (`a
 | `@floating-ui/utils` | 0.2.12 | MIT | Copyright (c) 2021-present Floating UI contributors |
 | `@fontsource-variable/fraunces` | 5.3.0 | OFL-1.1 | Copyright 2020 The Fraunces Project Authors (font files are bundled; license text in `public/licenses/fonts-OFL.txt`) |
 | `@fontsource-variable/source-sans-3` | 5.3.1 | OFL-1.1 | Source Sans 3 font files, Adobe and Google Inc. (license text in `public/licenses/fonts-OFL.txt`) |
+| `@fontsource/atkinson-hyperlegible` | 5.3.0 | OFL-1.1 | Atkinson Hyperlegible font files, Copyright 2020 Braille Institute of America, Inc. (font files are bundled and fetched when chosen, ADR-0091; license text in `public/licenses/fonts-OFL.txt`) |
+| `@fontsource/literata` | 5.3.0 | OFL-1.1 | Literata font files, Copyright 2017 The Literata Project Authors (font files are bundled and fetched when chosen, ADR-0091; license text in `public/licenses/fonts-OFL.txt`) |
+| `@fontsource/opendyslexic` | 5.3.0 | OFL-1.1 | OpenDyslexic font files, Copyright (c) 2019 Abbie Gonzalez, Reserved Font Name OpenDyslexic (font files are bundled and fetched when chosen, ADR-0091; license text in `public/licenses/fonts-OFL.txt`) |
 | `@fontsource/im-fell-english` | 5.3.0 | OFL-1.1 | IM Fell English font files, Igino Marini and Google Inc. (license text in `public/licenses/fonts-OFL.txt`) |
 | `@remix-run/route-pattern` | 0.22.1 | MIT | Copyright (c) 2025 Shopify Inc. |
 | `@tanstack/query-core` | 5.107.1 | MIT | Copyright (c) 2021-present Tanner Linsley |

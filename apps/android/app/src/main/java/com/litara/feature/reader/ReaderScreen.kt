@@ -1,5 +1,6 @@
 package com.litara.feature.reader
 
+import com.litara.BuildConfig
 import com.litara.ui.asString
 import androidx.compose.ui.res.stringResource
 import com.litara.R
@@ -125,12 +126,15 @@ fun ReaderScreen(
     }
 
     val resolved = ui.resolved
+    // ADR-0093: behind -Plitara.sharedReader, EPUB and FB2 read through the shared web engine; the page is chosen once the
+    // format is known, so the WebView waits for the resolved file in that build.
+    val useShared = BuildConfig.SHARED_READER && resolved != null && SharedReaderProtocol.ebookUsesSharedEngine(resolved.format)
     LaunchedEffect(ready, resolved, rendererFailed) {
         if (ready && resolved != null && !opened && !rendererFailed) {
             opened = true
-            withContext(Dispatchers.IO) {
-                controller.open(openParamsFor(resolved.ref, resolved.format, resolved.initial, ui.settings), context)
-            }
+            val params = openParamsFor(resolved.ref, resolved.format, resolved.initial, ui.settings)
+            if (useShared) controller.openShared(params, context, resolved.format.lowercase())
+            else withContext(Dispatchers.IO) { controller.open(params, context) }
         }
     }
 
@@ -144,9 +148,10 @@ fun ReaderScreen(
             .fillMaxSize()
             .background(surface),
     ) {
-        if (!rendererFailed) {
+        if (!rendererFailed && (!BuildConfig.SHARED_READER || resolved != null)) {
             ReaderWebView(
                 controller = controller,
+                shared = useShared,
                 modifier = Modifier.fillMaxSize(),
                 onRendererGone = {
                     rendererFailed = true

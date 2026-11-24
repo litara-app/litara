@@ -269,6 +269,8 @@ CREATE TABLE library_config (
     writeback_backups   boolean NOT NULL DEFAULT false,
     backup_root         text,
     provider_order      text[] NOT NULL DEFAULT '{}',
+    -- Whether auto-fill may use one clear title-and-author match when a book has no identifier (ADR-0090). Off by default.
+    autofill_title_match boolean NOT NULL DEFAULT false,
     updated_at          timestamptz NOT NULL DEFAULT now(),
     CHECK (NOT writeback_backups OR backup_root IS NOT NULL),
     CHECK (sentinel_path IS NULL OR sentinel_sha256 IS NOT NULL)
@@ -630,7 +632,8 @@ CREATE INDEX shelf_titles_order_idx ON shelf_titles (shelf_id, position, title_i
 -- sidecar, embedded and provider values; the file name is a computed lowest fallback.
 CREATE TABLE edition_metadata_values (
     edition_id      uuid NOT NULL REFERENCES editions (id),
-    field           text NOT NULL CHECK (field IN ('title', 'authors', 'series_name', 'series_index', 'language', 'tags', 'publisher', 'published', 'page_count', 'isbn', 'description')),
+    field           text NOT NULL CHECK (field IN ('title', 'authors', 'series_name', 'series_index', 'language', 'tags', 'publisher', 'published', 'page_count', 'isbn', 'description',
+                                             'subtitle', 'genres', 'moods', 'age_rating', 'asin', 'open_library_id', 'google_books_id', 'hardcover_id', 'goodreads_id', 'public_rating', 'public_rating_count')),
     source          text NOT NULL CHECK (source IN ('user', 'sidecar', 'embedded', 'provider')),
     value           jsonb,
     protected_clear boolean NOT NULL DEFAULT false,
@@ -991,7 +994,42 @@ CREATE TABLE cover_settings (
 );
 INSERT INTO cover_settings (singleton) VALUES (true);
 
+-- Each account's notification history (ADR-0089): the results of its own actions, and entries added by background work.
+-- The newest 500 entries or 90 days are kept, whichever is fewer; the service trims on every insert.
+CREATE TABLE notifications (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    tone       text NOT NULL CHECK (tone IN ('success', 'info', 'warning', 'error')),
+    title      text NOT NULL CHECK (char_length(title) BETWEEN 1 AND 300),
+    detail     text CHECK (detail IS NULL OR char_length(detail) <= 2000),
+    source     text NOT NULL CHECK (source IN ('user', 'system')),
+    read_at    timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX notifications_user_recent ON notifications (user_id, created_at DESC, id DESC);
+
+-- One row per reading session (ADR-0092): when an account read an edition, for how long, and from where to where in the
+-- book as a fraction. The browser sends a session by its own id repeatedly, so the row is an idempotent upsert.
+CREATE TABLE reading_sessions (
+    user_id        uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    id             uuid NOT NULL,
+    edition_id     uuid NOT NULL REFERENCES editions (id),
+    started_at     timestamptz NOT NULL,
+    ended_at       timestamptz NOT NULL,
+    active_seconds integer NOT NULL CHECK (active_seconds BETWEEN 0 AND 86400),
+    start_fraction real CHECK (start_fraction IS NULL OR start_fraction BETWEEN 0 AND 1),
+    end_fraction   real CHECK (end_fraction IS NULL OR end_fraction BETWEEN 0 AND 1),
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    updated_at     timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, id),
+    CHECK (ended_at >= started_at)
+);
+CREATE INDEX reading_sessions_user_time ON reading_sessions (user_id, started_at DESC);
+CREATE INDEX reading_sessions_edition ON reading_sessions (edition_id, user_id, started_at DESC);
+
 -- +goose Down
+DROP TABLE reading_sessions;
+DROP TABLE notifications;
 DROP TABLE deliveries;
 DROP TABLE delivery_recipients;
 DROP TABLE smtp_configs;

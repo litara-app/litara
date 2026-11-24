@@ -3,7 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, assertSameSession, get, sessionEpoch } from "../api/client";
 import type { Annotation, AnnotationData, Edition, Locator, Page as Paged, ReaderSnapshot } from "../api/types";
 import { useEditionPending, usePendingQueue, usePendingState } from "../pending/PendingProvider";
-import { icons, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, IconButton, Modal, Page, RangeSlider, Row, SegmentedField, Stack, Text, TextAreaField, TextLink } from "../ui";
+import { icons, notify, AnchoredPanel, Alert, Badge, BookmarkRibbon, Busy, Button, Card, DownloadLink, Drawer, IconButton, Page, ReadingTimeline, Row, SegmentedField, Stack, Text, TextAreaField, TextLink } from "../ui";
+import type { TimelineMark } from "../ui/feedback";
+import { useReadingSession } from "./useReadingSession";
+import { QuietReveal, useQuietBar } from "./useQuietBar";
 import { usePositionSaver } from "./usePositionSaver";
 
 interface ComicPage { index: number; entryId: string; mimeType: string; width: number; height: number; contentPath: string }
@@ -100,6 +103,7 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const n = m.pages.length;
+  const quiet = useQuietBar(panel || settings || noteDraft !== null);
 
   // Resume by page identity (entry ID), never by a bare index: a re-extracted archive keeps its entry IDs.
   const start = useMemo(() => {
@@ -193,24 +197,44 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
   const anchor = () => ({ fileId: e.file.id, contentVersion: e.file.contentVersion, locator: locatorFor(index) });
   const pageOf = (a: Annotation) => { const l = a.data!.anchor.locator; return l.kind === "comic-page" ? m.pages.findIndex((p) => p.entryId === l.entryId) : -1; };
 
+  const bookmarkHere = items.find((a) => a.data!.kind === "bookmark" && pageOf(a) === index);
+  const toggleBookmark = () => {
+    if (bookmarkHere) { del(bookmarkHere); notify.info("Bookmark removed"); return; }
+    put(crypto.randomUUID(), { kind: "bookmark", anchor: anchor(), selection: null, text: `Page ${index + 1}`, quote: "" }, "Bookmark");
+    notify.success("Bookmark added", { detail: `Page ${index + 1}` });
+  };
+  const marks: TimelineMark[] = items.flatMap((a): TimelineMark[] => {
+    const pi = pageOf(a);
+    if (pi < 0) return [];
+    const kind = a.data!.kind === "note" ? "note" : "bookmark";
+    return [{ id: a.id, at: n > 1 ? pi / (n - 1) : 0, kind, label: `${kind === "note" ? "Note" : "Bookmark"} on page ${pi + 1}${a.data!.kind === "note" && a.data!.text ? `: ${a.data!.text}` : ""}`.slice(0, 120), onPick: () => go(pi) }];
+  });
+
+  useReadingSession(e.id, n > 1 ? index / (n - 1) : 0, n > 0);
   const current = urls[index];
   const sv = saver.status;
   const serverPos = saver.conflict?.server.position;
-  const rtl = style.dir === "rtl";
 
   return (
-    <div className="lt-reader" data-dark={style.dark || undefined}>
+    <div className="lt-reader" data-dark={style.dark || undefined} data-toolbar={quiet.toolbar} data-bar={quiet.barOn ? "on" : "off"}>
       <h1 className="lt-sr">Reading {e.label || e.file.format.toUpperCase()}</h1>
-      <header className="lt-reader-bar">
+      <header className="lt-reader-bar" {...quiet.barProps}>
         <Row>
           <Button size="sm" to={`/titles/${e.titleId}`} icon={icons.arrowLeft}>Back</Button>
           <Button size="sm" onClick={() => setPanel(true)} icon={icons.bookmark}>Bookmarks &amp; notes</Button>
         </Row>
+        <span className="lt-reader-title"><Text as="span" size="sm" clamp={1}>{e.label || ""}</Text></span>
         <Row>
           <IconButton aria-label="Previous page" onClick={() => step(-1)}>‹</IconButton>
           <IconButton aria-label="Next page" onClick={() => step(1)}>›</IconButton>
-          <Button size="sm" onClick={() => put(crypto.randomUUID(), { kind: "bookmark", anchor: anchor(), selection: null, text: `Page ${index + 1}`, quote: "" }, "Bookmark")} icon={icons.bookmark}>Bookmark</Button>
-          <Button size="sm" onClick={() => setSettings(true)} icon={icons.sliders}>View</Button>
+          <AnchoredPanel open={settings} onOpenChange={setSettings} label="View settings" icon={icons.sliders} text="View">
+            <Stack>
+              <SegmentedField label="Fit" value={style.fit} onValue={(v) => changeStyle({ fit: v as Style["fit"] })} items={[{ value: "height", label: "Fit page" }, { value: "width", label: "Fit width" }, { value: "original", label: "Original size" }]} />
+              <SegmentedField label="Reading direction" value={style.dir} onValue={(v) => changeStyle({ dir: v as Style["dir"] })} items={[{ value: "ltr", label: "Left to right" }, { value: "rtl", label: "Right to left (manga)" }]} />
+              <SegmentedField label="Background" value={style.dark ? "dark" : "light"} onValue={(v) => changeStyle({ dark: v === "dark" })} items={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]} />
+              <SegmentedField label="Toolbar" value={quiet.toolbar} onValue={(v) => quiet.changeToolbar(v === "always" ? "always" : "auto")} items={[{ value: "auto", label: "Auto-hide" }, { value: "always", label: "Always show" }]} />
+            </Stack>
+          </AnchoredPanel>
         </Row>
       </header>
 
@@ -229,7 +253,7 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
       </div>
 
       <div className="lt-comic-stage" data-fit={style.fit} data-testid="comic-stage"
-        onClick={(ev) => { const r = ev.currentTarget.getBoundingClientRect(); const x = (ev.clientX - r.left) / r.width; if (x < 0.3) step(-1); else if (x > 0.7) step(1); }}>
+        onClick={(ev) => { if ((ev.target as HTMLElement).closest("button")) return; const r = ev.currentTarget.getBoundingClientRect(); const x = (ev.clientX - r.left) / r.width; if (x < 0.3) step(-1); else if (x > 0.7) step(1); }}>
         {typeof current === "string" && current ? (
           <img className="lt-comic-page" src={current} alt={`Page ${index + 1}`} data-testid="comic-page" data-index={index} data-entry={m.pages[index].entryId} draggable={false} />
         ) : current instanceof Error ? (
@@ -238,19 +262,21 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
               current instanceof ApiError && current.status === 412 ? "This file was replaced; reload to open the new version." : "This page could not be loaded."}
           </Alert>
         ) : <Busy />}
+        <QuietReveal barOn={quiet.barOn} reveal={quiet.reveal} />
+        <BookmarkRibbon on={!!bookmarkHere} label={bookmarkHere ? "Remove bookmark" : "Bookmark"} onToggle={toggleBookmark} />
       </div>
 
       <footer className="lt-reader-foot">
         <div className="lt-grow">
-          <RangeSlider label="Page" min={1} max={Math.max(n, 2)} value={rtl ? n + 1 - (index + 1) : index + 1} disabled={n < 2}
-            onChange={(v) => go(rtl ? n - v : v - 1)} />
+          <ReadingTimeline value={n > 1 ? Math.round((index / (n - 1)) * 100) : 100} label="Page in the book" marks={marks}
+            onSeek={(f) => go(Math.round(f * (n - 1)))} />
         </div>
         <Text as="span" size="sm" mono data-testid="comic-progress">Page {index + 1} of {n}</Text>
         <Badge tone={sv === "saving" || sv === "offline" ? "neutral" : "success"} data-testid="save-status">
           {sv === "saving" ? "saving" : sv === "offline" ? "waiting to send" : sv === "saved" ? "position saved" : sv === "conflict" ? "paused" : ""}</Badge>
       </footer>
 
-      <Drawer open={panel} onClose={() => setPanel(false)} title="Bookmarks & notes" side="right">
+      <Drawer open={panel} onClose={() => setPanel(false)} title="Bookmarks & notes" side="left">
         <Stack gap="sm">
           <Button size="sm" onClick={() => setNoteDraft("")} icon={icons.pencil}>Add note for this page</Button>
           <Text size="xs" tone="dim">Text highlights are not available for image pages.</Text>
@@ -274,19 +300,11 @@ function Pages({ snapshot, manifest: m }: { snapshot: ReaderSnapshot; manifest: 
         </Stack>
       </Drawer>
 
-      <Drawer open={settings} onClose={() => setSettings(false)} title="View" side="bottom">
-        <Stack>
-          <SegmentedField label="Fit" value={style.fit} onValue={(v) => changeStyle({ fit: v as Style["fit"] })} items={[{ value: "height", label: "Fit page" }, { value: "width", label: "Fit width" }, { value: "original", label: "Actual size" }]} />
-          <SegmentedField label="Reading direction" value={style.dir} onValue={(v) => changeStyle({ dir: v as Style["dir"] })} items={[{ value: "ltr", label: "Left to right" }, { value: "rtl", label: "Right to left (manga)" }]} />
-          <SegmentedField label="Background" value={style.dark ? "dark" : "light"} onValue={(v) => changeStyle({ dark: v === "dark" })} items={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]} />
-        </Stack>
-      </Drawer>
-
-      <Modal open={noteDraft !== null} onClose={() => setNoteDraft(null)} title={`Note for page ${index + 1}`}
+      <Drawer open={noteDraft !== null} onClose={() => setNoteDraft(null)} title={`Note for page ${index + 1}`}
         actions={<><Button onClick={() => setNoteDraft(null)} icon={icons.close}>Cancel</Button>
           <Button variant="primary" disabled={!(noteDraft ?? "").trim()} onClick={() => { put(crypto.randomUUID(), { kind: "note", anchor: anchor(), selection: null, text: noteDraft!, quote: "" }, "Note"); setNoteDraft(null); }} icon={icons.save}>Save note</Button></>}>
         <TextAreaField label="Note" rows={4} maxLength={65536} autoFocus value={noteDraft ?? ""} onValue={setNoteDraft} />
-      </Modal>
+      </Drawer>
     </div>
   );
 }

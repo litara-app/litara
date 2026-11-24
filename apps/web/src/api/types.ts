@@ -78,7 +78,7 @@ export interface ScanRun { id: string; trigger: string; state: string; health?: 
 export interface Review { id: string; kind: string; subjectKey: string; candidates: Record<string, unknown>; createdAt: string }
 export interface LibraryDetail {
   library: Library;
-  config: { mode: string; rootPath: string; followSymlinks: boolean; scanIntervalSecs?: number; writebackBackups: boolean; providerOrder: string[] };
+  config: { mode: string; rootPath: string; followSymlinks: boolean; scanIntervalSecs?: number; writebackBackups: boolean; providerOrder: string[]; autoFillTitleMatch?: boolean };
   health: { state: string; detail?: string; checkedAt?: string };
 }
 
@@ -98,6 +98,8 @@ export interface AudioPositionState {
   unresolvedConflicts: { id: string; reason: string; candidate: AudioPosition | null; baseRevision: string }[];
 }
 
+/** One stretch of reading by this account (ADR-0092). */
+export interface ReadingSession { id: string; editionId: string; titleId: string; startedAt: string; endedAt: string; activeSeconds: number; startFraction: number | null; endFraction: number | null }
 export interface ReadingEvent {
   id: string; titleId: string; editionId?: string; recordingId?: string; fileId: string; contentVersion: string;
   event: string; capturedAt: string; receivedAt: string;
@@ -131,3 +133,14 @@ export interface TitleRow extends Title {
 export interface CoverSlot { source: "upload" | "url" | "search" | "extracted" | "none"; version?: string }
 export interface TitleCovers { ebook: CoverSlot; audio: CoverSlot; searchEnabled: boolean }
 export interface CoverSearchResult { provider: string; title: string; author: string; imageUrl: string; thumbUrl: string }
+
+export interface ProviderCandidate { id: string; byIdentifier: boolean; consistent: boolean; fields: Record<string, unknown> }
+export interface ProviderResult { provider: "open_library" | "google_books" | "audnexus" | "hardcover"; status: "ok" | "no_match" | "unavailable" | "unconfigured"; cached?: boolean; candidates: ProviderCandidate[] }
+export interface AutoFillResult {
+  outcome: "filled" | "proposed" | "nothing_to_fill" | "needs_review" | "no_match" | "disabled"; provider?: string; filled: string[]; revision?: string;
+  /** identifier, or title_author when the library lets Auto-fill use one clear title-and-author match (ADR-0090). */
+  rule?: "identifier" | "title_author";
+  /** With outcome proposed: the values Auto-fill would fill, not yet saved. */
+  proposed?: Record<string, unknown>;
+}
+export interface ProviderSearchResults { editionId: string; enabled: boolean; query: { title?: string; authors?: string[]; isbn?: string; asin?: string }; results: ProviderResult[] }

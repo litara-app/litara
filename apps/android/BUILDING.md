@@ -46,6 +46,18 @@ See [the upgrade verification](../../research/t007/jdk25-upgrade.md).
 Outputs (git-ignored): `app/build/outputs/apk/{full,fdroid}/debug/app-{full,fdroid}-debug.apk`.
 Debug builds install as `com.litara.debug` (see the identity table in `UPSTREAM.md`).
 
+## Shared reader engine (ADR-0093)
+
+`app/src/main/assets/reader-shared/` is a checked-in copy of `apps/web/public/reader`; never edit it by hand.
+
+```bash
+./gradlew syncSharedReader     # after changing the web reader or its engine profile
+./gradlew checkSharedReader    # runs before every build; fails when the copy, the web profile or the server profile differ
+```
+
+`-Plitara.sharedReader=true` makes EPUB, FB2 and PDF reading use the shared engine (default off; comics and the other formats stay on the legacy reader).
+Locator fixtures: `node scripts/android/reader-locators/check.mjs` (needs `npm ci` in `apps/web`).
+
 ## Instrumentation tests (emulator required)
 
 Use a **disposable** emulator (for example `-read-only -no-snapshot-save`). `connected*AndroidTest`

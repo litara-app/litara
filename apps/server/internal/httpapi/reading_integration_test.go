@@ -24,7 +24,12 @@ type readingEnv struct {
 
 func newReadingEnv(t *testing.T) *readingEnv {
 	t.Helper()
-	e := apitest.New(t)
+	return newReadingEnvWith(t, apitest.Options{})
+}
+
+func newReadingEnvWith(t *testing.T, o apitest.Options) *readingEnv {
+	t.Helper()
+	e := apitest.New(t, o)
 	root, _ := filepath.Abs(filepath.Join(e.Cfg.MediaRoot, "ebooks"))
 	_ = os.MkdirAll(root, 0o755)
 	admin := e.Login(seed.AdminName, "cli").AccessToken

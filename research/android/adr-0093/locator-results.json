@@ -1,0 +1,132 @@
+{
+ "generated": "2026-11-23T14:07:23.604Z",
+ "savedBy": "legacy Android engine (apps/android/app/src/main/assets/reader/foliate)",
+ "readAt": "L2 (820x1100, 24px); saved at L1/L3 (320x520 17px, 360x640 12px)",
+ "epub_fb2": {
+  "stress.epub": {
+   "legacy": {
+    "positions_same_text": {
+     "total": 54,
+     "pass": 54,
+     "fail": 0,
+     "examples": []
+    },
+    "positions_shown_on_page": {
+     "total": 54,
+     "pass": 54,
+     "fail": 0,
+     "examples": []
+    },
+    "ranges_same_text_and_offsets": {
+     "total": 84,
+     "pass": 84,
+     "fail": 0,
+     "examples": []
+    },
+    "points_same_offset": {
+     "total": 84,
+     "pass": 84,
+     "fail": 0,
+     "examples": []
+    }
+   },
+   "shared": {
+    "positions_same_text": {
+     "total": 54,
+     "pass": 54,
+     "fail": 0,
+     "examples": []
+    },
+    "positions_shown_on_page": {
+     "total": 54,
+     "pass": 54,
+     "fail": 0,
+     "examples": []
+    },
+    "ranges_same_text_and_offsets": {
+     "total": 84,
+     "pass": 84,
+     "fail": 0,
+     "examples": []
+    },
+    "points_same_offset": {
+     "total": 84,
+     "pass": 84,
+     "fail": 0,
+     "examples": []
+    }
+   }
+  },
+  "stress.fb2": {
+   "legacy": {
+    "positions_same_text": {
+     "total": 18,
+     "pass": 18,
+     "fail": 0,
+     "examples": []
+    },
+    "positions_shown_on_page": {
+     "total": 18,
+     "pass": 18,
+     "fail": 0,
+     "examples": []
+    },
+    "ranges_same_text_and_offsets": {
+     "total": 42,
+     "pass": 42,
+     "fail": 0,
+     "examples": []
+    },
+    "points_same_offset": {
+     "total": 42,
+     "pass": 42,
+     "fail": 0,
+     "examples": []
+    }
+   },
+   "shared": {
+    "positions_same_text": {
+     "total": 18,
+     "pass": 18,
+     "fail": 0,
+     "examples": []
+    },
+    "positions_shown_on_page": {
+     "total": 18,
+     "pass": 18,
+     "fail": 0,
+     "examples": []
+    },
+    "ranges_same_text_and_offsets": {
+     "total": 42,
+     "pass": 42,
+     "fail": 0,
+     "examples": []
+    },
+    "points_same_offset": {
+     "total": 42,
+     "pass": 42,
+     "fail": 0,
+     "examples": []
+    }
+   }
+  }
+ },
+ "pdf": {
+  "fixture": "edge.pdf (7 pages: inherited MediaBox, mixed sizes, /Rotate 90 and 270, CropBox, labels i, ii, 1..5)",
+  "pdfjs": "6.5.438",
+  "pdfjs_page_i_is_PAGE_i_plus_1": {
+   "total": 7,
+   "pass": 7,
+   "fail": 0,
+   "examples": []
+  },
+  "android_percentage_roundtrip": {
+   "total": 7,
+   "pass": 7,
+   "fail": 0,
+   "examples": []
+  },
+  "notRunHere": "Android PdfRenderer page order for the same file needs the emulator (see research/t007/evidence/m1-locators/pdf-device)."
+ }
+}

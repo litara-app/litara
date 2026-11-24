@@ -72,6 +72,11 @@ fun PdfReaderScreen(
     vm: PdfHost = hiltViewModel<PdfReaderViewModel>(),
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
+    // ADR-0093: behind -Plitara.sharedReader the page is drawn by the shared web engine (PDF.js) instead of PdfRenderer.
+    if (com.litara.BuildConfig.SHARED_READER && ui.ref != null) {
+        SharedPdfReaderScreen(ui, vm, onBack)
+        return
+    }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var chromeVisible by remember { mutableStateOf(true) }
