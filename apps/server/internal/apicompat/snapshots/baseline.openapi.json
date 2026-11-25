@@ -3555,7 +3555,7 @@
       "T005MetadataValue": {
         "oneOf": [
           {
-            "maxLength": 4096,
+            "maxLength": 8000,
             "minLength": 0,
             "type": "string"
           },

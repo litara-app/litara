@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -239,5 +240,35 @@ func TestRecordingMetadataSaveLocksAndRevisions(t *testing.T) {
 	resp.JSON(t, &rep)
 	if ti := find(rep, "title"); resp.StatusCode != 200 || ti.Source != "embedded" || textOf(t, ti.Value) != "Retagged Title" {
 		t.Fatalf("reset: %d %s", resp.StatusCode, resp.Body)
+	}
+}
+
+// A description may be up to 8,000 characters (metadata.MaxDescription) on both save paths; the shared value schema
+// must not refuse it first.
+func TestMetadataSaveAcceptsLongDescriptions(t *testing.T) {
+	r := newReadingEnv(t)
+	long := strings.Repeat("é", 8000) // characters, not bytes
+	path := "/admin/editions/" + r.ed.ID + "/metadata"
+	var rep wire.T005MetadataReport
+	r.e.Do("GET", path, r.admin, nil).JSON(t, &rep)
+	if resp := r.e.Do("PATCH", path, r.admin, saveBody(rep.Revision, change("description", "set", long))); resp.StatusCode != http.StatusOK {
+		t.Fatalf("edition save: %d %s", resp.StatusCode, resp.Body)
+	} else {
+		resp.JSON(t, &rep)
+	}
+	if resp := r.metaPut(r.admin, r.ed.ID, "description", mw(rep.Revision, long+"x", false)); resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("8,001 characters: %d %s", resp.StatusCode, resp.Body)
+	}
+
+	audioAt(t, filepath.Join(r.root, "Audio", "1.mp3"), 440, "album", "A Title")
+	scanTwice(t, r.e, r.admin, r.lib)
+	var rec string
+	if err := r.e.Pool.QueryRow(t.Context(), `SELECT id FROM recordings WHERE library_id=$1`, r.lib).Scan(&rec); err != nil {
+		t.Fatal(err)
+	}
+	var rr wire.MetadataReport
+	r.e.Do("GET", "/admin/recordings/"+rec+"/metadata", r.admin, nil).JSON(t, &rr)
+	if resp := r.e.Do("PATCH", "/admin/recordings/"+rec+"/metadata", r.admin, saveBody(rr.Revision, change("description", "set", long))); resp.StatusCode != http.StatusOK {
+		t.Fatalf("recording save: %d %s", resp.StatusCode, resp.Body)
 	}
 }
