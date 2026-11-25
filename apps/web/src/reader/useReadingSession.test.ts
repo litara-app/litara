@@ -46,3 +46,34 @@ test("nothing is sent for a book that is only opened, or while the reader is not
   b.unmount(); // closed within seconds of opening, with no real reading
   expect(api).not.toHaveBeenCalled();
 });
+
+// The server refuses a session id already used for another edition (409), so a reader that moves to another edition
+// without unmounting starts a new session, and a refused send is not retried forever.
+test("moving to another edition starts a new session, and a refused id is not sent again", async () => {
+  const { rerender, unmount } = renderHook(({ ed }) => useReadingSession(ed, 0.3, true), { initialProps: { ed: "E1" } });
+  for (let i = 0; i < 7; i++) { act(() => { poke(); vi.advanceTimersByTime(5000); }); }
+  const first = sent().at(-1)!;
+  expect(first.path).toMatch(/^\/editions\/E1\//);
+
+  rerender({ ed: "E2" });
+  for (let i = 0; i < 7; i++) { act(() => { poke(); vi.advanceTimersByTime(5000); }); }
+  const onE2 = sent().filter((x) => x.path.startsWith("/editions/E2/"));
+  expect(onE2.length).toBeGreaterThan(0);
+  expect(new Set(onE2.map((x) => idOf(x.path))).has(idOf(first.path))).toBe(false); // never the E1 session's id
+  unmount();
+
+  api.mockClear();
+  api.mockRejectedValue(Object.assign(new Error("conflict"), { status: 409 }));
+  const b = renderHook(() => useReadingSession("E3", 0.5, true));
+  for (let i = 0; i < 7; i++) { act(() => { poke(); vi.advanceTimersByTime(5000); }); } // one send, refused
+  await act(async () => { await Promise.resolve(); });
+  expect(api.mock.calls.length).toBe(1);
+  const refusedId = idOf(String(api.mock.calls[0]![1]));
+  for (let i = 0; i < 7; i++) { act(() => { poke(); vi.advanceTimersByTime(5000); }); } // reading goes on
+  const later = api.mock.calls.slice(1).map((c) => idOf(String(c[1])));
+  expect(later.length).toBeGreaterThan(0);
+  expect(later.includes(refusedId)).toBe(false); // the refused id is never sent again
+  b.unmount();
+  api.mockReset();
+  api.mockImplementation(async () => undefined);
+});
