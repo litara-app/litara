@@ -139,6 +139,8 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0093](0093-android-reader-parity-with-the-web-reader.md) | Bring the web reader's features to the Android reader | Accepted |
 | [0094](0094-highlight-colour-and-style-in-annotations.md) | Store a highlight's colour and style in the annotation | Proposed |
 | [0095](0095-field-level-metadata-editing-and-provider-review.md) | Edit metadata per field with locks, provenance and reviewed provider apply | Accepted |
+| [0096](0096-reconcile-metadata-editing-with-provider-and-cover-decisions.md) | Reconcile ADR-0095 with the Hardcover, auto-fill and cover decisions | Accepted |
+| [0097](0097-metadata-field-locks.md) | Make metadata locks separate from edits | Accepted |
 
 ## Workflow
 

@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-21
 Decision owner: Repository owner
+Amended by: [ADR-0096](0096-reconcile-metadata-editing-with-provider-and-cover-decisions.md) (2026-11-25): Hardcover is selected (ADR-0087), auto-fill also follows ADR-0090, and cover sources follow ADR-0086. Also amended by [ADR-0097](0097-metadata-field-locks.md) (2026-11-25): a locked field must be unlocked first, only an explicit lock locks, and unlock keeps the value.
 
 ## Context
 
