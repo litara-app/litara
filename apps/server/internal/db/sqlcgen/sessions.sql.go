@@ -88,7 +88,7 @@ func (q *Queries) ListReadingSessionsForTitle(ctx context.Context, arg ListReadi
 	return items, nil
 }
 
-const upsertReadingSession = `-- name: UpsertReadingSession :exec
+const upsertReadingSession = `-- name: UpsertReadingSession :execrows
 INSERT INTO reading_sessions (user_id, id, edition_id, started_at, ended_at, active_seconds, start_fraction, end_fraction)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (user_id, id) DO UPDATE SET
@@ -111,9 +111,10 @@ type UpsertReadingSessionParams struct {
 }
 
 // A session is sent many times under one id: keep the longest active time and the latest end, so a retry or an
-// out-of-order send never shrinks it. An id already used for another edition is left alone.
-func (q *Queries) UpsertReadingSession(ctx context.Context, arg UpsertReadingSessionParams) error {
-	_, err := q.db.Exec(ctx, upsertReadingSession,
+// out-of-order send never shrinks it. An id already used for another edition is left alone and affects no row,
+// which the caller reports as a conflict.
+func (q *Queries) UpsertReadingSession(ctx context.Context, arg UpsertReadingSessionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertReadingSession,
 		arg.UserID,
 		arg.ID,
 		arg.EditionID,
@@ -123,5 +124,8 @@ func (q *Queries) UpsertReadingSession(ctx context.Context, arg UpsertReadingSes
 		arg.StartFraction,
 		arg.EndFraction,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
