@@ -17,6 +17,7 @@ import { TitlePage } from "./pages/TitlePage";
 import { PendingPage } from "./pending/PendingPage";
 import { AppearancePage } from "./settings/AppearancePage";
 import { CredentialsPage } from "./settings/CredentialsPage";
+import { DevicesPage } from "./settings/DevicesPage";
 import { EmailPage } from "./settings/EmailPage";
 import { KoReaderPage } from "./settings/KoReaderPage";
 import { NotificationsPage } from "./settings/NotificationsPage";
@@ -61,6 +62,7 @@ export function App() {
           <Route path="shelves/:shelfId" element={<ShelfPage />} />
           <Route path="settings" element={<SettingsLayout />}>
             <Route index element={<AppearancePage />} />
+            <Route path="devices" element={<DevicesPage />} />
             <Route path="credentials" element={<CredentialsPage />} />
             <Route path="email" element={<EmailPage />} />
             <Route path="koreader" element={<KoReaderPage />} />

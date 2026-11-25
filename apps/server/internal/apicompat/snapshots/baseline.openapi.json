@@ -2234,6 +2234,9 @@
             "format": "date-time",
             "type": "string"
           },
+          "current": {
+            "type": "boolean"
+          },
           "deviceName": {
             "type": "string"
           },
@@ -2257,7 +2260,8 @@
           "createdAt",
           "lastUsedAt",
           "idleExpiresAt",
-          "absoluteExpiresAt"
+          "absoluteExpiresAt",
+          "current"
         ],
         "type": "object"
       },

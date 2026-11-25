@@ -100,6 +100,13 @@ func sessionView(s sqlcgen.Session) wire.Session {
 		LastUsedAt: rfc(s.LastUsedAt), IdleExpiresAt: rfc(s.IdleExpiresAt), AbsoluteExpiresAt: rfc(s.AbsoluteExpiresAt)}
 }
 
+// ownSession is the session the caller is using, as returned by sign-in, refresh and the browser session.
+func ownSession(s sqlcgen.Session) wire.Session {
+	v := sessionView(s)
+	v.Current = true
+	return v
+}
+
 func isUnique(err error) bool {
 	var pe *pgconn.PgError
 	return errors.As(err, &pe) && pe.Code == "23505"
@@ -459,7 +466,7 @@ func minTime(a, b time.Time) time.Time {
 
 func tokenPair(access, refresh string, sess sqlcgen.Session, u sqlcgen.User) wire.TokenPair {
 	return wire.TokenPair{AccessToken: access, TokenType: "Bearer", ExpiresIn: int(AccessTTL.Seconds()),
-		RefreshToken: refresh, Session: sessionView(sess), User: userView(u)}
+		RefreshToken: refresh, Session: ownSession(sess), User: userView(u)}
 }
 
 func cleanDevice(name string) (string, error) {
@@ -514,7 +521,7 @@ func (s *Service) LoginWeb(ctx context.Context, in wire.Login) (cookieToken stri
 	if err != nil {
 		return "", time.Time{}, bs, unavailable(err)
 	}
-	return tok, sess.IdleExpiresAt, wire.BrowserSession{User: userView(u), Session: sessionView(sess), CSRFToken: CSRFFor(tok)}, nil
+	return tok, sess.IdleExpiresAt, wire.BrowserSession{User: userView(u), Session: ownSession(sess), CSRFToken: CSRFFor(tok)}, nil
 }
 
 // ---- authentication ---------------------------------------------------
@@ -582,7 +589,7 @@ func (s *Service) CurrentSession(ctx context.Context, p *Principal) (wire.Browse
 	if err != nil {
 		return wire.BrowserSession{}, unavailable(err)
 	}
-	return wire.BrowserSession{User: userView(u), Session: sessionView(sess), CSRFToken: CSRFFor(p.CookieToken)}, nil
+	return wire.BrowserSession{User: userView(u), Session: ownSession(sess), CSRFToken: CSRFFor(p.CookieToken)}, nil
 }
 
 // Sessions lists only the caller's live device sessions.
