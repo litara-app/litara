@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, get } from "../api/client";
 import { icons, Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBox, Heading, Page, PageHeader, Row, Stack, Text, type Tone } from "../ui";
 import { usePendingQueue, usePendingState } from "./PendingProvider";
 import type { PendingOp } from "./store";
@@ -10,6 +10,20 @@ const words = { pending: "waiting to send", conflict: "conflicts with a newer ch
 function contentVersionOf(op: PendingOp): string | null {
   const b = op.body as { anchor?: { contentVersion?: string }; data?: { anchor?: { contentVersion?: string } } };
   return b.anchor?.contentVersion ?? b.data?.anchor?.contentVersion ?? null;
+}
+
+type Completion = { revision: string; finished: boolean; changedAt: string | null };
+
+/** What the server holds and what this device tried to save, so the choice between them is an informed one (ADR-0034). */
+function CompletionChoice({ op, saved }: { op: PendingOp; saved: Completion | undefined }) {
+  const mine = op.body as { event?: string; capturedAt?: string };
+  const at = (iso?: string | null) => (iso ? ` (${new Date(iso).toLocaleString()})` : "");
+  return (
+    <Stack gap="xs" data-testid="completion-choice">
+      <Text size="sm">Saved: {saved ? (saved.finished ? "Finished" : "Not finished") + at(saved.changedAt) : "unknown"}</Text>
+      <Text size="sm">Your change: {mine.event === "manual_unfinish" ? "Not finished" : "Finished"}{at(mine.capturedAt)}</Text>
+    </Stack>
+  );
 }
 
 function Item({ op }: { op: PendingOp }) {
@@ -24,7 +38,14 @@ function Item({ op }: { op: PendingOp }) {
     setBusy(true);
     setErr(null);
     try {
-      if (op.kind === "recording-position") {
+      if (op.kind === "recording-completion") {
+        // Resolved against the server's current revision, never a stale one this device remembered.
+        const current = await get<Completion>(`/recordings/${op.editionId}/completion`);
+        await api("POST", `/recordings/${op.editionId}/completion-conflicts/${conflictId}/resolve`, {
+          operationId: crypto.randomUUID(), baseRevision: current.revision, layoutRevision: op.body.layoutRevision, choice,
+          event: null, capturedAt: new Date().toISOString(), finalPosition: null,
+        });
+      } else if (op.kind === "recording-position") {
         // Listening positions use the recording conflict protocol (layout revision, no explicit position).
         const current = problem.current as { revision?: string } | undefined;
         await api("POST", `/recordings/${op.editionId}/conflicts/${conflictId}/resolve`, {
@@ -54,9 +75,10 @@ function Item({ op }: { op: PendingOp }) {
         </Row>
         <Text size="xs" tone="dim">{new Date(op.createdAt).toLocaleString()} · {op.attempts} attempt{op.attempts === 1 ? "" : "s"}</Text>
         {op.error && op.status !== "pending" && <Text size="sm" tone="danger">{op.error}</Text>}
+        {op.status === "conflict" && op.kind === "recording-completion" && <CompletionChoice op={op} saved={problem.currentCompletion as Completion | undefined} />}
         <ErrorBox error={err instanceof ApiError ? err : err ? new Error(String(err)) : null} />
         <Row>
-          {op.status === "conflict" && conflictId && op.kind !== "recording-completion" && <>
+          {op.status === "conflict" && conflictId && <>
             <Button size="sm" loading={busy} onClick={() => resolve("keep_server")} icon={icons.check}>Keep what is saved</Button>
             <Button size="sm" variant="primary" loading={busy} onClick={() => resolve("use_candidate")} icon={icons.check}>Use my change</Button>
           </>}
