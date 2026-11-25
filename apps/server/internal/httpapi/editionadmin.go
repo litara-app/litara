@@ -106,6 +106,22 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			return &bodyOut[wire.T005MetadataReport]{Body: out}, nil
 		})
 
+	huma.Register(api, writeOp(op("saveEditionMetadata", http.MethodPatch, "/admin/editions/{editionId}/metadata",
+		"Save several field changes together: edits, clears, resets, locks and unlocks (ADR-0095, ADR-0097)", "editions")),
+		func(ctx context.Context, in *struct {
+			EditionIn
+			Body wire.MetadataSave
+		}) (*bodyOut[wire.T005MetadataReport], error) {
+			if err := a.manageEdition(ctx, in.EditionID); err != nil {
+				return nil, err
+			}
+			out, err := a.Reading.SaveEditionMetadata(ctx, a.readingActor(ctx), mustUUID(in.EditionID), in.Body)
+			if err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			return &bodyOut[wire.T005MetadataReport]{Body: out}, nil
+		})
+
 	huma.Register(api, writeOp(op("removeEditionMetadata", http.MethodDelete, "/admin/editions/{editionId}/metadata/{field}", "Remove a protected override", "editions")),
 		func(ctx context.Context, in *struct {
 			MetadataFieldIn

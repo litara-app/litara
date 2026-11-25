@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -106,6 +107,12 @@ func (a *API) registerRecordingAutoFill(api huma.API) {
 		if err := a.manage(ctx, lib); err != nil {
 			return nil, err
 		}
+		// The revision is read before the lookup: a proposal is based on what was stored then, so saving it after
+		// another change is a conflict (ADR-0095 decision 4).
+		_, rev, err := a.Metadata.ReportWithRevision(ctx, id)
+		if err != nil {
+			return nil, a.fail(ctx, err)
+		}
 		_, q, err := a.Enricher.RecordingQuery(ctx, id)
 		if err != nil {
 			return nil, a.fail(ctx, err)
@@ -127,7 +134,7 @@ func (a *API) registerRecordingAutoFill(api huma.API) {
 			return false
 		}
 		m, outcome, rule := metadata.PickAutoFill(res, q, "", fillsSomething)
-		out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Rule: rule}
+		out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Rule: rule, Revision: strconv.FormatInt(rev, 10)}
 		if outcome == "filled" && in.DryRun {
 			gaps, err := a.Enricher.GapFields(ctx, id, m)
 			if err != nil {
@@ -156,6 +163,9 @@ func (a *API) registerRecordingAutoFill(api huma.API) {
 				out.Outcome = "nothing_to_fill"
 			} else {
 				out.Filled = filled
+			}
+			if _, rev, err := a.Metadata.ReportWithRevision(ctx, id); err == nil {
+				out.Revision = strconv.FormatInt(rev, 10)
 			}
 		}
 		return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil

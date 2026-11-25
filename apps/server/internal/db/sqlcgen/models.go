@@ -195,6 +195,7 @@ type EditionMetadataValue struct {
 	Source         string    `json:"source"`
 	Value          []byte    `json:"value"`
 	ProtectedClear bool      `json:"protected_clear"`
+	Locked         bool      `json:"locked"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
@@ -459,6 +460,7 @@ type MetadataValue struct {
 	Source         string    `json:"source"`
 	Value          []byte    `json:"value"`
 	ProtectedClear bool      `json:"protected_clear"`
+	Locked         bool      `json:"locked"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
@@ -737,15 +739,16 @@ type T005Receipt struct {
 }
 
 type Title struct {
-	ID          uuid.UUID `json:"id"`
-	Title       string    `json:"title"`
-	Authors     []string  `json:"authors"`
-	SeriesName  *string   `json:"series_name"`
-	SeriesIndex *float64  `json:"series_index"`
-	SeedKey     *string   `json:"seed_key"`
-	CreatedAt   time.Time `json:"created_at"`
-	GroupKey    *string   `json:"group_key"`
-	Identifier  *string   `json:"identifier"`
+	ID               uuid.UUID `json:"id"`
+	Title            string    `json:"title"`
+	Authors          []string  `json:"authors"`
+	SeriesName       *string   `json:"series_name"`
+	SeriesIndex      *float64  `json:"series_index"`
+	SeedKey          *string   `json:"seed_key"`
+	CreatedAt        time.Time `json:"created_at"`
+	MetadataRevision int64     `json:"metadata_revision"`
+	GroupKey         *string   `json:"group_key"`
+	Identifier       *string   `json:"identifier"`
 }
 
 type TitleCover struct {

@@ -11,7 +11,16 @@ import (
 	"github.com/google/uuid"
 )
 
-const deleteMetadataValue = `-- name: DeleteMetadataValue :exec
+const bumpTitleMetadataRevision = `-- name: BumpTitleMetadataRevision :exec
+UPDATE titles SET metadata_revision = metadata_revision + 1 WHERE id = $1
+`
+
+func (q *Queries) BumpTitleMetadataRevision(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, bumpTitleMetadataRevision, id)
+	return err
+}
+
+const deleteMetadataValue = `-- name: DeleteMetadataValue :execrows
 DELETE FROM metadata_values WHERE subject_kind = $1 AND subject_id = $2 AND field = $3 AND source = $4
 `
 
@@ -22,14 +31,17 @@ type DeleteMetadataValueParams struct {
 	Source      string    `json:"source"`
 }
 
-func (q *Queries) DeleteMetadataValue(ctx context.Context, arg DeleteMetadataValueParams) error {
-	_, err := q.db.Exec(ctx, deleteMetadataValue,
+func (q *Queries) DeleteMetadataValue(ctx context.Context, arg DeleteMetadataValueParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteMetadataValue,
 		arg.SubjectKind,
 		arg.SubjectID,
 		arg.Field,
 		arg.Source,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getFileLibrary = `-- name: GetFileLibrary :one
@@ -92,6 +104,17 @@ func (q *Queries) GetRecordingRow(ctx context.Context, id uuid.UUID) (GetRecordi
 	return i, err
 }
 
+const getTitleMetadataRevision = `-- name: GetTitleMetadataRevision :one
+SELECT metadata_revision FROM titles WHERE id = $1
+`
+
+func (q *Queries) GetTitleMetadataRevision(ctx context.Context, id uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getTitleMetadataRevision, id)
+	var metadata_revision int64
+	err := row.Scan(&metadata_revision)
+	return metadata_revision, err
+}
+
 const getTitleRow = `-- name: GetTitleRow :one
 SELECT id, title, authors, series_name, series_index, identifier FROM titles WHERE id = $1
 `
@@ -151,7 +174,7 @@ func (q *Queries) ListLibraryAssociated(ctx context.Context, libraryID uuid.UUID
 }
 
 const listMetadataValues = `-- name: ListMetadataValues :many
-SELECT id, subject_kind, subject_id, field, source, value, protected_clear, updated_at FROM metadata_values WHERE subject_kind = $1 AND subject_id = $2 ORDER BY field, source
+SELECT id, subject_kind, subject_id, field, source, value, protected_clear, locked, updated_at FROM metadata_values WHERE subject_kind = $1 AND subject_id = $2 ORDER BY field, source
 `
 
 type ListMetadataValuesParams struct {
@@ -176,6 +199,7 @@ func (q *Queries) ListMetadataValues(ctx context.Context, arg ListMetadataValues
 			&i.Source,
 			&i.Value,
 			&i.ProtectedClear,
+			&i.Locked,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -186,6 +210,43 @@ func (q *Queries) ListMetadataValues(ctx context.Context, arg ListMetadataValues
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockTitleMetadataRevision = `-- name: LockTitleMetadataRevision :one
+SELECT metadata_revision FROM titles WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockTitleMetadataRevision(ctx context.Context, id uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, lockTitleMetadataRevision, id)
+	var metadata_revision int64
+	err := row.Scan(&metadata_revision)
+	return metadata_revision, err
+}
+
+const setMetadataLock = `-- name: SetMetadataLock :execrows
+UPDATE metadata_values SET locked = $1, updated_at = now()
+WHERE subject_kind = $2 AND subject_id = $3 AND field = $4 AND source = 'user'
+  AND locked <> $1
+`
+
+type SetMetadataLockParams struct {
+	Locked      bool      `json:"locked"`
+	SubjectKind string    `json:"subject_kind"`
+	SubjectID   uuid.UUID `json:"subject_id"`
+	Field       string    `json:"field"`
+}
+
+func (q *Queries) SetMetadataLock(ctx context.Context, arg SetMetadataLockParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setMetadataLock,
+		arg.Locked,
+		arg.SubjectKind,
+		arg.SubjectID,
+		arg.Field,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setProviderLookup = `-- name: SetProviderLookup :exec
@@ -247,11 +308,12 @@ func (q *Queries) UpdateTitleFields(ctx context.Context, arg UpdateTitleFieldsPa
 	return err
 }
 
-const upsertMetadataValue = `-- name: UpsertMetadataValue :exec
+const upsertMetadataValue = `-- name: UpsertMetadataValue :execrows
 INSERT INTO metadata_values (subject_kind, subject_id, field, source, value, protected_clear)
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (subject_kind, subject_id, field, source) DO UPDATE SET value = EXCLUDED.value,
     protected_clear = EXCLUDED.protected_clear, updated_at = now()
+WHERE (metadata_values.value, metadata_values.protected_clear) IS DISTINCT FROM (EXCLUDED.value, EXCLUDED.protected_clear)
 `
 
 type UpsertMetadataValueParams struct {
@@ -263,8 +325,10 @@ type UpsertMetadataValueParams struct {
 	ProtectedClear bool      `json:"protected_clear"`
 }
 
-func (q *Queries) UpsertMetadataValue(ctx context.Context, arg UpsertMetadataValueParams) error {
-	_, err := q.db.Exec(ctx, upsertMetadataValue,
+// UpsertMetadataValue reports one row when the stored value or clear changed and none when it was already the same, so
+// callers advance the title's metadata revision only for a real change. The lock is never changed here (ADR-0097).
+func (q *Queries) UpsertMetadataValue(ctx context.Context, arg UpsertMetadataValueParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertMetadataValue,
 		arg.SubjectKind,
 		arg.SubjectID,
 		arg.Field,
@@ -272,5 +336,8 @@ func (q *Queries) UpsertMetadataValue(ctx context.Context, arg UpsertMetadataVal
 		arg.Value,
 		arg.ProtectedClear,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

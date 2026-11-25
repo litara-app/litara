@@ -24,7 +24,11 @@ const answers: Record<string, unknown> = {
   "/titles/T1/personal": { titleId: "T1", revision: "0", data: { ratingHalves: null, review: "", startedAt: null, finishedAt: null }, derivedStartedAt: null, derivedFinishedAt: "2026-01-02T00:00:00Z", updatedAt: null },
   "/editions/E1/details": { editionId: "E1", addedAt: "2026-01-01T00:00:00Z", publisher: "Old House", published: "1895-05", pageCount: 118, isbn: "9783161484100", description: "A traveller builds a machine." },
   "/titles?sort=title&order=asc&page=0&size=24": { items: [{ id: "T1" }, { id: "T2" }, { id: "T3" }], total: 3, page: 0, size: 24 },
-  "/admin/editions/E1/metadata": { editionId: "E1", revision: "0", fields: [{ field: "title", source: "embedded", cleared: false, value: "Treasure Island", conflicts: [] }] },
+  "/admin/editions/E1/metadata": { editionId: "E1", revision: "0", fields: [
+    { field: "title", source: "embedded", cleared: false, value: "Treasure Island", locked: false, conflicts: [] },
+    { field: "subtitle", source: "user", cleared: false, value: "A Story", locked: false, conflicts: [] },
+    { field: "isbn", source: "user", cleared: false, value: "9783161484100", locked: true, conflicts: [] },
+  ] },
 };
 const api = vi.fn(async (_m: string, _p: string, body?: unknown): Promise<unknown> => ({ ...(answers["/titles/T1/personal"] as object), revision: "1", data: (body as { data: object }).data }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), get: async (p: string) => answers[p] ?? { items: [], total: 0, page: 0, size: 50 }, api: (m: string, p: string, b?: unknown) => api(m, p, b) }));
@@ -88,20 +92,43 @@ test("the metadata tab has one cover with its tools under it and no reading acti
   expect(screen.getByTestId("metadata-actions")).toBeTruthy();
 });
 
-test("a field is edited in place and a lock keeps its value as an edit", async () => {
+/** The changes of every metadata save sent so far. */
+const saves = () => api.mock.calls.filter((c) => c[0] === "PATCH" && c[1] === "/admin/editions/E1/metadata")
+  .map((c) => c[2] as { baseRevision: string; changes: { field: string; action: string; clear?: boolean; value?: unknown }[] });
+
+test("a field is edited in place, and locking sends a lock without changing the value", async () => {
+  api.mockClear();
   setup();
   fireEvent.click(await screen.findByRole("tab", { name: "Edit metadata" }));
   fireEvent.click(await screen.findByRole("button", { name: "Edit Title" }));
   const input = await screen.findByRole("textbox", { name: "Title" });
   fireEvent.change(input, { target: { value: "Treasure Isle" } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  await vi.waitFor(() => expect(api.mock.calls.some((c) => c[1] === "/admin/editions/E1/metadata/title")).toBe(true));
-  const put = api.mock.calls.find((c) => c[1] === "/admin/editions/E1/metadata/title")!;
-  expect(put[0]).toBe("PUT");
-  expect(put[2]).toMatchObject({ clear: false, value: "Treasure Isle" });
+  await vi.waitFor(() => expect(saves()).toHaveLength(1));
+  expect(saves()[0]).toMatchObject({ baseRevision: "0", changes: [{ field: "title", action: "set", clear: false, value: "Treasure Isle" }] });
   fireEvent.click(await screen.findByRole("button", { name: "Lock Publisher as it is" }));
-  await vi.waitFor(() => expect(api.mock.calls.some((c) => c[1] === "/admin/editions/E1/metadata/publisher")).toBe(true));
-  expect(api.mock.calls.find((c) => c[1] === "/admin/editions/E1/metadata/publisher")![2]).toMatchObject({ clear: true });
+  await vi.waitFor(() => expect(saves()).toHaveLength(2));
+  expect(saves()[1].changes).toEqual([{ field: "publisher", action: "lock" }]);
+});
+
+// ADR-0097: a lock is separate from an edit. A locked field is read-only until unlocked, unlocking keeps the value, and
+// an unlocked edit can be reset to what the files say.
+test("a locked field is read-only and unlocks without losing its value; an edit can be reset to source", async () => {
+  api.mockClear();
+  setup();
+  fireEvent.click(await screen.findByRole("tab", { name: "Edit metadata" }));
+  const isbn = await screen.findByTestId("field-isbn");
+  expect(isbn.getAttribute("data-locked")).toBe("true");
+  expect((screen.getByRole("button", { name: "ISBN is locked" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByRole("button", { name: "Reset ISBN to the value from the files" })).toBeNull(); // unlock first
+  expect(screen.getAllByText("Edited").length).toBeGreaterThan(0); // the source of an edit, shown apart from the lock
+  fireEvent.click(screen.getByRole("button", { name: "Unlock ISBN; the value stays" }));
+  await vi.waitFor(() => expect(saves()).toHaveLength(1));
+  expect(saves()[0].changes).toEqual([{ field: "isbn", action: "unlock" }]);
+  fireEvent.click(await screen.findByRole("button", { name: "Reset Subtitle to the value from the files" }));
+  await vi.waitFor(() => expect(saves()).toHaveLength(2));
+  expect(saves()[1].changes).toEqual([{ field: "subtitle", action: "reset" }]);
+  expect(api.mock.calls.some((c) => c[0] === "PUT" || c[0] === "DELETE")).toBe(false);
 });
 
 test("the book position and previous/next arrows sit in the top bar and keep the tab", async () => {
@@ -144,7 +171,7 @@ test("an audiobook-only title shows its recording's details and can be edited as
   answers["/titles/T1/recordings?size=200"] = { items: [{ id: "R1", libraryId: "L1", label: "Narrated", snapshotPath: "/s" }], total: 1, page: 0, size: 200 };
   answers["/recordings/R1/details"] = { recordingId: "R1", addedAt: "2026-02-03T00:00:00Z", publisher: "Audio House", published: "2019-03-12", isbn: null, description: "A recorded synopsis." };
   answers["/recordings/R1"] = { id: "R1", titleId: "T1", libraryId: "L1", title: "Treasure Island", authors: [], narrators: [], readiness: "ready", durationMs: 3_600_000, artwork: {}, completion: { revision: "0", finished: false, changedAt: null }, layoutRevision: "x", files: [], chapters: [], capabilities: { play: true, download: true, wholeRecordingSeek: true }, issues: [] };
-  answers["/admin/recordings/R1/metadata"] = { fields: [{ field: "publisher", source: "embedded", cleared: false, value: "Audio House" }] };
+  answers["/admin/recordings/R1/metadata"] = { revision: "2", fields: [{ field: "publisher", source: "embedded", cleared: false, value: "Audio House", locked: false }] };
   try {
     setup();
     expect(await screen.findByText("Audio House")).toBeTruthy();
@@ -172,13 +199,12 @@ test("auto-fill shows its fill as unsaved, a field can be reset, and save writes
     await screen.findByTestId("autofill-draft");
     expect(screen.getByTestId("draft-publisher").textContent).toBe("Press");
     expect(screen.getByTestId("draft-subtitle").textContent).toBe("A Tale");
-    expect(api.mock.calls.some((c) => c[0] === "PUT")).toBe(false);
+    expect(saves()).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Reset Publisher to what it was" }));
     expect(screen.queryByTestId("draft-publisher")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Save 1 field" }));
-    await vi.waitFor(() => expect(api.mock.calls.some((c) => c[0] === "PUT" && c[1] === "/admin/editions/E1/metadata/subtitle")).toBe(true));
-    expect(api.mock.calls.some((c) => c[1] === "/admin/editions/E1/metadata/publisher")).toBe(false);
-    expect(api.mock.calls.find((c) => c[1] === "/admin/editions/E1/metadata/subtitle")![2]).toMatchObject({ clear: false, value: "A Tale" });
+    await vi.waitFor(() => expect(saves()).toHaveLength(1));
+    expect(saves()[0].changes).toEqual([{ field: "subtitle", action: "set", clear: false, value: "A Tale" }]);
     await vi.waitFor(() => expect(screen.queryByTestId("autofill-draft")).toBeNull());
   } finally {
     api.mockImplementation(original);
@@ -198,7 +224,7 @@ test("Reset all discards the whole unsaved fill without writing anything", async
     await screen.findByTestId("autofill-draft");
     fireEvent.click(screen.getByRole("button", { name: "Reset all" }));
     expect(screen.queryByTestId("autofill-draft")).toBeNull();
-    expect(api.mock.calls.some((c) => c[0] === "PUT")).toBe(false);
+    expect(saves()).toHaveLength(0);
   } finally {
     api.mockImplementation(original);
   }

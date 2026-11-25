@@ -48,6 +48,8 @@ type T005MetadataField struct {
 	Cleared   bool                   `json:"cleared"`
 	Value     T005MetadataValue      `json:"value"`
 	Conflicts []T005MetadataEvidence `json:"conflicts" maxItems:"100"`
+	// Locked is the person's lock (ADR-0097). It is separate from the source: an edit is not locked unless locked.
+	Locked bool `json:"locked"`
 }
 
 type T005MetadataReport struct {
@@ -147,6 +149,7 @@ type T005AutoFillResult struct {
 	Rule string `json:"rule,omitempty" enum:"identifier,title_author"`
 	// Proposed holds the values a dry run would fill, keyed by field. Outcome proposed means nothing was stored.
 	Proposed map[string]T005MetadataValue `json:"proposed,omitempty"`
-	// Revision is the edition's revision after the change (editions only).
+	// Revision is the revision a save of this result must be based on: the edition's revision, or for a recording the
+	// title's metadata revision.
 	Revision string `json:"revision,omitempty" pattern:"^(0|[1-9][0-9]*)$"`
 }

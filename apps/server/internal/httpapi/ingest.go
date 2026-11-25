@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -17,6 +18,8 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/ingest"
 	"github.com/deranjer/ebooker/apps/server/internal/jobs"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
+	"github.com/deranjer/ebooker/apps/server/internal/reading"
+	"github.com/deranjer/ebooker/apps/server/internal/receipts"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
 
@@ -166,23 +169,41 @@ func (a *API) registerIngest(api huma.API) {
 		if err := recAuth(ctx, id); err != nil {
 			return nil, err
 		}
-		rep, err := a.Metadata.Report(ctx, id)
+		rep, rev, err := a.Metadata.ReportWithRevision(ctx, id)
 		if err != nil {
 			return nil, a.fail(ctx, err)
 		}
-		names := make([]string, 0, len(rep))
-		for f := range rep {
-			names = append(names, f)
+		return &bodyOut[wire.MetadataReport]{Body: recordingReport(rep, rev)}, nil
+	})
+
+	sm := adminOp(op("saveRecordingMetadata", http.MethodPatch, "/admin/recordings/{recordingId}/metadata",
+		"Save several field changes together: edits, clears, resets, locks and unlocks (ADR-0095, ADR-0097)", "ingest"))
+	sm.Security = secured
+	huma.Register(api, sm, func(ctx context.Context, in *struct {
+		RecordingID string `path:"recordingId" format:"uuid"`
+		Body        wire.MetadataSave
+	}) (*bodyOut[wire.MetadataReport], error) {
+		id := mustUUID(in.RecordingID)
+		if err := recAuth(ctx, id); err != nil {
+			return nil, err
 		}
-		sort.Strings(names)
-		out := wire.MetadataReport{Fields: []wire.MetadataField{}}
-		for _, f := range names {
-			e := rep[f]
-			mf := wire.MetadataField{Field: f, Source: e.Source, Cleared: e.Cleared, Value: e.Raw}
-			for _, c := range e.Conflicts {
-				mf.Conflicts = append(mf.Conflicts, wire.MetadataConflict{Source: c.Source, Value: c.Raw})
-			}
-			out.Fields = append(out.Fields, mf)
+		op, err := uuid.Parse(in.Body.OperationID)
+		if err != nil {
+			return nil, a.fail(ctx, apperr.Validation("operationId must be a UUID"))
+		}
+		base, err := strconv.ParseInt(in.Body.BaseRevision, 10, 64)
+		if err != nil {
+			return nil, a.fail(ctx, apperr.Validation("baseRevision must be a nonnegative decimal string"))
+		}
+		fp := receipts.Fingerprint(http.MethodPatch, "/admin/recordings/"+id.String()+"/metadata", in.Body)
+		body, err := a.Metadata.Save(ctx, principal(ctx).UserID, id, op, base, reading.MetadataChanges(in.Body.Changes), fp,
+			func(rep map[string]metadata.Effective, rev int64) []byte { return wire.Raw(recordingReport(rep, rev)) })
+		if err != nil {
+			return nil, a.fail(ctx, err)
+		}
+		var out wire.MetadataReport
+		if err := json.Unmarshal(body, &out); err != nil {
+			return nil, a.fail(ctx, err)
 		}
 		return &bodyOut[wire.MetadataReport]{Body: out}, nil
 	})
@@ -225,6 +246,25 @@ func (a *API) registerIngest(api huma.API) {
 	a.registerRecordingAutoFill(api)
 	a.registerImports(api)
 	a.registerWriteback(api)
+}
+
+// recordingReport is the wire form of a recording's metadata report, fields in name order.
+func recordingReport(rep map[string]metadata.Effective, rev int64) wire.MetadataReport {
+	names := make([]string, 0, len(rep))
+	for f := range rep {
+		names = append(names, f)
+	}
+	sort.Strings(names)
+	out := wire.MetadataReport{Revision: strconv.FormatInt(rev, 10), Fields: []wire.MetadataField{}}
+	for _, f := range names {
+		e := rep[f]
+		mf := wire.MetadataField{Field: f, Source: e.Source, Cleared: e.Cleared, Locked: e.Locked, Value: e.Raw}
+		for _, c := range e.Conflicts {
+			mf.Conflicts = append(mf.Conflicts, wire.MetadataConflict{Source: c.Source, Value: c.Raw})
+		}
+		out.Fields = append(out.Fields, mf)
+	}
+	return out
 }
 
 // ---- imports --------------------------------------------------------------------------

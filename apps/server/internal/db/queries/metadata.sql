@@ -1,14 +1,31 @@
 -- name: ListMetadataValues :many
 SELECT * FROM metadata_values WHERE subject_kind = $1 AND subject_id = $2 ORDER BY field, source;
 
--- name: UpsertMetadataValue :exec
+-- UpsertMetadataValue reports one row when the stored value or clear changed and none when it was already the same, so
+-- callers advance the title's metadata revision only for a real change. The lock is never changed here (ADR-0097).
+-- name: UpsertMetadataValue :execrows
 INSERT INTO metadata_values (subject_kind, subject_id, field, source, value, protected_clear)
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (subject_kind, subject_id, field, source) DO UPDATE SET value = EXCLUDED.value,
-    protected_clear = EXCLUDED.protected_clear, updated_at = now();
+    protected_clear = EXCLUDED.protected_clear, updated_at = now()
+WHERE (metadata_values.value, metadata_values.protected_clear) IS DISTINCT FROM (EXCLUDED.value, EXCLUDED.protected_clear);
 
--- name: DeleteMetadataValue :exec
+-- name: DeleteMetadataValue :execrows
 DELETE FROM metadata_values WHERE subject_kind = $1 AND subject_id = $2 AND field = $3 AND source = $4;
+
+-- name: SetMetadataLock :execrows
+UPDATE metadata_values SET locked = sqlc.arg(locked), updated_at = now()
+WHERE subject_kind = sqlc.arg(subject_kind) AND subject_id = sqlc.arg(subject_id) AND field = sqlc.arg(field) AND source = 'user'
+  AND locked <> sqlc.arg(locked);
+
+-- name: LockTitleMetadataRevision :one
+SELECT metadata_revision FROM titles WHERE id = $1 FOR UPDATE;
+
+-- name: GetTitleMetadataRevision :one
+SELECT metadata_revision FROM titles WHERE id = $1;
+
+-- name: BumpTitleMetadataRevision :exec
+UPDATE titles SET metadata_revision = metadata_revision + 1 WHERE id = $1;
 
 -- name: GetTitleRow :one
 SELECT id, title, authors, series_name, series_index, identifier FROM titles WHERE id = $1;

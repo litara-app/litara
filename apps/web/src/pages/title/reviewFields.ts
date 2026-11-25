@@ -10,6 +10,8 @@ export interface ReviewRow {
   same: boolean;
   /** An edit of the person's own, which only an explicit choice may replace. */
   protectedEdit: boolean;
+  /** The person locked the field, so nothing may replace it until it is unlocked (ADR-0097). */
+  locked: boolean;
   /** Nothing (or only a file name) is stored, so using the offered value is the sensible default. */
   preselected: boolean;
 }
@@ -36,7 +38,7 @@ export function reviewFields(report: { fields: MetadataField[] }, candidate: Pro
       field: d.field, label: d.label, kind: d.kind,
       current: cur?.cleared ? "Deliberately empty" : current, currentRaw: cur && !cur.cleared ? cur.value : null, source: cur?.source ?? null,
       offered, offeredText, same: !!cur && !cur.cleared && current === offeredText,
-      protectedEdit: cur?.source === "user", preselected: !cur || cur.source === "filename",
+      protectedEdit: cur?.source === "user", locked: !!cur?.locked, preselected: !cur || cur.source === "filename",
     });
   }
   return rows;
@@ -48,7 +50,7 @@ export function reviewRows(report: { fields: MetadataField[] }, candidate: Provi
 }
 
 /** The default choice for a row: use what is offered where there was a gap, otherwise keep what is stored. */
-export const defaultAction = (r: ReviewRow): Action => (!r.same && r.preselected ? (r.kind === "list" ? "merge" : "use") : "keep");
+export const defaultAction = (r: ReviewRow): Action => (!r.same && !r.locked && r.preselected ? (r.kind === "list" ? "merge" : "use") : "keep");
 
 /** The value to store for a row under an action. Merging keeps the stored items first and adds the new ones. */
 export function valueFor(r: ReviewRow, action: Action): unknown {

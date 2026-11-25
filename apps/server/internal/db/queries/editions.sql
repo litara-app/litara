@@ -127,6 +127,10 @@ ON CONFLICT (edition_id, field, source) DO UPDATE SET value = EXCLUDED.value,
 -- name: DeleteEditionMetadataValue :execrows
 DELETE FROM edition_metadata_values WHERE edition_id = $1 AND field = $2 AND source = $3;
 
+-- name: SetEditionMetadataLock :execrows
+UPDATE edition_metadata_values SET locked = sqlc.arg(locked), updated_at = now()
+WHERE edition_id = sqlc.arg(edition_id) AND field = sqlc.arg(field) AND source = 'user' AND locked <> sqlc.arg(locked);
+
 -- name: CountTitleChildren :one
 SELECT ((SELECT count(*) FROM editions e WHERE e.title_id = $1) + (SELECT count(*) FROM active_recordings r WHERE r.title_id = $1))::bigint;
 

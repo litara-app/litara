@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { adminOp, api, ApiError } from "../../api/client";
+import { api, ApiError } from "../../api/client";
 import type { MetadataField, ProviderCandidate, ProviderResult, ProviderSearchResults } from "../../api/types";
 import { Badge, Busy, Button, Drawer, ErrorBox, icons, PickCard, Row, SegmentedField, Text, TextField, ToggleChip } from "../../ui";
 import { show } from "./metadataFields";
+import { saveMetadata } from "./metadataSave";
 import { defaultAction, reviewFields, valueFor, type Action, type ReviewRow } from "./reviewFields";
 
 export const PROVIDER_NAME: Record<string, string> = { open_library: "Open Library", google_books: "Google Books", audnexus: "Audnexus", hardcover: "Hardcover" };
@@ -14,10 +15,10 @@ const STATUS_TEXT: Record<string, string> = {
 const sourceText = (s: string | null) => (s === "user" ? "Your edit" : s === "embedded" ? "In the file" : s === "sidecar" ? "Sidecar" : s === "provider" ? "Online" : s === "filename" ? "File name" : "");
 
 export type ReviewSubject = { kind: "edition" | "recording"; id: string };
-/** Told about each field this tab has just written, with the edition revisions before and after. */
-export type WroteHandler = (field: string, from?: string, to?: string) => void;
-/** An edition write carries the revision it was based on; a recording write has none. */
-export type Report = { revision?: string; fields: MetadataField[] };
+/** Told about the fields this tab has just saved together, with the revisions before and after. */
+export type WroteHandler = (fields: string[], from: string, to: string) => void;
+/** What is stored, and the revision a save must be based on. */
+export type Report = { revision: string; fields: MetadataField[] };
 
 /**
  * Search the library's providers and compare one result with what is stored, field by field. Everything is chosen here
@@ -52,22 +53,13 @@ export function ProviderDialog({ subject, report, onClose, onApplied, onWrote }:
   const allRows = useMemo(() => (picked ? reviewFields(report, picked.candidate) : []), [report, picked]);
   const rows = view === "all" ? allRows : allRows.filter((r) => !r.same);
   const differing = allRows.filter((r) => !r.same).length;
-  const staged = allRows.filter((r) => (plan[r.field] ?? "keep") !== "keep" && !r.same);
+  const staged = allRows.filter((r) => (plan[r.field] ?? "keep") !== "keep" && !r.same && !r.locked);
 
   const apply = useMutation({
+    // Every chosen field is saved together, or none is (ADR-0095 decision 4).
     mutationFn: async () => {
-      let revision = report.revision ?? "0";
-      for (const r of staged) {
-        const value = valueFor(r, plan[r.field]!);
-        if (edition) {
-          const from = revision;
-          revision = (await api<{ revision: string }>("PUT", `${base}/${r.field}`, { ...adminOp(from), clear: false, value })).revision;
-          onWrote?.(r.field, from, revision);
-        } else {
-          await api<void>("PUT", `${base}/${r.field}`, { value });
-          onWrote?.(r.field);
-        }
-      }
+      const after = await saveMetadata(base, report.revision, staged.map((r) => ({ field: r.field, action: "set" as const, clear: false, value: valueFor(r, plan[r.field]!) })));
+      onWrote?.(staged.map((r) => r.field), report.revision, after.revision);
     },
     meta: { success: () => `Applied ${staged.length} ${staged.length === 1 ? "field" : "fields"} from ${PROVIDER_NAME[picked?.provider ?? ""] ?? "the provider"}` },
     onSuccess: () => { onClose(); },
@@ -81,7 +73,8 @@ export function ProviderDialog({ subject, report, onClose, onApplied, onWrote }:
     apply.reset();
   };
   const setAction = (field: string, a: Action) => setPlan((p) => ({ ...p, [field]: a }));
-  // "Use all" never touches an edit or a deliberate clear; those are replaced only by choosing the field itself (ADR-0097).
+  // "Use all" never touches an edit or a deliberate clear; those are replaced only by choosing the field itself. A locked
+  // field cannot be chosen at all until it is unlocked (ADR-0097).
   const bulk = allRows.filter((r) => !r.same && !r.protectedEdit);
   const useAll = () => setPlan((p) => ({ ...p, ...Object.fromEntries(bulk.map((r) => [r.field, r.kind === "list" ? "merge" : "use"])) }));
   const keepAll = () => setPlan((p) => ({ ...p, ...Object.fromEntries(allRows.map((r) => [r.field, "keep"])) }));
@@ -207,6 +200,7 @@ function Value({ kind, raw, text }: { kind: string; raw: unknown; text: string }
 function FieldCompare({ row, action, onAction }: { row: ReviewRow; action: Action; onAction: (a: Action) => void }) {
   const list = row.kind === "list";
   const status = row.same ? <Badge tone="neutral">Same</Badge>
+    : row.locked ? <Badge tone="neutral">Locked</Badge>
     : row.protectedEdit ? <Badge tone="warning">Replaces your edit</Badge>
     : row.current === "" ? <Badge tone="success">Fills empty</Badge>
     : <Badge tone="warning">Differs</Badge>;
@@ -215,7 +209,8 @@ function FieldCompare({ row, action, onAction }: { row: ReviewRow; action: Actio
       <div className="lt-pf-head">
         <span className="lt-pf-label">{row.label}</span>
         {status}
-        {!row.same && (
+        {row.locked && !row.same && <Text size="sm" tone="dim">Unlock it on the Metadata tab to change it.</Text>}
+        {!row.same && !row.locked && (
           <div className="lt-pf-act">
             <SegmentedField label={`What to do with ${row.label.toLowerCase()}`} value={action} onValue={(v) => onAction(v as Action)}
               items={list ? [{ value: "keep", label: "Keep" }, { value: "merge", label: "Merge" }, { value: "replace", label: "Replace" }] : [{ value: "keep", label: "Keep" }, { value: "use", label: "Use" }]} />

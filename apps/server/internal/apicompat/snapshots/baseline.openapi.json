@@ -1054,6 +1054,39 @@
         ],
         "type": "object"
       },
+      "MetadataChange": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "set",
+              "reset",
+              "lock",
+              "unlock"
+            ],
+            "type": "string"
+          },
+          "clear": {
+            "description": "With action set: store a deliberate clear (value must be null).",
+            "type": "boolean"
+          },
+          "field": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z_]+$",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/T005MetadataValue",
+            "description": "With action set and clear false: the new value."
+          }
+        },
+        "required": [
+          "field",
+          "action"
+        ],
+        "type": "object"
+      },
       "MetadataConflict": {
         "additionalProperties": false,
         "properties": {
@@ -1105,6 +1138,9 @@
             ],
             "type": "string"
           },
+          "locked": {
+            "type": "boolean"
+          },
           "source": {
             "enum": [
               "user",
@@ -1121,7 +1157,8 @@
         "required": [
           "field",
           "source",
-          "cleared"
+          "cleared",
+          "locked"
         ],
         "type": "object"
       },
@@ -1136,10 +1173,45 @@
               "array",
               "null"
             ]
+          },
+          "revision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
           }
         },
         "required": [
+          "revision",
           "fields"
+        ],
+        "type": "object"
+      },
+      "MetadataSave": {
+        "additionalProperties": false,
+        "properties": {
+          "baseRevision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataChange"
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "operationId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "changes"
         ],
         "type": "object"
       },
@@ -3406,6 +3478,9 @@
             ],
             "type": "string"
           },
+          "locked": {
+            "type": "boolean"
+          },
           "source": {
             "enum": [
               "user",
@@ -3425,7 +3500,8 @@
           "source",
           "cleared",
           "value",
-          "conflicts"
+          "conflicts",
+          "locked"
         ],
         "type": "object"
       },
@@ -7787,6 +7863,145 @@
         "tags": [
           "editions"
         ]
+      },
+      "patch": {
+        "operationId": "saveEditionMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "editionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005MetadataReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Save several field changes together: edits, clears, resets, locks and unlocks (ADR-0095, ADR-0097)",
+        "tags": [
+          "editions"
+        ]
       }
     },
     "/admin/editions/{editionId}/metadata/auto-fill": {
@@ -11960,6 +12175,155 @@
           }
         },
         "summary": "Effective metadata with provenance and suppressed conflicts",
+        "tags": [
+          "ingest"
+        ]
+      },
+      "patch": {
+        "operationId": "saveRecordingMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recordingId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Precondition Failed"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "Save several field changes together: edits, clears, resets, locks and unlocks (ADR-0095, ADR-0097)",
         "tags": [
           "ingest"
         ]
