@@ -1,10 +1,12 @@
 import { useQueries } from "@tanstack/react-query";
 import { get } from "../../api/client";
+import { usePlayer } from "../../audio/PlayerProvider";
 import type { AudioRecording, Edition, RecordingLink } from "../../api/types";
 import { icons, Badge, Busy, bytes, Button, Card, DownloadLink, duration, EmptyState, ErrorBox, FormatTag, Heading, Row, Stack, StatusPill, Table, TBody, TD, Text, TextLink, TH, THead, TR } from "../../ui";
 
 /** Every file behind this title: ebook editions and the audio files of each recording. */
 export function FilesTab({ editions, recordings }: { editions: Edition[]; recordings: RecordingLink[] }) {
+  const player = usePlayer();
   const audio = useQueries({
     queries: recordings.map((r) => ({ queryKey: ["recording", r.id], queryFn: () => get<AudioRecording>(`/recordings/${r.id}`) })),
   });
@@ -50,7 +52,7 @@ export function FilesTab({ editions, recordings }: { editions: Edition[]; record
                   <Row gap="xs">
                     <StatusPill state={r.readiness} />
                     <Badge tone="audio">{duration(r.durationMs)}</Badge>
-                    <Button size="sm" variant="primary" to={`/listen/${r.id}`} icon={icons.headphones}>Listen</Button>
+                    <Button size="sm" variant="primary" onClick={() => player.start(r.id)} icon={icons.headphones}>Listen</Button>
                   </Row>
                 </Row>
                 {r.narrators.length > 0 && <Text size="sm" tone="dim">Narrated by {r.narrators.join(", ")}</Text>}

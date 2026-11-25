@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Litara · Audiobook player concepts</title>
+<style>
+@font-face{font-family:"Fraunces Variable";src:url(../../apps/web/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Source Sans 3 Variable";src:url(../../apps/web/node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2) format("woff2");font-weight:200 900;font-display:swap}
+@font-face{font-family:"IM Fell English";src:url(../../apps/web/node_modules/@fontsource/im-fell-english/files/im-fell-english-latin-400-normal.woff2) format("woff2");font-display:swap}
+*{box-sizing:border-box}
+:root{color-scheme:light;font:15px/1.45 system-ui,sans-serif;background:#10151c;color:#e7ecf4}
+body{margin:0}
+button,select,input{font:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default;opacity:.45}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--focus,#7ebaff);outline-offset:3px}
+svg{width:19px;height:19px;vertical-align:middle;flex:none}
+[hidden]{display:none!important}
+.preview{max-width:1480px;margin:auto;padding:25px clamp(12px,3.4vw,54px) 40px}
+.preview-header{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:18px;margin-bottom:20px}
+.preview-brand{color:#a7b9ce;font-size:12px;letter-spacing:.13em;text-transform:uppercase}
+.preview h1{font-size:clamp(22px,3vw,33px);letter-spacing:-.035em;margin:2px 0 0}
+.preview-controls,.segment{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.preview-controls{gap:12px}
+.segment button svg{width:15px;height:15px;margin-right:5px}
+.segment{border:1px solid #374354;border-radius:9px;padding:4px}
+.segment button{background:transparent;border:0;border-radius:5px;color:#bac7d8;padding:7px 10px}
+.segment button[aria-pressed=true]{background:#29394e;color:#fff}
+.preview-note{margin:0 0 15px;color:#b6c5d8;font-size:13px}
+.stage{--display:system-ui,sans-serif;--accent-font:var(--display);--surface:#fff;--desk:#f6f7f9;--panel:#f2f5f8;--ink:#1c2128;--dim:#546171;--edge:#d9e0e8;--accent:#1971c2;--on-accent:#fff;--soft:#e7f1fb;--rule:#8b9bad;--good:#247344;--focus:#1971c2;--radius:13px;--shadow:0 14px 36px #25385014;color:var(--ink);background:var(--desk);border:1px solid #455365;border-radius:14px;overflow:hidden;position:relative;isolation:isolate}
+.stage[data-theme=room]{--display:"Fraunces Variable",Georgia,serif;--accent-font:"IM Fell English",Georgia,serif;font-family:"Source Sans 3 Variable",system-ui,sans-serif;--surface:#fbf4e4;--desk:#e9dbc0;--panel:#f4e8ce;--ink:#2d2219;--dim:#62523e;--edge:#d3be94;--accent:#244d70;--on-accent:#fff5df;--soft:#e1e8ec;--rule:#96815d;--good:#315b37;--focus:#9a382e;--radius:4px;--shadow:0 14px 38px #472b1a29;--foil:#d9b76e;--ribbon:#943a35;--binding:#3a2a20;--binding-deep:#271b14;--binding-ink:#f6e9cc;--binding-dim:#d3bf99;--cloth:#173b34;--grain:radial-gradient(ellipse at top,#ffffff13,transparent 70%),repeating-linear-gradient(117deg,#ffffff03 0 1px,transparent 1px 4px)}
+.stage[data-mode=dark]{color-scheme:dark;--surface:#151a22;--desk:#0f1218;--panel:#1b232e;--ink:#e6eaf0;--dim:#a7b3c2;--edge:#34404f;--rule:#68788d;--accent:#67b4f7;--on-accent:#091725;--soft:#1b3650;--good:#91d2ab;--focus:#88c7ff;--shadow:0 14px 36px #0004}
+.stage[data-theme=room][data-mode=dark]{--surface:#241b14;--desk:#15100c;--panel:#302319;--ink:#f4e5cb;--dim:#c9b79a;--edge:#594631;--rule:#9c8563;--accent:#9ec1e5;--on-accent:#141e2b;--soft:#263849;--good:#a3d4a4;--focus:#ebbf68;--shadow:0 14px 38px #0006}
+.player-top{min-height:63px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px clamp(13px,3.2vw,44px);background:var(--surface);border-bottom:1px solid var(--edge)}
+.stage[data-theme=room] .player-top,.stage[data-theme=room] .library-top{color:var(--binding-ink);--dim:var(--binding-dim);--edge:#836b49;--panel:#533e2d;--focus:var(--foil);background:var(--grain),linear-gradient(105deg,var(--binding),var(--binding-deep));border-color:#a28551}
+.top-group,.action-row,.transport,.utility,.sync,.mini-end{display:flex;align-items:center;gap:7px}
+.sync{color:var(--good);font-size:13px;white-space:nowrap}
+.stage[data-theme=room] .sync{color:#b8d5a5}
+.sync svg{width:16px;height:16px}
+.icon-btn,.action,.position-button,.chapter-row{border:1px solid transparent;background:transparent;color:inherit}
+.icon-btn,.action,.position-button{border-radius:var(--radius);min-width:37px;height:37px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 8px;white-space:nowrap}
+.icon-btn:hover,.action:hover,.position-button:hover,.chapter-row:hover{background:var(--panel)}
+.icon-btn.outline,.position-button,.action{border-color:var(--edge)}
+.action{font-size:13px}
+h2,h3,p{margin:0}
+.book-title{font:600 clamp(32px,4.1vw,63px)/.98 var(--display);letter-spacing:-.042em;text-wrap:balance}
+.byline{color:var(--dim);margin-top:10px}
+.cover{aspect-ratio:2/3;overflow:hidden;position:relative;display:grid;place-items:center;text-align:center;padding:9%;border-radius:3px 6px 6px 3px;background:radial-gradient(ellipse at 65% 30%,#285b59,#0b212c 67%);color:#f6dea2;box-shadow:5px 3px 0 -1px #ae946e,7px 4px 0 -1px #776444,0 15px 29px #14191c55,inset 7px 0 12px #040a16a0;container-type:inline-size;font-family:Georgia,serif}
+.cover:before,.cover:after{content:"";position:absolute;inset:5%;border:1px solid #d4b36f81;pointer-events:none}
+.cover:after{inset:7%;border-color:#d4b36f40}
+.cover-inner{width:100%;display:grid;justify-items:center;gap:7cqw;z-index:1}
+.cover-name{font-size:16cqw;font-weight:normal;line-height:.94;letter-spacing:.045em}
+.cover-author{font:600 7.2cqw/1.2 Georgia,serif;letter-spacing:.17em;text-transform:uppercase}
+.cover-art{width:89%;height:auto;color:#ddbb75}
+.cover-art path,.cover-art circle{vector-effect:non-scaling-stroke}
+.chapter-current{font-size:14px;font-weight:650;overflow-wrap:anywhere}
+.stage[data-theme=room] .chapter-current{font:400 20px/1.2 var(--accent-font)}
+.now-label{font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin-bottom:5px}
+.timeline{display:grid;gap:5px;min-width:0}
+.time-row{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+.scrubber{--pct:34%;display:block;width:100%;min-width:0;appearance:none;background:transparent;margin:0;height:23px;cursor:pointer}
+.scrubber::-webkit-slider-runnable-track{height:4px;border-radius:8px;background:linear-gradient(to right,var(--accent) 0 var(--pct),var(--rule) var(--pct) 100%)}
+.scrubber::-webkit-slider-thumb{appearance:none;background:var(--accent);width:13px;height:13px;border-radius:50%;margin-top:-4.5px}
+.scrubber::-moz-range-track{height:4px;border-radius:8px;background:linear-gradient(to right,var(--accent) 0 var(--pct),var(--rule) var(--pct) 100%)}
+.scrubber::-moz-range-thumb{background:var(--accent);width:13px;height:13px;border:0;border-radius:50%}
+.transport{justify-content:center;gap:clamp(5px,1.35vw,20px)}
+.transport .icon-btn{width:43px;height:43px;border-radius:50%}
+.transport .icon-btn svg{width:22px;height:22px}
+.transport .play{width:58px;height:58px;background:var(--accent);color:var(--on-accent)}
+.transport .play:hover{filter:brightness(1.12)}
+.transport .play svg{width:25px;height:25px}
+.utility{justify-content:center;flex-wrap:wrap}
+.utility .icon-btn{border:1px solid var(--edge)}
+.position-button{font-size:13px;font-variant-numeric:tabular-nums}
+.position-button svg{width:15px;height:15px}
+.playback{display:grid;align-content:center;gap:17px;min-width:0}
+.chapter-panel{min-width:0}
+.chapter-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:8px;color:var(--dim)}
+.chapter-head h3{color:var(--ink);font:600 20px/1.15 var(--display)}
+.chapter-head span{font-size:12px}
+.chapter-list{display:grid;gap:3px}
+.chapter-list>.action{justify-self:start;margin-top:5px;color:var(--dim)}
+.chapter-row{width:100%;min-height:42px;display:grid;grid-template-columns:24px minmax(0,auto) 1fr auto;gap:8px;align-items:center;text-align:start;border-radius:var(--radius);padding:6px 9px;font-size:13px}
+.chapter-row[aria-current=true]{background:var(--soft);font-weight:700;color:var(--ink);border-color:var(--edge)}
+.chapter-row svg{width:15px;height:15px}
+.chapter-index,.chapter-time{color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+.chapter-time{white-space:nowrap}
+.leader{border-bottom:1px dotted var(--rule);align-self:center;min-width:4px;opacity:.65}
+.stage[data-theme=room] .chapter-row[aria-current=true]{border-inline-start:3px solid var(--ribbon);padding-inline-start:7px}
+.email-form{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.email-form h3,.email-form p{flex-basis:100%}
+.email-form label{display:flex;align-items:center;gap:5px}
+.email-form input,.email-form select{max-width:100%;padding:6px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);color:var(--ink)}
+.notice{margin:12px auto 0;width:min(calc(100% - 24px),1120px);padding:9px 13px;background:var(--panel);border:1px solid var(--edge);border-inline-start:3px solid var(--accent);border-radius:var(--radius);font-size:13px}
+.pop-holder{position:relative}
+.pop{position:absolute;z-index:5;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);min-width:151px;display:grid;gap:4px;background:var(--surface);color:var(--ink);border:1px solid var(--edge);box-shadow:var(--shadow);border-radius:var(--radius);padding:6px}
+.pop .action{width:100%;justify-content:flex-start;border:0;text-align:start}
+.pop .action[aria-pressed=true]{background:var(--soft)}
+/* Gilt Folio: jacket and imprint on the left, playback and chapter index on the right. */
+.folio-spread{display:grid;grid-template-columns:minmax(0, .86fr) minmax(0,1.14fr);max-width:1090px;margin:30px auto;min-height:560px;background:var(--surface);border:1px solid var(--edge);border-radius:var(--radius);box-shadow:var(--shadow)}
+.folio-spread,.ledger-layout{width:calc(100% - clamp(24px,7vw,112px))}
+.folio .identity{display:grid;align-content:center;justify-items:center;text-align:center;gap:20px;padding:28px 24px;border-right:1px solid var(--edge);background:var(--panel)}
+.folio .cover{width:clamp(128px,16vw,192px)}
+.folio .book-title{max-width:9ch;font-size:clamp(30px,4.2vw,58px)}
+.folio .control-page{padding:clamp(21px,3.2vw,43px);display:grid;align-content:center;gap:27px;min-width:0}
+.folio .chapter-panel{border-top:1px solid var(--edge);padding-top:17px}
+.stage[data-theme=room] .folio-spread{outline:1px solid #a5854f;outline-offset:4px;border-color:#a5854f}
+.stage[data-theme=room] .folio .identity{color:var(--binding-ink);--dim:var(--binding-dim);border-color:#a5854f;background:var(--grain),linear-gradient(145deg,#285043,var(--cloth) 65%,#112d29);box-shadow:inset -13px 0 22px -17px #000}
+.stage[data-theme=room] .folio .identity:after{content:"";width:66px;height:5px;border-block:1px solid var(--foil);opacity:.68}
+.stage[data-theme=room] .folio .control-page{background:var(--grain),linear-gradient(90deg,#35270e17,transparent 20px)}
+/* Book Jacket: a single listening surface with the chapter index below it. */
+.jacket-hero{background:var(--panel);border-bottom:1px solid var(--edge)}
+.jacket-inner{max-width:1000px;margin:auto;padding:clamp(22px,4vw,53px) clamp(16px,4vw,47px);display:grid;grid-template-columns:minmax(125px,.76fr) minmax(0,1.24fr);align-items:center;gap:clamp(20px,5vw,77px)}
+.jacket .cover{width:min(100%,257px);justify-self:center}
+.jacket .book-title{max-width:12ch}
+.jacket .main-controls{min-width:0;display:grid;gap:24px}
+.jacket .transport,.jacket .utility{justify-content:flex-start}
+.jacket .chapter-panel{max-width:900px;margin:auto;padding:23px clamp(16px,4vw,47px) 27px}
+.jacket .chapter-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px}
+.stage[data-theme=room] .jacket-hero{--ink:var(--binding-ink);--dim:var(--binding-dim);--rule:#9b8256;--edge:#8a7046;--accent:var(--foil);--on-accent:#2d2119;--focus:var(--foil);--panel:#4b3427;color:var(--ink);background:var(--grain),linear-gradient(115deg,#573a2a,var(--binding-deep) 72%);border-color:#a98b52}
+.stage[data-theme=room] .jacket .cover{outline:1px solid #a98b52;outline-offset:6px}
+.stage[data-theme=room] .jacket .pop{--surface:var(--binding);--soft:#614431}
+/* Chapter Ledger: chapter navigation always alongside a compact listening pane. */
+.ledger-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:21px;max-width:1120px;margin:37px auto}
+.ledger-console,.ledger .chapter-panel{background:var(--surface);border:1px solid var(--edge);border-radius:var(--radius);box-shadow:var(--shadow);min-width:0}
+.ledger-console{padding:clamp(17px,3vw,35px);display:grid;align-content:center;gap:25px}
+.ledger .identity{display:grid;grid-template-columns:clamp(65px,9.1vw,112px) minmax(0,1fr);align-items:center;gap:17px}
+.ledger .book-title{font-size:clamp(25px,3.3vw,46px)}
+.ledger .chapter-panel{padding:clamp(14px,2.8vw,32px)}
+.ledger .chapter-row{border-bottom:1px solid var(--edge);border-radius:0;min-height:40px}
+.ledger .chapter-list{gap:0}
+.stage[data-theme=room] .ledger-console{border-top:5px solid var(--cloth);background:var(--grain),var(--surface)}
+.stage[data-theme=room] .ledger .chapter-panel{border-top:5px solid var(--ribbon);background:var(--grain),var(--surface)}
+.stage[data-theme=room] .ledger .chapter-head{border-bottom:3px double var(--edge)}
+/* The minimized concepts are shown in the library shell. */
+.library{min-height:620px;display:grid;grid-template-rows:auto 1fr auto}
+.library-top{display:flex;align-items:center;justify-content:space-between;min-height:55px;padding:0 25px;border-bottom:1px solid var(--edge);background:var(--surface)}
+.wordmark{font:650 23px/1 var(--display);display:flex;gap:8px;align-items:center}
+.stage[data-theme=room] .wordmark{color:var(--foil)}
+.library-frame{display:grid;grid-template-columns:150px minmax(0,1fr);min-height:440px}
+.library-nav{background:var(--surface);border-right:1px solid var(--edge);padding:20px 12px;color:var(--dim)}
+.library-nav span{display:flex;align-items:center;gap:8px;padding:9px;border-radius:var(--radius);font-size:13px}
+.library-nav .selected{background:var(--soft);color:var(--ink);font-weight:650}
+.library-body{padding:clamp(16px,4vw,43px) clamp(14px,4vw,46px);width:100%;max-width:1050px}
+.library-body h2{font:600 34px/1.1 var(--display);margin-bottom:18px}
+.shelf-list{border-radius:var(--radius);background:var(--surface);border:1px solid var(--edge)}
+.shelf-entry{display:grid;grid-template-columns:35px minmax(0,1fr) minmax(0,.8fr) auto;align-items:center;gap:12px;padding:10px 13px;font-size:13px}
+.shelf-entry+.shelf-entry{border-top:1px solid var(--edge)}
+.shelf-entry strong{font-family:var(--display);font-size:15px}
+.shelf-entry .cover{width:29px}
+.shelf-entry .format,.shelf-entry .author{color:var(--dim)}
+.spine-sample{height:43px;width:29px;border-radius:2px;background:repeating-linear-gradient(0deg,transparent 0 8px,#fbe7aa4f 8px 9px,transparent 9px 15px),linear-gradient(110deg,#17181966,transparent),var(--spine);border-inline-start:3px solid #0004}
+.mini{position:relative;z-index:1;display:grid;align-items:center;gap:12px;background:var(--surface);padding:10px clamp(9px,2vw,27px);border-top:1px solid var(--edge)}
+.mini .identity{display:grid;grid-template-columns:29px minmax(0,1fr);align-items:center;gap:11px;min-width:0}
+.mini .book-title{display:block;font-size:17px;line-height:1.1;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini .byline{display:none}
+.mini .mini-chapter{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;color:var(--dim);font-size:12px;margin-top:2px}
+.mini .transport{gap:3px}
+.mini .transport .icon-btn{width:34px;min-width:31px;height:34px}
+.mini .transport .icon-btn svg{width:19px;height:19px}
+.mini .transport .play{width:38px;height:38px}
+.mini .icon-btn{min-width:32px;height:32px}
+.mini .timeline{gap:0}
+.mini .time-row{font-size:11px}
+.mini-end{justify-content:flex-end}
+.mini-flags{display:flex;align-items:center;gap:5px;color:var(--dim);font-size:11px;white-space:nowrap}
+.mini-flags svg{width:14px;height:14px}
+.mini-folio{grid-template-columns:minmax(125px,1fr) auto minmax(125px,1fr) auto auto}
+.stage[data-theme=room] .mini-folio{--ink:var(--binding-ink);--dim:var(--binding-dim);--edge:#8b714c;--rule:#9a845c;--panel:#583e2d;--accent:var(--foil);--on-accent:#2d2119;--focus:var(--foil);color:var(--ink);border-top:3px double #a98b52;background:var(--grain),linear-gradient(105deg,var(--binding),var(--binding-deep))}
+.mini-jacket{width:min(calc(100% - 32px),835px);justify-self:center;margin-bottom:17px;border:1px solid var(--edge);border-radius:calc(var(--radius) + 5px);box-shadow:0 11px 27px #111b2938;grid-template-columns:minmax(120px,1fr) auto auto auto;padding-top:12px}
+.mini-jacket .timeline{grid-column:1/-1;grid-row:2;grid-template-columns:1fr;gap:0}
+.mini-jacket .time-row{order:-1}
+.mini-jacket .scrubber{height:13px}
+.stage[data-theme=room] .mini-jacket{--ink:var(--binding-ink);--dim:var(--binding-dim);--panel:#2c5449;--accent:var(--foil);--on-accent:#28211a;--rule:#a98d61;--focus:var(--foil);color:var(--ink);border:1px solid #b6965b;background:var(--grain),linear-gradient(130deg,#254c42,#122f2a)}
+.mini-ledger{grid-template-columns:minmax(132px,1fr) minmax(115px,1.1fr) auto auto auto}
+.mini-ledger .timeline{grid-column:2;grid-row:1}
+.mini-ledger .mini-chapter:before{content:"↳ ";color:var(--dim)}
+.stage[data-theme=room] .mini-ledger{border-top:3px double #ab8a51;background:var(--grain),var(--surface)}
+.stage[data-theme=room] .mini-ledger .identity{border-inline-start:3px solid var(--ribbon);padding-inline-start:8px}
+@media(max-width:880px){
+  .mini-folio,.mini-ledger{grid-template-columns:minmax(100px,1fr) auto auto auto}
+  .mini-folio .timeline,.mini-ledger .timeline{grid-column:1/-1;grid-row:2}
+  .mini .time-row{order:-1}
+  .mini .scrubber{height:14px}
+}
+@media(max-width:680px){
+  .folio-spread,.ledger-layout{grid-template-columns:1fr;margin:19px auto;min-height:0}
+  .folio .identity{display:grid;grid-template-columns:73px minmax(0,1fr);justify-items:start;text-align:start;padding:15px;gap:15px;border-right:0;border-bottom:1px solid var(--edge)}
+  .folio .cover{width:73px}
+  .stage[data-theme=room] .folio .identity:after{display:none}
+  .folio .book-title,.jacket .book-title{font-size:clamp(25px,7vw,41px)}
+  .folio .control-page{padding:17px;gap:20px}
+  .jacket-inner{grid-template-columns:1fr;justify-items:center;gap:17px}
+  .jacket .cover{width:115px}
+  .jacket .main-controls{width:100%}
+  .jacket .book-title{margin:auto}
+  .jacket .book-title,.jacket .byline{text-align:center}
+  .jacket .transport,.jacket .utility{justify-content:center}
+  .jacket .chapter-list{grid-template-columns:1fr}
+  .library-frame{grid-template-columns:1fr;min-height:360px}
+  .library-nav{display:none}
+  .library{min-height:530px}
+}
+@media(max-width:510px){
+  .book-link span,.mini .skip-chapter{display:none}
+  .mini{grid-template-columns:minmax(85px,1fr) auto auto;gap:6px;padding-inline:8px}
+  .mini .timeline{grid-row:2}
+  .mini .mini-flags{grid-column:1/-1;grid-row:3;justify-content:flex-end}.mini .mini-flags:empty{display:none}
+  .mini .transport .icon-btn,.mini-end .icon-btn{min-width:28px;width:28px;padding:0}
+  .mini .transport .play{width:33px}
+  .mini .identity{grid-template-columns:23px minmax(0,1fr);gap:7px}
+  .mini .book-title{font-size:14px}
+  .mini-end{gap:2px}
+  .shelf-entry{grid-template-columns:30px minmax(0,1fr) auto;gap:8px}
+  .shelf-entry .author{display:none}
+}
+</style>
+</head>
+<body>
+<main class="preview">
+  <header class="preview-header">
+    <div><div class="preview-brand">Litara</div><h1>Audiobook player concepts</h1></div>
+    <div class="preview-controls" id="preview-controls"></div>
+  </header>
+  <p class="preview-note" id="concept-note"></p>
+  <section class="stage" id="stage" aria-label="Audiobook player preview"></section>
+</main>
+<script>
+(function() {
+  "use strict";
+  const concepts = {
+    folio: ["Gilt Folio", "A facing-page spread with a bookcloth cover panel and a leather-bound mini bar."],
+    jacket: ["Book Jacket", "A cover-led listening surface with a chapter index underneath and a floating mini dock."],
+    ledger: ["Chapter Ledger", "A dedicated chapter index alongside a compact player, with chapter and progress together in the mini bar."],
+  };
+  const names = ["The arrival", "The problem with maps", "Across the strait", "A borrowed workshop", "The mill at Avan", "Winter stores", "A question of scale", "The first shipment"];
+  const offsets = [0, 28, 68, 115, 168, 217, 276, 335].map(minutes => minutes * 60);
+  const total = 373 * 60 + 19;
+  const state = { concept:"folio", theme:"room", mode:"light", view:"full", time:7722, playing:true, menu:null, speed:1.25, sleep:25, finished:false, message:"" };
+  const paths = {
+    down:'<path d="m6 9 6 6 6-6"/>',
+    expand:'<path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/>',
+    close:'<path d="m6 6 12 12M18 6 6 18"/>',
+    book:'<path d="M12 6v15M3 18V4c4-1 7 1 9 2 2-1 5-3 9-2v14c-4-1-7 1-9 3-2-2-5-4-9-3Z"/>',
+    check:'<path d="m5 12 4 4L19 6"/>',
+    play:'<path fill="currentColor" stroke="none" d="M8 4.5a1 1 0 0 0-1.5.9v13.2a1 1 0 0 0 1.5.9l10.5-6.6a1 1 0 0 0 0-1.8Z"/>',
+    pause:'<path fill="currentColor" stroke="none" d="M7 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm7 0h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/>',
+    prev:'<path d="M5 5v14m14-13L8 12l11 6Z"/>',
+    next:'<path d="M19 5v14M5 6l11 6-11 6Z"/>',
+    back:'<path d="M3 4v5h5M3 9a9 9 0 1 1 1 9"/><text x="13" y="15.8" text-anchor="middle" font-size="8" font-family="system-ui" font-weight="700" fill="currentColor" stroke="none">30</text>',
+    fwd:'<path d="M21 4v5h-5m5 0a9 9 0 1 0-1 9"/><text x="11" y="15.8" text-anchor="middle" font-size="8" font-family="system-ui" font-weight="700" fill="currentColor" stroke="none">30</text>',
+    speed:'<path d="M4.9 17a9 9 0 1 1 14.2 0M12 13l4-4"/><circle cx="12" cy="13" r="1"/>',
+    moon:'<path d="M20 15A8.4 8.4 0 0 1 9 4a8.5 8.5 0 1 0 11 11Z"/>',
+    sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/>',
+    dots:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+    mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>',
+    library:'<path d="M4 4h4v16H4Zm7 0h4v16h-4Zm7 1 3-1 3 15-3 1Z"/>',
+    shelf:'<path d="M3 19h18M5 16V5h4v11m2 0V5h4v11m2 0V5h3v11"/>',
+    headphones:'<path d="M4 13v-2a8 8 0 0 1 16 0v2M4 12h4v7H6a2 2 0 0 1-2-2Zm16 0h-4v7h2a2 2 0 0 0 2-2Z"/>',
+    grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    screen:'<rect x="3" y="4" width="18" height="16" rx="2"/>',
+    mini:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/>',
+    swatch:'<path d="M3 5h18v14H3Zm9 0v14"/>',
+  };
+  const icon = name => `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
+  const trigger = (action, glyph, label, classes="icon-btn", content="", extra="") =>
+    `<button type="button" class="${classes}" data-action="${action}" aria-label="${label}" title="${label}" ${extra}>${icon(glyph)}${content}</button>`;
+  const fmt = n => {
+    const seconds = Math.floor(n);
+    return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+      .map((value, index) => index ? String(value).padStart(2,"0") : value).join(":");
+  };
+  const current = () => offsets.findLastIndex(at => at <= state.time);
+  const cover = () => `<div class="cover" role="img" aria-label="Illustrated cover for The Far Shore"><div class="cover-inner" aria-hidden="true">
+    <div class="cover-name">THE<br>FAR SHORE</div>
+    <svg class="cover-art" viewBox="0 0 128 76" fill="none" stroke="currentColor" stroke-width="1"><circle cx="87" cy="25" r="13" opacity=".8"/><path d="M1 54 32 33 50 45 76 19 116 54M29 53l22-8 13 9m5-27 7 4 6-4M2 57h122M12 62h38m20 0h38M32 68h19m12 0h30M48 73h28" opacity=".85"/><path fill="currentColor" d="m6 47 14-3 7 4-12 3Zm9-13 7 10H12Z"/><path d="M59 8h9m-4-4v8m42 4h6m-3-3v6m-72-2h5m-2.5-2.5v5" opacity=".72"/></svg>
+    <div class="cover-author">Eleanor Vale</div></div></div>`;
+  const identity = (withCover=true, mini=false) => `<div class="identity">${withCover ? cover() : ""}<div class="identity-copy">
+    ${mini ? '<strong class="book-title">The Far Shore</strong>' : '<h2 class="book-title">The Far Shore</h2>'}
+    ${mini ? `<div class="mini-chapter">${names[current()]}</div>` : '<p class="byline">Eleanor Vale<br>Narrated by Rowan Ellis</p>'}</div></div>`;
+  const timeline = () => `<div class="timeline"><input class="scrubber" id="seek" type="range" aria-label="Position in the recording" aria-valuetext="${fmt(state.time)} of ${fmt(total)}" min="0" max="${total}" value="${state.time}" style="--pct:${state.time / total * 100}%"><div class="time-row"><span data-elapsed>${fmt(state.time)}</span><span>${fmt(total)}</span></div></div>`;
+  const transport = () => `<div class="transport">
+    ${trigger("prev","prev","Previous chapter","icon-btn skip-chapter","", current() === 0 ? "disabled" : "")}
+    ${trigger("back","back","Back 30 seconds")}${trigger("play",state.playing ? "pause" : "play",state.playing ? "Pause" : "Play","icon-btn play")}
+    ${trigger("fwd","fwd","Forward 30 seconds")}${trigger("next","next","Next chapter","icon-btn skip-chapter","",current() === names.length - 1 ? "disabled" : "")}</div>`;
+  const option = (action, glyph, label, selected) => trigger(action,glyph,label,"action",`<span>${label}</span>`,selected === undefined ? "" : `aria-pressed="${selected}"`);
+  const popup = (name, content) => `<div class="pop" id="${name}-choices" aria-label="${name === "more" ? "Recording actions" : name === "speed" ? "Playback speed" : "Sleep timer"}" ${state.menu === name ? "" : "hidden"}>${content}</div>`;
+  const expanded = name => `aria-expanded="${state.menu === name}" aria-controls="${name}-choices"`;
+  const utility = () => `<div class="utility">
+    <div class="pop-holder">${trigger("speed","speed",`Playback speed ${state.speed}×`,"position-button",`<span>${state.speed}×</span>`,expanded("speed"))}${popup("speed",[.75,1,1.25,1.5,2].map(x => option(`rate-${x}`,"speed",`${x}×`,state.speed === x)).join(""))}</div>
+    <div class="pop-holder">${trigger("sleep","moon",state.sleep ? `Sleep timer, ${state.sleep} minutes remaining` : "Sleep timer off","position-button",state.sleep ? `<span>${state.sleep} min</span>` : "",expanded("sleep"))}${popup("sleep",[0,15,25,45,60].map(x => option(`timer-${x}`,"moon",x ? `${x} min` : "Off",state.sleep === x)).join(""))}</div>
+    <div class="pop-holder">${trigger("more","dots","Recording actions","icon-btn","",expanded("more"))}${popup("more",option("finish","check",state.finished ? "Mark unfinished" : "Mark finished")+option("email","mail","Email an original file"))}</div>
+  </div>`;
+  const playback = () => `<div class="playback"><div><div class="now-label">Chapter <span data-current-number>${current()+1}</span> of ${names.length}</div><div class="chapter-current" data-current-name>${names[current()]}</div></div>${timeline()}${transport()}${utility()}</div>`;
+  const chapters = (all, collapsible=false) => {
+    const first = all ? 0 : Math.min(Math.max(0,current()-2),names.length-5);
+    return `<section class="chapter-panel" aria-label="Chapters"><div class="chapter-head"><h3>Chapters</h3><span>${names.length} chapters</span></div><div class="chapter-list">
+    ${names.map((name,i) => (!all && (i < first || i >= first + 5)) ? "" : `<button type="button" class="chapter-row" data-action="chapter-${i}" aria-label="Chapter ${i+1}, ${name}, ${fmt(offsets[i])}" aria-current="${i === current()}"><span class="chapter-index">${i === current() ? icon("headphones") : String(i+1).padStart(2,"0")}</span><span>${name}</span><span class="leader"></span><span class="chapter-time">${fmt(offsets[i])}</span></button>`).join("")}
+    ${!collapsible ? "" : trigger("show-chapters","book",state.showChapters ? "Show fewer chapters" : "Show all chapters","action",`<span>${state.showChapters ? "Show fewer chapters" : "Show all chapters"}</span>`)}
+    </div></section>`;
+  };
+  const full = () => {
+    const top = `<div class="player-top"><div class="top-group">${trigger("minimize","down","Minimize player","icon-btn outline")}${trigger("book","book","Open book page","action book-link",'<span>Book page</span>')}</div><div class="top-group"><span class="sync">${icon("check")}${state.finished ? "Finished" : "Position saved"}</span>${trigger("close","close","Close player","icon-btn outline")}</div></div>`;
+    const notice = state.message ? `<p class="notice" role="status">${state.message}</p>` : "";
+    const email = state.menu === "email" ? `<form class="notice email-form"><h3>Email an original file</h3><p>Choose one file to send as an attachment.</p><label>File <select id="source-file" required><option value="">Choose a file</option><option>part-1.m4b</option><option>part-2.m4b</option></select></label> <label>Recipient <input id="recipient" type="email" placeholder="name@example.com" required></label> <button class="action" type="submit">${icon("mail")}Send file</button> ${trigger("dismiss","close","Dismiss email form")}</form>` : "";
+    let layout;
+    if (state.concept === "folio") {
+      layout = `<div class="folio-spread">${identity()}<div class="control-page">${playback()}${chapters(state.showChapters,true)}</div></div>`;
+    } else if (state.concept === "jacket") {
+      layout = `<div class="jacket-hero"><div class="jacket-inner">${cover()}<div class="main-controls">${identity(false)}${playback()}</div></div></div>${chapters(true)}`;
+    } else {
+      layout = `<div class="ledger-layout"><div class="ledger-console">${identity()}${playback()}</div>${chapters(true)}</div>`;
+    }
+    return `<div class="full ${state.concept}">${top}${notice}${email}${layout}</div>`;
+  };
+  const mockBooks = [["The Far Shore","Eleanor Vale","Audiobook",""],["A Map of Days","Nora Finch","Ebook","#834236"],["The Silver Orchard","Avery Bell","Audiobook","#4e5a3c"],["A House Beyond Winter","Morgan Reed","Ebook","#414b74"]];
+  const library = () => `<div class="library">
+    <div class="library-top"><span class="wordmark">${icon("book")}Litara</span>${icon("grid")}</div>
+    <div class="library-frame"><div class="library-nav"><span class="selected">${icon("library")}Library</span><span>${icon("headphones")}Audiobooks</span><span>${icon("shelf")}Shelves</span></div>
+    <div class="library-body"><h2>${state.view === "book" ? "The Far Shore" : "Library"}</h2>${state.view === "book" ? "<p class='byline'>Eleanor Vale · Narrated by Rowan Ellis</p>" : `<div class="shelf-list">${mockBooks.map(([title,author,format,tone]) => `<div class="shelf-entry">${tone ? `<span class="spine-sample" style="--spine:${tone}" aria-hidden="true"></span>` : cover()}<strong>${title}</strong><span class="author">${author}</span><span class="format">${format}</span></div>`).join("")}</div>`}</div></div>
+    ${state.view === "closed" ? "" : `<aside class="mini mini-${state.concept}" aria-label="Minimized audiobook player">${identity(true,true)}${transport()}${timeline()}<div class="mini-flags">${state.sleep ? `${icon("moon")}<span>${state.sleep} min</span>` : ""}</div><div class="mini-end">${trigger("expand","expand","Open full player")}${trigger("close","close","Close player")}</div></aside>`}
+    </div>`;
+  const stage = document.getElementById("stage");
+  const controls = document.getElementById("preview-controls");
+  const segment = (label, choices) => `<div class="segment" role="group" aria-label="${label}">${choices.map(([action,glyph,name,pressed]) => trigger(action,glyph,name,"",`<span>${name}</span>`,`aria-pressed="${pressed}"`)).join("")}</div>`;
+  function render(focusAction) {
+    Object.assign(stage.dataset,{theme:state.theme,mode:state.mode,view:state.view,concept:state.concept});
+    controls.innerHTML =
+      segment("Design",Object.entries(concepts).map(([key,[label]],i)=>[`concept-${key}`,["book","headphones","shelf"][i],label,state.concept === key]))+
+      segment("Theme",[["theme-room","book","Reading Room",state.theme==="room"],["theme-clean","swatch","Clean",state.theme==="clean"]])+
+      segment("Player state",[["view-full","screen","Full screen",state.view==="full"],["view-mini","mini","Minimized",["mini","book"].includes(state.view)]])+
+      segment("Color mode",[[`mode-${state.mode==="light" ? "dark" : "light"}`,state.mode==="light" ? "moon" : "sun",state.mode==="light" ? "Dark" : "Light",false]]);
+    document.getElementById("concept-note").textContent = concepts[state.concept][1];
+    stage.innerHTML = state.view === "full" ? full() : library();
+    if (focusAction) Array.from(document.querySelectorAll("[data-action]")).find(button => button.dataset.action === focusAction)?.focus({preventScroll:true});
+  }
+  function seek(time) { state.time = Math.max(0,Math.min(total,time)); }
+  function act(action) {
+    if (action.startsWith("concept-")) { state.concept = action.slice(8); state.menu = null; return action; }
+    if (action.startsWith("theme-")) { state.theme = action.slice(6); return action; }
+    if (action.startsWith("mode-")) { state.mode = action.slice(5); return state.mode === "dark" ? "mode-light" : "mode-dark"; }
+    if (action.startsWith("view-")) { state.view = action.slice(5); state.menu = null; return action; }
+    if (action.startsWith("chapter-")) { seek(offsets[Number(action.slice(8))]); return action; }
+    if (action.startsWith("rate-")) { state.speed = Number(action.slice(5)); state.menu = null; return "speed"; }
+    if (action.startsWith("timer-")) { state.sleep = Number(action.slice(6)); state.menu = null; return "sleep"; }
+    if (["speed","sleep","more"].includes(action)) { state.menu = state.menu === action ? null : action; return action; }
+    state.menu = null;
+    switch (action) {
+      case "play": state.playing = !state.playing; break;
+      case "back": seek(state.time - 30); break;
+      case "fwd": seek(state.time + 30); break;
+      case "prev": seek(offsets[Math.max(0,current() - 1)]); return current() === 0 ? "play" : action;
+      case "next": seek(offsets[Math.min(names.length - 1,current() + 1)]); return current() === names.length - 1 ? "play" : action;
+      case "show-chapters": state.showChapters = !state.showChapters; return action;
+      case "minimize": state.view = "mini"; return "expand";
+      case "expand": state.view = "full"; return "minimize";
+      case "close": state.view = "closed"; state.playing = false; return "view-full";
+      case "book": state.view = "book"; return "expand";
+      case "finish": state.finished = !state.finished; return "more";
+      case "email": state.menu = "email"; return "dismiss";
+      case "dismiss": return "more";
+    }
+    return action;
+  }
+  document.addEventListener("click",event => {
+    const button = event.target.closest("button[data-action]");
+    if (button) {
+      const action = act(button.dataset.action);
+      render(action);
+      if (state.menu === "email") document.getElementById("source-file").focus();
+      return;
+    }
+    if (state.menu && state.menu !== "email" && !event.target.closest(".pop-holder")) {
+      const oldMenu = state.menu;
+      state.menu = null;
+      document.getElementById(`${oldMenu}-choices`).hidden = true;
+      document.querySelector(`[data-action="${oldMenu}"]`).setAttribute("aria-expanded","false");
+    }
+  });
+  document.addEventListener("keydown",event => {
+    if (event.key !== "Escape") return;
+    if (state.menu) { const target = state.menu === "email" ? "more" : state.menu; state.menu = null; render(target); }
+    else if (state.view === "full") render(act("minimize"));
+  });
+  document.addEventListener("input",event => {
+    if (event.target.id !== "seek") return;
+    seek(Number(event.target.value));
+    event.target.style.setProperty("--pct",`${state.time / total * 100}%`);
+    event.target.setAttribute("aria-valuetext",`${fmt(state.time)} of ${fmt(total)}`);
+    stage.querySelector("[data-elapsed]").textContent = fmt(state.time);
+    for (const [selector,value] of [["[data-current-number]",current()+1],["[data-current-name]",names[current()]],[".mini-chapter",names[current()]]]) {
+      const label = stage.querySelector(selector);
+      if (label) label.textContent = value;
+    }
+  });
+  document.addEventListener("change",event => {
+    if (event.target.id === "seek") {
+      const focused = document.activeElement === event.target;
+      render();
+      if (focused) document.getElementById("seek").focus({preventScroll:true});
+    }
+  });
+  document.addEventListener("submit",event => {
+    if (!event.target.matches(".email-form")) return;
+    event.preventDefault();
+    state.menu = null;
+    state.message = "Preview only. No email was sent.";
+    render("more");
+  });
+  render();
+})();
+</script>
+</body>
+</html>

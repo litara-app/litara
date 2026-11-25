@@ -7,6 +7,19 @@ import type { ReactElement, ReactNode } from "react";
 import { Button } from "./controls";
 import { icons } from "./icons";
 
+/** A full-screen layer over the app (the full player). Modal: focus stays inside it and Escape closes it. */
+export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogBackdrop />
+      <DialogContent className="lt-sheet">
+        <DialogTitle className="lt-sr">{title}</DialogTitle>
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** A focused task over the page. Controlled, so the caller decides when it opens. */
 export function Modal({ open, onClose, title, description, actions, children }: {
   open: boolean; onClose: () => void; title: string; description?: ReactNode; actions?: ReactNode; children?: ReactNode;

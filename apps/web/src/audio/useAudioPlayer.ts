@@ -142,6 +142,8 @@ export function useAudioPlayer({ recording, onCheckpoint, onEnded }: Opts) {
   const skip = useCallback((deltaMs: number) => seekWhole(whole + deltaMs), [seekWhole, whole]);
   const setRate = useCallback((r: number) => { setRateState(r); if (audio.current) audio.current.playbackRate = r; }, []);
   useEffect(() => { if (audio.current) audio.current.playbackRate = rate; }, [rate, index]);
+  /** The sleep timer's fade; 1 is full volume. */
+  const setVolume = useCallback((v: number) => { if (audio.current) audio.current.volume = Math.min(1, Math.max(0, v)); }, []);
 
   /** Put the playhead at a saved anchor without starting playback. */
   const restore = useCallback((fileId: string, version: string, offsetMs: number): boolean => {
@@ -152,5 +154,5 @@ export function useAudioPlayer({ recording, onCheckpoint, onEnded }: Opts) {
     return true;
   }, [files, load, timed]);
 
-  return { index, whole, playing, rate, error, buffering, unsupported, play, pause, toggle, seekWhole, skip, setRate, restore, anchor };
+  return { index, whole, playing, rate, error, buffering, unsupported, play, pause, toggle, seekWhole, skip, setRate, setVolume, restore, anchor };
 }

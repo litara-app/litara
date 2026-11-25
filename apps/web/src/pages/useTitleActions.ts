@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { get } from "../api/client";
+import { usePlayer } from "../audio/PlayerProvider";
 import type { Edition, Page as Paged, RecordingLink } from "../api/types";
 
 export const READABLE = ["epub", "kepub", "fb2", "pdf", "cbz", "cbr", "cb7", "mobi", "azw", "azw3"];
@@ -10,6 +11,7 @@ export const isReadable = (e: Edition) => READABLE.includes(e.file.format) && e.
 export function useTitleActions() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const player = usePlayer();
   const editions = (id: string) => qc.fetchQuery({ queryKey: ["title", id, "editions"], queryFn: () => get<Paged<Edition>>(`/editions?titleId=${id}&size=200`) });
   const recordings = (id: string) => qc.fetchQuery({ queryKey: ["title", id, "recordings"], queryFn: () => get<Paged<RecordingLink>>(`/titles/${id}/recordings?size=200`) });
   return {
@@ -19,7 +21,8 @@ export function useTitleActions() {
     },
     async listen(id: string) {
       const r = (await recordings(id)).items[0];
-      nav(r ? `/listen/${r.id}` : `/titles/${id}?tab=files`);
+      if (r) player.start(r.id); // plays in the minimized player
+      else nav(`/titles/${id}?tab=files`);
     },
     async download(id: string) {
       const items = (await editions(id)).items.filter((e) => e.file.contentPath && e.capabilities.download.state === "supported");

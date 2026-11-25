@@ -9,6 +9,7 @@ import { get } from "../api/client";
 import type { Library, Page, Shelf } from "../api/types";
 import { useAuth } from "../auth/session";
 import { useTheme } from "./ThemeProvider";
+import { usePlayer } from "../audio/PlayerProvider";
 import { usePendingState } from "../pending/PendingProvider";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Spotlight } from "./Spotlight";
@@ -171,6 +172,7 @@ export function Shell() {
   const loc = useLocation();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [open, setOpen] = useState(false);
+  const { setSlot } = usePlayer();
   const { main, foot } = useNavModel();
   const attention = pend.items.filter((o) => o.status !== "pending").length;
 
@@ -230,6 +232,7 @@ export function Shell() {
         )}
       </nav>
       <main id="main" className="lt-main"><ErrorBoundary resetKey={loc.pathname}><Outlet /></ErrorBoundary></main>
+      <div className="lt-player-slot" ref={setSlot} />
     </div>
   );
 }
