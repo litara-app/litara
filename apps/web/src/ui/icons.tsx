@@ -41,6 +41,7 @@ export const icons = {
   info: <Svg><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></Svg>,
   files: <Svg><path d="M6 3h8l4 4v14H6zM14 3v4h4" /></Svg>,
   highlight: <Svg><path d="M4 6h16M4 18h11" /><rect x="3" y="9.5" width="18" height="5" rx="1" fill="currentColor" fillOpacity=".28" /><path d="M6 12h8" /></Svg>,
+  stats: <Svg><path d="M4 20h16" /><path d="M7 16v-5" /><path d="M12 16V6" /><path d="M17 16v-8" /></Svg>,
   clock: <Svg><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></Svg>,
   plus: <Svg><path d="M12 5v14M5 12h14" /></Svg>,
   star: <Svg><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z" /></Svg>,

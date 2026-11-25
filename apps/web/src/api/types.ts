@@ -153,3 +153,10 @@ export interface DeviceSession {
   id: string; deviceName: string; client: "native" | "web";
   createdAt: string; lastUsedAt: string; idleExpiresAt: string; absoluteExpiresAt: string; current: boolean;
 }
+
+/** GET /stats/reading (ADR-0098): the caller's own ebook reading by local day, with totals and streaks. */
+export interface ReadingStats {
+  from: string; to: string; timeZone: string; readingDaySeconds: number;
+  days: { date: string; activeSeconds: number; sessions: number; readingDay: boolean }[];
+  activeSeconds: number; readingDays: number; sessions: number; books: number; currentStreak: number; longestStreak: number;
+}

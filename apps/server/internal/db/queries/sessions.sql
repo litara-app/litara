@@ -20,3 +20,12 @@ ORDER BY s.started_at DESC, s.id DESC LIMIT $3 OFFSET $4;
 -- name: CountReadingSessionsForTitle :one
 SELECT count(*) FROM reading_sessions s JOIN editions e ON e.id = s.edition_id
 WHERE s.user_id = $1 AND e.title_id = $2;
+
+-- The caller's sessions that started in [from, to), on editions in libraries the caller is still granted (ADR-0098).
+-- name: ListReadingSessionsForStats :many
+SELECT s.started_at, s.active_seconds, e.title_id
+FROM reading_sessions s
+JOIN editions e ON e.id = s.edition_id
+JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = s.user_id
+WHERE s.user_id = $1 AND s.started_at >= sqlc.arg(from_time) AND s.started_at < sqlc.arg(to_time)
+ORDER BY s.started_at;
