@@ -711,6 +711,8 @@ th[aria-sort] .lt-sort-icon { opacity: 1; color: var(--lt-pri); }
 
 /* Notifications (ADR-0089): toasts at the bottom right, a bell in the top bar and the history list. */
 .lt-toasts { z-index: 60; }
+/* While the mini player is up, toasts stack above it instead of covering its controls. */
+:root:has(.lt-player-slot > .lt-mini) .lt-toasts { bottom: calc(104px + var(--keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px)); }
 .lt-toast { position: relative; display: flex; align-items: flex-start; gap: var(--lt-s3); width: min(360px, calc(100vw - 32px)); padding: var(--lt-s3) var(--lt-s3) var(--lt-s3) var(--lt-s4); border: 1px solid var(--lt-line); border-left-width: 4px; border-radius: 6px; background: var(--lt-surface); color: var(--lt-ink); box-shadow: 0 6px 24px rgb(0 0 0 / 0.22); }
 .lt-toast[data-type="success"] { border-left-color: var(--lt-ok); }
 .lt-toast[data-type="error"] { border-left-color: var(--lt-bad); }
