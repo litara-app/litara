@@ -9,6 +9,7 @@ export function SettingsLayout() {
       <PageHeader title="Settings" />
       <NavTabs label="Settings sections" items={[
         { to: "/settings", label: "Appearance", end: true },
+        { to: "/settings/devices", label: "Devices" },
         { to: "/settings/credentials", label: "App credentials" },
         { to: "/settings/email", label: "Email" },
         { to: "/settings/koreader", label: "KOReader" },

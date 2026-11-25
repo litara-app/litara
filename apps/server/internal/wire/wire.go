@@ -69,6 +69,8 @@ type Session struct {
 	LastUsedAt        string `json:"lastUsedAt" format:"date-time"`
 	IdleExpiresAt     string `json:"idleExpiresAt" format:"date-time"`
 	AbsoluteExpiresAt string `json:"absoluteExpiresAt" format:"date-time"`
+	// Current is true for the session that made this request, so a client can label it and avoid revoking itself.
+	Current bool `json:"current"`
 }
 
 type Discovery struct {

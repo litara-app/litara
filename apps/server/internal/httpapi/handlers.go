@@ -154,9 +154,13 @@ func (a *API) registerAuth(api huma.API) {
 
 	huma.Register(api, op("listSessions", http.MethodGet, "/sessions", "The caller's own device sessions", "auth"),
 		func(ctx context.Context, _ *struct{}) (*bodyOut[wire.Sessions], error) {
-			s, err := a.Accounts.Sessions(ctx, principal(ctx).UserID)
+			p := principal(ctx)
+			s, err := a.Accounts.Sessions(ctx, p.UserID)
 			if err != nil {
 				return nil, a.fail(ctx, err)
+			}
+			for i := range s.Items {
+				s.Items[i].Current = s.Items[i].ID == p.SessionID.String()
 			}
 			return &bodyOut[wire.Sessions]{Body: s}, nil
 		})

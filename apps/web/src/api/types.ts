@@ -147,3 +147,9 @@ export interface AutoFillResult {
   proposed?: Record<string, unknown>;
 }
 export interface ProviderSearchResults { editionId: string; enabled: boolean; query: { title?: string; authors?: string[]; isbn?: string; asin?: string }; results: ProviderResult[] }
+
+/** One place this account is signed in (GET /sessions). current marks the session making the request. */
+export interface DeviceSession {
+  id: string; deviceName: string; client: "native" | "web";
+  createdAt: string; lastUsedAt: string; idleExpiresAt: string; absoluteExpiresAt: string; current: boolean;
+}

@@ -74,6 +74,33 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+// ---- devices -----------------------------------------------------------------
+
+// ADR-0033: each device session can be signed out on its own; the current one is labelled and ended with Sign out.
+test("devices lists the account's sessions, marks this browser, and signs out another device after confirming", async () => {
+  const sessions = [
+    { id: "s-phone", deviceName: "Pixel 8", client: "native", createdAt: "2026-11-01T10:00:00Z", lastUsedAt: "2026-11-20T10:00:00Z", idleExpiresAt: "2026-12-20T10:00:00Z", absoluteExpiresAt: "2027-02-01T10:00:00Z", current: false },
+    { id: "s-here", deviceName: "Firefox", client: "web", createdAt: "2026-11-24T10:00:00Z", lastUsedAt: "2026-11-25T10:00:00Z", idleExpiresAt: "2026-11-26T10:00:00Z", absoluteExpiresAt: "2026-12-24T10:00:00Z", current: true },
+  ];
+  respond((c) => {
+    if (c.method === "GET" && c.url === "/sessions") return { body: { items: sessions } };
+    if (c.method === "DELETE" && c.url === "/sessions/s-phone") return { status: 204 };
+  });
+  mount("/settings/devices");
+  const here = await screen.findByTestId("device-s-here");
+  expect(within(here).getByText("This browser")).toBeTruthy();
+  expect(screen.getByTestId("devices-table").querySelectorAll("tbody tr")[0]).toBe(here); // this browser first
+  expect(within(screen.getByTestId("device-s-phone")).queryByText("This browser")).toBeNull();
+  // This browser is ended with Sign out, never revoked from the list.
+  expect(within(here).queryByRole("button", { name: /^Sign out Firefox/ })).toBeNull();
+  expect(within(here).getByRole("button", { name: "Sign out" })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "Sign out Pixel 8" }));
+  expect(sent("DELETE", "/sessions/")).toHaveLength(0); // a confirmation first
+  fireEvent.click(await screen.findByRole("button", { name: "Confirm sign out" }));
+  await waitFor(() => expect(sent("DELETE", "/sessions/").map((c) => c.url)).toEqual(["/sessions/s-phone"]));
+});
+
 // ---- credentials -------------------------------------------------------------
 
 test("a generated secret is 32 random bytes as base64url", () => {

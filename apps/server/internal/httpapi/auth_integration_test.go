@@ -201,12 +201,22 @@ func TestLogoutDisableAndPasswordReset(t *testing.T) {
 	// Own sessions only.
 	var list wire.Sessions
 	e.Do("GET", "/sessions", a2.AccessToken, nil).JSON(t, &list)
-	if len(list.Items) != 1 || list.Items[0].ID != a2.Session.ID {
+	if len(list.Items) != 1 || list.Items[0].ID != a2.Session.ID || !list.Items[0].Current {
 		t.Fatalf("sessions: %+v", list)
 	}
 	b := e.Login("fixture-user-b", "b")
 	status(t, e.Do("DELETE", "/sessions/"+b.Session.ID, a2.AccessToken, nil), 404, "not_found")
 	third := e.Login("fixture-user-a", "three")
+	if !a2.Session.Current {
+		t.Fatalf("a sign-in returns its own session as current: %+v", a2.Session)
+	}
+	// Only the session making the request is marked current.
+	e.Do("GET", "/sessions", a2.AccessToken, nil).JSON(t, &list)
+	for _, s := range list.Items {
+		if s.Current != (s.ID == a2.Session.ID) {
+			t.Fatalf("current flag: %+v", list)
+		}
+	}
 	status(t, e.Do("DELETE", "/sessions/"+third.Session.ID, a2.AccessToken, nil), 204, "")
 	status(t, e.Do("GET", "/me", third.AccessToken, nil), 401, "")
 	status(t, e.Do("GET", "/me", b.AccessToken, nil), 200, "")
