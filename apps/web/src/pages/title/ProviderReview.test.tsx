@@ -110,7 +110,7 @@ test("auto-fill asks for a dry run with the loaded revision and hands the propos
   api.mockImplementationOnce(async () => ({ outcome: "proposed", provider: "open_library", rule: "title_author", filled: [], revision: "4", proposed: { publisher: "Press", published: "2007-01-09" } }));
   setup();
   fireEvent.click(screen.getByRole("button", { name: "Auto-fill" }));
-  await waitFor(() => expect(draftSpy).toHaveBeenCalledWith({ provider: "open_library", rule: "title_author", values: { publisher: "Press", published: "2007-01-09" } }));
+  await waitFor(() => expect(draftSpy).toHaveBeenCalledWith({ provider: "open_library", rule: "title_author", values: { publisher: "Press", published: "2007-01-09" }, revision: "4" }));
   expect(currentNotices()[0]?.detail).toBe("Found 2 fields from Open Library, matched by title and author. Review them, then save.");
   const call = api.mock.calls.find((c) => String(c[1]).endsWith("/auto-fill"))!;
   expect(call[0]).toBe("POST");
@@ -183,4 +183,18 @@ test("every offered field can be seen, and a list field can be merged or replace
   await waitFor(() => expect(api.mock.calls.some((c) => c[1] === "/admin/editions/E1/metadata/genres")).toBe(true));
   const put = api.mock.calls.find((c) => c[1] === "/admin/editions/E1/metadata/genres")!;
   expect((put[2] as { value: unknown }).value).toEqual(["Fiction", "Magic", "Fantasy"]); // stored items first, new ones added
+});
+
+// ADR-0097: "Use all" leaves edits and deliberate clears alone; each can still be chosen by itself.
+test("use all skips the person's edits and deliberate clears, which can still be chosen one at a time", async () => {
+  api.mockClear();
+  const applied = setup();
+  fireEvent.click(screen.getByRole("button", { name: "Search online" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Review Off Armageddon Reef/, hidden: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "Use all 3", hidden: true })); // title, published, page_count
+  fireEvent.click(within(screen.getByRole("radiogroup", { name: "What to do with publisher", hidden: true })).getByRole("radio", { name: "Use", hidden: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply 4 fields", hidden: true }));
+  await waitFor(() => expect(applied).toHaveBeenCalled());
+  const written = api.mock.calls.filter((c) => c[0] === "PUT").map((c) => String(c[1]).split("/").pop());
+  expect(written.sort()).toEqual(["page_count", "published", "publisher", "title"]); // authors, an edit, was left alone
 });

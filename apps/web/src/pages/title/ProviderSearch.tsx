@@ -14,6 +14,8 @@ const STATUS_TEXT: Record<string, string> = {
 const sourceText = (s: string | null) => (s === "user" ? "Your edit" : s === "embedded" ? "In the file" : s === "sidecar" ? "Sidecar" : s === "provider" ? "Online" : s === "filename" ? "File name" : "");
 
 export type ReviewSubject = { kind: "edition" | "recording"; id: string };
+/** Told about each field this tab has just written, with the edition revisions before and after. */
+export type WroteHandler = (field: string, from?: string, to?: string) => void;
 /** An edition write carries the revision it was based on; a recording write has none. */
 export type Report = { revision?: string; fields: MetadataField[] };
 
@@ -21,7 +23,7 @@ export type Report = { revision?: string; fields: MetadataField[] };
  * Search the library's providers and compare one result with what is stored, field by field. Everything is chosen here
  * and nothing is stored until Apply (ADR-0049/0060/0047).
  */
-export function ProviderDialog({ subject, report, onClose, onApplied }: { subject: ReviewSubject; report: Report; onClose: () => void; onApplied: () => void }) {
+export function ProviderDialog({ subject, report, onClose, onApplied, onWrote }: { subject: ReviewSubject; report: Report; onClose: () => void; onApplied: () => void; onWrote?: WroteHandler }) {
   const qc = useQueryClient();
   const edition = subject.kind === "edition";
   const base = `/admin/${edition ? "editions" : "recordings"}/${subject.id}/metadata`;
@@ -57,8 +59,14 @@ export function ProviderDialog({ subject, report, onClose, onApplied }: { subjec
       let revision = report.revision ?? "0";
       for (const r of staged) {
         const value = valueFor(r, plan[r.field]!);
-        if (edition) revision = (await api<{ revision: string }>("PUT", `${base}/${r.field}`, { ...adminOp(revision), clear: false, value })).revision;
-        else await api<void>("PUT", `${base}/${r.field}`, { value });
+        if (edition) {
+          const from = revision;
+          revision = (await api<{ revision: string }>("PUT", `${base}/${r.field}`, { ...adminOp(from), clear: false, value })).revision;
+          onWrote?.(r.field, from, revision);
+        } else {
+          await api<void>("PUT", `${base}/${r.field}`, { value });
+          onWrote?.(r.field);
+        }
       }
     },
     meta: { success: () => `Applied ${staged.length} ${staged.length === 1 ? "field" : "fields"} from ${PROVIDER_NAME[picked?.provider ?? ""] ?? "the provider"}` },
@@ -73,7 +81,9 @@ export function ProviderDialog({ subject, report, onClose, onApplied }: { subjec
     apply.reset();
   };
   const setAction = (field: string, a: Action) => setPlan((p) => ({ ...p, [field]: a }));
-  const useAll = () => setPlan((p) => ({ ...p, ...Object.fromEntries(allRows.filter((r) => !r.same).map((r) => [r.field, r.kind === "list" ? "merge" : "use"])) }));
+  // "Use all" never touches an edit or a deliberate clear; those are replaced only by choosing the field itself (ADR-0097).
+  const bulk = allRows.filter((r) => !r.same && !r.protectedEdit);
+  const useAll = () => setPlan((p) => ({ ...p, ...Object.fromEntries(bulk.map((r) => [r.field, r.kind === "list" ? "merge" : "use"])) }));
   const keepAll = () => setPlan((p) => ({ ...p, ...Object.fromEntries(allRows.map((r) => [r.field, "keep"])) }));
 
   const providers = (): string[] | undefined => (only && only.size > 0 && only.size < known.length ? [...only] : undefined);
@@ -150,7 +160,7 @@ export function ProviderDialog({ subject, report, onClose, onApplied }: { subjec
                 <SegmentedField label="Which fields" value={view} onValue={(v) => setView(v === "all" ? "all" : "differences")}
                   items={[{ value: "differences", label: `Differences ${differing}` }, { value: "all", label: `All fields ${allRows.length}` }]} />
                 <Row gap="xs">
-                  <Button size="sm" icon={icons.check} disabled={differing === 0} onClick={useAll}>{`Use all ${differing}`}</Button>
+                  <Button size="sm" icon={icons.check} disabled={bulk.length === 0} onClick={useAll}>{`Use all ${bulk.length}`}</Button>
                   <Button size="sm" icon={icons.reset} disabled={staged.length === 0} onClick={keepAll}>Keep all</Button>
                 </Row>
               </div>
