@@ -59,9 +59,12 @@ export interface Annotation { id: string; editionId: string; revision: string; d
 
 export interface MetadataField {
   field: string; source: string; cleared: boolean; value: unknown;
+  /** The person's lock (ADR-0097), separate from the source: an edit is not locked unless locked. */
+  locked: boolean;
   conflicts?: { source: string; value: unknown }[];
 }
-export interface MetadataReport { editionId: string; revision: string; fields: MetadataField[] }
+/** An edition's or a recording's metadata. A save sends revision back as its base revision. */
+export interface MetadataReport { editionId?: string; revision: string; fields: MetadataField[] }
 
 export interface RecordingFile { id: string; contentVersion: string; sequence: number; filename: string }
 export interface RecordingSnapshot { id: string; titleId: string; libraryId: string; title: string; layoutRevision: string; files: RecordingFile[] }

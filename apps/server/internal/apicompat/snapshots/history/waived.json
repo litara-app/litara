@@ -1,0 +1,52 @@
+{
+  "waived": [
+    {
+      "id": "response-oneOf-branch-added DELETE /admin/editions/{editionId}/metadata/{field} response 200 application/json.fields[].conflicts[].value.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added DELETE /admin/editions/{editionId}/metadata/{field} response 200 application/json.fields[].value.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added GET /admin/editions/{editionId}/metadata response 200 application/json.fields[].conflicts[].value.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added GET /admin/editions/{editionId}/metadata response 200 application/json.fields[].value.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added PATCH /admin/editions/{editionId}/metadata response 200 application/json.fields[].conflicts[].value.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added PATCH /admin/editions/{editionId}/metadata response 200 application/json.fields[].value.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added POST /admin/editions/{editionId}/metadata/auto-fill response 200 application/json.proposed.*.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added POST /admin/editions/{editionId}/metadata/provider-search response 200 application/json.results[].candidates[].fields.*.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added POST /admin/recordings/{recordingId}/metadata/auto-fill response 200 application/json.proposed.*.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added POST /admin/recordings/{recordingId}/metadata/provider-search response 200 application/json.results[].candidates[].fields.*.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added PUT /admin/editions/{editionId}/metadata/{field} response 200 application/json.fields[].conflicts[].value.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    },
+    {
+      "id": "response-oneOf-branch-added PUT /admin/editions/{editionId}/metadata/{field} response 200 application/json.fields[].value.oneOf[0]",
+      "reason": "Owner-approved 2026-11-25: T005MetadataValue string maxLength 4096 -\u003e 8000. Descriptions are allowed up to 8,000 characters (metadata.MaxDescription) and reports already returned longer file/sidecar descriptions through this schema, so the 4,096 response limit was never true; long descriptions were wrongly refused on write. Development stability (ADR-0082)."
+    }
+  ]
+}

@@ -226,18 +226,26 @@ func (e *Enricher) ApplyMatch(ctx context.Context, recID uuid.UUID, m Match) ([]
 	}
 	sort.Strings(fields)
 	var applied []string
+	changed := false
 	for _, f := range fields {
 		if !Valid(f) {
 			continue
 		}
 		if cur, has := existing[f]; has && cur.Source != SourceProvider {
-			continue // gap-filling only: never override user, sidecar or embedded
+			continue // gap-filling only: never override user (edited, cleared or locked), sidecar or embedded
 		}
-		if err := q.UpsertMetadataValue(ctx, sqlcgen.UpsertMetadataValueParams{SubjectKind: SubjectKind(f), SubjectID: subject(rec, f),
-			Field: f, Source: SourceProvider, Value: m.Fields[f]}); err != nil {
+		n, err := q.UpsertMetadataValue(ctx, sqlcgen.UpsertMetadataValueParams{SubjectKind: SubjectKind(f), SubjectID: subject(rec, f),
+			Field: f, Source: SourceProvider, Value: m.Fields[f]})
+		if err != nil {
 			return nil, err
 		}
+		changed = changed || n > 0
 		applied = append(applied, f)
+	}
+	if changed { // an open form based on the earlier values must not save over these
+		if err := q.BumpTitleMetadataRevision(ctx, rec.TitleID); err != nil {
+			return nil, err
+		}
 	}
 	return applied, e.Apply(ctx, recID)
 }

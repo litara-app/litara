@@ -38,9 +38,14 @@ Lock state must be stored separately from the value's source, and the server mus
 
 ## Verification
 
-Planned, none done: a locked field is refused by the server for a reviewed apply and is skipped by "Use all" and auto-fill; an unlocked edit or clear changes only when chosen individually; saving or applying a value does not lock it; unlock leaves the value unchanged, including a field with no other source; "Reset to source" restores source priority; a saved auto-fill survives a later sidecar and file change and reports its provider and candidate; edition and recording behave the same.
+Done on 2026-11-25 (Go integration tests `TestEditionMetadataSaveLocksAndRevisions` and `TestRecordingMetadataSaveLocksAndRevisions`, web vitest): the server refuses a set or reset of a locked field through the save and the older per-field routes, with nothing stored; lock and unlock keep the value; a lock freezes a value shown from another source; "Reset to source" restores source priority; a locked field is read-only in the tab and cannot be chosen in a provider review; edition and recording behave the same. Not yet done: provider writes recording their provider and candidate.
+
+Planned: a locked field is refused by the server for a reviewed apply and is skipped by "Use all" and auto-fill; an unlocked edit or clear changes only when chosen individually; saving or applying a value does not lock it; unlock leaves the value unchanged, including a field with no other source; "Reset to source" restores source priority; a saved auto-fill survives a later sidecar and file change and reports its provider and candidate; edition and recording behave the same.
+
+## Owner decision, 2026-11-25
+
+Asked whether a person may type over a locked field in the tab, the owner chose **unlock first**: a locked field is read-only in the tab, and the server refuses every change to it (a typed edit or clear, a provider apply, and "Reset to source") until it is unlocked. Locking and unlocking are the only changes a locked field accepts.
 
 ## Open questions
 
-- May a person type over a locked field directly in the tab, or must they unlock it first? The choices above cover provider applies only.
 - How existing user values in development databases are treated when lock state is added. Under decision 2 they would not be assumed locked, but the owner was not asked.

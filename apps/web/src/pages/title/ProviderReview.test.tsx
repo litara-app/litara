@@ -7,10 +7,10 @@ import { ProviderReview, reviewRows } from "./ProviderReview";
 
 const report: MetadataReport = {
   editionId: "E1", revision: "4", fields: [
-    { field: "title", source: "embedded", cleared: false, value: "Off Armageddon Reef", conflicts: [] },
-    { field: "authors", source: "user", cleared: false, value: ["David Weber"], conflicts: [] },
-    { field: "publisher", source: "user", cleared: true, value: null, conflicts: [] },
-    { field: "language", source: "embedded", cleared: false, value: "en", conflicts: [] },
+    { field: "title", source: "embedded", cleared: false, value: "Off Armageddon Reef", locked: false, conflicts: [] },
+    { field: "authors", source: "user", cleared: false, value: ["David Weber"], locked: false, conflicts: [] },
+    { field: "publisher", source: "user", cleared: true, value: null, locked: false, conflicts: [] },
+    { field: "language", source: "embedded", cleared: false, value: "en", locked: false, conflicts: [] },
   ],
 };
 const candidate: ProviderCandidate = {
@@ -55,7 +55,11 @@ function setup(onApplied = vi.fn()) {
   return onApplied;
 }
 
-test("search, review and apply writes only the ticked fields, chaining revisions", async () => {
+/** The changes of every metadata save sent so far. */
+const saves = () => api.mock.calls.filter((c) => c[0] === "PATCH")
+  .map((c) => ({ path: c[1], ...(c[2] as { baseRevision: string; changes: { field: string; action: string; clear?: boolean; value?: unknown }[] }) }));
+
+test("search, review and apply saves only the ticked fields, together in one save", async () => {
   api.mockClear();
   const applied = setup();
   fireEvent.click(screen.getByRole("button", { name: "Search online" }));
@@ -68,12 +72,10 @@ test("search, review and apply writes only the ticked fields, chaining revisions
   fireEvent.click(screen.getByRole("button", { name: "Apply 2 fields", hidden: true }));
   await waitFor(() => expect(applied).toHaveBeenCalled());
 
-  const puts = api.mock.calls.filter((c) => c[0] === "PUT");
-  expect(puts.map((c) => c[1])).toEqual(["/admin/editions/E1/metadata/published", "/admin/editions/E1/metadata/page_count"]);
-  const bodies = puts.map((c) => c[2] as { baseRevision: string; clear: boolean; value: unknown });
-  expect(bodies.map((b) => b.baseRevision)).toEqual(["4", "5"]); // each write uses the revision the previous one returned
-  expect(bodies.map((b) => b.value)).toEqual(["2007-01-09", 605]);
-  expect(bodies.every((b) => b.clear === false)).toBe(true);
+  expect(saves()).toEqual([{ path: "/admin/editions/E1/metadata", operationId: expect.any(String), baseRevision: "4", changes: [
+    { field: "published", action: "set", clear: false, value: "2007-01-09" }, { field: "page_count", action: "set", clear: false, value: 605 },
+  ] }]);
+  expect(api.mock.calls.some((c) => c[0] === "PUT")).toBe(false);
 });
 
 test("a library with lookups off says so and offers no results", async () => {
@@ -83,9 +85,9 @@ test("a library with lookups off says so and offers no results", async () => {
   expect(await screen.findByText(/Online lookups are off for this library/)).toBeTruthy();
 });
 
-test("an audiobook search sends the ASIN and its writes carry no revision", async () => {
+test("an audiobook search sends the ASIN and its save carries the title's metadata revision", async () => {
   api.mockClear();
-  const rec = { fields: [{ field: "title", source: "embedded", cleared: false, value: "Off Armageddon Reef", conflicts: [] }] };
+  const rec = { revision: "7", fields: [{ field: "title", source: "embedded", cleared: false, value: "Off Armageddon Reef", locked: false, conflicts: [] }] };
   render(
     <QueryClientProvider client={new QueryClient()}>
       <ProviderReview subject={{ kind: "recording", id: "R1" }} report={rec} onApplied={vi.fn()} onDraft={vi.fn()} />
@@ -98,10 +100,8 @@ test("an audiobook search sends the ASIN and its writes carry no revision", asyn
   fireEvent.click(screen.getByRole("button", { name: /^Review Off Armageddon Reef/, hidden: true }));
   await screen.findByTestId("provider-review");
   fireEvent.click(screen.getByRole("button", { name: /^Apply \d+ fields?/, hidden: true }));
-  await waitFor(() => expect(api.mock.calls.some((c) => c[0] === "PUT")).toBe(true));
-  const put = api.mock.calls.find((c) => c[0] === "PUT")!;
-  expect(String(put[1]).startsWith("/admin/recordings/R1/metadata/")).toBe(true);
-  expect(Object.keys(put[2] as object)).toEqual(["value"]);
+  await waitFor(() => expect(saves()).toHaveLength(1));
+  expect(saves()[0]).toMatchObject({ path: "/admin/recordings/R1/metadata", baseRevision: "7" });
 });
 
 test("auto-fill asks for a dry run with the loaded revision and hands the proposed values over for review without saving", async () => {
@@ -117,7 +117,7 @@ test("auto-fill asks for a dry run with the loaded revision and hands the propos
   expect(call[1]).toBe("/admin/editions/E1/metadata/auto-fill");
   expect(call[2]).toMatchObject({ baseRevision: "4", dryRun: true });
   expect(typeof (call[2] as { operationId: string }).operationId).toBe("string");
-  expect(api.mock.calls.some((c) => c[0] === "PUT")).toBe(false); // nothing is stored until the person saves
+  expect(saves()).toHaveLength(0); // nothing is stored until the person saves
 });
 
 test("auto-fill says when a result needs review and asks an audiobook for a dry run too", async () => {
@@ -126,7 +126,7 @@ test("auto-fill says when a result needs review and asks an audiobook for a dry 
   api.mockImplementationOnce(async () => ({ outcome: "needs_review", filled: [] }));
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ProviderReview subject={{ kind: "recording", id: "R1" }} report={{ fields: [] }} onApplied={vi.fn()} onDraft={draftSpy} />
+      <ProviderReview subject={{ kind: "recording", id: "R1" }} report={{ revision: "3", fields: [] }} onApplied={vi.fn()} onDraft={draftSpy} />
     </QueryClientProvider>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Auto-fill" }));
@@ -165,7 +165,7 @@ test("a search can be limited to some of the providers, and every provider is se
 test("every offered field can be seen, and a list field can be merged or replaced", async () => {
   api.mockClear();
   const withList = { ...candidate, fields: { ...candidate.fields, genres: ["Fantasy", "Fiction"] } };
-  const rep = { editionId: "E1", revision: "4", fields: [...report.fields, { field: "genres", source: "embedded", cleared: false, value: ["Fiction", "Magic"], conflicts: [] }] };
+  const rep = { editionId: "E1", revision: "4", fields: [...report.fields, { field: "genres", source: "embedded", cleared: false, value: ["Fiction", "Magic"], locked: false, conflicts: [] }] };
   api.mockImplementationOnce(async () => ({ ...results, results: [{ provider: "open_library", status: "ok", candidates: [withList] }] }));
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -180,9 +180,8 @@ test("every offered field can be seen, and a list field can be merged or replace
   expect(screen.getByTestId("provider-review").textContent).toMatch(/Language/);
   fireEvent.click(within(screen.getByRole("radiogroup", { name: "What to do with genres", hidden: true })).getByRole("radio", { name: "Merge", hidden: true }));
   fireEvent.click(screen.getByRole("button", { name: /^Apply 3 fields/, hidden: true }));
-  await waitFor(() => expect(api.mock.calls.some((c) => c[1] === "/admin/editions/E1/metadata/genres")).toBe(true));
-  const put = api.mock.calls.find((c) => c[1] === "/admin/editions/E1/metadata/genres")!;
-  expect((put[2] as { value: unknown }).value).toEqual(["Fiction", "Magic", "Fantasy"]); // stored items first, new ones added
+  await waitFor(() => expect(saves()).toHaveLength(1));
+  expect(saves()[0].changes.find((c) => c.field === "genres")!.value).toEqual(["Fiction", "Magic", "Fantasy"]); // stored items first, new ones added
 });
 
 // ADR-0097: "Use all" leaves edits and deliberate clears alone; each can still be chosen by itself.
@@ -195,6 +194,28 @@ test("use all skips the person's edits and deliberate clears, which can still be
   fireEvent.click(within(screen.getByRole("radiogroup", { name: "What to do with publisher", hidden: true })).getByRole("radio", { name: "Use", hidden: true }));
   fireEvent.click(screen.getByRole("button", { name: "Apply 4 fields", hidden: true }));
   await waitFor(() => expect(applied).toHaveBeenCalled());
-  const written = api.mock.calls.filter((c) => c[0] === "PUT").map((c) => String(c[1]).split("/").pop());
+  const written = saves()[0].changes.map((c) => c.field);
   expect(written.sort()).toEqual(["page_count", "published", "publisher", "title"]); // authors, an edit, was left alone
+});
+
+// ADR-0097: a locked field cannot be chosen until it is unlocked, and "Use all" leaves it alone.
+test("a locked field is shown but cannot be applied", async () => {
+  api.mockClear();
+  const locked = { ...report, fields: report.fields.map((f) => (f.field === "title" ? { ...f, source: "user", locked: true } : f)) };
+  const rows = Object.fromEntries(reviewRows(locked, candidate).map((r) => [r.field, r]));
+  expect(rows.title.locked).toBe(true);
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ProviderReview subject={{ kind: "edition", id: "E1" }} report={locked} onApplied={vi.fn()} onDraft={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Search online" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Review Off Armageddon Reef/, hidden: true }));
+  await screen.findByTestId("provider-review");
+  expect(screen.queryByRole("radiogroup", { name: "What to do with title", hidden: true })).toBeNull();
+  expect(screen.getByText(/Unlock it on the Metadata tab/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Use all 2", hidden: true })); // published, page_count
+  fireEvent.click(screen.getByRole("button", { name: "Apply 2 fields", hidden: true }));
+  await waitFor(() => expect(saves()).toHaveLength(1));
+  expect(saves()[0].changes.map((c) => c.field).sort()).toEqual(["page_count", "published"]);
 });

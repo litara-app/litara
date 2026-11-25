@@ -80,7 +80,7 @@ func (s *Service) report(ctx context.Context, q *sqlcgen.Queries, id uuid.UUID, 
 	}
 	vals := make([]metadata.Value, 0, len(rows)+1)
 	for _, r := range rows {
-		vals = append(vals, metadata.Value{Field: r.Field, Source: r.Source, Raw: r.Value, ProtectedClear: r.ProtectedClear})
+		vals = append(vals, metadata.Value{Field: r.Field, Source: r.Source, Raw: r.Value, ProtectedClear: r.ProtectedClear, Locked: r.Locked})
 	}
 	if name, err := q.GetEditionFileName(ctx, id); err == nil { // the file name is the lowest fallback, not embedded evidence
 		stem := strings.TrimSuffix(strings.TrimSuffix(name, path.Ext(name)), ".kepub")
@@ -94,7 +94,7 @@ func (s *Service) report(ctx context.Context, q *sqlcgen.Queries, id uuid.UUID, 
 		if !ok {
 			continue
 		}
-		mf := wire.T005MetadataField{Field: f, Source: e.Source, Cleared: e.Cleared, Conflicts: []wire.T005MetadataEvidence{}}
+		mf := wire.T005MetadataField{Field: f, Source: e.Source, Cleared: e.Cleared, Locked: e.Locked, Conflicts: []wire.T005MetadataEvidence{}}
 		if !e.Cleared {
 			mf.Value = wire.T005MetadataValue{Raw: e.Raw}
 		}
@@ -316,6 +316,12 @@ func (s *Service) SetEditionMetadata(ctx context.Context, a Actor, id uuid.UUID,
 	}
 	fp := fingerprint(http.MethodPut, "/admin/editions/"+id.String()+"/metadata/"+field, w)
 	body, err := s.mutateEdition(ctx, a, id, op, base, fp, func(q *sqlcgen.Queries, ed sqlcgen.Edition) (*apperr.Error, error) {
+		if locked, err := editionLocked(ctx, q, id, field); err != nil || locked {
+			if locked {
+				return metadata.FieldLocked(field), nil
+			}
+			return nil, err
+		}
 		if err := q.UpsertEditionMetadataValue(ctx, sqlcgen.UpsertEditionMetadataValueParams{EditionID: id, Field: field, Source: metadata.SourceUser,
 			Value: raw, ProtectedClear: raw == nil}); err != nil {
 			return nil, err
@@ -346,6 +352,12 @@ func (s *Service) RemoveEditionMetadata(ctx context.Context, a Actor, id uuid.UU
 	}
 	fp := fingerprint(http.MethodDelete, "/admin/editions/"+id.String()+"/metadata/"+field, w)
 	body, err := s.mutateEdition(ctx, a, id, op, base, fp, func(q *sqlcgen.Queries, ed sqlcgen.Edition) (*apperr.Error, error) {
+		if locked, err := editionLocked(ctx, q, id, field); err != nil || locked {
+			if locked {
+				return metadata.FieldLocked(field), nil
+			}
+			return nil, err
+		}
 		n, err := q.DeleteEditionMetadataValue(ctx, sqlcgen.DeleteEditionMetadataValueParams{EditionID: id, Field: field, Source: metadata.SourceUser})
 		if err != nil {
 			return nil, err

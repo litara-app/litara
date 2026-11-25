@@ -1,22 +1,21 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { adminOp, api, ApiError } from "../../api/client";
-import type { AutoFillResult, MetadataField } from "../../api/types";
+import type { AutoFillResult } from "../../api/types";
 import { Button, ErrorBox, icons, notify, Text } from "../../ui";
-import { PROVIDER_NAME, ProviderDialog, type ReviewSubject, type WroteHandler } from "./ProviderSearch";
+import { PROVIDER_NAME, ProviderDialog, type Report, type ReviewSubject, type WroteHandler } from "./ProviderSearch";
 
 export { reviewRows } from "./reviewFields";
 
 export type { ReviewSubject } from "./ProviderSearch";
 
-/** An edition write carries the revision it was based on; a recording write has none. */
-type Report = { revision?: string; fields: MetadataField[] };
+
 
 /** Auto-fill's result waiting for review: the values it would fill, which the person resets or saves (ADR-0090). Never stored until saved. */
 export interface Draft {
   provider: string; rule: string; values: Record<string, unknown>;
-  /** The edition revision these values were proposed against; saving them must use it, so a change made since is a conflict. A recording has none. */
-  revision?: string;
+  /** The revision these values were proposed against; saving them must use it, so a change made since is a conflict. */
+  revision: string;
 }
 
 export const RULE_TEXT: Record<string, string> = { identifier: "matched by ISBN", title_author: "matched by title and author" };
@@ -37,12 +36,12 @@ export function ProviderReview({ subject, report, onApplied, onDraft, onWrote }:
   const autoFill = useMutation({
     // Auto-fill only proposes: nothing is stored until the person saves what they keep (ADR-0090).
     mutationFn: () => (edition
-      ? api<AutoFillResult>("POST", `${base}/auto-fill`, { ...adminOp(report.revision ?? "0"), dryRun: true })
+      ? api<AutoFillResult>("POST", `${base}/auto-fill`, { ...adminOp(report.revision), dryRun: true })
       : api<AutoFillResult>("POST", `${base}/auto-fill?dryRun=true`)),
     onSuccess: (r) => {
       const text = AUTO_FILL_TEXT[r.outcome]?.(r) ?? r.outcome;
       if (r.outcome === "proposed" && r.proposed) {
-        onDraft({ provider: r.provider ?? "", rule: r.rule ?? "", values: r.proposed, ...(edition ? { revision: r.revision } : {}) });
+        onDraft({ provider: r.provider ?? "", rule: r.rule ?? "", values: r.proposed, revision: r.revision ?? report.revision });
         notify.success("Auto-fill found a match", { detail: text });
       } else notify.info("Auto-fill: nothing to fill", { detail: text });
     },

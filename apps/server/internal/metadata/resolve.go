@@ -74,6 +74,8 @@ type Value struct {
 	Source         string
 	Raw            json.RawMessage
 	ProtectedClear bool
+	// Locked marks a user value the person locked (ADR-0097).
+	Locked bool
 }
 
 // Effective is the winning value for a field and the provenance behind it.
@@ -82,6 +84,7 @@ type Effective struct {
 	Source    string          `json:"source"`
 	Raw       json.RawMessage `json:"value"`
 	Cleared   bool            `json:"cleared"`
+	Locked    bool            `json:"locked"`
 	Conflicts []Conflict      `json:"conflicts,omitempty"`
 }
 
@@ -119,7 +122,7 @@ func Resolve(values []Value) map[string]Effective {
 	for f, vs := range byField {
 		sort.SliceStable(vs, func(i, j int) bool { return rank[vs[i].Source] < rank[vs[j].Source] })
 		win := vs[0]
-		e := Effective{Field: f, Source: win.Source, Raw: win.Raw, Cleared: win.ProtectedClear}
+		e := Effective{Field: f, Source: win.Source, Raw: win.Raw, Cleared: win.ProtectedClear, Locked: win.Locked}
 		if win.ProtectedClear {
 			e.Raw = nil
 		}

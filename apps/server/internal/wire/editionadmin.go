@@ -25,10 +25,12 @@ func (v *T005MetadataValue) UnmarshalJSON(b []byte) error {
 
 func (T005MetadataValue) Schema(r huma.Registry) *huma.Schema {
 	if _, ok := r.Map()["T005MetadataValue"]; !ok {
-		zero, s4096, s1024, n100 := 0, 4096, 1024, 100
+		// The string cap is the longest field, the 8,000-character description (metadata.MaxDescription). Shorter
+		// per-field limits are checked by the service, which knows the field.
+		zero, s8000, s1024, n100 := 0, 8000, 1024, 100
 		min0 := 0.0
 		r.Map()["T005MetadataValue"] = &huma.Schema{OneOf: []*huma.Schema{
-			{Type: "string", MinLength: &zero, MaxLength: &s4096},
+			{Type: "string", MinLength: &zero, MaxLength: &s8000},
 			{Type: "array", Items: &huma.Schema{Type: "string", MinLength: &zero, MaxLength: &s1024}, MinItems: &zero, MaxItems: &n100},
 			{Type: "number", Minimum: &min0},
 			{Type: "null"},
@@ -48,6 +50,8 @@ type T005MetadataField struct {
 	Cleared   bool                   `json:"cleared"`
 	Value     T005MetadataValue      `json:"value"`
 	Conflicts []T005MetadataEvidence `json:"conflicts" maxItems:"100"`
+	// Locked is the person's lock (ADR-0097). It is separate from the source: an edit is not locked unless locked.
+	Locked bool `json:"locked"`
 }
 
 type T005MetadataReport struct {
@@ -147,6 +151,7 @@ type T005AutoFillResult struct {
 	Rule string `json:"rule,omitempty" enum:"identifier,title_author"`
 	// Proposed holds the values a dry run would fill, keyed by field. Outcome proposed means nothing was stored.
 	Proposed map[string]T005MetadataValue `json:"proposed,omitempty"`
-	// Revision is the edition's revision after the change (editions only).
+	// Revision is the revision a save of this result must be based on: the edition's revision, or for a recording the
+	// title's metadata revision.
 	Revision string `json:"revision,omitempty" pattern:"^(0|[1-9][0-9]*)$"`
 }

@@ -37,7 +37,7 @@ func subject(rec sqlcgen.GetRecordingRowRow, field string) uuid.UUID {
 func fromRows(rows []sqlcgen.MetadataValue) []Value {
 	var out []Value
 	for _, r := range rows {
-		out = append(out, Value{Field: r.Field, Source: r.Source, Raw: r.Value, ProtectedClear: r.ProtectedClear})
+		out = append(out, Value{Field: r.Field, Source: r.Source, Raw: r.Value, ProtectedClear: r.ProtectedClear, Locked: r.Locked})
 	}
 	return out
 }
@@ -105,11 +105,18 @@ func (s *Service) Refresh(ctx context.Context, lib uuid.UUID) error {
 			}
 		}
 		rec := sqlcgen.GetRecordingRowRow{ID: r.ID, TitleID: r.TitleID}
-		if err := s.storeSource(ctx, q, rec, SourceEmbedded, embedded); err != nil {
+		embChanged, err := s.storeSource(ctx, q, rec, SourceEmbedded, embedded)
+		if err != nil {
 			return err
 		}
-		if err := s.storeSource(ctx, q, rec, SourceSidecar, side); err != nil {
+		sideChanged, err := s.storeSource(ctx, q, rec, SourceSidecar, side)
+		if err != nil {
 			return err
+		}
+		if embChanged || sideChanged { // a form loaded before this rescan must not save over what it brought
+			if err := q.BumpTitleMetadataRevision(ctx, rec.TitleID); err != nil {
+				return err
+			}
 		}
 		if err := s.Apply(ctx, rec.ID); err != nil {
 			return err
@@ -149,25 +156,35 @@ func readSidecar(root, rel, kind string) (Fields, bool) {
 
 var allFields = []string{FieldTitle, FieldAuthors, FieldSeriesName, FieldSeriesIndex, FieldNarrators, FieldPublisher, FieldPublished, FieldISBN, FieldDescription}
 
-// storeSource replaces one source's values (a field missing from fields is removed).
-func (s *Service) storeSource(ctx context.Context, q *sqlcgen.Queries, rec sqlcgen.GetRecordingRowRow, source string, fields Fields) error {
+// storeSource replaces one source's values (a field missing from fields is removed) and reports whether anything
+// stored changed.
+func (s *Service) storeSource(ctx context.Context, q *sqlcgen.Queries, rec sqlcgen.GetRecordingRowRow, source string, fields Fields) (bool, error) {
+	changed := false
 	for _, f := range allFields {
 		kind, sid := SubjectKind(f), subject(rec, f)
+		var n int64
+		var err error
 		if raw, ok := fields[f]; ok {
-			if err := q.UpsertMetadataValue(ctx, sqlcgen.UpsertMetadataValueParams{SubjectKind: kind, SubjectID: sid, Field: f, Source: source, Value: raw}); err != nil {
-				return err
-			}
-		} else if err := q.DeleteMetadataValue(ctx, sqlcgen.DeleteMetadataValueParams{SubjectKind: kind, SubjectID: sid, Field: f, Source: source}); err != nil {
-			return err
+			n, err = q.UpsertMetadataValue(ctx, sqlcgen.UpsertMetadataValueParams{SubjectKind: kind, SubjectID: sid, Field: f, Source: source, Value: raw})
+		} else {
+			n, err = q.DeleteMetadataValue(ctx, sqlcgen.DeleteMetadataValueParams{SubjectKind: kind, SubjectID: sid, Field: f, Source: source})
 		}
+		if err != nil {
+			return false, err
+		}
+		changed = changed || n > 0
 	}
-	return nil
+	return changed, nil
 }
 
 // Apply writes the resolved values for a recording's title and narrators.
 func (s *Service) Apply(ctx context.Context, recordingID uuid.UUID) error {
-	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
-		q := sqlcgen.New(tx)
+	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error { return applyQ(ctx, sqlcgen.New(tx), recordingID) })
+}
+
+// applyQ is Apply inside the caller's transaction.
+func applyQ(ctx context.Context, q *sqlcgen.Queries, recordingID uuid.UUID) error {
+	{
 		rec, err := q.GetRecordingRow(ctx, recordingID)
 		if err != nil {
 			return err
@@ -227,7 +244,7 @@ func (s *Service) Apply(ctx context.Context, recordingID uuid.UUID) error {
 			return q.UpdateRecordingNarrators(ctx, sqlcgen.UpdateRecordingNarratorsParams{ID: rec.ID, Narrators: narr})
 		}
 		return nil
-	})
+	}
 }
 
 // EffectiveForTitle resolves a title's stored values (user edits, sidecar, embedded, provider) by precedence.
@@ -289,63 +306,96 @@ func stringOf(raw json.RawMessage) (string, bool) {
 	return v, json.Unmarshal(raw, &v) == nil
 }
 
-// SetUser stores a protected edit (value) or a protected clear (raw == nil).
+// SetUser stores a protected edit (value) or a protected clear (raw == nil). It is the older per-field write, which
+// carries no revision; a locked field refuses it (ADR-0097). Save is the revisioned form.
 func (s *Service) SetUser(ctx context.Context, recordingID uuid.UUID, field string, raw json.RawMessage) error {
-	if !Valid(field) {
-		return apperr.Validation("unknown field " + field)
+	if err := checkUserValue(field, raw); err != nil {
+		return err
 	}
-	clear := raw == nil
-	if clear && field == FieldTitle {
-		return apperr.Validation("the title cannot be cleared")
-	}
-	if !clear {
-		if err := validate(field, raw); err != nil {
-			return err
-		}
-	}
-	q := sqlcgen.New(s.Pool)
-	rec, err := q.GetRecordingRow(ctx, recordingID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return apperr.ErrNotFound
-	}
-	if err != nil {
-		return apperr.ErrUnavailable
-	}
-	if err := q.UpsertMetadataValue(ctx, sqlcgen.UpsertMetadataValueParams{SubjectKind: SubjectKind(field), SubjectID: subject(rec, field),
-		Field: field, Source: SourceUser, Value: raw, ProtectedClear: clear}); err != nil {
-		return apperr.ErrUnavailable
-	}
-	return s.Apply(ctx, recordingID)
+	return s.unrevisioned(ctx, recordingID, func(q *sqlcgen.Queries, rec sqlcgen.GetRecordingRowRow) (bool, *apperr.Error, error) {
+		return setUserQ(ctx, q, rec, field, raw)
+	})
 }
 
-// RemoveUser drops the user's override so lower sources apply again.
+// RemoveUser drops the user's override so lower sources apply again ("Reset to source"). A locked field refuses it.
 func (s *Service) RemoveUser(ctx context.Context, recordingID uuid.UUID, field string) error {
 	if !Valid(field) {
 		return apperr.Validation("unknown field " + field)
 	}
-	q := sqlcgen.New(s.Pool)
-	rec, err := q.GetRecordingRow(ctx, recordingID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return apperr.ErrNotFound
-	}
-	if err != nil {
-		return apperr.ErrUnavailable
-	}
-	if err := q.DeleteMetadataValue(ctx, sqlcgen.DeleteMetadataValueParams{SubjectKind: SubjectKind(field), SubjectID: subject(rec, field), Field: field, Source: SourceUser}); err != nil {
-		return apperr.ErrUnavailable
-	}
-	return s.Apply(ctx, recordingID)
+	return s.unrevisioned(ctx, recordingID, func(q *sqlcgen.Queries, rec sqlcgen.GetRecordingRowRow) (bool, *apperr.Error, error) {
+		return resetQ(ctx, q, rec, field)
+	})
 }
+
+// unrevisioned runs one older per-field write in a transaction that holds the title's metadata revision, so it is
+// still ordered against revisioned saves and still advances the revision when it changes something.
+func (s *Service) unrevisioned(ctx context.Context, recordingID uuid.UUID, change func(q *sqlcgen.Queries, rec sqlcgen.GetRecordingRowRow) (bool, *apperr.Error, error)) error {
+	var refused *apperr.Error
+	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		rec, err := q.GetRecordingRow(ctx, recordingID)
+		if err != nil {
+			return err
+		}
+		if _, err := q.LockTitleMetadataRevision(ctx, rec.TitleID); err != nil {
+			return err
+		}
+		changed, d, err := change(q, rec)
+		if err != nil {
+			return err
+		}
+		if d != nil {
+			refused = d
+			return errRefused // roll back anything the change did before it was refused
+		}
+		if !changed {
+			return nil
+		}
+		if err := q.BumpTitleMetadataRevision(ctx, rec.TitleID); err != nil {
+			return err
+		}
+		return applyQ(ctx, q, rec.ID)
+	})
+	switch {
+	case refused != nil:
+		return refused
+	case errors.Is(err, pgx.ErrNoRows):
+		return apperr.ErrNotFound
+	case err != nil:
+		return apperr.ErrUnavailable
+	}
+	return nil
+}
+
+var errRefused = errors.New("metadata change refused")
 
 // Report returns the effective value and conflicts for every field.
 func (s *Service) Report(ctx context.Context, recordingID uuid.UUID) (map[string]Effective, error) {
+	rep, _, err := s.ReportWithRevision(ctx, recordingID)
+	return rep, err
+}
+
+// ReportWithRevision is Report plus the title's metadata revision that a save must be based on.
+func (s *Service) ReportWithRevision(ctx context.Context, recordingID uuid.UUID) (map[string]Effective, int64, error) {
 	q := sqlcgen.New(s.Pool)
 	rec, err := q.GetRecordingRow(ctx, recordingID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, apperr.ErrNotFound
+		return nil, 0, apperr.ErrNotFound
 	}
 	if err != nil {
-		return nil, apperr.ErrUnavailable
+		return nil, 0, apperr.ErrUnavailable
+	}
+	rep, rev, err := reportQ(ctx, q, rec)
+	if err != nil {
+		return nil, 0, apperr.ErrUnavailable
+	}
+	return rep, rev, nil
+}
+
+func reportQ(ctx context.Context, q *sqlcgen.Queries, rec sqlcgen.GetRecordingRowRow) (map[string]Effective, int64, error) {
+	rev, err := q.GetTitleMetadataRevision(ctx, rec.TitleID)
+	if err != nil {
+		return nil, 0, err
 	}
 	var vals []Value
 	for _, kind := range []struct {
@@ -354,11 +404,11 @@ func (s *Service) Report(ctx context.Context, recordingID uuid.UUID) (map[string
 	}{{"title", rec.TitleID}, {"recording", rec.ID}} {
 		rows, err := q.ListMetadataValues(ctx, sqlcgen.ListMetadataValuesParams{SubjectKind: kind.k, SubjectID: kind.id})
 		if err != nil {
-			return nil, apperr.ErrUnavailable
+			return nil, 0, err
 		}
 		vals = append(vals, fromRows(rows)...)
 	}
-	return Resolve(vals), nil
+	return Resolve(vals), rev, nil
 }
 
 // LibraryOf returns the library that owns a recording (for permission checks).

@@ -287,7 +287,7 @@ func (q *Queries) InsertPlainTitle(ctx context.Context, arg InsertPlainTitlePara
 }
 
 const listEditionMetadataValues = `-- name: ListEditionMetadataValues :many
-SELECT edition_id, field, source, value, protected_clear, updated_at FROM edition_metadata_values WHERE edition_id = $1 ORDER BY field, source
+SELECT edition_id, field, source, value, protected_clear, locked, updated_at FROM edition_metadata_values WHERE edition_id = $1 ORDER BY field, source
 `
 
 func (q *Queries) ListEditionMetadataValues(ctx context.Context, editionID uuid.UUID) ([]EditionMetadataValue, error) {
@@ -305,6 +305,7 @@ func (q *Queries) ListEditionMetadataValues(ctx context.Context, editionID uuid.
 			&i.Source,
 			&i.Value,
 			&i.ProtectedClear,
+			&i.Locked,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -663,6 +664,25 @@ type SetEditionLanguageParams struct {
 func (q *Queries) SetEditionLanguage(ctx context.Context, arg SetEditionLanguageParams) error {
 	_, err := q.db.Exec(ctx, setEditionLanguage, arg.ID, arg.Language)
 	return err
+}
+
+const setEditionMetadataLock = `-- name: SetEditionMetadataLock :execrows
+UPDATE edition_metadata_values SET locked = $1, updated_at = now()
+WHERE edition_id = $2 AND field = $3 AND source = 'user' AND locked <> $1
+`
+
+type SetEditionMetadataLockParams struct {
+	Locked    bool      `json:"locked"`
+	EditionID uuid.UUID `json:"edition_id"`
+	Field     string    `json:"field"`
+}
+
+func (q *Queries) SetEditionMetadataLock(ctx context.Context, arg SetEditionMetadataLockParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setEditionMetadataLock, arg.Locked, arg.EditionID, arg.Field)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setEditionTitle = `-- name: SetEditionTitle :exec

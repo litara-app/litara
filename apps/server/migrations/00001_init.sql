@@ -108,7 +108,10 @@ CREATE TABLE titles (
     series_name  text,
     series_index double precision,
     seed_key     text UNIQUE,
-    created_at   timestamptz NOT NULL DEFAULT now()
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    -- Advances whenever a stored metadata value of the title or of one of its recordings changes, from any source, so an
+    -- audiobook metadata save based on an older revision is a conflict instead of an overwrite (ADR-0095 decision 4).
+    metadata_revision bigint NOT NULL DEFAULT 0 CHECK (metadata_revision >= 0)
 );
 
 CREATE TABLE recordings (
@@ -357,9 +360,13 @@ CREATE TABLE metadata_values (
     value        jsonb,
     -- A protected clear is an explicit user value of "empty" that rescans must keep.
     protected_clear boolean NOT NULL DEFAULT false,
+    -- A lock is the person's own choice and separate from the value (ADR-0097): only a user row can be locked, and a
+    -- locked field accepts no change until it is unlocked. Unlocking keeps the value.
+    locked       boolean NOT NULL DEFAULT false,
     updated_at   timestamptz NOT NULL DEFAULT now(),
     UNIQUE (subject_kind, subject_id, field, source),
-    CHECK (source = 'user' OR NOT protected_clear)
+    CHECK (source = 'user' OR NOT protected_clear),
+    CHECK (source = 'user' OR NOT locked)
 );
 
 CREATE TABLE writeback_plans (
@@ -637,9 +644,12 @@ CREATE TABLE edition_metadata_values (
     source          text NOT NULL CHECK (source IN ('user', 'sidecar', 'embedded', 'provider')),
     value           jsonb,
     protected_clear boolean NOT NULL DEFAULT false,
+    -- The person's lock (ADR-0097), as on metadata_values.
+    locked          boolean NOT NULL DEFAULT false,
     updated_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (edition_id, field, source),
-    CHECK (source = 'user' OR NOT protected_clear)
+    CHECK (source = 'user' OR NOT protected_clear),
+    CHECK (source = 'user' OR NOT locked)
 );
 
 -- Personal rating, review and reading-date overrides (ADR-0081). Private to the account; a revisioned whole-row write.

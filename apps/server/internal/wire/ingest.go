@@ -62,10 +62,14 @@ type MetadataField struct {
 	Cleared   bool               `json:"cleared"`
 	Value     json.RawMessage    `json:"value,omitempty" doc:"Absent when the field was deliberately cleared." type:"object" additionalProperties:"true"`
 	Conflicts []MetadataConflict `json:"conflicts,omitempty"`
+	// Locked is the person's lock (ADR-0097). It is separate from the source: an edit is not locked unless locked.
+	Locked bool `json:"locked"`
 }
 
 type MetadataReport struct {
-	Fields []MetadataField `json:"fields"`
+	// Revision is the title's metadata revision. A save sends it back as baseRevision (ADR-0095 decision 4).
+	Revision string          `json:"revision" pattern:"^(0|[1-9][0-9]*)$"`
+	Fields   []MetadataField `json:"fields"`
 }
 
 // SetMetadata stores a protected edit (value) or a protected clear (clear=true).
