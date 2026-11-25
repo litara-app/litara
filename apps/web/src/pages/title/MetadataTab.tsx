@@ -47,33 +47,61 @@ function Editor({ target }: { target: Target }) {
     qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "title" });
     qc.invalidateQueries({ queryKey: ["titles"] });
   };
+  // Auto-fill's result waits here until it is saved. It lives only while this tab is open: leaving the page, the tab or the
+  // edition discards it (ADR-0090).
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const without = (d: Draft, field: string): Draft | null => {
+    const { [field]: _gone, ...rest } = d.values;
+    return Object.keys(rest).length ? { ...d, values: rest } : null;
+  };
+  // A write made from this tab drops that field from the draft, and moves the draft on only if it was still current
+  // before the write. A change made anywhere else leaves the draft behind, so saving it is a conflict.
+  const wrote = (field: string, from?: string, to?: string) => setDraft((d) => {
+    const next = d && without(d, field);
+    return next && from !== undefined && next.revision === from ? { ...next, revision: to } : next;
+  });
   // Saving, locking and unlocking share the item's revision, so only one change is in flight at a time.
   const save = useMutation({
     mutationFn: async (c: Change): Promise<void> => {
-      if (edition) await api<MetadataReport>("PUT", `${base}/${c.field}`, { ...adminOp(report.data!.revision), clear: c.clear, value: c.clear ? null : c.value });
-      else await api<void>("PUT", `${base}/${c.field}`, c.clear ? { clear: true } : { value: c.value });
+      if (edition) {
+        const from = report.data!.revision;
+        const after = await api<MetadataReport>("PUT", `${base}/${c.field}`, { ...adminOp(from), clear: c.clear, value: c.clear ? null : c.value });
+        wrote(c.field, from, after.revision);
+      } else {
+        await api<void>("PUT", `${base}/${c.field}`, c.clear ? { clear: true } : { value: c.value });
+        wrote(c.field);
+      }
     },
     meta: { success: (_d: unknown, c: Change) => c.note },
     onSettled: refresh,
   });
-  // Auto-fill's result waits here until it is saved. It lives only while this tab is open: leaving the page, the tab or the
-  // edition discards it (ADR-0090).
-  const [draft, setDraft] = useState<Draft | null>(null);
   const saveDraft = useMutation({
-    mutationFn: async () => {
-      let revision = report.data!.revision;
-      for (const [field, value] of Object.entries(draft!.values)) {
-        if (edition) revision = (await api<{ revision: string }>("PUT", `${base}/${field}`, { ...adminOp(revision), clear: false, value })).revision;
-        else await api<void>("PUT", `${base}/${field}`, { value });
+    mutationFn: async (): Promise<number> => {
+      const entries = Object.entries(draft!.values);
+      let revision = draft!.revision;
+      for (const [field, value] of entries) {
+        if (edition) {
+          const from = revision!;
+          revision = (await api<{ revision: string }>("PUT", `${base}/${field}`, { ...adminOp(from), clear: false, value })).revision;
+          wrote(field, from, revision);
+        } else {
+          await api<void>("PUT", `${base}/${field}`, { value });
+          wrote(field);
+        }
       }
+      return entries.length;
     },
-    meta: { success: () => `Saved ${Object.keys(draft?.values ?? {}).length} fields from auto-fill` },
-    onSuccess: () => setDraft(null),
+    meta: { success: (count: unknown) => `Saved ${count as number} fields from auto-fill` },
     onSettled: refresh,
   });
   const unlock = useMutation({
     meta: { quiet: true },
-    mutationFn: (field: string) => (edition ? api("DELETE", `${base}/${field}`, adminOp(report.data!.revision)) : api("DELETE", `${base}/${field}`)),
+    mutationFn: async (field: string): Promise<void> => {
+      if (!edition) { await api("DELETE", `${base}/${field}`); return; }
+      const from = report.data!.revision;
+      const after = await api<MetadataReport>("DELETE", `${base}/${field}`, adminOp(from));
+      wrote(field, from, after.revision);
+    },
     onSettled: refresh,
   });
 
@@ -84,14 +112,15 @@ function Editor({ target }: { target: Target }) {
   const byField = new Map<string, MetadataField>(report.data.fields.map((f) => [f.field, f]));
   const busy = save.isPending || unlock.isPending || saveDraft.isPending;
   const drafted = Object.keys(draft?.values ?? {}).filter((f) => fields.some((d) => d.field === f));
-  const resetDraft = (field: string) => setDraft((d) => { if (!d) return d; const { [field]: _gone, ...rest } = d.values; return Object.keys(rest).length ? { ...d, values: rest } : null; });
+  const resetDraft = (field: string) => setDraft((d) => d && without(d, field));
+  const draftStale = saveDraft.error instanceof ApiError && saveDraft.error.status === 409;
   const failure = save.error ?? unlock.error;
   const stale = failure instanceof ApiError && failure.status === 409;
 
   return (
     <Stack>
       <div className="lt-mf-bar" data-testid="metadata-actions">
-        <ProviderReview subject={{ kind: target.kind, id: target.id }} report={report.data} onApplied={refresh} onDraft={setDraft} />
+        <ProviderReview subject={{ kind: target.kind, id: target.id }} report={report.data} onApplied={refresh} onDraft={(d) => { saveDraft.reset(); setDraft(d); }} onWrote={wrote} />
         <Text size="sm" tone="dim">Click a value to edit it. A lock keeps a field as it is when the files are rescanned or online results are applied.</Text>
       </div>
       {draft && drafted.length > 0 && (
@@ -100,8 +129,11 @@ function Editor({ target }: { target: Target }) {
             <Text size="sm">{drafted.length} {drafted.length === 1 ? "field" : "fields"} from {PROVIDER_NAMES[draft.provider] ?? "a provider"}, {RULE_TEXT[draft.rule] ?? "matched"}. Nothing is saved yet. Reset the fields you do not want, or reset all of them if the match is wrong, then save.</Text>
             <Row gap="sm" wrap>
               <Button variant="primary" icon={icons.save} loading={saveDraft.isPending} disabled={busy} onClick={() => saveDraft.mutate()}>Save {drafted.length} {drafted.length === 1 ? "field" : "fields"}</Button>
-              <Button icon={icons.reset} disabled={busy} onClick={() => setDraft(null)}>Reset all</Button>
+              <Button icon={icons.reset} disabled={busy} onClick={() => { saveDraft.reset(); setDraft(null); }}>Reset all</Button>
             </Row>
+            {draftStale
+              ? <Text size="sm" tone="warning" role="alert">This item changed after Auto-fill ran, so these values were not saved over it. Reset all, then run Auto-fill again.</Text>
+              : <ErrorBox error={saveDraft.error} />}
           </Stack>
         </Alert>
       )}

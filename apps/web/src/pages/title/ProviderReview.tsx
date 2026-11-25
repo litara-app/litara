@@ -3,7 +3,7 @@ import { useState } from "react";
 import { adminOp, api, ApiError } from "../../api/client";
 import type { AutoFillResult, MetadataField } from "../../api/types";
 import { Button, ErrorBox, icons, notify, Text } from "../../ui";
-import { PROVIDER_NAME, ProviderDialog, type ReviewSubject } from "./ProviderSearch";
+import { PROVIDER_NAME, ProviderDialog, type ReviewSubject, type WroteHandler } from "./ProviderSearch";
 
 export { reviewRows } from "./reviewFields";
 
@@ -13,7 +13,11 @@ export type { ReviewSubject } from "./ProviderSearch";
 type Report = { revision?: string; fields: MetadataField[] };
 
 /** Auto-fill's result waiting for review: the values it would fill, which the person resets or saves (ADR-0090). Never stored until saved. */
-export interface Draft { provider: string; rule: string; values: Record<string, unknown> }
+export interface Draft {
+  provider: string; rule: string; values: Record<string, unknown>;
+  /** The edition revision these values were proposed against; saving them must use it, so a change made since is a conflict. A recording has none. */
+  revision?: string;
+}
 
 export const RULE_TEXT: Record<string, string> = { identifier: "matched by ISBN", title_author: "matched by title and author" };
 
@@ -26,7 +30,7 @@ const AUTO_FILL_TEXT: Record<string, (r: AutoFillResult) => string> = {
   disabled: () => "Online lookups are off for this library. An administrator can turn on a provider in the library settings.",
 };
 
-export function ProviderReview({ subject, report, onApplied, onDraft }: { subject: ReviewSubject; report: Report; onApplied: () => void; onDraft: (d: Draft) => void }) {
+export function ProviderReview({ subject, report, onApplied, onDraft, onWrote }: { subject: ReviewSubject; report: Report; onApplied: () => void; onDraft: (d: Draft) => void; onWrote?: WroteHandler }) {
   const [open, setOpen] = useState(false);
   const edition = subject.kind === "edition";
   const base = `/admin/${edition ? "editions" : "recordings"}/${subject.id}/metadata`;
@@ -38,7 +42,7 @@ export function ProviderReview({ subject, report, onApplied, onDraft }: { subjec
     onSuccess: (r) => {
       const text = AUTO_FILL_TEXT[r.outcome]?.(r) ?? r.outcome;
       if (r.outcome === "proposed" && r.proposed) {
-        onDraft({ provider: r.provider ?? "", rule: r.rule ?? "", values: r.proposed });
+        onDraft({ provider: r.provider ?? "", rule: r.rule ?? "", values: r.proposed, ...(edition ? { revision: r.revision } : {}) });
         notify.success("Auto-fill found a match", { detail: text });
       } else notify.info("Auto-fill: nothing to fill", { detail: text });
     },
@@ -50,7 +54,7 @@ export function ProviderReview({ subject, report, onApplied, onDraft }: { subjec
       {autoFill.error instanceof ApiError && autoFill.error.status === 409
         ? <Text size="sm" tone="warning" role="alert">This item changed elsewhere, so the page was refreshed. Try again.</Text>
         : <ErrorBox error={autoFill.error} />}
-      {open && <ProviderDialog subject={subject} report={report} onClose={() => setOpen(false)} onApplied={onApplied} />}
+      {open && <ProviderDialog subject={subject} report={report} onClose={() => setOpen(false)} onApplied={onApplied} onWrote={onWrote} />}
     </>
   );
 }

@@ -13,7 +13,6 @@ import (
 
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/ebookmeta"
-	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 )
 
 // EditionFormat returns the T005 format name for a file name, or "" when the
@@ -105,9 +104,9 @@ func embeddedFields(m ebookmeta.Meta) map[string]any {
 
 // refreshEmbedded re-reads a replaced file's own tags (same file ID, new content version) and brings the edition's
 // "embedded" evidence up to date, so a change made in the file itself, including an approved write-back, shows in the
-// catalog. Evidence from other sources, and every field an administrator edited (even a clear), is never touched; the
-// title row only follows while this edition is its sole child and the field has no administrator edit. An unreadable file
-// keeps the previous evidence.
+// catalog. Evidence from other sources is never touched. Displayed values are re-resolved by source priority (ADR-0047),
+// so an administrator edit or clear and a sidecar still win; the title row only follows while this edition is its sole
+// child. An unreadable file keeps the previous evidence.
 func (s *Scanner) refreshEmbedded(ctx context.Context, lib, fileID uuid.UUID, rel string) error {
 	q := sqlcgen.New(s.Pool)
 	ed, err := q.GetEditionByFileID(ctx, fileID)
@@ -138,13 +137,10 @@ func (s *Scanner) refreshEmbedded(ctx context.Context, lib, fileID uuid.UUID, re
 		if err != nil {
 			return err
 		}
-		have, user := map[string][]byte{}, map[string]bool{}
+		have := map[string][]byte{}
 		for _, r := range rows {
-			switch r.Source {
-			case "embedded":
+			if r.Source == "embedded" {
 				have[r.Field] = r.Value
-			case metadata.SourceUser:
-				user[r.Field] = true
 			}
 		}
 		changed := false
@@ -176,42 +172,8 @@ func (s *Scanner) refreshEmbedded(ctx context.Context, lib, fileID uuid.UUID, re
 		if err := q.BumpEdition(ctx, ed.ID); err != nil {
 			return err
 		}
-		if !user["language"] {
-			var lang *string
-			if m.Language != "" {
-				lang = &m.Language
-			}
-			if err := q.SetEditionLanguage(ctx, sqlcgen.SetEditionLanguageParams{ID: ed.ID, Language: lang}); err != nil {
-				return err
-			}
-		}
-		if n, err := q.CountTitleChildren(ctx, ed.TitleID); err != nil || n != 1 {
-			return err
-		}
-		t, err := q.GetTitleRow(ctx, ed.TitleID)
-		if err != nil {
-			return err
-		}
-		name, authors, series, index := t.Title, t.Authors, t.SeriesName, t.SeriesIndex
-		if !user["title"] && m.Title != "" {
-			name = m.Title
-		}
-		if !user["authors"] {
-			authors = m.Authors
-			if authors == nil {
-				authors = []string{}
-			}
-		}
-		if !user["series_name"] {
-			series = nil
-			if m.Series != "" {
-				series = &m.Series
-			}
-		}
-		if !user["series_index"] {
-			index = m.SeriesIndex
-		}
-		return q.UpdateTitleFields(ctx, sqlcgen.UpdateTitleFieldsParams{ID: t.ID, Title: name, Authors: authors, SeriesName: series, SeriesIndex: index})
+		// What is displayed follows the usual source priority, so a sidecar still outranks the file's new tags.
+		return propagateEdition(ctx, q, ed.ID)
 	})
 }
 
