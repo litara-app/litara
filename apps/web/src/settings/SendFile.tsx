@@ -32,6 +32,7 @@ export function SendFile({ target }: { target: SendTarget }) {
       if (opRef.current?.key !== key) opRef.current = { key, id: crypto.randomUUID() };
       return api<Delivery>("POST", "/deliveries", { operationId: opRef.current.id, ...body });
     },
+    meta: { success: "Sending to the device has started" },
     onSuccess: (d) => { opRef.current = null; setSent(d.id); },
   });
   const status = useQuery({

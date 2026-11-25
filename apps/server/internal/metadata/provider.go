@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -71,6 +72,20 @@ type HTTP struct {
 }
 
 func (h HTTP) get(ctx context.Context, path string, params url.Values, out any) (int, error) {
+	u := strings.TrimRight(h.BaseURL, "/") + path
+	if len(params) > 0 {
+		u += "?" + params.Encode()
+	}
+	return h.do(ctx, http.MethodGet, u, nil, nil, out)
+}
+
+// post sends a JSON body (used by GraphQL providers). Responses are never cached.
+func (h HTTP) post(ctx context.Context, path string, payload []byte, header map[string]string, out any) (int, error) {
+	return h.do(ctx, http.MethodPost, strings.TrimRight(h.BaseURL, "/")+path, payload, header, out)
+}
+
+// do runs one provider request under the shared per-provider budget: queueing, spacing, Retry-After and bounded retry.
+func (h HTTP) do(ctx context.Context, method, u string, payload []byte, header map[string]string, out any) (int, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
@@ -78,27 +93,28 @@ func (h HTTP) get(ctx context.Context, path string, params url.Values, out any) 
 	if c == nil {
 		c = &http.Client{Timeout: providerLookupTimeout}
 	}
-	u := strings.TrimRight(h.BaseURL, "/") + path
-	if len(params) > 0 {
-		u += "?" + params.Encode()
-	}
 	ctx, cancel := context.WithTimeout(ctx, providerLookupTimeout)
 	defer cancel()
 	p := h.policy
+	cacheable := method == http.MethodGet
 	if p != nil {
-		if body := p.getCached(u); body != nil {
+		if body := p.getCached(u); cacheable && body != nil {
 			return http.StatusOK, json.Unmarshal(body, out)
 		}
 		if err := p.enter(ctx); err != nil {
 			return 0, err
 		}
 		defer p.leave()
-		if body := p.getCached(u); body != nil {
+		if body := p.getCached(u); cacheable && body != nil {
 			return http.StatusOK, json.Unmarshal(body, out)
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	var body io.Reader
+	if payload != nil {
+		body = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u, body)
 	if err != nil {
 		return 0, err
 	}
@@ -108,6 +124,12 @@ func (h HTTP) get(ctx context.Context, path string, params url.Values, out any) 
 	}
 	req.Header.Set("User-Agent", agent)
 	req.Header.Set("Accept", "application/json")
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range header {
+		req.Header.Set(k, v)
+	}
 	for attempt := 0; ; attempt++ {
 		if p != nil {
 			if err := p.wait(ctx); err != nil {
@@ -117,7 +139,11 @@ func (h HTTP) get(ctx context.Context, path string, params url.Values, out any) 
 				return http.StatusTooManyRequests, fmt.Errorf("provider returned status %d", http.StatusTooManyRequests)
 			}
 		}
-		resp, err := c.Do(req.Clone(ctx))
+		r := req.Clone(ctx)
+		if payload != nil { // a retried request needs a fresh body
+			r.Body = io.NopCloser(bytes.NewReader(payload))
+		}
+		resp, err := c.Do(r)
 		if err != nil {
 			return 0, fmt.Errorf("provider request failed")
 		}
@@ -193,7 +219,86 @@ func (p OpenLibrary) Lookup(ctx context.Context, q Query) ([]Match, error) {
 		}
 		out = append(out, Match{Provider: ProviderOpenLibrary, ID: d.Key, ByIdentifier: byID, Fields: f})
 	}
+	// Edition detail only when one work matched the ISBN, so it can never be attached to the wrong result.
+	if byID && len(out) == 1 {
+		p.addEditionDetail(ctx, q.ISBN, res.Docs[0].Key, out[0].Fields)
+	}
 	return out, nil
+}
+
+// addEditionDetail adds the edition's own publisher, date and page count and the work's synopsis. A failed or empty
+// detail request leaves the search result as it was; it is an enrichment, not a requirement.
+func (p OpenLibrary) addEditionDetail(ctx context.Context, isbn, workKey string, f Fields) {
+	var ed struct {
+		Publishers    []string `json:"publishers"`
+		PublishDate   string   `json:"publish_date"`
+		NumberOfPages int      `json:"number_of_pages"`
+		Subtitle      string   `json:"subtitle"`
+	}
+	if code, err := p.get(ctx, "/isbn/"+url.PathEscape(isbn)+".json", nil, &ed); err == nil && code == http.StatusOK {
+		if len(ed.Publishers) > 0 {
+			if x := strings.TrimSpace(ed.Publishers[0]); x != "" && len([]rune(x)) <= 512 {
+				set(f, FieldPublisher, x)
+			}
+		}
+		if d, ok := ParsePublishDate(ed.PublishDate); ok {
+			set(f, FieldPublished, d)
+		}
+		if ed.NumberOfPages >= 1 && ed.NumberOfPages <= 100000 {
+			set(f, FieldPageCount, ed.NumberOfPages)
+		}
+		if x := strings.TrimSpace(ed.Subtitle); x != "" && len([]rune(x)) <= 4096 {
+			set(f, FieldSubtitle, x)
+		}
+	}
+	if !strings.HasPrefix(workKey, "/works/") || strings.ContainsAny(workKey[len("/works/"):], "/?#") {
+		return
+	}
+	set(f, FieldOpenLibraryID, strings.TrimPrefix(workKey, "/works/"))
+	var work struct {
+		Description json.RawMessage `json:"description"` // a string, or {"type":..., "value":...}
+		Subjects    []string        `json:"subjects"`
+	}
+	if code, err := p.get(ctx, workKey+".json", nil, &work); err != nil || code != http.StatusOK {
+		return
+	}
+	if g := cleanList(work.Subjects, 10); len(g) > 0 {
+		set(f, FieldGenres, g)
+	}
+	var text string
+	if json.Unmarshal(work.Description, &text) != nil {
+		var obj struct {
+			Value string `json:"value"`
+		}
+		if json.Unmarshal(work.Description, &obj) == nil {
+			text = obj.Value
+		}
+	}
+	if text = strings.TrimSpace(text); text != "" {
+		if r := []rune(text); len(r) > MaxDescription {
+			text = string(r[:MaxDescription])
+		}
+		set(f, FieldDescription, text)
+	}
+}
+
+var publishLayouts = []struct{ layout, out string }{
+	{"2006-01-02", "2006-01-02"}, {"2006-01", "2006-01"}, {"January 2, 2006", "2006-01-02"}, {"Jan 2, 2006", "2006-01-02"},
+	{"2 January 2006", "2006-01-02"}, {"2 Jan 2006", "2006-01-02"}, {"January 2006", "2006-01"}, {"Jan 2006", "2006-01"}, {"2006", "2006"},
+}
+
+// ParsePublishDate turns a provider's free-text date into the stored YYYY, YYYY-MM or YYYY-MM-DD form,
+// keeping the precision it had. Anything it cannot read exactly is rejected rather than guessed.
+func ParsePublishDate(s string) (string, bool) {
+	s = strings.TrimSpace(s)
+	for _, l := range publishLayouts {
+		if t, err := time.Parse(l.layout, s); err == nil && t.Year() >= 1000 {
+			if d := t.Format(l.out); publishedRe.MatchString(d) {
+				return d, true
+			}
+		}
+	}
+	return "", false
 }
 
 // GoogleBooks uses the volumes search API (an API key, if any, stays local).
@@ -226,8 +331,21 @@ func (p GoogleBooks) Lookup(ctx context.Context, q Query) ([]Match, error) {
 		Items []struct {
 			ID         string `json:"id"`
 			VolumeInfo struct {
-				Title   string   `json:"title"`
-				Authors []string `json:"authors"`
+				Title               string   `json:"title"`
+				Subtitle            string   `json:"subtitle"`
+				Authors             []string `json:"authors"`
+				Categories          []string `json:"categories"`
+				AverageRating       float64  `json:"averageRating"`
+				RatingsCount        int      `json:"ratingsCount"`
+				Publisher           string   `json:"publisher"`
+				PublishedDate       string   `json:"publishedDate"`
+				Description         string   `json:"description"`
+				PageCount           int      `json:"pageCount"`
+				Language            string   `json:"language"`
+				IndustryIdentifiers []struct {
+					Type       string `json:"type"`
+					Identifier string `json:"identifier"`
+				} `json:"industryIdentifiers"`
 			} `json:"volumeInfo"`
 		} `json:"items"`
 	}
@@ -242,6 +360,53 @@ func (p GoogleBooks) Lookup(ctx context.Context, q Query) ([]Match, error) {
 		}
 		if len(it.VolumeInfo.Authors) > 0 {
 			set(f, FieldAuthors, it.VolumeInfo.Authors)
+		}
+		v := it.VolumeInfo
+		if x := strings.TrimSpace(v.Subtitle); x != "" && len([]rune(x)) <= 4096 {
+			set(f, FieldSubtitle, x)
+		}
+		if g := cleanList(v.Categories, 20); len(g) > 0 {
+			set(f, FieldGenres, g)
+		}
+		if v.AverageRating > 0 && v.AverageRating <= 5 && v.RatingsCount > 0 {
+			set(f, FieldPublicRating, v.AverageRating)
+			set(f, FieldPublicRatingCount, v.RatingsCount)
+		}
+		if it.ID != "" && len(it.ID) <= 64 {
+			set(f, FieldGoogleBooksID, it.ID)
+		}
+		if x := strings.TrimSpace(v.Publisher); x != "" && len([]rune(x)) <= 512 {
+			set(f, FieldPublisher, x)
+		}
+		if publishedRe.MatchString(v.PublishedDate) {
+			set(f, FieldPublished, v.PublishedDate)
+		}
+		if x := strings.TrimSpace(v.Description); x != "" {
+			if r := []rune(x); len(r) > 8000 {
+				x = string(r[:8000])
+			}
+			set(f, FieldDescription, x)
+		}
+		if v.PageCount >= 1 && v.PageCount <= 100000 {
+			set(f, FieldPageCount, v.PageCount)
+		}
+		if x := strings.TrimSpace(v.Language); x != "" && len(x) <= 35 {
+			set(f, FieldLanguage, x)
+		}
+		var isbn10, isbn13 string
+		for _, id := range v.IndustryIdentifiers {
+			switch id.Type {
+			case "ISBN_13":
+				isbn13 = id.Identifier
+			case "ISBN_10":
+				isbn10 = id.Identifier
+			}
+		}
+		for _, x := range []string{isbn13, isbn10} {
+			if isbnRE.MatchString(x) {
+				set(f, FieldISBN, strings.ToUpper(x))
+				break
+			}
 		}
 		out = append(out, Match{Provider: ProviderGoogleBooks, ID: it.ID, ByIdentifier: byID, Fields: f})
 	}
@@ -297,4 +462,23 @@ func (p Audnexus) Lookup(ctx context.Context, q Query) ([]Match, error) {
 		set(f, FieldSeriesName, res.SeriesPrimary.Name)
 	}
 	return []Match{{Provider: ProviderAudnexus, ID: res.ASIN, ByIdentifier: true, Fields: f}}, nil
+}
+
+// cleanList trims, drops blanks and duplicates, and keeps at most max entries of a provider's list.
+func cleanList(in []string, max int) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, x := range in {
+		x = strings.TrimSpace(x)
+		k := strings.ToLower(x)
+		if x == "" || len([]rune(x)) > 200 || seen[k] {
+			continue
+		}
+		seen[k] = true
+		out = append(out, x)
+		if len(out) == max {
+			break
+		}
+	}
+	return out
 }

@@ -15,6 +15,7 @@ type LibraryConfig struct {
 	WritebackBackups   bool     `json:"writebackBackups"`
 	BackupRoot         *string  `json:"backupRoot,omitempty" maxLength:"4096"`
 	ProviderOrder      []string `json:"providerOrder" uniqueItems:"true" maxItems:"8"`
+	AutoFillTitleMatch bool     `json:"autoFillTitleMatch,omitempty" doc:"Lets Auto-fill propose one clear title-and-author match when a book has no identifier (ADR-0090). Off by default."`
 }
 
 type CreateLibrary struct {

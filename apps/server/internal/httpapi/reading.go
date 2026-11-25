@@ -79,6 +79,31 @@ func (a *API) registerReading(api huma.API) {
 			return &bodyOut[wire.T005History]{Body: h}, nil
 		})
 
+	huma.Register(api, writeOp(op("putReadingSession", http.MethodPut, "/editions/{editionId}/reading-sessions/{sessionId}", "Record or extend one reading session", "reading")),
+		func(ctx context.Context, in *struct {
+			EditionIn
+			SessionID string `path:"sessionId" format:"uuid"`
+			Body      wire.T005ReadingSessionWrite
+		}) (*struct{}, error) {
+			if err := a.Reading.PutSession(ctx, principal(ctx).UserID, mustUUID(in.EditionID), mustUUID(in.SessionID), in.Body); err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			return &struct{}{}, nil
+		})
+
+	huma.Register(api, readOp(op("listReadingSessions", http.MethodGet, "/titles/{titleId}/reading-sessions", "The caller's own reading sessions for a title", "reading")),
+		func(ctx context.Context, in *struct {
+			TitleIn
+			PageQuery
+		}) (*bodyOut[wire.T005ReadingSessions], error) {
+			page, size := in.normalized()
+			s, err := a.Reading.Sessions(ctx, principal(ctx).UserID, mustUUID(in.TitleID), page, size)
+			if err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			return &bodyOut[wire.T005ReadingSessions]{Body: s}, nil
+		})
+
 	huma.Register(api, readOp(op("listPersonalConflicts", http.MethodGet, "/personal-conflicts", "The caller own unresolved personal-state conflicts", "reading")),
 		func(ctx context.Context, in *struct {
 			PageQuery

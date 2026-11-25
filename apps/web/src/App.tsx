@@ -19,6 +19,7 @@ import { AppearancePage } from "./settings/AppearancePage";
 import { CredentialsPage } from "./settings/CredentialsPage";
 import { EmailPage } from "./settings/EmailPage";
 import { KoReaderPage } from "./settings/KoReaderPage";
+import { NotificationsPage } from "./settings/NotificationsPage";
 import { SettingsLayout } from "./settings/SettingsLayout";
 import { ReaderPage } from "./reader/ReaderPage";
 import { Busy } from "./ui/common";
@@ -63,6 +64,7 @@ export function App() {
             <Route path="credentials" element={<CredentialsPage />} />
             <Route path="email" element={<EmailPage />} />
             <Route path="koreader" element={<KoReaderPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
           </Route>
           <Route path="admin" element={<AdminLayout />}>
             <Route index element={<UsersPage />} />

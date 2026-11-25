@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -24,10 +25,12 @@ import (
 // Callers have already established administrator authority and a grant on
 // EditionLibrary; these functions never touch file bytes or personal state.
 
-var editionFields = []string{"title", "authors", "series_name", "series_index", "language", "tags", "publisher", "published", "page_count", "isbn", "description"}
+var editionFields = []string{"title", "authors", "series_name", "series_index", "language", "tags", "publisher", "published", "page_count", "isbn", "description",
+	"subtitle", "genres", "moods", "age_rating", "asin", "open_library_id", "google_books_id", "hardcover_id", "goodreads_id", "public_rating", "public_rating_count"}
 
 var (
 	publishedRe = regexp.MustCompile(`^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$`)
+	asinRe      = regexp.MustCompile(`^[0-9A-Za-z]{10}$`)
 	isbnRe      = regexp.MustCompile(`^(\d{9}[\dX]|\d{13})$`)
 )
 
@@ -125,7 +128,7 @@ func editionValue(field string, w wire.T005MetadataWrite) (json.RawMessage, erro
 		if json.Unmarshal(raw, &v) != nil || strings.TrimSpace(v) == "" || len([]rune(v)) > 4096 {
 			return nil, apperr.Validation(field + " must be a non-empty string.")
 		}
-	case "authors", "tags":
+	case "authors", "tags", "genres", "moods":
 		var v []string
 		if json.Unmarshal(raw, &v) != nil || len(v) == 0 || len(v) > 100 {
 			return nil, apperr.Validation(field + " must be a non-empty array of up to 100 strings.")
@@ -139,6 +142,31 @@ func editionValue(field string, w wire.T005MetadataWrite) (json.RawMessage, erro
 		var v float64
 		if json.Unmarshal(raw, &v) != nil || v < 0 {
 			return nil, apperr.Validation("series_index must be a nonnegative number.")
+		}
+	case "subtitle":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || strings.TrimSpace(v) == "" || len([]rune(v)) > 4096 {
+			return nil, apperr.Validation("subtitle must be a non-empty string of up to 4096 characters.")
+		}
+	case "age_rating", "open_library_id", "google_books_id", "hardcover_id", "goodreads_id":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || strings.TrimSpace(v) == "" || len([]rune(v)) > 64 || strings.ContainsAny(v, " \t\r\n/?#") {
+			return nil, apperr.Validation(field + " must be a short value without spaces or slashes (up to 64 characters).")
+		}
+	case "asin":
+		var v string
+		if json.Unmarshal(raw, &v) != nil || !asinRe.MatchString(v) {
+			return nil, apperr.Validation("asin must be 10 letters or digits.")
+		}
+	case "public_rating":
+		var v float64
+		if json.Unmarshal(raw, &v) != nil || v < 0 || v > 5 {
+			return nil, apperr.Validation("public_rating must be a number from 0 to 5.")
+		}
+	case "public_rating_count":
+		var v int
+		if json.Unmarshal(raw, &v) != nil || v < 0 || v > 1000000000 {
+			return nil, apperr.Validation("public_rating_count must be a whole number of 0 or more.")
 		}
 	case "publisher":
 		var v string
@@ -432,5 +460,71 @@ func (s *Service) LinkEditionTitle(ctx context.Context, a Actor, id uuid.UUID, w
 		return wire.T005Edition{}, err
 	}
 	var out wire.T005Edition
+	return out, json.Unmarshal(body, &out)
+}
+
+// AutoFillEdition stores provider values for fields the edition has no value for. The caller has chosen the match
+// (ADR-0060/0087); this applies it only if the edition is still at base, and only to empty fields. Values are stored
+// as provider evidence, so they never outrank a user edit, a sidecar or the file's own tags.
+func (s *Service) AutoFillEdition(ctx context.Context, a Actor, id uuid.UUID, w wire.T005AutoFill, provider string, values map[string]json.RawMessage) (wire.T005AutoFillResult, error) {
+	op, err := parseUUID("operationId", w.OperationID)
+	if err != nil {
+		return wire.T005AutoFillResult{}, err
+	}
+	base, err := parseRev(w.BaseRevision)
+	if err != nil {
+		return wire.T005AutoFillResult{}, err
+	}
+	fields := make([]string, 0, len(values))
+	for f := range values {
+		fields = append(fields, f)
+	}
+	sort.Strings(fields)
+	var filled []string
+	fp := fingerprint(http.MethodPost, "/admin/editions/"+id.String()+"/metadata/auto-fill", w)
+	body, err := s.mutateEdition(ctx, a, id, op, base, fp, func(q *sqlcgen.Queries, ed sqlcgen.Edition) (*apperr.Error, error) {
+		filled = filled[:0]
+		have := map[string]bool{}
+		rows, err := q.ListEditionMetadataValues(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range rows {
+			if r.Source != metadata.SourceProvider {
+				have[r.Field] = true // any non-provider evidence, including a protected clear, is not a gap
+			}
+		}
+		for _, f := range fields {
+			if !validEditionField(f) || f == "title" || have[f] {
+				continue
+			}
+			raw, err := editionValue(f, wire.T005MetadataWrite{Value: wire.T005MetadataValue{Raw: values[f]}})
+			if err != nil {
+				continue // a value the edition would not accept is skipped, never stored
+			}
+			if err := q.UpsertEditionMetadataValue(ctx, sqlcgen.UpsertEditionMetadataValueParams{EditionID: id, Field: f, Source: metadata.SourceProvider, Value: raw}); err != nil {
+				return nil, err
+			}
+			filled = append(filled, f)
+		}
+		if len(filled) == 0 {
+			return nil, nil
+		}
+		return nil, s.propagate(ctx, q, ed)
+	}, func(q *sqlcgen.Queries) ([]byte, error) {
+		ed, err := q.LockEdition(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		outcome := "filled"
+		if len(filled) == 0 {
+			outcome = "nothing_to_fill"
+		}
+		return wire.Raw(wire.T005AutoFillResult{Outcome: outcome, Provider: provider, Filled: append([]string{}, filled...), Revision: strconv.FormatInt(ed.Revision, 10)}), nil
+	})
+	if err != nil {
+		return wire.T005AutoFillResult{}, err
+	}
+	var out wire.T005AutoFillResult
 	return out, json.Unmarshal(body, &out)
 }

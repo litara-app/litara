@@ -8,6 +8,7 @@ export function useShelfActions() {
   const shelves = useQuery({ queryKey: ["shelves", "mine"], queryFn: () => get<Paged<Shelf>>("/shelves?scope=mine&size=200") });
   const add = useMutation({
     mutationFn: ({ shelf, titleId }: { shelf: Shelf; titleId: string }) => api<Shelf>("PUT", `/shelves/${shelf.id}/titles/${titleId}`, op(shelf.revision)),
+    meta: { success: (_d: unknown, v: { shelf: Shelf }) => `Added to ${v.shelf.data?.name ?? "the shelf"}` },
     onSettled: () => qc.invalidateQueries({ queryKey: ["shelves"] }),
   });
   const manual = (shelves.data?.items ?? []).filter((s) => !s.deleted && s.canEdit && s.data?.kind === "manual");

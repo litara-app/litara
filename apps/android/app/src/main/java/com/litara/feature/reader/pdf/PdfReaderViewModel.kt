@@ -56,6 +56,8 @@ class PdfReaderViewModel @Inject constructor(
         val error: UiText? = null,
         val title: String? = null,
         val core: PdfRenderCore? = null,
+        /** The opened file, for the shared web engine (ADR-0093). */
+        val ref: com.litara.core.storage.LocalRef? = null,
         val pageCount: Int = 0,
         val initialPage: Int = 0,
         val currentPage: Int = 0, // 0-based
@@ -100,6 +102,7 @@ class PdfReaderViewModel @Inject constructor(
                     it.copy(
                         loading = false,
                         core = core,
+                        ref = resolved.ref,
                         pageCount = core.pageCount,
                         initialPage = page,
                         currentPage = page,

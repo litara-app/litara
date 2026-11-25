@@ -442,6 +442,7 @@ type LibraryConfig struct {
 	WritebackBackups   bool      `json:"writeback_backups"`
 	BackupRoot         *string   `json:"backup_root"`
 	ProviderOrder      []string  `json:"provider_order"`
+	AutofillTitleMatch bool      `json:"autofill_title_match"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
 
@@ -470,6 +471,17 @@ type MoveCandidate struct {
 	MatchKind   string        `json:"match_kind"`
 	ReviewItem  uuid.NullUUID `json:"review_item"`
 	CreatedAt   time.Time     `json:"created_at"`
+}
+
+type Notification struct {
+	ID        uuid.UUID  `json:"id"`
+	UserID    uuid.UUID  `json:"user_id"`
+	Tone      string     `json:"tone"`
+	Title     string     `json:"title"`
+	Detail    *string    `json:"detail"`
+	Source    string     `json:"source"`
+	ReadAt    *time.Time `json:"read_at"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 type OpdsPublicationRow struct {
@@ -543,6 +555,19 @@ type ProviderLookup struct {
 	Outcome     string    `json:"outcome"`
 	Detail      *string   `json:"detail"`
 	LookedUpAt  time.Time `json:"looked_up_at"`
+}
+
+type ReadingSession struct {
+	UserID        uuid.UUID `json:"user_id"`
+	ID            uuid.UUID `json:"id"`
+	EditionID     uuid.UUID `json:"edition_id"`
+	StartedAt     time.Time `json:"started_at"`
+	EndedAt       time.Time `json:"ended_at"`
+	ActiveSeconds int32     `json:"active_seconds"`
+	StartFraction *float32  `json:"start_fraction"`
+	EndFraction   *float32  `json:"end_fraction"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Recording struct {

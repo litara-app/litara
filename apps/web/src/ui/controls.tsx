@@ -43,6 +43,16 @@ export function CopyButton({ value }: { value: string }) {
   return <Button size="sm" onClick={() => void copy()}>{copied ? "Copied" : "Copy"}</Button>;
 }
 
+/** A value that is edited in place: it reads as text and turns into a field when activated. The caller supplies the visible content. */
+export function InlineValue({ label, onActivate, disabled, children }: { label: string; onActivate: () => void; disabled?: boolean; children: ReactNode }) {
+  return (
+    <button type="button" className="lt-mf-display" onClick={onActivate} disabled={disabled} aria-label={label}>
+      {children}
+      <span className="lt-mf-pencil" aria-hidden="true">{icons.pencil}</span>
+    </button>
+  );
+}
+
 /** A download link that looks like a button. */
 export function DownloadLink({ href, children, icon }: { href: string; children: ReactNode; icon?: ReactNode }) {
   return <a className="lt-btn" data-variant="default" data-size="md" href={href} download><span className="lt-btn-icon" aria-hidden="true">{icon ?? icons.download}</span>{children}</a>;
@@ -270,5 +280,30 @@ export function ImageDrop({ label, onFile, onReject, disabled }: { label: string
         </FileInputTrigger>
       </FileInputDropzone>
     </FileInput>
+  );
+}
+
+/** A pill that is on or off, for choosing among a few sources. Several can be on at once. */
+export function ToggleChip({ label, pressed, onChange, disabled }: { label: string; pressed: boolean; onChange: (on: boolean) => void; disabled?: boolean }) {
+  return (
+    <button type="button" className="lt-chip-toggle" aria-pressed={pressed} disabled={disabled} onClick={() => onChange(!pressed)}>
+      <span className="lt-chip-mark" aria-hidden="true">{pressed ? "✓" : ""}</span>{label}
+    </button>
+  );
+}
+
+/** A whole card that picks the thing it shows. The label names it for assistive technology. */
+export function PickCard({ label, selected, onPick, children }: { label: string; selected: boolean; onPick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" className="lt-cand lt-card-pick" aria-label={label} aria-pressed={selected} onClick={onPick}>{children}</button>
+  );
+}
+
+/** A bookmark ribbon that hangs from the top edge of the page. Filled when the place is bookmarked. */
+export function BookmarkRibbon({ on, label, disabled, onToggle }: { on: boolean; label: string; disabled?: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" className="lt-ribbon" aria-label={label} aria-pressed={on} title={label} disabled={disabled} onClick={onToggle}>
+      <span className="lt-ribbon-tail" aria-hidden="true">{on ? "\u2713" : ""}</span>
+    </button>
   );
 }

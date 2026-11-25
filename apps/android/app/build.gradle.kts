@@ -59,6 +59,10 @@ android {
         // Must match the server's whitelisted mobile redirect URI (litara://oauth2-callback,
         // OIDC_MOBILE_REDIRECT_URIS default) and the value used by OidcManager.
         manifestPlaceholders["appAuthRedirectScheme"] = "litara"
+
+        // ADR-0093: -Plitara.sharedReader=true makes ebook/PDF reading use the shared web engine in
+        // assets/reader-shared instead of the legacy modified reader in assets/reader. Off by default.
+        buildConfigField("boolean", "SHARED_READER", providers.gradleProperty("litara.sharedReader").orElse("false").get())
     }
 
     // "full" (default) links Google's proprietary Cast SDK for Chromecast support; "fdroid"
@@ -123,6 +127,13 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // Shared reader fixtures for the emulator test (ADR-0093): the same synthetic books as scripts/android/reader-locators, plus a
+    // reading font copied from the web app's dependencies when they are installed (not committed here).
+    sourceSets {
+        getByName("androidTest").assets.srcDir(rootProject.file("../../scripts/android/reader-locators/fixtures"))
+        getByName("androidTest").assets.srcDir(layout.buildDirectory.dir("generated/testFonts"))
     }
 
     packaging {
@@ -228,3 +239,12 @@ dependencies {
     androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.okhttp.tls)
 }
+
+apply(from = "../shared-reader.gradle.kts")
+tasks.named("preBuild") { dependsOn("checkSharedReader") }
+
+val prepareTestFonts = tasks.register<Copy>("prepareTestFonts") {
+    from(rootProject.file("../web/node_modules/@fontsource/literata/files")) { include("literata-latin-400-normal.woff2") }
+    into(layout.buildDirectory.dir("generated/testFonts"))
+}
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("AndroidTestAssets") }.configureEach { dependsOn(prepareTestFonts) }

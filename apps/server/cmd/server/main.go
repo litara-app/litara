@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -35,6 +36,7 @@ import (
 	"github.com/deranjer/ebooker/apps/server/internal/koreader"
 	"github.com/deranjer/ebooker/apps/server/internal/library"
 	"github.com/deranjer/ebooker/apps/server/internal/metadata"
+	"github.com/deranjer/ebooker/apps/server/internal/notices"
 	"github.com/deranjer/ebooker/apps/server/internal/progress"
 	"github.com/deranjer/ebooker/apps/server/internal/reading"
 	"github.com/deranjer/ebooker/apps/server/internal/webui"
@@ -51,6 +53,18 @@ func main() {
 }
 
 func run() error {
+	// Local settings and provider tokens may live in a Git-ignored .env file; the real environment always wins.
+	envFile := ".env"
+	if v := strings.TrimSpace(os.Getenv(config.EnvFileVariable)); v != "" {
+		envFile = v
+	}
+	loaded, err := config.LoadEnvFile(envFile)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", envFile, err)
+	}
+	if len(loaded) > 0 {
+		fmt.Fprintf(os.Stderr, "read %d setting(s) from %s: %s\n", len(loaded), envFile, strings.Join(loaded, ", "))
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("invalid configuration:\n%w", err)
@@ -117,7 +131,8 @@ func run() error {
 	running.Store(true)
 	log.Info("workers started", "inspect_workers", cfg.InspectWorkers)
 	meta := metadata.New(pool)
-	enricher := &metadata.Enricher{Service: meta, Providers: metadata.NewProviders(cfg.OpenLibraryContact, cfg.GoogleBooksAPIKey)}
+	enricher := &metadata.Enricher{Service: meta, Providers: metadata.NewProvidersWithHardcover(cfg.OpenLibraryContact, cfg.GoogleBooksAPIKey, cfg.HardcoverToken),
+		CacheTTL: time.Duration(cfg.ProviderSearchCacheMinutes) * time.Minute}
 	// Only writers with retained fidelity evidence are built in (ADR-0052). A writer stays disabled until an
 	// operator records its evidence with `ctl writers enable`.
 	wb := &writeback.Service{Pool: pool, Inspector: scanInsp, Scanner: scanner, Metadata: meta,
@@ -197,7 +212,7 @@ func run() error {
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
 		Handler: httpapi.New(httpapi.Deps{Web: appHandler(cfg), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
 			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Reading: rd, Library: library.New(pool), Config: apiCfg, Log: log,
-				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Covers: covers.New(pool, cfg.MediaRoot, covers.NewFetcher(false), covers.NewSearcher()), Integrations: integ, Delivery: deliverySvc, KOReader: koreader.New(pool, cat, nil)}}),
+				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Covers: covers.New(pool, cfg.MediaRoot, covers.NewFetcher(false), covers.NewSearcher()), Notices: notices.New(pool), Integrations: integ, Delivery: deliverySvc, KOReader: koreader.New(pool, cat, nil)}}),
 	}
 	errc := make(chan error, 2)
 	go func() {

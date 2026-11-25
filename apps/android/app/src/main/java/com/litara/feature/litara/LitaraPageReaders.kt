@@ -205,7 +205,7 @@ class LitaraPdfViewModel @Inject constructor(
                 // while the reader stays on that page). A device-only newer position wins when it has not been sent yet.
                 val saved = ((if (s.hasPending()) null else s.serverLocator(setOf("pdf-page"))) ?: s.local()?.anchor) as? LLocator.PdfPage
                 val page = (saved?.pageIndex ?: 0).coerceIn(0, (core.pageCount - 1).coerceAtLeast(0))
-                _ui.update { it.copy(loading = false, core = core, pageCount = core.pageCount, initialPage = page, currentPage = page) }
+                _ui.update { it.copy(loading = false, core = core, ref = LocalRef.PlainFile(file), pageCount = core.pageCount, initialPage = page, currentPage = page) }
                 s.flushPending()
             } catch (ex: Exception) {
                 _ui.update { it.copy(loading = false, error = UiText.raw(ex.message ?: "Could not open this PDF.")) }

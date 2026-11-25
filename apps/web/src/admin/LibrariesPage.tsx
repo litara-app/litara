@@ -5,6 +5,7 @@ import { api, get } from "../api/client";
 import type { Library, LibraryDetail, Page, Review, ScanRun } from "../api/types";
 import { icons, IconPicker, LIBRARY_ICONS, libraryIcon, Badge, Busy, Button, Card, CheckboxField, Code, CodeBlock, EmptyState, ErrorBox, Heading, NumberField, PageHeader, Row, SelectField, Stack, Table, TBody, TD, Text, TextField, TextLink, TH, THead, TR, type Tone } from "../ui";
 import { ImportSection, WritebackSection } from "./ImportSection";
+import { ProvidersCard } from "./ProvidersCard";
 
 export function LibrariesPage() {
   const nav = useNavigate();
@@ -145,6 +146,7 @@ export function LibraryAdminPage() {
       </Card>
 
       <IconCard libraryId={libraryId} icon={d.library.icon} />
+      <ProvidersCard libraryId={libraryId} config={d.config} />
 
       <Heading level={2}>Scans</Heading>
       <Row>
@@ -170,7 +172,6 @@ export function LibraryAdminPage() {
         reviews.data?.items.map((r) => <ReviewRow key={r.id} lib={libraryId} r={r} />)}
       <ImportSection libraryId={libraryId} />
       <WritebackSection backupsOn={d.config.writebackBackups} />
-      <Text size="xs" tone="dim">Provider lookups are not in the web app yet.</Text>
     </Stack>
   );
 }

@@ -12,7 +12,7 @@ import (
 )
 
 const getLibraryConfig = `-- name: GetLibraryConfig :one
-SELECT library_id, mode, root_path, follow_symlinks, sentinel_path, sentinel_sha256, scan_interval_secs, verify_interval_secs, stability_secs, import_template, writeback_backups, backup_root, provider_order, updated_at FROM library_config WHERE library_id = $1
+SELECT library_id, mode, root_path, follow_symlinks, sentinel_path, sentinel_sha256, scan_interval_secs, verify_interval_secs, stability_secs, import_template, writeback_backups, backup_root, provider_order, autofill_title_match, updated_at FROM library_config WHERE library_id = $1
 `
 
 func (q *Queries) GetLibraryConfig(ctx context.Context, libraryID uuid.UUID) (LibraryConfig, error) {
@@ -32,6 +32,7 @@ func (q *Queries) GetLibraryConfig(ctx context.Context, libraryID uuid.UUID) (Li
 		&i.WritebackBackups,
 		&i.BackupRoot,
 		&i.ProviderOrder,
+		&i.AutofillTitleMatch,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -77,16 +78,16 @@ func (q *Queries) InsertLibrary(ctx context.Context, arg InsertLibraryParams) (L
 const upsertLibraryConfig = `-- name: UpsertLibraryConfig :one
 INSERT INTO library_config (library_id, mode, root_path, follow_symlinks, sentinel_path, sentinel_sha256,
                             scan_interval_secs, verify_interval_secs, stability_secs, import_template,
-                            writeback_backups, backup_root, provider_order)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                            writeback_backups, backup_root, provider_order, autofill_title_match)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 ON CONFLICT (library_id) DO UPDATE SET
     mode = EXCLUDED.mode, root_path = EXCLUDED.root_path, follow_symlinks = EXCLUDED.follow_symlinks,
     sentinel_path = EXCLUDED.sentinel_path, sentinel_sha256 = EXCLUDED.sentinel_sha256,
     scan_interval_secs = EXCLUDED.scan_interval_secs, verify_interval_secs = EXCLUDED.verify_interval_secs,
     stability_secs = EXCLUDED.stability_secs, import_template = EXCLUDED.import_template,
     writeback_backups = EXCLUDED.writeback_backups, backup_root = EXCLUDED.backup_root,
-    provider_order = EXCLUDED.provider_order, updated_at = now()
-RETURNING library_id, mode, root_path, follow_symlinks, sentinel_path, sentinel_sha256, scan_interval_secs, verify_interval_secs, stability_secs, import_template, writeback_backups, backup_root, provider_order, updated_at
+    provider_order = EXCLUDED.provider_order, autofill_title_match = EXCLUDED.autofill_title_match, updated_at = now()
+RETURNING library_id, mode, root_path, follow_symlinks, sentinel_path, sentinel_sha256, scan_interval_secs, verify_interval_secs, stability_secs, import_template, writeback_backups, backup_root, provider_order, autofill_title_match, updated_at
 `
 
 type UpsertLibraryConfigParams struct {
@@ -103,6 +104,7 @@ type UpsertLibraryConfigParams struct {
 	WritebackBackups   bool      `json:"writeback_backups"`
 	BackupRoot         *string   `json:"backup_root"`
 	ProviderOrder      []string  `json:"provider_order"`
+	AutofillTitleMatch bool      `json:"autofill_title_match"`
 }
 
 func (q *Queries) UpsertLibraryConfig(ctx context.Context, arg UpsertLibraryConfigParams) (LibraryConfig, error) {
@@ -120,6 +122,7 @@ func (q *Queries) UpsertLibraryConfig(ctx context.Context, arg UpsertLibraryConf
 		arg.WritebackBackups,
 		arg.BackupRoot,
 		arg.ProviderOrder,
+		arg.AutofillTitleMatch,
 	)
 	var i LibraryConfig
 	err := row.Scan(
@@ -136,6 +139,7 @@ func (q *Queries) UpsertLibraryConfig(ctx context.Context, arg UpsertLibraryConf
 		&i.WritebackBackups,
 		&i.BackupRoot,
 		&i.ProviderOrder,
+		&i.AutofillTitleMatch,
 		&i.UpdatedAt,
 	)
 	return i, err

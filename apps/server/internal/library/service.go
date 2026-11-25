@@ -24,7 +24,7 @@ import (
 )
 
 // Known metadata provider identifiers (ADR-0049).
-var providers = map[string]bool{"open_library": true, "google_books": true, "audnexus": true}
+var providers = map[string]bool{"open_library": true, "google_books": true, "audnexus": true, "hardcover": true}
 
 type Service struct {
 	pool *pgxpool.Pool
@@ -143,7 +143,7 @@ func (s *Service) upsert(ctx context.Context, q *sqlcgen.Queries, id uuid.UUID, 
 		LibraryID: id, Mode: c.Mode, RootPath: c.RootPath, FollowSymlinks: c.FollowSymlinks,
 		SentinelPath: c.SentinelPath, SentinelSha256: c.SentinelSHA256,
 		ScanIntervalSecs: int32(c.ScanIntervalSecs), VerifyIntervalSecs: int32(c.VerifyIntervalSecs), StabilitySecs: int32(c.StabilitySecs),
-		ImportTemplate: c.ImportTemplate, WritebackBackups: c.WritebackBackups, BackupRoot: c.BackupRoot, ProviderOrder: c.ProviderOrder,
+		ImportTemplate: c.ImportTemplate, WritebackBackups: c.WritebackBackups, BackupRoot: c.BackupRoot, ProviderOrder: c.ProviderOrder, AutofillTitleMatch: c.AutoFillTitleMatch,
 	})
 	return err
 }
@@ -199,7 +199,7 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (wire.LibraryDetail, er
 			Mode: cfg.Mode, RootPath: cfg.RootPath, FollowSymlinks: cfg.FollowSymlinks,
 			SentinelPath: cfg.SentinelPath, SentinelSHA256: cfg.SentinelSha256,
 			ScanIntervalSecs: int(cfg.ScanIntervalSecs), VerifyIntervalSecs: int(cfg.VerifyIntervalSecs), StabilitySecs: int(cfg.StabilitySecs),
-			ImportTemplate: cfg.ImportTemplate, WritebackBackups: cfg.WritebackBackups, BackupRoot: cfg.BackupRoot, ProviderOrder: order,
+			ImportTemplate: cfg.ImportTemplate, WritebackBackups: cfg.WritebackBackups, BackupRoot: cfg.BackupRoot, ProviderOrder: order, AutoFillTitleMatch: cfg.AutofillTitleMatch,
 		},
 		Health: h,
 	}, nil

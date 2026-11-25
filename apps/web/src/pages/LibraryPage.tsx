@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { columnResizingFeature, columnSizingFeature, createColumnHelper, rowSortingFeature, tableFeatures, useTable, type SortingState } from "@tanstack/react-table";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { api, get, qs } from "../api/client";
+import { get } from "../api/client";
 import type { Edition, Library, Page as Paged, Shelf, Title as TitleT, TitleRow } from "../api/types";
 import {
   Badge, Busy, Button, Card, Cover, CoverTile, EmptyState, ErrorBox, formatLabel, Grow, Heading, icons, KeyValue, MenuButton, Page, PageHeader, Row,
@@ -12,10 +12,11 @@ import {
 import { useDebounced } from "../ui/useDebounced";
 import { useTitleActions } from "./useTitleActions";
 import { useShelfActions } from "./useShelves";
+import { fetchListPage, LIST_SIZE, listKey, rememberList, type ListContext } from "./titleList";
 import { FilterBuilder } from "./filter/FilterBuilder";
 import { countWireRules, parseParam, stringifyParam, type WireFilter } from "./filter/filterTree";
 
-const SIZE = 24;
+const SIZE = LIST_SIZE;
 type TitleList = { shelves: Shelf[]; add: (shelf: Shelf, title: string) => void };
 
 function counts(t: TitleT) {
@@ -170,12 +171,12 @@ export function LibraryPage() {
   useEffect(() => setText(q), [q]);
 
   const libs = useQuery({ queryKey: ["libraries"], queryFn: () => get<Paged<Library>>("/libraries?size=200") });
+  const listCtx: ListContext = { q, libraryId, mediaKind, sort, order, applied: applied ?? null };
+  useEffect(() => rememberList(listCtx)); // eslint-disable-line react-hooks/exhaustive-deps -- remembered so a title opened from here can step through this list
   const titles = useInfiniteQuery({
-    queryKey: ["titles", q, libraryId, mediaKind, sort, order, applied],
+    queryKey: listKey(listCtx),
     initialPageParam: 0,
-    queryFn: ({ pageParam }) => applied
-      ? api<Paged<TitleRow>>("POST", "/titles/search", { filter: applied, q: q || undefined, libraryId: libraryId || undefined, mediaKind: mediaKind || undefined, sort, order, page: pageParam, size: SIZE })
-      : get<Paged<TitleRow>>(`/titles${qs({ q, libraryId, mediaKind, sort, order, page: pageParam, size: SIZE })}`),
+    queryFn: ({ pageParam }) => fetchListPage(listCtx, pageParam),
     getNextPageParam: (last, all) => (all.length * SIZE < last.total ? all.length : undefined),
   });
   // Endless scroll: fetch the next page when the marker below the list comes into view.

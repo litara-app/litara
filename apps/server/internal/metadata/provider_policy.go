@@ -22,6 +22,11 @@ var errProviderBusy = errors.New("provider request budget is temporarily unavail
 
 // NewProviders creates one request budget per provider, shared by all library jobs.
 func NewProviders(openLibraryContact, googleBooksKey string) map[string]Provider {
+	return NewProvidersWithHardcover(openLibraryContact, googleBooksKey, "")
+}
+
+// NewProvidersWithHardcover also registers Hardcover when the operator supplied a token (ADR-0087).
+func NewProvidersWithHardcover(openLibraryContact, googleBooksKey, hardcoverToken string) map[string]Provider {
 	client := &http.Client{
 		Timeout: providerLookupTimeout,
 		// Keep the contact, credentials and quota accounting on the configured endpoint.
@@ -32,11 +37,15 @@ func NewProviders(openLibraryContact, googleBooksKey string) map[string]Provider
 		openLibrary.userAgent = "Litara (" + openLibraryContact + ")"
 		openLibrary.policy.interval = (time.Second + 2) / 3
 	}
-	return map[string]Provider{
+	out := map[string]Provider{
 		ProviderOpenLibrary: OpenLibrary{HTTP: openLibrary},
 		ProviderGoogleBooks: GoogleBooks{HTTP: newProviderHTTP(client, "https://www.googleapis.com", 1, false), APIKey: googleBooksKey},
 		ProviderAudnexus:    Audnexus{HTTP: newProviderHTTP(client, "https://api.audnex.us", 1, false)},
 	}
+	if strings.TrimSpace(hardcoverToken) != "" {
+		out[ProviderHardcover] = Hardcover{HTTP: newProviderHTTP(client, "https://api.hardcover.app", 1, false), Token: hardcoverToken}
+	}
+	return out
 }
 
 type cachedResponse struct {

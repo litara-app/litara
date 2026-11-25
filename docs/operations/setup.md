@@ -21,9 +21,15 @@ Exercised with `bash scripts/t007/package_check.sh` and `bash scripts/backend/sm
 
 In KOReader, set **Progress sync → Custom sync server** to your Litara app origin followed by `/1`, for example `https://books.example.com/1`. Use **Login** with the KOReader device credential generated in Litara. Set up the OPDS catalog separately under `/opds/v1`.
 
+## Settings file (.env)
+
+The server reads `KEY=value` lines from a `.env` file in the folder it starts in, or from the file named by `LITARA_ENV_FILE`. Copy [.env.example](../../.env.example) to `.env` and fill in provider tokens there. `.env` is ignored by Git. Anything already set in the real environment wins over the file, so a deployment's own settings are never overridden. The server logs the names it read, never the values. Restart the server after editing. Compose deployments should keep using the environment.
+
 ## Metadata providers
 
 Enable providers in each library that should use external metadata. Set `LITARA_OPEN_LIBRARY_CONTACT` to a monitored operator email address if you want Open Library to identify this instance. Litara sends the contact in its Open Library User-Agent. Leave the setting unset for anonymous access. Open Library requests are paced at up to 1 per second anonymously or 3 per second with a contact. [Open Library API guidelines](https://openlibrary.org/developers/api)
+
+Hardcover ([ADR-0087](../../ADR/0087-hardcover-provider-search-cache-and-reviewed-autofill.md)) is also available once the operator sets `LITARA_HARDCOVER_TOKEN` (a Hardcover API token, kept in server configuration only) and a library lists it; without a token it shows as not set up and is never contacted. Provider searches from the Edit metadata tab are cached in memory for `LITARA_PROVIDER_SEARCH_CACHE_MINUTES` minutes (default 10; 0 turns the cache off). Google Books without `LITARA_GOOGLE_BOOKS_API_KEY` is often rate limited by Google's shared anonymous quota.
 
 Google Books and Audnexus each start at one request per second. These budgets are shared by library jobs in one server process. Litara can retry a throttled request once within its 15-second lookup budget and honors longer Retry-After cooldowns across jobs. Open Library responses can be cached in memory for up to 15 minutes when response headers permit it. Audnexus remains an opt-in ASIN lookup.
 

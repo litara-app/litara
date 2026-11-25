@@ -1,0 +1,123 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /PageLabels << /Nums [0 << /S /r >> 2 << /S /D /St 1 >>] >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 7 >>
+endobj
+3 0 obj
+<< /Type /Pages /Parent 2 0 R /Kids [10 0 R 11 0 R 12 0 R] /Count 3 /MediaBox [0 0 612 792] >>
+endobj
+4 0 obj
+<< /Type /Pages /Parent 2 0 R /Kids [13 0 R 14 0 R 15 0 R 16 0 R] /Count 4 /MediaBox [0 0 612 792] >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+10 0 obj
+<< /Type /Page /Parent 3 0 R /Resources << /Font << /F1 5 0 R >> >> /Contents 30 0 R >>
+endobj
+11 0 obj
+<< /Type /Page /Parent 3 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 31 0 R >>
+endobj
+12 0 obj
+<< /Type /Page /Parent 3 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 5 0 R >> >> /Contents 32 0 R >>
+endobj
+13 0 obj
+<< /Type /Page /Parent 4 0 R /Rotate 90 /Resources << /Font << /F1 5 0 R >> >> /Contents 33 0 R >>
+endobj
+14 0 obj
+<< /Type /Page /Parent 4 0 R /CropBox [50 50 562 742] /Resources << /Font << /F1 5 0 R >> >> /Contents 34 0 R >>
+endobj
+15 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 612 792] /Rotate 270 /CropBox [0 0 400 600] /Resources << /Font << /F1 5 0 R >> >> /Contents 35 0 R >>
+endobj
+16 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 300 900] /Resources << /Font << /F1 5 0 R >> >> /Contents 36 0 R >>
+endobj
+30 0 obj
+<< /Length 37 >>
+stream
+BT /F1 72 Tf 60 400 Td (PAGE 1) Tj ET
+endstream
+endobj
+31 0 obj
+<< /Length 37 >>
+stream
+BT /F1 72 Tf 60 400 Td (PAGE 2) Tj ET
+endstream
+endobj
+32 0 obj
+<< /Length 37 >>
+stream
+BT /F1 72 Tf 60 400 Td (PAGE 3) Tj ET
+endstream
+endobj
+33 0 obj
+<< /Length 37 >>
+stream
+BT /F1 72 Tf 60 400 Td (PAGE 4) Tj ET
+endstream
+endobj
+34 0 obj
+<< /Length 37 >>
+stream
+BT /F1 72 Tf 60 400 Td (PAGE 5) Tj ET
+endstream
+endobj
+35 0 obj
+<< /Length 37 >>
+stream
+BT /F1 72 Tf 60 400 Td (PAGE 6) Tj ET
+endstream
+endobj
+36 0 obj
+<< /Length 37 >>
+stream
+BT /F1 72 Tf 60 300 Td (PAGE 7) Tj ET
+endstream
+endobj
+xref
+0 37
+0000000000 65535 f 
+0000000009 00000 n 
+0000000118 00000 n 
+0000000181 00000 n 
+0000000291 00000 n 
+0000000408 00000 n 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000478 00000 n 
+0000000582 00000 n 
+0000000710 00000 n 
+0000000838 00000 n 
+0000000953 00000 n 
+0000001082 00000 n 
+0000001245 00000 n 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000000000 65535 f 
+0000001373 00000 n 
+0000001461 00000 n 
+0000001549 00000 n 
+0000001637 00000 n 
+0000001725 00000 n 
+0000001813 00000 n 
+0000001901 00000 n 
+trailer
+<< /Size 37 /Root 1 0 R >>
+startxref
+1989
+%%EOF

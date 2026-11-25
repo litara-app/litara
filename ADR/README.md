@@ -130,6 +130,14 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0084](0084-tanstack-virtual-for-long-lists.md) | Use TanStack Virtual to window long lists and grids | Accepted |
 | [0085](0085-stackable-filter-groups.md) | Let library filters stack into AND/OR groups | Accepted |
 | [0086](0086-cover-replacement.md) | Let administrators replace a title's cover | Accepted |
+| [0087](0087-hardcover-provider-search-cache-and-reviewed-autofill.md) | Add Hardcover, cache provider searches and offer reviewed auto-fill | Accepted |
+| [0088](0088-goodreads-amazon-and-audible-metadata.md) | Decide whether to use Goodreads, Amazon and Audible metadata | Proposed |
+| [0089](0089-notification-system.md) | Route responses to actions through a notification system | Accepted |
+| [0090](0090-auto-fill-from-a-single-title-and-author-match.md) | Let auto-fill use one clear title-and-author match when a book has no identifier | Accepted |
+| [0091](0091-bundle-open-licensed-reading-fonts.md) | Bundle open-licensed reading fonts with the app | Accepted |
+| [0092](0092-record-reading-sessions.md) | Record every reading session | Accepted |
+| [0093](0093-android-reader-parity-with-the-web-reader.md) | Bring the web reader's features to the Android reader | Accepted |
+| [0094](0094-highlight-colour-and-style-in-annotations.md) | Store a highlight's colour and style in the annotation | Proposed |
 
 ## Workflow
 
