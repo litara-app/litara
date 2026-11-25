@@ -11,10 +11,12 @@ const SESSION_GAP_MS = 30 * 60_000; // a longer pause ends the session (ADR-0092
  * has done something in the last two minutes; a pause of thirty minutes starts a new session. The session is sent under
  * its own id about every thirty seconds and when the page is hidden, and the server keeps the longest one it has seen.
  * Call `touch` for anything that shows the person is reading (turning a page, a key press). `fraction` is where they are
- * in the book from 0 to 1, when known. A failed send is retried with the next one; nothing is queued offline.
+ * in the book from 0 to 1, when known. A failed send is retried with the next one; nothing is queued offline. A session
+ * belongs to one edition: moving to another edition without leaving the reader starts a new session, since the server
+ * refuses an id already used for another edition (409).
  */
 export function useReadingSession(editionId: string, fraction: number | null, enabled: boolean) {
-  const s = useRef({ id: "", startedAt: 0, lastTouch: 0, lastTick: 0, active: 0, startFraction: null as number | null, endFraction: null as number | null, dirty: false, sent: 0 });
+  const s = useRef({ id: "", edition: "", startedAt: 0, lastTouch: 0, lastTick: 0, active: 0, startFraction: null as number | null, endFraction: null as number | null, dirty: false, sent: 0 });
   const fractionRef = useRef(fraction);
   fractionRef.current = fraction;
 
@@ -27,16 +29,22 @@ export function useReadingSession(editionId: string, fraction: number | null, en
       activeSeconds: Math.min(86400, Math.round(x.active)),
       ...(x.startFraction !== null ? { startFraction: x.startFraction } : {}), ...(x.endFraction !== null ? { endFraction: x.endFraction } : {}),
     };
-    api("PUT", `/editions/${editionId}/reading-sessions/${x.id}`, body).catch(() => { x.dirty = true; }); // retried with the next send
-  }, [editionId]);
+    // Retried with the next send. A conflict (an id the server already holds for another edition) no retry can fix,
+    // so that id is dropped and further reading starts a new session.
+    const id = x.id;
+    api("PUT", `/editions/${x.edition}/reading-sessions/${id}`, body).catch((err: unknown) => {
+      if ((err as { status?: number })?.status !== 409) x.dirty = true;
+      else if (x.id === id) x.id = "";
+    });
+  }, []);
 
   const touch = useCallback(() => {
     const x = s.current;
     const now = Date.now();
-    if (x.id && now - x.lastTouch > SESSION_GAP_MS) { flush(); x.id = ""; }
-    if (!x.id) Object.assign(x, { id: crypto.randomUUID(), startedAt: now, lastTick: now, active: 0, startFraction: fractionRef.current, endFraction: fractionRef.current, dirty: false });
+    if (x.id && (now - x.lastTouch > SESSION_GAP_MS || x.edition !== editionId)) { flush(); x.id = ""; }
+    if (!x.id) Object.assign(x, { id: crypto.randomUUID(), edition: editionId, startedAt: now, lastTick: now, active: 0, startFraction: fractionRef.current, endFraction: fractionRef.current, dirty: false });
     x.lastTouch = now;
-  }, [flush]);
+  }, [flush, editionId]);
 
   // Where the person is changes the end of the session, and turning a page is activity.
   useEffect(() => {

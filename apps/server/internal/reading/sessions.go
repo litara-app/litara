@@ -2,6 +2,7 @@ package reading
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,7 +31,8 @@ func f64(v *float32) *float64 {
 }
 
 // PutSession stores or extends one reading session of the caller's (ADR-0092). The edition must be one the caller can
-// still read. The same id may be sent any number of times; the stored session never gets shorter.
+// still read. The same id may be sent any number of times; the stored session never gets shorter. An id the caller
+// already used for another edition is refused with 409 session_edition_mismatch.
 func (s *Service) PutSession(ctx context.Context, userID, editionID, sessionID uuid.UUID, w wire.T005ReadingSessionWrite) error {
 	if sessionID == uuid.Nil {
 		return apperr.Validation("sessionId must be a UUID.")
@@ -57,11 +59,15 @@ func (s *Service) PutSession(ctx context.Context, userID, editionID, sessionID u
 	if _, err := s.cat.Edition(ctx, userID, editionID); err != nil {
 		return err
 	}
-	if err := s.q.UpsertReadingSession(ctx, sqlcgen.UpsertReadingSessionParams{
+	n, err := s.q.UpsertReadingSession(ctx, sqlcgen.UpsertReadingSessionParams{
 		UserID: userID, ID: sessionID, EditionID: editionID, StartedAt: start.UTC(), EndedAt: end.UTC(),
 		ActiveSeconds: int32(w.ActiveSeconds), StartFraction: f32(w.StartFraction), EndFraction: f32(w.EndFraction),
-	}); err != nil {
+	})
+	if err != nil {
 		return dbErr(err)
+	}
+	if n == 0 { // the caller already used this id for another edition, which is left alone
+		return apperr.New(http.StatusConflict, "session_edition_mismatch", "This session id is already used for another edition; send a new id.")
 	}
 	return nil
 }

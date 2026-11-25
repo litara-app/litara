@@ -1,6 +1,7 @@
 -- A session is sent many times under one id: keep the longest active time and the latest end, so a retry or an
--- out-of-order send never shrinks it. An id already used for another edition is left alone.
--- name: UpsertReadingSession :exec
+-- out-of-order send never shrinks it. An id already used for another edition is left alone and affects no row,
+-- which the caller reports as a conflict.
+-- name: UpsertReadingSession :execrows
 INSERT INTO reading_sessions (user_id, id, edition_id, started_at, ended_at, active_seconds, start_fraction, end_fraction)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (user_id, id) DO UPDATE SET

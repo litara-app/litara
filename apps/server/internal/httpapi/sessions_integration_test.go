@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -67,5 +68,38 @@ func TestReadingSessionsAreExtendedNotShrunkAndPrivateToTheirAccount(t *testing.
 	// A bad edition is not found.
 	if x := e.Do("PUT", "/editions/"+uuid.NewString()+"/reading-sessions/"+uuid.NewString(), r.userA, body(now, 10, 0.5)); x.StatusCode != http.StatusNotFound {
 		t.Fatalf("unknown edition: %d", x.StatusCode)
+	}
+}
+
+// A session id already used for another edition is refused with 409, not acknowledged while nothing is stored.
+func TestReadingSessionIDReusedForAnotherEditionConflicts(t *testing.T) {
+	r := newReadingEnv(t)
+	e := r.e
+	epub(t, filepath.Join(r.root, "Other", "book.epub"), "Another Book", "Bea Writer", "978-0-306-40615-7")
+	scanTwice(t, e, r.admin, r.lib)
+	var eds wire.T005Editions
+	e.Do("GET", "/editions?libraryId="+r.lib, r.userA, nil).JSON(t, &eds)
+	var other string
+	for _, ed := range eds.Items {
+		if ed.ID != r.ed.ID {
+			other = ed.ID
+		}
+	}
+	if other == "" {
+		t.Fatalf("second edition missing: %+v", eds)
+	}
+	now := e.Clock.Now().UTC().Truncate(time.Second)
+	body := map[string]any{"startedAt": now.Add(-10 * time.Minute).Format(time.RFC3339), "endedAt": now.Format(time.RFC3339), "activeSeconds": 300}
+	id := uuid.NewString()
+	if x := e.Do("PUT", "/editions/"+r.ed.ID+"/reading-sessions/"+id, r.userA, body); x.StatusCode != http.StatusNoContent {
+		t.Fatalf("first: %d %s", x.StatusCode, x.Body)
+	}
+	// An identical retry is still accepted.
+	if x := e.Do("PUT", "/editions/"+r.ed.ID+"/reading-sessions/"+id, r.userA, body); x.StatusCode != http.StatusNoContent {
+		t.Fatalf("retry: %d %s", x.StatusCode, x.Body)
+	}
+	x := e.Do("PUT", "/editions/"+other+"/reading-sessions/"+id, r.userA, body)
+	if x.StatusCode != http.StatusConflict || x.Code() != "session_edition_mismatch" {
+		t.Fatalf("reused id: %d %s", x.StatusCode, x.Body)
 	}
 }
