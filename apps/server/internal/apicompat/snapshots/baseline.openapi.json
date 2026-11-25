@@ -1585,6 +1585,111 @@
         ],
         "type": "object"
       },
+      "ReadingStats": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSeconds": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "books": {
+            "description": "Distinct titles read in the range.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "currentStreak": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/ReadingStatsDay"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "from": {
+            "format": "date",
+            "type": "string"
+          },
+          "longestStreak": {
+            "description": "Within the range.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "readingDaySeconds": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "readingDays": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sessions": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "to": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "timeZone",
+          "readingDaySeconds",
+          "days",
+          "activeSeconds",
+          "readingDays",
+          "sessions",
+          "books",
+          "currentStreak",
+          "longestStreak"
+        ],
+        "type": "object"
+      },
+      "ReadingStatsDay": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSeconds": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "readingDay": {
+            "type": "boolean"
+          },
+          "sessions": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "activeSeconds",
+          "sessions",
+          "readingDay"
+        ],
+        "type": "object"
+      },
       "Recording": {
         "additionalProperties": false,
         "properties": {
@@ -25645,6 +25750,164 @@
         "summary": "Append a title to a manual shelf",
         "tags": [
           "shelves"
+        ]
+      }
+    },
+    "/stats/reading": {
+      "get": {
+        "operationId": "getReadingStats",
+        "parameters": [
+          {
+            "description": "First local date, inclusive.",
+            "explode": false,
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "description": "First local date, inclusive.",
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Last local date, inclusive; at most 366 days after from.",
+            "explode": false,
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "description": "Last local date, inclusive; at most 366 days after from.",
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "IANA time zone that defines the days, such as Europe/Berlin.",
+            "explode": false,
+            "in": "query",
+            "name": "timeZone",
+            "required": true,
+            "schema": {
+              "description": "IANA time zone that defines the days, such as Europe/Berlin.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The caller's own reading stats: active time per local day, totals and streaks (ADR-0098)",
+        "tags": [
+          "reading"
         ]
       }
     },

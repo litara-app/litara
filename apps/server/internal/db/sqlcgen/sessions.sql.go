@@ -29,6 +29,48 @@ func (q *Queries) CountReadingSessionsForTitle(ctx context.Context, arg CountRea
 	return count, err
 }
 
+const listReadingSessionsForStats = `-- name: ListReadingSessionsForStats :many
+SELECT s.started_at, s.active_seconds, e.title_id
+FROM reading_sessions s
+JOIN editions e ON e.id = s.edition_id
+JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = s.user_id
+WHERE s.user_id = $1 AND s.started_at >= $2 AND s.started_at < $3
+ORDER BY s.started_at
+`
+
+type ListReadingSessionsForStatsParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	FromTime time.Time `json:"from_time"`
+	ToTime   time.Time `json:"to_time"`
+}
+
+type ListReadingSessionsForStatsRow struct {
+	StartedAt     time.Time `json:"started_at"`
+	ActiveSeconds int32     `json:"active_seconds"`
+	TitleID       uuid.UUID `json:"title_id"`
+}
+
+// The caller's sessions that started in [from, to), on editions in libraries the caller is still granted (ADR-0098).
+func (q *Queries) ListReadingSessionsForStats(ctx context.Context, arg ListReadingSessionsForStatsParams) ([]ListReadingSessionsForStatsRow, error) {
+	rows, err := q.db.Query(ctx, listReadingSessionsForStats, arg.UserID, arg.FromTime, arg.ToTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReadingSessionsForStatsRow
+	for rows.Next() {
+		var i ListReadingSessionsForStatsRow
+		if err := rows.Scan(&i.StartedAt, &i.ActiveSeconds, &i.TitleID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReadingSessionsForTitle = `-- name: ListReadingSessionsForTitle :many
 SELECT s.id, s.edition_id, e.title_id, s.started_at, s.ended_at, s.active_seconds, s.start_fraction, s.end_fraction
 FROM reading_sessions s JOIN editions e ON e.id = s.edition_id

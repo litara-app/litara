@@ -16,3 +16,4 @@ export * from "./datefield";
 export { bumpCovers } from "./coverRev";
 export * from "./virtual";
 export * from "./notify";
+export * from "./heatmap";

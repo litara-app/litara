@@ -91,6 +91,19 @@ func (a *API) registerReading(api huma.API) {
 			return &struct{}{}, nil
 		})
 
+	huma.Register(api, readOp(op("getReadingStats", http.MethodGet, "/stats/reading", "The caller's own reading stats: active time per local day, totals and streaks (ADR-0098)", "reading")),
+		func(ctx context.Context, in *struct {
+			From     string `query:"from" required:"true" format:"date" doc:"First local date, inclusive."`
+			To       string `query:"to" required:"true" format:"date" doc:"Last local date, inclusive; at most 366 days after from."`
+			TimeZone string `query:"timeZone" required:"true" minLength:"1" maxLength:"64" doc:"IANA time zone that defines the days, such as Europe/Berlin."`
+		}) (*bodyOut[wire.ReadingStats], error) {
+			st, err := a.Reading.Stats(ctx, principal(ctx).UserID, in.From, in.To, in.TimeZone)
+			if err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			return &bodyOut[wire.ReadingStats]{Body: st}, nil
+		})
+
 	huma.Register(api, readOp(op("listReadingSessions", http.MethodGet, "/titles/{titleId}/reading-sessions", "The caller's own reading sessions for a title", "reading")),
 		func(ctx context.Context, in *struct {
 			TitleIn

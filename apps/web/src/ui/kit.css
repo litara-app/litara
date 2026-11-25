@@ -738,3 +738,28 @@ th[aria-sort] .lt-sort-icon { opacity: 1; color: var(--lt-pri); }
 .lt-mf-row .lt-mf-tools .lt-icon-btn { color: var(--lt-warn); background: var(--lt-warn-soft); border-color: var(--lt-warn); }
 .lt-mf-row[data-locked="true"] .lt-mf-tools .lt-icon-btn { color: var(--lt-ok-text); background: var(--lt-ok-soft); border-color: var(--lt-ok); }
 .lt-reader[data-toolbar="auto"][data-bar="on"] .lt-ribbon { top: 42px; }
+
+/* Reading heatmap (ADR-0098): one sequential hue, the primary colour mixed into the panel surface. Each theme's own
+   tokens give its own steps; the empty step is the raised surface with a hairline so it reads in every theme. */
+.lt-heat { margin: 0; display: flex; flex-direction: column; gap: var(--lt-s2); }
+.lt-heat-scroll { overflow-x: auto; padding-bottom: var(--lt-s1); }
+.lt-heat-months, .lt-heat-grid { display: grid; grid-auto-columns: 12px; gap: 2px; width: max-content; }
+.lt-heat-months { grid-auto-flow: column; height: 16px; font-size: var(--lt-text-xs); color: var(--lt-dim); }
+.lt-heat-months span { grid-column: var(--col); grid-row: 1; white-space: nowrap; }
+.lt-heat-grid { grid-template-rows: repeat(7, 12px); grid-auto-flow: column; }
+.lt-heat-cell { display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: color-mix(in oklab, var(--lt-pri) 28%, var(--lt-surface)); }
+.lt-heat-cell[data-level="0"] { background: var(--lt-surface-2); box-shadow: inset 0 0 0 1px var(--lt-line); }
+.lt-heat-cell[data-level="2"] { background: color-mix(in oklab, var(--lt-pri) 50%, var(--lt-surface)); }
+.lt-heat-cell[data-level="3"] { background: color-mix(in oklab, var(--lt-pri) 74%, var(--lt-surface)); }
+.lt-heat-cell[data-level="4"] { background: var(--lt-pri); }
+.lt-heat-cell[data-hover] { outline: 2px solid var(--lt-ink); outline-offset: 1px; }
+.lt-heat-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--lt-s2); font-size: var(--lt-text-sm); color: var(--lt-dim); }
+.lt-heat-readout { color: var(--lt-ink); min-height: 1.4em; }
+.lt-heat-legend { display: inline-flex; align-items: center; gap: 3px; }
+.lt-heat-legend > span:first-child { margin-right: var(--lt-s1); }
+.lt-heat-legend > span:last-child { margin-left: var(--lt-s1); }
+@media (forced-colors: active) { .lt-heat-cell { forced-color-adjust: none; border: 1px solid CanvasText; } }
+.lt-stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--lt-s3); }
+.lt-stat-tile { border: 1px solid var(--lt-line); border-radius: var(--lt-r-lg); background: var(--lt-surface); padding: var(--lt-s3) var(--lt-s4); display: flex; flex-direction: column; gap: 2px; }
+.lt-stat-value { font-family: var(--lt-font-display); font-size: var(--lt-text-2xl); line-height: 1.1; color: var(--lt-ink); font-variant-numeric: tabular-nums; }
+.lt-stat-label { font-family: var(--lt-font-accent); font-size: var(--lt-text-sm); color: var(--lt-dim); }
