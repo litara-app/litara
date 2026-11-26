@@ -31,7 +31,7 @@ func TestDamagedEditionKeepsIdentityAndClearsOnReplacement(t *testing.T) {
 	}
 	scanTwice(t, e, admin, lib)
 
-	assertDamaged := func(ed wire.T005Edition) {
+	assertDamaged := func(ed wire.Edition) {
 		t.Helper()
 		if ed.Readiness != "incomplete" || ed.Capabilities.Read.State != "incomplete" ||
 			len(ed.Issues) != 1 || ed.Issues[0].Code != "file_damaged" || ed.File.ContentPath == nil ||
@@ -39,7 +39,7 @@ func TestDamagedEditionKeepsIdentityAndClearsOnReplacement(t *testing.T) {
 			t.Fatalf("unexpected damaged edition: %+v", ed)
 		}
 	}
-	var list wire.T005Editions
+	var list wire.Editions
 	e.Do("GET", "/editions?libraryId="+lib, admin, nil).JSON(t, &list)
 	if len(list.Items) != 1 {
 		t.Fatalf("expected one edition: %+v", list)
@@ -51,7 +51,7 @@ func TestDamagedEditionKeepsIdentityAndClearsOnReplacement(t *testing.T) {
 	if response := e.Do("GET", endpoint+"/reader", ungranted, nil); response.StatusCode != http.StatusForbidden {
 		t.Fatalf("ungranted reader status: %d", response.StatusCode)
 	}
-	var snapshot wire.T005Reader
+	var snapshot wire.ReaderSnapshot
 	e.Do("GET", endpoint+"/reader", admin, nil).JSON(t, &snapshot)
 	assertDamaged(snapshot.Edition)
 	if response := e.Do("GET", api(*before.File.ContentPath), admin, nil); response.StatusCode != http.StatusOK || !bytes.Equal(response.Body, bad) {
@@ -63,7 +63,7 @@ func TestDamagedEditionKeepsIdentityAndClearsOnReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	scanTwice(t, e, admin, lib)
-	var backfilled wire.T005Edition
+	var backfilled wire.Edition
 	e.Do("GET", endpoint, admin, nil).JSON(t, &backfilled)
 	assertDamaged(backfilled)
 	if backfilled.File.ContentVersion != before.File.ContentVersion {
@@ -81,7 +81,7 @@ func TestDamagedEditionKeepsIdentityAndClearsOnReplacement(t *testing.T) {
 	}
 	scanTwice(t, e, admin, lib)
 	scanTwice(t, e, admin, lib)
-	var repaired wire.T005Edition
+	var repaired wire.Edition
 	e.Do("GET", endpoint, admin, nil).JSON(t, &repaired)
 	if repaired.ID != before.ID || repaired.File.ID != before.File.ID || repaired.TitleID != before.TitleID ||
 		repaired.File.ContentVersion == before.File.ContentVersion || repaired.Readiness != "ready" ||

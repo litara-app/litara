@@ -153,8 +153,8 @@ func (s *Service) Enabled(ctx context.Context, service string) error {
 	return nil
 }
 
-func view(st Settings, serverSmtp bool) wire.T006IntegrationSettings {
-	return wire.T006IntegrationSettings{Revision: strconv.FormatInt(st.Revision, 10), OpdsEnabled: st.OPDS, EmailEnabled: st.Email,
+func view(st Settings, serverSmtp bool) wire.IntegrationSettings {
+	return wire.IntegrationSettings{Revision: strconv.FormatInt(st.Revision, 10), OpdsEnabled: st.OPDS, EmailEnabled: st.Email,
 		KoreaderEnabled: st.KO, MaxAttachmentBytes: st.MaxAttachmentBytes, MaxDeliveriesPerUserPerHour: st.MaxPerHour,
 		ServerSmtpAvailable: serverSmtp}
 }
@@ -164,10 +164,10 @@ func view(st Settings, serverSmtp bool) wire.T006IntegrationSettings {
 type ServerSMTPAvailable func(ctx context.Context) bool
 
 // View returns the settings wire body.
-func (s *Service) View(ctx context.Context, serverSmtp bool) (wire.T006IntegrationSettings, error) {
+func (s *Service) View(ctx context.Context, serverSmtp bool) (wire.IntegrationSettings, error) {
 	st, err := s.Current(ctx)
 	if err != nil {
-		return wire.T006IntegrationSettings{}, err
+		return wire.IntegrationSettings{}, err
 	}
 	return view(st, serverSmtp), nil
 }
@@ -193,17 +193,17 @@ func stale(cur int64) *apperr.Error {
 }
 
 // Put changes the administrator settings under revision control.
-func (s *Service) Put(ctx context.Context, admin uuid.UUID, in wire.T006IntegrationSettingsWrite, serverSmtp bool) (wire.T006IntegrationSettings, error) {
+func (s *Service) Put(ctx context.Context, admin uuid.UUID, in wire.IntegrationSettingsWrite, serverSmtp bool) (wire.IntegrationSettings, error) {
 	op, err := parseOp(in.OperationID)
 	if err != nil {
-		return wire.T006IntegrationSettings{}, err
+		return wire.IntegrationSettings{}, err
 	}
 	base, err := parseRev("baseRevision", in.BaseRevision)
 	if err != nil {
-		return wire.T006IntegrationSettings{}, err
+		return wire.IntegrationSettings{}, err
 	}
 	if in.MaxAttachmentBytes < 1 || in.MaxAttachmentBytes > 104857600 || in.MaxDeliveriesPerUserPerHour < 1 || in.MaxDeliveriesPerUserPerHour > 100 {
-		return wire.T006IntegrationSettings{}, apperr.Validation("limits are outside the supported range")
+		return wire.IntegrationSettings{}, apperr.Validation("limits are outside the supported range")
 	}
 	fp := receipts.Fingerprint("PUT", "integration-settings", map[string]any{"base": base, "o": in.OpdsEnabled, "e": in.EmailEnabled,
 		"k": in.KoreaderEnabled, "a": in.MaxAttachmentBytes, "h": in.MaxDeliveriesPerUserPerHour})
@@ -226,9 +226,9 @@ func (s *Service) Put(ctx context.Context, admin uuid.UUID, in wire.T006Integrat
 			return http.StatusOK, wire.Raw(view(settingsOf(n), false)), nil, nil
 		})
 	if err != nil {
-		return wire.T006IntegrationSettings{}, dbErr(err)
+		return wire.IntegrationSettings{}, dbErr(err)
 	}
-	var out wire.T006IntegrationSettings
+	var out wire.IntegrationSettings
 	if err := json.Unmarshal(body, &out); err != nil {
 		return out, err
 	}
@@ -239,8 +239,8 @@ func (s *Service) Put(ctx context.Context, admin uuid.UUID, in wire.T006Integrat
 
 // ---- credentials ----------------------------------------------------------
 
-func credView(c sqlcgen.IntegrationCredential) wire.T006Credential {
-	out := wire.T006Credential{ID: c.ID.String(), Kind: c.Kind, Username: c.Username, Label: c.Label,
+func credView(c sqlcgen.IntegrationCredential) wire.Credential {
+	out := wire.Credential{ID: c.ID.String(), Kind: c.Kind, Username: c.Username, Label: c.Label,
 		CreatedAt: rfc(c.CreatedAt), Revoked: c.RevokedAt != nil}
 	if c.LastUsedAt != nil {
 		s := rfc(*c.LastUsedAt)
@@ -250,12 +250,12 @@ func credView(c sqlcgen.IntegrationCredential) wire.T006Credential {
 }
 
 // ListCredentials returns the caller's active credentials only.
-func (s *Service) ListCredentials(ctx context.Context, userID uuid.UUID) (wire.T006CredentialList, error) {
+func (s *Service) ListCredentials(ctx context.Context, userID uuid.UUID) (wire.CredentialList, error) {
 	rows, err := s.q.ListActiveCredentials(ctx, userID)
 	if err != nil {
-		return wire.T006CredentialList{}, dbErr(err)
+		return wire.CredentialList{}, dbErr(err)
 	}
-	out := wire.T006CredentialList{Items: []wire.T006Credential{}}
+	out := wire.CredentialList{Items: []wire.Credential{}}
 	for _, r := range rows {
 		out.Items = append(out.Items, credView(r))
 	}
@@ -296,20 +296,20 @@ func KOKey(password string) string {
 
 // CreateCredential registers a credential. The password is hashed and never
 // stored or returned; the receipt carries a keyed digest, not the secret.
-func (s *Service) CreateCredential(ctx context.Context, userID uuid.UUID, in wire.T006CredentialCreate) (wire.T006Credential, error) {
+func (s *Service) CreateCredential(ctx context.Context, userID uuid.UUID, in wire.CredentialCreate) (wire.Credential, error) {
 	op, err := parseOp(in.OperationID)
 	if err != nil {
-		return wire.T006Credential{}, err
+		return wire.Credential{}, err
 	}
 	if in.Kind != KindOPDS && in.Kind != KindKOReader {
-		return wire.T006Credential{}, apperr.Validation("kind must be opds or koreader")
+		return wire.Credential{}, apperr.Validation("kind must be opds or koreader")
 	}
 	label, err := cleanLabel(in.Label)
 	if err != nil {
-		return wire.T006Credential{}, err
+		return wire.Credential{}, err
 	}
 	if n := len(in.Password); n < 32 || n > 128 || strings.Trim(in.Password, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-") != "" {
-		return wire.T006Credential{}, apperr.Validation("password must be 32 to 128 base64url characters")
+		return wire.Credential{}, apperr.Validation("password must be 32 to 128 base64url characters")
 	}
 	fp := receipts.Fingerprint("POST", "integration-credentials", map[string]any{"k": in.Kind, "l": label, "p": receipts.SecretDigest(s.fpKey, in.Password)})
 	secret := in.Password
@@ -319,7 +319,7 @@ func (s *Service) CreateCredential(ctx context.Context, userID uuid.UUID, in wir
 	// Hash before the transaction so the row lock is not held across argon2.
 	verifier, err := accounts.HashPassword(secret, s.argon)
 	if err != nil {
-		return wire.T006Credential{}, err
+		return wire.Credential{}, err
 	}
 	st, body, err := s.rc.Run(ctx, userID, op, fp,
 		func(_ pgx.Tx, q *sqlcgen.Queries) error { _, err := q.LockUserRow(ctx, userID); return err },
@@ -340,18 +340,18 @@ func (s *Service) CreateCredential(ctx context.Context, userID uuid.UUID, in wir
 		})
 	_ = st
 	if err != nil {
-		return wire.T006Credential{}, dbErr(err)
+		return wire.Credential{}, dbErr(err)
 	}
-	var out wire.T006Credential
+	var out wire.Credential
 	return out, json.Unmarshal(body, &out)
 }
 
 // RevokeCredential permanently revokes an owned credential. It is idempotent;
 // another account's credential is 404.
-func (s *Service) RevokeCredential(ctx context.Context, userID, id uuid.UUID, in wire.T006CredentialRevoke) (wire.T006Credential, error) {
+func (s *Service) RevokeCredential(ctx context.Context, userID, id uuid.UUID, in wire.CredentialRevoke) (wire.Credential, error) {
 	op, err := parseOp(in.OperationID)
 	if err != nil {
-		return wire.T006Credential{}, err
+		return wire.Credential{}, err
 	}
 	fp := receipts.Fingerprint("POST", "integration-credentials/"+id.String()+"/revoke", nil)
 	_, body, err := s.rc.Run(ctx, userID, op, fp, nil,
@@ -369,9 +369,9 @@ func (s *Service) RevokeCredential(ctx context.Context, userID, id uuid.UUID, in
 			return http.StatusOK, wire.Raw(credView(c)), nil, nil
 		})
 	if err != nil {
-		return wire.T006Credential{}, dbErr(err)
+		return wire.Credential{}, dbErr(err)
 	}
-	var out wire.T006Credential
+	var out wire.Credential
 	return out, json.Unmarshal(body, &out)
 }
 

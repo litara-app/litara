@@ -18,18 +18,18 @@ var recordingProviderFields = map[string]bool{"title": true, "authors": true, "s
 	"publisher": true, "published": true, "isbn": true, "description": true}
 
 // providerResultsWire converts a search outcome for the API, keeping only the fields the subject can edit.
-func providerResultsWire(res metadata.SearchOutcome, allowed map[string]bool) []wire.T005ProviderResult {
-	out := []wire.T005ProviderResult{}
+func providerResultsWire(res metadata.SearchOutcome, allowed map[string]bool) []wire.ProviderResult {
+	out := []wire.ProviderResult{}
 	for _, r := range res.Results {
-		pr := wire.T005ProviderResult{Provider: r.Provider, Status: r.Status, Cached: r.Cached, Candidates: []wire.T005ProviderCandidate{}}
+		pr := wire.ProviderResult{Provider: r.Provider, Status: r.Status, Cached: r.Cached, Candidates: []wire.ProviderCandidate{}}
 		for _, c := range r.Candidates {
-			fields := map[string]wire.T005MetadataValue{}
+			fields := map[string]wire.MetadataValue{}
 			for k, v := range c.Fields {
 				if allowed[k] {
-					fields[k] = wire.T005MetadataValue{Raw: v}
+					fields[k] = wire.MetadataValue{Raw: v}
 				}
 			}
-			pr.Candidates = append(pr.Candidates, wire.T005ProviderCandidate{ID: c.ID, ByIdentifier: c.ByIdentifier, Consistent: c.Consistent, Fields: fields})
+			pr.Candidates = append(pr.Candidates, wire.ProviderCandidate{ID: c.ID, ByIdentifier: c.ByIdentifier, Consistent: c.Consistent, Fields: fields})
 		}
 		out = append(out, pr)
 	}
@@ -42,8 +42,8 @@ func (a *API) registerRecordingProviders(api huma.API) {
 	o.Security = secured
 	huma.Register(api, o, func(ctx context.Context, in *struct {
 		RecordingID string `path:"recordingId" format:"uuid"`
-		Body        wire.T005ProviderSearch
-	}) (*bodyOut[wire.T005RecordingProviderSearchResults], error) {
+		Body        wire.ProviderSearch
+	}) (*bodyOut[wire.RecordingProviderSearchResults], error) {
 		id := mustUUID(in.RecordingID)
 		lib, err := a.Metadata.LibraryOf(ctx, id)
 		if err != nil {
@@ -84,9 +84,9 @@ func (a *API) registerRecordingProviders(api huma.API) {
 		if err != nil {
 			return nil, a.fail(ctx, err)
 		}
-		return &bodyOut[wire.T005RecordingProviderSearchResults]{Body: wire.T005RecordingProviderSearchResults{
+		return &bodyOut[wire.RecordingProviderSearchResults]{Body: wire.RecordingProviderSearchResults{
 			RecordingID: in.RecordingID, Enabled: res.Enabled,
-			Query:   wire.T005ProviderQuery{Title: q.Title, Authors: q.Authors, ISBN: q.ISBN, ASIN: q.ASIN},
+			Query:   wire.ProviderQuery{Title: q.Title, Authors: q.Authors, ISBN: q.ISBN, ASIN: q.ASIN},
 			Results: providerResultsWire(res, recordingProviderFields)}}, nil
 	})
 }
@@ -98,7 +98,7 @@ func (a *API) registerRecordingAutoFill(api huma.API) {
 	huma.Register(api, o, func(ctx context.Context, in *struct {
 		RecordingID string `path:"recordingId" format:"uuid"`
 		DryRun      bool   `query:"dryRun" doc:"Return what would be filled without storing it, so it can be reviewed and saved (ADR-0090)."`
-	}) (*bodyOut[wire.T005AutoFillResult], error) {
+	}) (*bodyOut[wire.AutoFillResult], error) {
 		id := mustUUID(in.RecordingID)
 		lib, err := a.Metadata.LibraryOf(ctx, id)
 		if err != nil {
@@ -134,24 +134,24 @@ func (a *API) registerRecordingAutoFill(api huma.API) {
 			return false
 		}
 		m, outcome, rule := metadata.PickAutoFill(res, q, "", fillsSomething)
-		out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Rule: rule, Revision: strconv.FormatInt(rev, 10)}
+		out := wire.AutoFillResult{Outcome: outcome, Filled: []string{}, Rule: rule, Revision: strconv.FormatInt(rev, 10)}
 		if outcome == "filled" && in.DryRun {
 			gaps, err := a.Enricher.GapFields(ctx, id, m)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
 			out.Provider = m.Provider
-			out.Proposed = map[string]wire.T005MetadataValue{}
+			out.Proposed = map[string]wire.MetadataValue{}
 			for k, v := range gaps {
 				if recordingProviderFields[k] {
-					out.Proposed[k] = wire.T005MetadataValue{Raw: v}
+					out.Proposed[k] = wire.MetadataValue{Raw: v}
 				}
 			}
 			out.Outcome = "proposed"
 			if len(out.Proposed) == 0 {
 				out.Outcome, out.Proposed = "nothing_to_fill", nil
 			}
-			return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
+			return &bodyOut[wire.AutoFillResult]{Body: out}, nil
 		}
 		if outcome == "filled" {
 			out.Provider = m.Provider
@@ -168,6 +168,6 @@ func (a *API) registerRecordingAutoFill(api huma.API) {
 				out.Revision = strconv.FormatInt(rev, 10)
 			}
 		}
-		return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
+		return &bodyOut[wire.AutoFillResult]{Body: out}, nil
 	})
 }

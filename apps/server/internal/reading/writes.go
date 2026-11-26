@@ -26,7 +26,7 @@ var allowedLocators = map[string][]string{
 	"pdf": {"pdf-page"}, "cbz": {"foliate-cfi", "comic-page"}, "cbr": {"comic-page"}, "cb7": {"comic-page"},
 }
 
-func locatorKind(l wire.T005Locator) string {
+func locatorKind(l wire.Locator) string {
 	switch {
 	case l.CFI != nil:
 		return "foliate-cfi"
@@ -38,7 +38,7 @@ func locatorKind(l wire.T005Locator) string {
 	return ""
 }
 
-func locatorAllowed(format string, l wire.T005Locator) bool {
+func locatorAllowed(format string, l wire.Locator) bool {
 	k := locatorKind(l)
 	for _, a := range allowedLocators[format] {
 		if a == k {
@@ -102,35 +102,35 @@ func (s *Service) knownVersion(ctx context.Context, q *sqlcgen.Queries, file, ve
 
 // ---- position ---------------------------------------------------------------
 
-func positionPayload(w wire.T005PositionWrite) any { return w }
+func positionPayload(w wire.ReadingPositionWrite) any { return w }
 
 // WritePosition applies one revisioned, idempotent position write.
-func (s *Service) WritePosition(ctx context.Context, a Actor, editionID uuid.UUID, w wire.T005PositionWrite) (wire.T005PositionState, error) {
+func (s *Service) WritePosition(ctx context.Context, a Actor, editionID uuid.UUID, w wire.ReadingPositionWrite) (wire.ReadingPositionState, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005PositionState{}, err
+		return wire.ReadingPositionState{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005PositionState{}, err
+		return wire.ReadingPositionState{}, err
 	}
 	captured, err := parseTime("capturedAt", w.CapturedAt)
 	if err != nil {
-		return wire.T005PositionState{}, err
+		return wire.ReadingPositionState{}, err
 	}
 	if _, err = parseUUID("anchor.fileId", w.Anchor.FileID); err != nil {
-		return wire.T005PositionState{}, err
+		return wire.ReadingPositionState{}, err
 	}
 	if _, err = parseUUID("anchor.contentVersion", w.Anchor.ContentVersion); err != nil {
-		return wire.T005PositionState{}, err
+		return wire.ReadingPositionState{}, err
 	}
 	if locatorKind(w.Anchor.Locator) == "" {
-		return wire.T005PositionState{}, apperr.Validation("anchor.locator is required.")
+		return wire.ReadingPositionState{}, apperr.Validation("anchor.locator is required.")
 	}
 	// Authorization precedes any receipt so a denied request leaves no trace.
 	ed, err := s.cat.AuthorizeEdition(ctx, a.UserID, editionID)
 	if err != nil {
-		return wire.T005PositionState{}, err
+		return wire.ReadingPositionState{}, err
 	}
 	fp := fingerprint(http.MethodPut, "/editions/"+editionID.String()+"/position", positionPayload(w))
 	body, err := s.run(ctx, a, op, fp, func(q *sqlcgen.Queries) error {
@@ -155,16 +155,16 @@ func (s *Service) WritePosition(ctx context.Context, a Actor, editionID uuid.UUI
 		return wire.Raw(st), nil, nil
 	})
 	if err != nil {
-		return wire.T005PositionState{}, err
+		return wire.ReadingPositionState{}, err
 	}
-	var st wire.T005PositionState
+	var st wire.ReadingPositionState
 	return st, json.Unmarshal(body, &st)
 }
 
 // applyPosition validates and applies a position candidate under the row lock.
 // A non-nil problem is durable (a conflict was recorded). checkBase is false
 // when the caller already compared the revision itself.
-func (s *Service) applyPosition(ctx context.Context, q *sqlcgen.Queries, a Actor, ed edition, w wire.T005PositionWrite, op uuid.UUID,
+func (s *Service) applyPosition(ctx context.Context, q *sqlcgen.Queries, a Actor, ed edition, w wire.ReadingPositionWrite, op uuid.UUID,
 	base int64, captured time.Time, current int64, checkBase bool) (*apperr.Error, error) {
 	fileID, _ := uuid.Parse(w.Anchor.FileID)
 	version, _ := uuid.Parse(w.Anchor.ContentVersion)
@@ -199,31 +199,31 @@ func (s *Service) applyPosition(ctx context.Context, q *sqlcgen.Queries, a Actor
 
 // ---- completion ---------------------------------------------------------------
 
-func (s *Service) WriteCompletion(ctx context.Context, a Actor, editionID uuid.UUID, w wire.T005CompletionWrite) (wire.T005Completion, error) {
+func (s *Service) WriteCompletion(ctx context.Context, a Actor, editionID uuid.UUID, w wire.ReadingCompletionWrite) (wire.ReadingCompletion, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005Completion{}, err
+		return wire.ReadingCompletion{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005Completion{}, err
+		return wire.ReadingCompletion{}, err
 	}
 	captured, err := parseTime("capturedAt", w.CapturedAt)
 	if err != nil {
-		return wire.T005Completion{}, err
+		return wire.ReadingCompletion{}, err
 	}
 	if w.Event != "manual_finish" && w.Event != "manual_unfinish" {
-		return wire.T005Completion{}, apperr.Validation("event must be manual_finish or manual_unfinish.")
+		return wire.ReadingCompletion{}, apperr.Validation("event must be manual_finish or manual_unfinish.")
 	}
 	if _, err = parseUUID("fileId", w.FileID); err != nil {
-		return wire.T005Completion{}, err
+		return wire.ReadingCompletion{}, err
 	}
 	if _, err = parseUUID("contentVersion", w.ContentVersion); err != nil {
-		return wire.T005Completion{}, err
+		return wire.ReadingCompletion{}, err
 	}
 	ed, err := s.cat.AuthorizeEdition(ctx, a.UserID, editionID)
 	if err != nil {
-		return wire.T005Completion{}, err
+		return wire.ReadingCompletion{}, err
 	}
 	fp := fingerprint(http.MethodPut, "/editions/"+editionID.String()+"/completion", w)
 	body, err := s.run(ctx, a, op, fp, func(q *sqlcgen.Queries) error {
@@ -248,13 +248,13 @@ func (s *Service) WriteCompletion(ctx context.Context, a Actor, editionID uuid.U
 		return wire.Raw(st), nil, nil
 	})
 	if err != nil {
-		return wire.T005Completion{}, err
+		return wire.ReadingCompletion{}, err
 	}
-	var st wire.T005Completion
+	var st wire.ReadingCompletion
 	return st, json.Unmarshal(body, &st)
 }
 
-func (s *Service) applyCompletion(ctx context.Context, q *sqlcgen.Queries, a Actor, ed edition, w wire.T005CompletionWrite, op uuid.UUID,
+func (s *Service) applyCompletion(ctx context.Context, q *sqlcgen.Queries, a Actor, ed edition, w wire.ReadingCompletionWrite, op uuid.UUID,
 	base int64, captured time.Time, current int64, checkBase bool) (*apperr.Error, error) {
 	fileID, _ := uuid.Parse(w.FileID)
 	version, _ := uuid.Parse(w.ContentVersion)
@@ -282,8 +282,8 @@ func (s *Service) applyCompletion(ctx context.Context, q *sqlcgen.Queries, a Act
 
 // ---- personal conflicts ---------------------------------------------------------
 
-func conflictWire(c sqlcgen.T005Conflict) (wire.T005Conflict, error) {
-	out := wire.T005Conflict{ID: c.ID.String(), ResourceKind: c.ResourceKind, ResourceID: c.ResourceID.String(), Reason: c.Reason,
+func conflictWire(c sqlcgen.T005Conflict) (wire.PersonalConflict, error) {
+	out := wire.PersonalConflict{ID: c.ID.String(), ResourceKind: c.ResourceKind, ResourceID: c.ResourceID.String(), Reason: c.Reason,
 		BaseRevision: strconv.FormatInt(c.BaseRevision, 10), CurrentRevision: strconv.FormatInt(c.CurrentRevision, 10),
 		CreatedAt: rfc(c.CreatedAt), ResolvedAt: rfcp(c.ResolvedAt)}
 	if c.EditionID.Valid {
@@ -294,7 +294,7 @@ func conflictWire(c sqlcgen.T005Conflict) (wire.T005Conflict, error) {
 }
 
 // Conflicts lists only the caller own conflicts whose resources are still readable.
-func (s *Service) Conflicts(ctx context.Context, userID uuid.UUID, resource *uuid.UUID, includeResolved bool, page, size int) (wire.T005Conflicts, error) {
+func (s *Service) Conflicts(ctx context.Context, userID uuid.UUID, resource *uuid.UUID, includeResolved bool, page, size int) (wire.PersonalConflicts, error) {
 	rid := uuid.NullUUID{}
 	if resource != nil {
 		rid = uuid.NullUUID{UUID: *resource, Valid: true}
@@ -302,13 +302,13 @@ func (s *Service) Conflicts(ctx context.Context, userID uuid.UUID, resource *uui
 	rows, err := s.q.ListT005Conflicts(ctx, sqlcgen.ListT005ConflictsParams{UserID: userID, ResourceID: rid, IncludeResolved: includeResolved,
 		PageSize: int32(size), PageOffset: int32(page * size)})
 	if err != nil {
-		return wire.T005Conflicts{}, dbErr(err)
+		return wire.PersonalConflicts{}, dbErr(err)
 	}
 	total, err := s.q.CountT005Conflicts(ctx, sqlcgen.CountT005ConflictsParams{UserID: userID, ResourceID: rid, IncludeResolved: includeResolved})
 	if err != nil {
-		return wire.T005Conflicts{}, dbErr(err)
+		return wire.PersonalConflicts{}, dbErr(err)
 	}
-	out := wire.T005Conflicts{Items: []wire.T005Conflict{}, Total: total, Page: int64(page), Size: int64(size)}
+	out := wire.PersonalConflicts{Items: []wire.PersonalConflict{}, Total: total, Page: int64(page), Size: int64(size)}
 	for _, c := range rows {
 		w, err := conflictWire(c)
 		if err != nil {

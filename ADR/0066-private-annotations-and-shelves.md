@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-14
 Decision owner: Repository owner
+Amended by: [ADR-0107](0107-one-filter-format-for-search-and-smart-shelves.md) (2026-11-26): smart shelves use ADR-0085's filter format with more fields; "in progress" follows library search's reading status; shelves may filter on the viewer's rating; and viewers of a shared shelf receive its library rules, including IDs of libraries they cannot access.
 
 ## Context
 

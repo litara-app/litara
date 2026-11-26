@@ -25,65 +25,65 @@ func (a *API) readingActor(ctx context.Context) reading.Actor {
 
 func (a *API) registerReading(api huma.API) {
 	huma.Register(api, readOp(op("getReadingPosition", http.MethodGet, "/editions/{editionId}/position", "Current reading position state", "reading")),
-		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.T005PositionState], error) {
+		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.ReadingPositionState], error) {
 			st, err := a.Reading.GetPosition(ctx, principal(ctx).UserID, mustUUID(in.EditionID))
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005PositionState]{Body: st}, nil
+			return &bodyOut[wire.ReadingPositionState]{Body: st}, nil
 		})
 
 	huma.Register(api, writeOp(op("writeReadingPosition", http.MethodPut, "/editions/{editionId}/position", "Write the reading position", "reading")),
 		func(ctx context.Context, in *struct {
 			EditionIn
-			Body wire.T005PositionWrite
-		}) (*bodyOut[wire.T005PositionState], error) {
+			Body wire.ReadingPositionWrite
+		}) (*bodyOut[wire.ReadingPositionState], error) {
 			st, err := a.Reading.WritePosition(ctx, a.readingActor(ctx), mustUUID(in.EditionID), in.Body)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005PositionState]{Body: st}, nil
+			return &bodyOut[wire.ReadingPositionState]{Body: st}, nil
 		})
 
 	huma.Register(api, readOp(op("getReadingCompletion", http.MethodGet, "/editions/{editionId}/completion", "Current completion state", "reading")),
-		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.T005Completion], error) {
+		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.ReadingCompletion], error) {
 			st, err := a.Reading.GetCompletion(ctx, principal(ctx).UserID, mustUUID(in.EditionID))
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005Completion]{Body: st}, nil
+			return &bodyOut[wire.ReadingCompletion]{Body: st}, nil
 		})
 
 	huma.Register(api, writeOp(op("writeReadingCompletion", http.MethodPut, "/editions/{editionId}/completion", "Manually finish or unfinish an edition", "reading")),
 		func(ctx context.Context, in *struct {
 			EditionIn
-			Body wire.T005CompletionWrite
-		}) (*bodyOut[wire.T005Completion], error) {
+			Body wire.ReadingCompletionWrite
+		}) (*bodyOut[wire.ReadingCompletion], error) {
 			st, err := a.Reading.WriteCompletion(ctx, a.readingActor(ctx), mustUUID(in.EditionID), in.Body)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005Completion]{Body: st}, nil
+			return &bodyOut[wire.ReadingCompletion]{Body: st}, nil
 		})
 
 	huma.Register(api, readOp(op("getReadingHistory", http.MethodGet, "/titles/{titleId}/reading-history", "Ebook completion history for a title", "reading")),
 		func(ctx context.Context, in *struct {
 			TitleIn
 			PageQuery
-		}) (*bodyOut[wire.T005History], error) {
+		}) (*bodyOut[wire.ReadingHistory], error) {
 			page, size := in.normalized()
 			h, err := a.Reading.History(ctx, principal(ctx).UserID, mustUUID(in.TitleID), page, size)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005History]{Body: h}, nil
+			return &bodyOut[wire.ReadingHistory]{Body: h}, nil
 		})
 
 	huma.Register(api, writeOp(op("putReadingSession", http.MethodPut, "/editions/{editionId}/reading-sessions/{sessionId}", "Record or extend one reading session", "reading")),
 		func(ctx context.Context, in *struct {
 			EditionIn
 			SessionID string `path:"sessionId" format:"uuid"`
-			Body      wire.T005ReadingSessionWrite
+			Body      wire.ReadingSessionWrite
 		}) (*struct{}, error) {
 			if err := a.Reading.PutSession(ctx, principal(ctx).UserID, mustUUID(in.EditionID), mustUUID(in.SessionID), in.Body); err != nil {
 				return nil, a.fail(ctx, err)
@@ -108,13 +108,13 @@ func (a *API) registerReading(api huma.API) {
 		func(ctx context.Context, in *struct {
 			TitleIn
 			PageQuery
-		}) (*bodyOut[wire.T005ReadingSessions], error) {
+		}) (*bodyOut[wire.ReadingSessions], error) {
 			page, size := in.normalized()
 			s, err := a.Reading.Sessions(ctx, principal(ctx).UserID, mustUUID(in.TitleID), page, size)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005ReadingSessions]{Body: s}, nil
+			return &bodyOut[wire.ReadingSessions]{Body: s}, nil
 		})
 
 	huma.Register(api, readOp(op("listPersonalConflicts", http.MethodGet, "/personal-conflicts", "The caller own unresolved personal-state conflicts", "reading")),
@@ -122,7 +122,7 @@ func (a *API) registerReading(api huma.API) {
 			PageQuery
 			ResourceID      string `query:"resourceId" format:"uuid"`
 			IncludeResolved bool   `query:"includeResolved" default:"false"`
-		}) (*bodyOut[wire.T005Conflicts], error) {
+		}) (*bodyOut[wire.PersonalConflicts], error) {
 			page, size := in.normalized()
 			var rid *uuid.UUID
 			if in.ResourceID != "" {
@@ -133,18 +133,18 @@ func (a *API) registerReading(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005Conflicts]{Body: c}, nil
+			return &bodyOut[wire.PersonalConflicts]{Body: c}, nil
 		})
 
 	huma.Register(api, writeOp(op("resolvePersonalConflict", http.MethodPost, "/personal-conflicts/{conflictId}/resolve", "Resolve a personal-state conflict", "reading")),
 		func(ctx context.Context, in *struct {
 			ConflictID string `path:"conflictId" format:"uuid"`
-			Body       wire.T005Resolve
-		}) (*bodyOut[wire.T005Resolved], error) {
+			Body       wire.ResolvePersonalConflict
+		}) (*bodyOut[wire.ResolvedPersonalConflict], error) {
 			r, err := a.Reading.Resolve(ctx, a.readingActor(ctx), mustUUID(in.ConflictID), in.Body)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005Resolved]{Body: r}, nil
+			return &bodyOut[wire.ResolvedPersonalConflict]{Body: r}, nil
 		})
 }

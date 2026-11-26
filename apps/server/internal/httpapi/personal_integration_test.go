@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,7 +40,7 @@ func TestAnnotationLifecyclePrivacyAndSupersession(t *testing.T) {
 	op := uuid.NewString()
 	create := r.annBody(op, "0", v, "highlight", "my thought", rangeSel)
 	x := r.putAnn(r.userA, id, create)
-	var ann wire.T005Annotation
+	var ann wire.Annotation
 	x.JSON(t, &ann)
 	if x.StatusCode != 200 || ann.Revision != "1" || ann.Deleted || ann.Data.Value == nil || ann.Data.Value.Selection.Value == nil {
 		t.Fatalf("create: %d %s", x.StatusCode, x.Body)
@@ -80,7 +82,7 @@ func TestAnnotationLifecyclePrivacyAndSupersession(t *testing.T) {
 	if stale.StatusCode != 409 || sp["code"] != "stale_revision" || sp["currentRevision"] != "2" || sp["conflictId"] == nil {
 		t.Fatalf("stale: %d %s", stale.StatusCode, stale.Body)
 	}
-	var conflicts wire.T005Conflicts
+	var conflicts wire.PersonalConflicts
 	e.Do("GET", "/personal-conflicts?resourceId="+id, r.userA, nil).JSON(t, &conflicts)
 	if len(conflicts.Items) != 2 || conflicts.Items[1].ResourceKind != "annotation" || conflicts.Items[1].Candidate.Annotation == nil ||
 		conflicts.Items[1].Candidate.Annotation.Data.Text != "from an old tab" { // [0] is the duplicate-create attempt
@@ -89,7 +91,7 @@ func TestAnnotationLifecyclePrivacyAndSupersession(t *testing.T) {
 	// Choosing the candidate reapplies it as a normal revision.
 	res := e.Do("POST", "/personal-conflicts/"+sp["conflictId"].(string)+"/resolve", r.userA,
 		map[string]any{"operationId": uuid.NewString(), "baseRevision": "2", "choice": "use_candidate", "contentVersion": v})
-	var rv wire.T005Resolved
+	var rv wire.ResolvedPersonalConflict
 	res.JSON(t, &rv)
 	if res.StatusCode != 200 || rv.Revision != "3" {
 		t.Fatalf("resolve: %d %s", res.StatusCode, res.Body)
@@ -100,7 +102,7 @@ func TestAnnotationLifecyclePrivacyAndSupersession(t *testing.T) {
 	if g := e.Do("GET", "/editions/"+r.ed.ID+"/annotations/"+id, r.admin, nil); g.StatusCode != 404 {
 		t.Fatalf("admin read of a private annotation: %d %s", g.StatusCode, g.Body)
 	}
-	var adminList wire.T005Annotations
+	var adminList wire.Annotations
 	e.Do("GET", "/editions/"+r.ed.ID+"/annotations", r.admin, nil).JSON(t, &adminList)
 	if adminList.Total != 0 {
 		t.Fatalf("admin saw another user annotations: %+v", adminList)
@@ -119,13 +121,13 @@ func TestAnnotationLifecyclePrivacyAndSupersession(t *testing.T) {
 	_ = os.WriteFile(r.book, append(b, []byte("PADDING")...), 0o644)
 	scanTwice(t, e, r.admin, r.lib)
 	scanTwice(t, e, r.admin, r.lib)
-	var ed wire.T005Edition
+	var ed wire.Edition
 	e.Do("GET", "/editions/"+r.ed.ID, r.userA, nil).JSON(t, &ed)
 	nv := ed.File.ContentVersion
 	if nv == v {
 		t.Fatal("expected a new content version")
 	}
-	var list wire.T005Annotations
+	var list wire.Annotations
 	e.Do("GET", "/editions/"+r.ed.ID+"/annotations", r.userA, nil).JSON(t, &list)
 	detached := 0
 	for _, a := range list.Items {
@@ -157,7 +159,7 @@ func TestAnnotationLifecyclePrivacyAndSupersession(t *testing.T) {
 	if rep := e.Do("DELETE", "/editions/"+r.ed.ID+"/annotations/"+id, r.userA, delBody(dop, "3")); rep.StatusCode != 200 || string(rep.Body) != string(d.Body) {
 		t.Fatalf("delete replay: %d %s", rep.StatusCode, rep.Body)
 	}
-	var hidden, all wire.T005Annotations
+	var hidden, all wire.Annotations
 	e.Do("GET", "/editions/"+r.ed.ID+"/annotations?includeDeleted=false", r.userA, nil).JSON(t, &hidden)
 	e.Do("GET", "/editions/"+r.ed.ID+"/annotations", r.userA, nil).JSON(t, &all)
 	if hidden.Total+1 != all.Total {
@@ -189,13 +191,25 @@ func (r *readingEnv) shelfBody(op, base, kind, vis, name string, filter any) map
 		"data": map[string]any{"name": name, "visibility": vis, "kind": kind, "filter": filter}}
 }
 
-func pred(field, op, value string) map[string]any {
-	return map[string]any{"kind": "predicate", "field": field, "operator": op, "value": value}
+// rule and group build the library filter format that smart shelves use (ADR-0107).
+func rule(field, op string, value any) map[string]any {
+	r := map[string]any{"type": "rule", "field": field, "operator": op}
+	if value != nil {
+		r["value"] = value
+	}
+	return r
 }
 
-func (r *readingEnv) shelfTitles(t *testing.T, token, shelf string) wire.T005Titles {
+func group(join string, rules ...any) map[string]any {
+	if rules == nil {
+		rules = []any{}
+	}
+	return map[string]any{"type": "group", "join": join, "rules": rules}
+}
+
+func (r *readingEnv) shelfTitles(t *testing.T, token, shelf string) wire.Titles {
 	t.Helper()
-	var out wire.T005Titles
+	var out wire.Titles
 	x := r.e.Do("GET", "/shelves/"+shelf+"/titles", token, nil)
 	if x.StatusCode != 200 {
 		t.Fatalf("shelf titles: %d %s", x.StatusCode, x.Body)
@@ -204,7 +218,7 @@ func (r *readingEnv) shelfTitles(t *testing.T, token, shelf string) wire.T005Tit
 	return out
 }
 
-func titleNames(ts wire.T005Titles) []string {
+func titleNames(ts wire.Titles) []string {
 	out := []string{}
 	for _, x := range ts.Items {
 		out = append(out, x.Title)
@@ -238,7 +252,7 @@ func TestShelvesPermissionsMembershipOrderAndSmartFilters(t *testing.T) {
 	if x := e.Do("DELETE", "/admin/users/"+e.Fix.AdminID.String()+"/libraries/"+d2.Library.ID, r.admin, nil); x.StatusCode != http.StatusNoContent {
 		t.Fatalf("admin revoke 2: %d", x.StatusCode) // the administrator must not see the second library
 	}
-	var titles wire.T005Titles
+	var titles wire.Titles
 	e.Do("GET", "/titles", r.userA, nil).JSON(t, &titles)
 	byName := map[string]string{}
 	for _, x := range titles.Items {
@@ -252,7 +266,7 @@ func TestShelvesPermissionsMembershipOrderAndSmartFilters(t *testing.T) {
 	// Create a private manual shelf; only the owner can see or touch it.
 	sid := uuid.NewString()
 	cr := e.Do("PUT", "/shelves/"+sid, r.userA, r.shelfBody(uuid.NewString(), "0", "manual", "private", "To read", nil))
-	var sh wire.T005Shelf
+	var sh wire.Shelf
 	cr.JSON(t, &sh)
 	if cr.StatusCode != 200 || sh.Revision != "1" || !sh.CanEdit || sh.Evaluation != "manual" || sh.OwnerID != e.Fix.UserAID.String() {
 		t.Fatalf("create shelf: %d %s", cr.StatusCode, cr.Body)
@@ -266,7 +280,7 @@ func TestShelvesPermissionsMembershipOrderAndSmartFilters(t *testing.T) {
 		}
 	}
 	// A wrong-kind filter combination is rejected without a receipt.
-	if x := e.Do("PUT", "/shelves/"+uuid.NewString(), r.userA, r.shelfBody(uuid.NewString(), "0", "manual", "private", "bad", pred("title", "contains", "x"))); x.StatusCode != 422 {
+	if x := e.Do("PUT", "/shelves/"+uuid.NewString(), r.userA, r.shelfBody(uuid.NewString(), "0", "manual", "private", "bad", rule("title", "contains", "x"))); x.StatusCode != 422 {
 		t.Fatalf("manual with filter: %d", x.StatusCode)
 	}
 	if x := e.Do("PUT", "/shelves/"+uuid.NewString(), r.userA, r.shelfBody(uuid.NewString(), "0", "smart", "private", "bad", nil)); x.StatusCode != 422 {
@@ -298,7 +312,7 @@ func TestShelvesPermissionsMembershipOrderAndSmartFilters(t *testing.T) {
 	if staleAdd.StatusCode != 409 || sp["code"] != "stale_revision" {
 		t.Fatalf("stale membership: %d %s", staleAdd.StatusCode, staleAdd.Body)
 	}
-	var cs wire.T005Conflicts
+	var cs wire.PersonalConflicts
 	e.Do("GET", "/personal-conflicts?resourceId="+sid, r.userA, nil).JSON(t, &cs)
 	if len(cs.Items) != 1 || cs.Items[0].ResourceKind != "membership" || cs.Items[0].Candidate.Membership == nil ||
 		cs.Items[0].Candidate.Membership.Action != "add" || cs.Items[0].Candidate.Membership.TitleID != t2 || cs.Items[0].EditionID != nil {
@@ -364,7 +378,7 @@ func TestShelvesPermissionsMembershipOrderAndSmartFilters(t *testing.T) {
 	if up.StatusCode != 200 {
 		t.Fatalf("share: %d %s", up.StatusCode, up.Body)
 	}
-	var seen wire.T005Shelf
+	var seen wire.Shelf
 	e.Do("GET", "/shelves/"+sid, r.userB, nil).JSON(t, &seen)
 	if seen.CanEdit || seen.OwnerID != e.Fix.UserAID.String() || seen.VisibleTitleCount != 0 || seen.Data.Value == nil {
 		t.Fatalf("viewer without grants: %+v", seen)
@@ -385,7 +399,7 @@ func TestShelvesPermissionsMembershipOrderAndSmartFilters(t *testing.T) {
 	if x := e.Do("DELETE", "/shelves/"+sid, r.admin, delBody(uuid.NewString(), seen.Revision)); x.StatusCode != 403 {
 		t.Fatalf("admin delete: %d %s", x.StatusCode, x.Body)
 	}
-	var shared wire.T005Shelves
+	var shared wire.Shelves
 	e.Do("GET", "/shelves?scope=shared", r.admin, nil).JSON(t, &shared)
 	if shared.Total != 1 || shared.Items[0].ID != sid {
 		t.Fatalf("shared listing: %+v", shared)
@@ -397,7 +411,7 @@ func TestShelvesPermissionsMembershipOrderAndSmartFilters(t *testing.T) {
 
 	// Smart shelves: viewer-specific evaluation, no manual membership, bounded grammar.
 	smart := uuid.NewString()
-	filter := map[string]any{"kind": "all", "children": []any{pred("title", "contains", "VOLUME"), map[string]any{"kind": "not", "child": pred("author", "equals", "bob writer")}}}
+	filter := group("AND", rule("title", "contains", "VOLUME"), rule("author", "is_not", "bob writer"))
 	cr = e.Do("PUT", "/shelves/"+smart, r.userA, r.shelfBody(uuid.NewString(), "0", "smart", "shared", "Volumes", filter))
 	cr.JSON(t, &sh)
 	if cr.StatusCode != 200 || sh.Evaluation != "viewer-specific" || sh.VisibleTitleCount != 1 {
@@ -426,73 +440,68 @@ func TestShelvesPermissionsMembershipOrderAndSmartFilters(t *testing.T) {
 	// Personal-state predicates use the viewer's own state. Seeded audio fixtures
 	// exist in the database, so semantic probes are scoped to the three test titles.
 	scoped := func(f any) (int64, int) {
-		return count(map[string]any{"kind": "all", "children": []any{f, map[string]any{"kind": "any", "children": []any{
-			pred("title", "equals", "second volume"), pred("title", "equals", "third tale"), pred("title", "equals", "fourth folio")}}}})
+		return count(group("AND", f, group("OR",
+			rule("title", "is", "second volume"), rule("title", "is", "third tale"), rule("title", "is", "fourth folio"))))
 	}
-	if n, _ := scoped(pred("finished", "equals", "true")); n != 0 {
-		t.Fatalf("finished before any state: %d", n)
+	want := func(name string, f any, n int64) {
+		t.Helper()
+		if got, code := scoped(f); code != 200 || got != n {
+			t.Fatalf("%s: got %d (status %d), want %d", name, got, code, n)
+		}
 	}
+	want("finished before any state", rule("status", "is", "finished"), 0)
 	e.Do("PUT", "/editions/"+r.ed.ID+"/completion", r.userA, map[string]any{"operationId": uuid.NewString(), "baseRevision": "0",
 		"fileId": r.ed.File.ID, "contentVersion": r.ed.File.ContentVersion, "event": "manual_finish", "capturedAt": "2026-11-14T10:00:00Z"})
-	if n, _ := scoped(pred("finished", "equals", "true")); n != 1 {
-		t.Fatalf("finished after finishing: %d", n)
-	}
-	if n, _ := scoped(pred("finished", "equals", "false")); n != 2 {
-		t.Fatalf("not finished: %d", n)
-	}
+	want("finished after finishing", rule("status", "is", "finished"), 1)
+	want("not finished", rule("status", "is_not", "finished"), 2)
 	if x := r.putPos(t, r.userA, r.posBody(uuid.NewString(), "0", r.ed.File.ContentVersion, r.cfi("/6/8!/4/2"))); x.StatusCode != 200 {
 		t.Fatalf("position: %d %s", x.StatusCode, x.Body)
 	}
-	if n, _ := scoped(pred("inProgress", "equals", "true")); n != 0 { // the only book with a position is finished
-		t.Fatalf("finished books are not in progress: %d", n)
-	}
-	if n, _ := scoped(pred("format", "equals", "epub")); n != 3 {
-		t.Fatalf("format: %d", n)
-	}
-	if n, _ := scoped(pred("mediaKind", "equals", "ebook")); n != 3 {
-		t.Fatalf("mediaKind ebook: %d", n)
-	}
-	if n, _ := scoped(pred("mediaKind", "equals", "audio")); n != 0 {
-		t.Fatalf("audio: %d", n)
-	}
-	if n, _ := count(pred("mediaKind", "equals", "audio")); n < 1 {
+	want("a finished title with a position is not reading", rule("status", "is", "reading"), 0)
+	want("format", rule("format", "is", "epub"), 3)
+	want("format negated", rule("format", "is_not", "epub"), 0)
+	want("has ebook", rule("has_ebook", "is", true), 3)
+	want("no ebook", rule("has_ebook", "is", false), 0)
+	want("has audio", rule("has_audio", "is", true), 0)
+	if n, _ := count(rule("has_audio", "is", true)); n < 1 {
 		t.Fatalf("seeded audio titles are visible to the viewer: %d", n)
 	}
-	if n, _ := scoped(pred("author", "contains", "SCRIBE")); n != 1 {
-		t.Fatalf("author contains: %d", n)
-	}
-	if n, _ := scoped(pred("series", "contains", "anything")); n != 0 {
-		t.Fatalf("absent series must not match: %d", n)
-	}
-	if n, _ := count(map[string]any{"kind": "any", "children": []any{pred("title", "equals", "third tale"), pred("title", "equals", "fourth folio")}}); n != 2 {
+	want("author contains", rule("author", "contains", "SCRIBE"), 1)
+	want("author does not contain", rule("author", "not_contains", "SCRIBE"), 2)
+	want("absent series must not match", rule("series", "contains", "anything"), 0)
+	want("absent series matches the negation", rule("series", "not_contains", "anything"), 3)
+	if n, _ := count(group("OR", rule("title", "is", "third tale"), rule("title", "is", "fourth folio"))); n != 2 {
 		t.Fatalf("any: %d", n)
 	}
-	// Grammar limits and typing are 422.
-	deep := any(pred("title", "contains", "x"))
-	for i := 0; i < 4; i++ {
-		deep = map[string]any{"kind": "not", "child": deep}
+	// Grammar limits, typing and empty groups are 422.
+	many := []any{}
+	for i := 0; i < 31; i++ {
+		many = append(many, rule("title", "contains", "x"))
+	}
+	long := []any{}
+	for i := 0; i < 20; i++ {
+		long = append(long, strings.Repeat("a", 512))
 	}
 	for name, f := range map[string]any{
-		"depth 5":             deep,
-		"contains on boolean": pred("finished", "contains", "true"),
-		"non-boolean value":   pred("inProgress", "equals", "yes"),
-		"bad mediaKind":       pred("mediaKind", "equals", "video"),
-		"bad format":          pred("format", "equals", "exe"),
-		"contains on format":  pred("format", "contains", "epub"),
+		"four group levels":   group("AND", group("AND", group("AND", group("AND", rule("title", "contains", "x"))))),
+		"31 rules":            group("AND", many...),
+		"over 32 KiB":         group("AND", rule("title", "is", long), rule("author", "is", long), rule("series", "is", long), rule("publisher", "is", long)),
+		"empty filter":        group("AND"),
+		"empty nested group":  group("OR", rule("title", "contains", "x"), group("AND")),
+		"operator not valid":  rule("status", "contains", "finished"),
+		"bad status value":    rule("status", "is", "paused"),
+		"unknown field":       rule("nonsense", "is", "x"),
+		"the old shelf shape": map[string]any{"kind": "predicate", "field": "title", "operator": "equals", "value": "x"},
 	} {
 		if _, code := count(f); code != 422 {
 			t.Fatalf("%s: %d", name, code)
 		}
 	}
-	many := []any{}
-	for i := 0; i < 33; i++ {
-		many = append(many, pred("title", "contains", "x"))
+	if _, code := count(group("AND", many[:30]...)); code != 200 {
+		t.Fatalf("30 rules: %d", code)
 	}
-	if _, code := count(map[string]any{"kind": "all", "children": many[:32]}); code != 200 {
-		t.Fatalf("32 predicates: %d", code)
-	}
-	if _, code := count(map[string]any{"kind": "all", "children": []any{map[string]any{"kind": "all", "children": many[:32]}, pred("title", "contains", "y")}}); code != 422 {
-		t.Fatalf("33 predicates: %d", code)
+	if _, code := count(group("AND", group("AND", group("AND", rule("title", "contains", "x"))))); code != 200 {
+		t.Fatalf("three group levels: %d", code)
 	}
 
 	// Delete keeps an owner-only tombstone: others get 404, stale writes get a durable deleted conflict.
@@ -512,7 +521,7 @@ func TestShelvesPermissionsMembershipOrderAndSmartFilters(t *testing.T) {
 	if g := e.Do("GET", "/shelves/"+sid+"/titles", r.userA, nil); g.StatusCode != 404 {
 		t.Fatalf("tombstone titles: %d", g.StatusCode)
 	}
-	var mine wire.T005Shelves
+	var mine wire.Shelves
 	e.Do("GET", "/shelves?includeDeleted=true", r.userA, nil).JSON(t, &mine)
 	hasTomb := false
 	for _, s := range mine.Items {
@@ -563,7 +572,7 @@ func TestAnnotationAndShelfConcurrency(t *testing.T) {
 	if w, s := fan(6, func(int) apitest.Response { return r.putAnn(r.userA, id, same) }); w != 6 || s != 0 {
 		t.Fatalf("identical annotation retries: wins=%d stale=%d", w, s)
 	}
-	var ann wire.T005Annotation
+	var ann wire.Annotation
 	e.Do("GET", "/editions/"+r.ed.ID+"/annotations/"+id, r.userA, nil).JSON(t, &ann)
 	if ann.Revision != "2" {
 		t.Fatalf("annotation revision %s", ann.Revision)
@@ -571,7 +580,7 @@ func TestAnnotationAndShelfConcurrency(t *testing.T) {
 
 	sid := uuid.NewString()
 	e.Do("PUT", "/shelves/"+sid, r.userA, r.shelfBody(uuid.NewString(), "0", "manual", "private", "Race", nil))
-	var titles wire.T005Titles
+	var titles wire.Titles
 	e.Do("GET", "/titles", r.userA, nil).JSON(t, &titles)
 	if len(titles.Items) < 3 {
 		t.Fatalf("need three titles: %d", len(titles.Items))
@@ -581,9 +590,146 @@ func TestAnnotationAndShelfConcurrency(t *testing.T) {
 	}); w != 1 || s != 2 {
 		t.Fatalf("shelf members: wins=%d stale=%d", w, s)
 	}
-	var sh wire.T005Shelf
+	var sh wire.Shelf
 	e.Do("GET", "/shelves/"+sid, r.userA, nil).JSON(t, &sh)
 	if sh.Revision != "2" {
 		t.Fatalf("shelf revision %s", sh.Revision)
+	}
+}
+
+// ADR-0107: shared smart shelves are evaluated for each viewer, including rating and library rules, and the filter
+// fields shelves gained work the same in library search.
+func TestSmartShelfSharedViewersAndNewFields(t *testing.T) {
+	r := newReadingEnv(t)
+	e := r.e
+	// A decomposed e plus combining accent in the file, matched by the composed form and the other way round.
+	const composed, decomposed = "Caf\u00e9 Noir", "Cafe\u0301 Noir"
+	epub(t, filepath.Join(r.root, "Saga", "cafe.epub"), decomposed, "Zo\u00eb Writer", "978-0-306-40615-7")
+	scanTwice(t, e, r.admin, r.lib)
+
+	var titles wire.Titles
+	e.Do("GET", "/titles?size=200", r.userA, nil).JSON(t, &titles)
+	id := map[string]string{}
+	for _, x := range titles.Items {
+		id[x.Title] = x.ID
+	}
+	second := id["Second Volume"]
+	if second == "" {
+		t.Fatalf("titles: %v", titleNames(titles))
+	}
+
+	search := func(token string, f any) int64 {
+		t.Helper()
+		x := e.Do("POST", "/titles/search", token, map[string]any{"filter": f, "size": 200})
+		if x.StatusCode != 200 {
+			t.Fatalf("search %v: %d %s", f, x.StatusCode, x.Body)
+		}
+		var out wire.TitleRows
+		x.JSON(t, &out)
+		return out.Total
+	}
+	for _, v := range []string{composed, decomposed, strings.ToUpper(composed)} {
+		if n := search(r.userA, rule("title", "is", v)); n != 1 {
+			t.Fatalf("is %q: %d", v, n)
+		}
+		if n := search(r.userA, rule("title", "contains", v)); n != 1 {
+			t.Fatalf("contains %q: %d", v, n)
+		}
+	}
+	if n := search(r.userA, rule("author", "is", "zoe\u0308 writer")); n != 1 {
+		t.Fatalf("decomposed author: %d", n)
+	}
+	if n := search(r.userA, rule("language", "contains", "E")); n < 1 {
+		t.Fatalf("language contains: %d", n)
+	}
+	all := search(r.userA, group("AND"))
+	if a, b := search(r.userA, rule("language", "contains", "en")), search(r.userA, rule("language", "not_contains", "en")); a+b != all {
+		t.Fatalf("language negation is not the complement: %d + %d != %d", a, b, all)
+	}
+	// Audio file formats are filterable, while "audio" still means any recording.
+	audio := search(r.userA, rule("format", "is", "audio"))
+	if ext := search(r.userA, rule("format", "is", []string{"mp3", "m4a", "m4b", "aac", "ogg", "opus", "flac", "wav"})); audio < 1 || ext != audio {
+		t.Fatalf("audio extensions: %d of %d audio titles", ext, audio)
+	}
+
+	// Tags: edition tags, with every operator and its negation.
+	if y := r.metaPut(r.admin, r.ed.ID, "tags", mw("0", []string{"Space Opera"}, false)); y.StatusCode != 200 {
+		t.Fatalf("tags: %d %s", y.StatusCode, y.Body)
+	}
+	for _, c := range []struct {
+		op    string
+		value any
+		want  int64
+	}{{"is", "space opera", 1}, {"is_not", "space opera", all - 1}, {"contains", "OPERA", 1}, {"not_contains", "OPERA", all - 1},
+		{"not_empty", nil, 1}, {"is_empty", nil, all - 1}} {
+		if n := search(r.userA, rule("tag", c.op, c.value)); n != c.want {
+			t.Fatalf("tag %s: got %d want %d", c.op, n, c.want)
+		}
+	}
+
+	shelf := func(name string, f any) string {
+		t.Helper()
+		sid := uuid.NewString()
+		x := e.Do("PUT", "/shelves/"+sid, r.userA, r.shelfBody(uuid.NewString(), "0", "smart", "shared", name, f))
+		if x.StatusCode != 200 {
+			t.Fatalf("shelf %s: %d %s", name, x.StatusCode, x.Body)
+		}
+		return sid
+	}
+
+	// Rating rules use the viewer's own rating, never the owner's.
+	rated := shelf("Loved", rule("rating", "gte", 4))
+	if x := e.Do("PUT", "/titles/"+second+"/personal", r.userA, map[string]any{"operationId": uuid.NewString(), "baseRevision": "0",
+		"capturedAt": "2026-11-14T10:00:00Z", "data": map[string]any{"ratingHalves": 9, "review": "", "startedAt": nil, "finishedAt": nil}}); x.StatusCode != 200 {
+		t.Fatalf("rate: %d %s", x.StatusCode, x.Body)
+	}
+	if got := r.shelfTitles(t, r.userA, rated); got.Total != 1 {
+		t.Fatalf("owner rating: %v", titleNames(got))
+	}
+	if got := r.shelfTitles(t, r.admin, rated); got.Total != 0 { // the administrator holds the library but rated nothing
+		t.Fatalf("the owner's rating reached another viewer: %v", titleNames(got))
+	}
+
+	// A shared shelf may filter on a library. A viewer without it receives the rule unchanged and gains nothing.
+	root2, _ := filepath.Abs(filepath.Join(e.Cfg.MediaRoot, "private-comics"))
+	_ = os.MkdirAll(root2, 0o755)
+	cl := e.Do("POST", "/admin/libraries", r.admin, map[string]any{"name": "Private comics", "config": map[string]any{
+		"mode": "managed", "rootPath": root2, "followSymlinks": false, "writebackBackups": false, "providerOrder": []string{}}})
+	var d2 wire.LibraryDetail
+	cl.JSON(t, &d2)
+	if cl.StatusCode != http.StatusCreated {
+		t.Fatalf("second library: %d %s", cl.StatusCode, cl.Body)
+	}
+	if x := e.Do("PUT", "/admin/users/"+e.Fix.AdminID.String()+"/libraries/"+d2.Library.ID, r.admin, nil); x.StatusCode != http.StatusNoContent {
+		t.Fatalf("admin grant: %d", x.StatusCode)
+	}
+	if x := e.Do("PUT", "/admin/users/"+e.Fix.UserAID.String()+"/libraries/"+d2.Library.ID, r.admin, nil); x.StatusCode != http.StatusNoContent {
+		t.Fatalf("grant: %d", x.StatusCode)
+	}
+	epub(t, filepath.Join(root2, "Other", "secret.epub"), "Secret Folio", "Cy Scribe", "978-3-16-148410-0")
+	scanTwice(t, e, r.admin, d2.Library.ID)
+	if x := e.Do("DELETE", "/admin/users/"+e.Fix.AdminID.String()+"/libraries/"+d2.Library.ID, r.admin, nil); x.StatusCode != http.StatusNoContent {
+		t.Fatalf("revoke: %d", x.StatusCode)
+	}
+	adminAll := search(r.admin, group("AND"))
+	for _, c := range []struct {
+		op           string
+		owner, admin int64
+	}{{"is", 1, 0}, {"is_not", all, adminAll}} {
+		sid := shelf("By library "+c.op, rule("library", c.op, d2.Library.ID))
+		if got := r.shelfTitles(t, r.userA, sid); got.Total != c.owner {
+			t.Fatalf("owner library %s: %v", c.op, titleNames(got))
+		}
+		x := e.Do("GET", "/shelves/"+sid, r.admin, nil)
+		var seen wire.Shelf
+		x.JSON(t, &seen)
+		if x.StatusCode != 200 || seen.VisibleTitleCount != c.admin || seen.Data.Value == nil || seen.Data.Value.Filter.Value == nil ||
+			seen.Data.Value.Filter.Value.Value != d2.Library.ID {
+			t.Fatalf("viewer of library %s: %d %s", c.op, x.StatusCode, x.Body)
+		}
+		got := r.shelfTitles(t, r.admin, sid)
+		if got.Total != c.admin || slices.Contains(titleNames(got), "Secret Folio") || strings.Contains(string(x.Body), "Private comics") {
+			t.Fatalf("a viewer saw into a library without a grant: %v %s", titleNames(got), x.Body)
+		}
 	}
 }

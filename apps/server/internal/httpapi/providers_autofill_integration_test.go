@@ -23,13 +23,13 @@ func TestProviderSearchCacheAndUnconfiguredProvider(t *testing.T) {
 	r := newReadingEnvWith(t, apitest.Options{Providers: map[string]metadata.Provider{ol.name: ol}, ProviderCacheTTL: 10 * time.Minute})
 	e := r.e
 	path := "/admin/editions/" + r.ed.ID + "/metadata/provider-search"
-	search := func(fresh bool) wire.T005ProviderSearchResults {
+	search := func(fresh bool) wire.ProviderSearchResults {
 		t.Helper()
 		x := e.Do("POST", path, e.Login(seed.AdminName, "cli").AccessToken, map[string]any{"query": map[string]any{}, "fresh": fresh}) // the test clock outruns one access token
 		if x.StatusCode != 200 {
 			t.Fatalf("search: %d %s", x.StatusCode, x.Body)
 		}
-		var out wire.T005ProviderSearchResults
+		var out wire.ProviderSearchResults
 		x.JSON(t, &out)
 		return out
 	}
@@ -70,10 +70,10 @@ func TestProviderSearchCacheAndUnconfiguredProvider(t *testing.T) {
 	}
 }
 
-func (r *readingEnv) autoFill(t *testing.T, base string) (wire.T005AutoFillResult, apitest.Response) {
+func (r *readingEnv) autoFill(t *testing.T, base string) (wire.AutoFillResult, apitest.Response) {
 	t.Helper()
 	x := r.e.Do("POST", "/admin/editions/"+r.ed.ID+"/metadata/auto-fill", r.admin, map[string]any{"operationId": uuid.NewString(), "baseRevision": base})
-	var out wire.T005AutoFillResult
+	var out wire.AutoFillResult
 	if x.StatusCode == 200 {
 		x.JSON(t, &out)
 	}
@@ -91,8 +91,8 @@ func TestEditionAutoFillIsGapOnlyAndConservative(t *testing.T) {
 	ol := &fakeProvider{name: metadata.ProviderOpenLibrary}
 	r := newReadingEnvWith(t, apitest.Options{Providers: map[string]metadata.Provider{ol.name: ol}})
 	e := r.e
-	getReport := func() wire.T005MetadataReport {
-		var rep wire.T005MetadataReport
+	getReport := func() wire.EditionMetadataReport {
+		var rep wire.EditionMetadataReport
 		e.Do("GET", "/admin/editions/"+r.ed.ID+"/metadata", r.admin, nil).JSON(t, &rep)
 		return rep
 	}
@@ -181,7 +181,7 @@ func TestRecordingAutoFillFillsOnlyGaps(t *testing.T) {
 	cfg.Config.ProviderOrder = []string{metadata.ProviderAudnexus}
 	e.Do("PUT", "/admin/libraries/"+lib+"/config", admin, cfg.Config)
 
-	var out wire.T005AutoFillResult
+	var out wire.AutoFillResult
 	x := e.Do("POST", path, admin, nil)
 	x.JSON(t, &out)
 	if x.StatusCode != 200 || out.Outcome != "filled" {
@@ -221,7 +221,7 @@ func TestEditionExtraDescriptiveFieldsAreEditableAndValidated(t *testing.T) {
 		}
 		rev++
 	}
-	var rep wire.T005MetadataReport
+	var rep wire.EditionMetadataReport
 	r.e.Do("GET", "/admin/editions/"+r.ed.ID+"/metadata", r.admin, nil).JSON(t, &rep)
 	for name := range good {
 		if f := field(rep, name); f == nil || f.Source != "user" {
@@ -249,10 +249,10 @@ func (r *readingEnv) setTitleMatch(t *testing.T, on bool) {
 	}
 }
 
-func (r *readingEnv) autoFillDry(t *testing.T, base string) (wire.T005AutoFillResult, apitest.Response) {
+func (r *readingEnv) autoFillDry(t *testing.T, base string) (wire.AutoFillResult, apitest.Response) {
 	t.Helper()
 	x := r.e.Do("POST", "/admin/editions/"+r.ed.ID+"/metadata/auto-fill", r.admin, map[string]any{"operationId": uuid.NewString(), "baseRevision": base, "dryRun": true})
-	var out wire.T005AutoFillResult
+	var out wire.AutoFillResult
 	if x.StatusCode == 200 {
 		x.JSON(t, &out)
 	}
@@ -289,7 +289,7 @@ func TestEditionAutoFillTitleAndAuthorMatchIsPerLibraryAndReviewedBeforeSaving(t
 	if _, ok := out.Proposed["publisher"]; !ok || out.Proposed["title"].Raw != nil {
 		t.Fatalf("proposed: %+v", out.Proposed)
 	}
-	var rep wire.T005MetadataReport
+	var rep wire.EditionMetadataReport
 	e.Do("GET", "/admin/editions/"+r.ed.ID+"/metadata", r.admin, nil).JSON(t, &rep)
 	if rep.Revision != "0" || field(rep, "publisher") != nil {
 		t.Fatalf("a dry run must store nothing: revision %s", rep.Revision)
@@ -298,12 +298,12 @@ func TestEditionAutoFillTitleAndAuthorMatchIsPerLibraryAndReviewedBeforeSaving(t
 	// Anything less clear goes to review: another title, an author the book does not have listed, a different
 	// language, only partial-title hits, or a failed provider.
 	for name, ms := range map[string][]metadata.Match{
-		"other title":      {cand("w1", "Second Volume: The Sequel", []string{"Ada Author"}, nil)},
-		"missing author":   {cand("w1", "Second Volume", []string{"Someone Else"}, nil)},
-		"no authors":       {cand("w1", "Second Volume", nil, nil)},
-		"other language":   {cand("w1", "Second Volume", []string{"Ada Author"}, metadata.Fields{"language": raw("fr")})},
+		"other title":       {cand("w1", "Second Volume: The Sequel", []string{"Ada Author"}, nil)},
+		"missing author":    {cand("w1", "Second Volume", []string{"Someone Else"}, nil)},
+		"no authors":        {cand("w1", "Second Volume", nil, nil)},
+		"other language":    {cand("w1", "Second Volume", []string{"Ada Author"}, metadata.Fields{"language": raw("fr")})},
 		"only partial hits": {cand("w1", "Second Volume: The Sequel", []string{"Ada Author"}, nil), cand("w2", "Second Volume Companion", []string{"Ada Author"}, nil)},
-		"identifier match": {{Provider: metadata.ProviderOpenLibrary, ID: "w1", ByIdentifier: true, Fields: metadata.Fields{"title": raw("Another"), "authors": raw([]string{"Ada Author"})}}},
+		"identifier match":  {{Provider: metadata.ProviderOpenLibrary, ID: "w1", ByIdentifier: true, Fields: metadata.Fields{"title": raw("Another"), "authors": raw([]string{"Ada Author"})}}},
 	} {
 		ol.matches = ms
 		if out, x := r.autoFillDry(t, "0"); x.StatusCode != 200 || out.Outcome != "needs_review" || len(out.Proposed) != 0 {

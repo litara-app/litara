@@ -2,13 +2,13 @@ package wire
 
 // AnnotationHubItem is one live annotation with the book it belongs to (ADR-0099).
 type AnnotationHubItem struct {
-	Annotation   T005Annotation `json:"annotation"`
-	CreatedAt    string         `json:"createdAt" format:"date-time"`
-	TitleID      string         `json:"titleId" format:"uuid"`
-	Title        string         `json:"title"`
-	Authors      []string       `json:"authors"`
-	EditionLabel string         `json:"editionLabel"`
-	Format       string         `json:"format"`
+	Annotation   Annotation `json:"annotation"`
+	CreatedAt    string     `json:"createdAt" format:"date-time"`
+	TitleID      string     `json:"titleId" format:"uuid"`
+	Title        string     `json:"title"`
+	Authors      []string   `json:"authors"`
+	EditionLabel string     `json:"editionLabel"`
+	Format       string     `json:"format"`
 }
 
 // AnnotationHub is one page of the caller's own live annotations across every edition they can see, newest change

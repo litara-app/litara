@@ -24,18 +24,20 @@ const (
 
 type editionRow = sqlcgen.GetEditionRowRow
 
-func issue(code, detail string) wire.T005Issue { return wire.T005Issue{Code: code, Detail: detail} }
-
-func supported() wire.T005Capability {
-	return wire.T005Capability{State: "supported", Issues: []wire.T005Issue{}}
+func issue(code, detail string) wire.EditionIssue {
+	return wire.EditionIssue{Code: code, Detail: detail}
 }
 
-func incomplete(code, detail string) wire.T005Capability {
-	return wire.T005Capability{State: "incomplete", Issues: []wire.T005Issue{issue(code, detail)}}
+func supported() wire.Capability {
+	return wire.Capability{State: "supported", Issues: []wire.EditionIssue{}}
 }
 
-func unsupported(code, detail string) wire.T005Capability {
-	return wire.T005Capability{State: "unsupported", Issues: []wire.T005Issue{issue(code, detail)}}
+func incomplete(code, detail string) wire.Capability {
+	return wire.Capability{State: "incomplete", Issues: []wire.EditionIssue{issue(code, detail)}}
+}
+
+func unsupported(code, detail string) wire.Capability {
+	return wire.Capability{State: "unsupported", Issues: []wire.EditionIssue{issue(code, detail)}}
 }
 
 // engineFor maps a format to its web engine and profile.
@@ -52,8 +54,8 @@ func engineFor(format string) (engine, profile string) {
 
 // capabilities states only what is implemented and browser-tested. Recognized
 // is not supported (ADR-0025): untested or pending behavior is "incomplete".
-func capabilities(format string, available bool) wire.T005Capabilities {
-	var read wire.T005Capability
+func capabilities(format string, available bool) wire.EditionCapabilities {
+	var read wire.Capability
 	switch format {
 	case "epub", "fb2", "pdf", "cbz":
 		read = supported() // generated fixtures rendered in Chromium, Firefox and WebKit
@@ -89,7 +91,7 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 	if !available {
 		annotate = incomplete("file_unavailable", "The file is currently missing or unavailable.")
 	}
-	c := wire.T005Capabilities{Read: read, Download: download, Resume: resume, PageNote: annotate, Bookmark: annotate}
+	c := wire.EditionCapabilities{Read: read, Download: download, Resume: resume, PageNote: annotate, Bookmark: annotate}
 	if text {
 		sel := incomplete("selection_untested", "Text selection in this format has not been browser-tested yet.")
 		if format == "epub" || format == "pdf" {
@@ -103,7 +105,7 @@ func capabilities(format string, available bool) wire.T005Capabilities {
 	return c
 }
 
-func (s *Service) editionWire(r editionRow) wire.T005Edition {
+func (s *Service) editionWire(r editionRow) wire.Edition {
 	avail := "available"
 	switch {
 	case r.Missing:
@@ -111,7 +113,7 @@ func (s *Service) editionWire(r editionRow) wire.T005Edition {
 	case !r.Available:
 		avail = "unavailable"
 	}
-	file := wire.T005File{ID: r.FileID.String(), ContentVersion: r.ContentVersion.String(), Format: r.Format,
+	file := wire.EditionFile{ID: r.FileID.String(), ContentVersion: r.ContentVersion.String(), Format: r.Format,
 		MimeType: r.MimeType, SizeBytes: r.SizeBytes, Availability: avail}
 	if avail == "available" {
 		p := fmt.Sprintf("%s/files/%s/versions/%s/content", s.apiBase, r.FileID, r.ContentVersion)
@@ -123,11 +125,11 @@ func (s *Service) editionWire(r editionRow) wire.T005Edition {
 		caps.Read, caps.Resume, caps.TextSelection, caps.TextHighlight = damage, damage, damage, damage
 	}
 	readiness := map[string]string{"supported": "ready", "incomplete": "incomplete", "unsupported": "unsupported"}[caps.Read.State]
-	return wire.T005Edition{ID: r.ID.String(), TitleID: r.TitleID.String(), LibraryID: r.LibraryID.String(),
+	return wire.Edition{ID: r.ID.String(), TitleID: r.TitleID.String(), LibraryID: r.LibraryID.String(),
 		Revision: strconv.FormatInt(r.Revision, 10), Label: r.Label, Language: r.Language, File: file,
-		Readiness: readiness, Issues: append([]wire.T005Issue{}, caps.Read.Issues...),
+		Readiness: readiness, Issues: append([]wire.EditionIssue{}, caps.Read.Issues...),
 		// Completion storage arrives with the reading-state slice; revision 0 means never written.
-		Completion:   wire.T005Completion{Revision: "0", Finished: false},
+		Completion:   wire.ReadingCompletion{Revision: "0", Finished: false},
 		Capabilities: caps}
 }
 
@@ -150,33 +152,33 @@ func (s *Service) authorizeEdition(ctx context.Context, userID, id uuid.UUID) (e
 	return r, nil
 }
 
-func (s *Service) Edition(ctx context.Context, userID, id uuid.UUID) (wire.T005Edition, error) {
+func (s *Service) Edition(ctx context.Context, userID, id uuid.UUID) (wire.Edition, error) {
 	r, err := s.authorizeEdition(ctx, userID, id)
 	if err != nil {
-		return wire.T005Edition{}, err
+		return wire.Edition{}, err
 	}
 	out := s.editionWire(r)
 	if out.Completion, err = s.CompletionState(ctx, userID, id); err != nil {
-		return wire.T005Edition{}, err
+		return wire.Edition{}, err
 	}
 	return out, nil
 }
 
-func (s *Service) Reader(ctx context.Context, userID, id uuid.UUID) (wire.T005Reader, error) {
+func (s *Service) Reader(ctx context.Context, userID, id uuid.UUID) (wire.ReaderSnapshot, error) {
 	r, err := s.authorizeEdition(ctx, userID, id)
 	if err != nil {
-		return wire.T005Reader{}, err
+		return wire.ReaderSnapshot{}, err
 	}
 	engine, profile := engineFor(r.Format)
 	ed := s.editionWire(r)
 	if ed.Completion, err = s.CompletionState(ctx, userID, id); err != nil {
-		return wire.T005Reader{}, err
+		return wire.ReaderSnapshot{}, err
 	}
 	pos, err := s.PositionState(ctx, userID, id)
 	if err != nil {
-		return wire.T005Reader{}, err
+		return wire.ReaderSnapshot{}, err
 	}
-	return wire.T005Reader{SchemaVersion: 1, Edition: ed, Position: pos, Engine: engine, EngineProfile: profile}, nil
+	return wire.ReaderSnapshot{SchemaVersion: 1, Edition: ed, Position: pos, Engine: engine, EngineProfile: profile}, nil
 }
 
 type EditionListParams struct {
@@ -184,21 +186,21 @@ type EditionListParams struct {
 	Page, Size         int
 }
 
-func (s *Service) Editions(ctx context.Context, userID uuid.UUID, p EditionListParams) (wire.T005Editions, error) {
+func (s *Service) Editions(ctx context.Context, userID uuid.UUID, p EditionListParams) (wire.Editions, error) {
 	rows, err := s.q.ListEditionsPage(ctx, sqlcgen.ListEditionsPageParams{UserID: userID, LibraryID: nullUUID(p.LibraryID),
 		TitleID: nullUUID(p.TitleID), PageSize: int32(p.Size), PageOffset: int32(p.Page * p.Size)})
 	if err != nil {
-		return wire.T005Editions{}, unavailable(err)
+		return wire.Editions{}, unavailable(err)
 	}
 	total, err := s.q.CountEditionsPage(ctx, sqlcgen.CountEditionsPageParams{UserID: userID, LibraryID: nullUUID(p.LibraryID), TitleID: nullUUID(p.TitleID)})
 	if err != nil {
-		return wire.T005Editions{}, unavailable(err)
+		return wire.Editions{}, unavailable(err)
 	}
-	out := wire.T005Editions{Items: []wire.T005Edition{}, Total: total, Page: int64(p.Page), Size: int64(p.Size)}
+	out := wire.Editions{Items: []wire.Edition{}, Total: total, Page: int64(p.Page), Size: int64(p.Size)}
 	for _, r := range rows {
 		ed := s.editionWire(editionRow(r))
 		if ed.Completion, err = s.CompletionState(ctx, userID, r.ID); err != nil {
-			return wire.T005Editions{}, err
+			return wire.Editions{}, err
 		}
 		out.Items = append(out.Items, ed)
 	}
@@ -226,10 +228,10 @@ func (s *Service) TitleVisible(ctx context.Context, userID, id uuid.UUID) error 
 
 // EditionTx renders an edition through q so a writer sees its own uncommitted
 // change. The caller has already authorized the edition for userID.
-func (s *Service) EditionTx(ctx context.Context, q *sqlcgen.Queries, userID, id uuid.UUID) (wire.T005Edition, error) {
+func (s *Service) EditionTx(ctx context.Context, q *sqlcgen.Queries, userID, id uuid.UUID) (wire.Edition, error) {
 	r, err := q.GetEditionRow(ctx, id)
 	if err != nil {
-		return wire.T005Edition{}, unavailable(err)
+		return wire.Edition{}, unavailable(err)
 	}
 	out := s.editionWire(r)
 	out.Completion, err = s.CompletionStateTx(ctx, q, userID, id)

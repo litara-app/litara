@@ -32,7 +32,7 @@ func TestReadingSessionsAreExtendedNotShrunkAndPrivateToTheirAccount(t *testing.
 	put(r.userA, id, body(now, 540, 0.3))
 	put(r.userA, id, body(now.Add(-5*time.Minute), 300, 0.2))
 
-	var list wire.T005ReadingSessions
+	var list wire.ReadingSessions
 	e.Do("GET", "/titles/"+r.ed.TitleID+"/reading-sessions", r.userA, nil).JSON(t, &list)
 	if list.Total != 1 || len(list.Items) != 1 {
 		t.Fatalf("one session expected: %+v", list)
@@ -51,7 +51,7 @@ func TestReadingSessionsAreExtendedNotShrunkAndPrivateToTheirAccount(t *testing.
 	}
 
 	// Private: the administrator and another account see none of it, and cannot add to someone else's session id.
-	var adminList wire.T005ReadingSessions
+	var adminList wire.ReadingSessions
 	if x := e.Do("GET", "/titles/"+r.ed.TitleID+"/reading-sessions", r.admin, nil); x.StatusCode == http.StatusOK {
 		x.JSON(t, &adminList)
 		if len(adminList.Items) != 0 {
@@ -59,7 +59,7 @@ func TestReadingSessionsAreExtendedNotShrunkAndPrivateToTheirAccount(t *testing.
 		}
 	}
 	if x := put(r.userB, id, body(now, 9999, 0.9)); x.StatusCode < 400 {
-		var again wire.T005ReadingSessions
+		var again wire.ReadingSessions
 		e.Do("GET", "/titles/"+r.ed.TitleID+"/reading-sessions", r.userA, nil).JSON(t, &again)
 		if len(again.Items) != 1 || again.Items[0].ActiveSeconds != 540 {
 			t.Fatalf("another account changed a session: %+v", again)
@@ -77,7 +77,7 @@ func TestReadingSessionIDReusedForAnotherEditionConflicts(t *testing.T) {
 	e := r.e
 	epub(t, filepath.Join(r.root, "Other", "book.epub"), "Another Book", "Bea Writer", "978-0-306-40615-7")
 	scanTwice(t, e, r.admin, r.lib)
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+r.lib, r.userA, nil).JSON(t, &eds)
 	var other string
 	for _, ed := range eds.Items {

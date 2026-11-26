@@ -949,7 +949,7 @@ CREATE FUNCTION title_rows(p_user uuid) RETURNS TABLE (
     id uuid, title text, authors text[], series_name text, series_index double precision,
     edition_count bigint, recording_count bigint, languages text[], formats text[], library_ids uuid[],
     added_at timestamptz, publisher text, published text, page_count int, rating_halves smallint, status text,
-    has_description boolean
+    has_description boolean, tags text[], audio_formats text[]
 ) LANGUAGE sql STABLE AS $$
   SELECT t.id, t.title, t.authors, t.series_name, t.series_index,
     (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id)::bigint AS edition_count,
@@ -978,7 +978,23 @@ CREATE FUNCTION title_rows(p_user uuid) RETURNS TABLE (
       ELSE 'unread' END::text AS status
     ,
     COALESCE(NULLIF(effective_title_field(t.id, 'description') #>> '{}', '') IS NOT NULL
-      OR EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id AND NULLIF(effective_edition_field(e.id, 'description') #>> '{}', '') IS NOT NULL), false) AS has_description
+      OR EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id AND NULLIF(effective_edition_field(e.id, 'description') #>> '{}', '') IS NOT NULL), false) AS has_description,
+    -- Read only by filters (ADR-0107): the title's tags and those of granted editions.
+    COALESCE((SELECT array_agg(DISTINCT x.v) FROM (
+        SELECT tg.v FROM metadata_values mv, jsonb_array_elements_text(CASE WHEN jsonb_typeof(mv.value) = 'array' THEN mv.value ELSE '[]'::jsonb END) AS tg(v)
+          WHERE mv.subject_kind = 'title' AND mv.subject_id = t.id AND mv.field = 'tags' AND NOT mv.protected_clear
+        UNION ALL
+        SELECT et.v FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user
+          JOIN edition_metadata_values ev ON ev.edition_id = e.id AND ev.field = 'tags' AND NOT ev.protected_clear,
+          jsonb_array_elements_text(CASE WHEN jsonb_typeof(ev.value) = 'array' THEN ev.value ELSE '[]'::jsonb END) AS et(v)
+          WHERE e.title_id = t.id) x), '{}')::text[] AS tags,
+    -- Read only by filters (ADR-0107): the file extensions of granted recordings. "formats" keeps the single value "audio".
+    COALESCE((SELECT array_agg(DISTINCT lower(substring(fv.filename from '\.([^.]+)$'))) FILTER (WHERE fv.filename ~ '\.[^.]+$')
+        FROM active_recordings r
+        JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user
+        JOIN recording_files rf ON rf.recording_id = r.id
+        JOIN file_versions fv ON fv.file_id = rf.file_id AND fv.current
+        WHERE r.title_id = t.id), '{}')::text[] AS audio_formats
   FROM titles t
 $$;
 

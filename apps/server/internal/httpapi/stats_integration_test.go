@@ -24,7 +24,7 @@ func TestReadingStatsArePrivateLocalAndFollowGrants(t *testing.T) {
 	// 23:30 in Tokyo on 10 Nov is 14:30 UTC: it belongs to 10 Nov in Tokyo.
 	tokyo, _ := time.LoadLocation("Asia/Tokyo")
 	insert(e.Fix.UserAID, time.Date(2026, 11, 10, 23, 30, 0, 0, tokyo), 600)
-	insert(e.Fix.UserAID, time.Date(2026, 11, 11, 8, 0, 0, 0, tokyo), 120) // under 5 minutes
+	insert(e.Fix.UserAID, time.Date(2026, 11, 11, 8, 0, 0, 0, tokyo), 120)  // under 5 minutes
 	insert(e.Fix.UserBID, time.Date(2026, 11, 10, 12, 0, 0, 0, tokyo), 900) // another account
 
 	get := func(token, q string) (wire.ReadingStats, int) {

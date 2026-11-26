@@ -36,7 +36,7 @@ type TitleListParams struct {
 // SortKeys are the columns the library list can be ordered by.
 var SortKeys = []string{"title", "author", "series", "series_index", "publisher", "published", "language", "status", "pages", "rating", "editions", "added"}
 
-func titleWire(id uuid.UUID, title string, authors []string, series *string, languages []string, editions, recordings int64) wire.T005Title {
+func titleWire(id uuid.UUID, title string, authors []string, series *string, languages []string, editions, recordings int64) wire.Title {
 	auth := make([]wire.Str512, 0, len(authors))
 	for _, a := range authors {
 		auth = append(auth, wire.Str512(a))
@@ -50,7 +50,7 @@ func titleWire(id uuid.UUID, title string, authors []string, series *string, lan
 		ser = append(ser, wire.Str512(*series))
 	}
 	// lastActivityAt becomes non-null when per-user edition state exists.
-	return wire.T005Title{ID: id.String(), Title: title, Authors: auth, Series: ser, Languages: langs,
+	return wire.Title{ID: id.String(), Title: title, Authors: auth, Series: ser, Languages: langs,
 		EditionCount: editions, RecordingCount: recordings}
 }
 
@@ -65,7 +65,7 @@ func optStr(s string) *string {
 // the caller can read, with the columns the library table shows, filtered and ordered as asked. Counts, formats
 // and libraries include only granted libraries. The single-value filters and the filter tree (ADR-0085) share one
 // compiler, so they cannot disagree.
-func (s *Service) Titles(ctx context.Context, userID uuid.UUID, p TitleListParams) (wire.T009Titles, error) {
+func (s *Service) Titles(ctx context.Context, userID uuid.UUID, p TitleListParams) (wire.TitleRows, error) {
 	sort := p.Sort
 	if sort == "" {
 		sort = "title"
@@ -73,9 +73,9 @@ func (s *Service) Titles(ctx context.Context, userID uuid.UUID, p TitleListParam
 	tree := p.tree()
 	rows, total, err := s.queryTitles(ctx, userID, p, sort, tree, p.Page*p.Size, p.Size)
 	if err != nil {
-		return wire.T009Titles{}, err
+		return wire.TitleRows{}, err
 	}
-	out := wire.T009Titles{Items: []wire.T009TitleRow{}, Page: int64(p.Page), Size: int64(p.Size), Total: total}
+	out := wire.TitleRows{Items: []wire.TitleRow{}, Page: int64(p.Page), Size: int64(p.Size), Total: total}
 	if len(rows) == 0 && p.Page > 0 {
 		// A page past the end has no rows to carry the total; ask for the first row of the same set.
 		if first, t, err := s.queryTitles(ctx, userID, p, sort, tree, 0, 1); err == nil && len(first) > 0 {
@@ -83,8 +83,8 @@ func (s *Service) Titles(ctx context.Context, userID uuid.UUID, p TitleListParam
 		}
 	}
 	for _, r := range rows {
-		row := wire.T009TitleRow{
-			T005Title:   titleWire(r.id, r.title, r.authors, r.seriesName, r.languages, r.editionCount, r.recordingCount),
+		row := wire.TitleRow{
+			Title:       titleWire(r.id, r.title, r.authors, r.seriesName, r.languages, r.editionCount, r.recordingCount),
 			LibraryIDs:  make([]string, 0, len(r.libraryIDs)),
 			Formats:     append([]string{}, r.formats...),
 			AddedAt:     r.addedAt.UTC().Format(time.RFC3339),
@@ -226,45 +226,45 @@ LIMIT ` + c.arg(limit) + ` OFFSET ` + c.arg(offset)
 
 // Title returns one title the caller can see through a granted library.
 // A title that exists but is held only in other libraries is denied (403).
-func (s *Service) Title(ctx context.Context, userID, id uuid.UUID) (wire.T005TitleDetail, error) {
+func (s *Service) Title(ctx context.Context, userID, id uuid.UUID) (wire.TitleDetail, error) {
 	exists, err := s.q.TitleExists(ctx, id)
 	if err != nil {
-		return wire.T005TitleDetail{}, unavailable(err)
+		return wire.TitleDetail{}, unavailable(err)
 	}
 	if !exists {
-		return wire.T005TitleDetail{}, apperr.ErrNotFound
+		return wire.TitleDetail{}, apperr.ErrNotFound
 	}
 	rows, err := s.q.GetTitleForUser(ctx, sqlcgen.GetTitleForUserParams{UserID: userID, ID: id})
 	if err != nil {
-		return wire.T005TitleDetail{}, unavailable(err)
+		return wire.TitleDetail{}, unavailable(err)
 	}
 	if len(rows) == 0 || rows[0].EditionCount+rows[0].RecordingCount == 0 {
-		return wire.T005TitleDetail{}, apperr.ErrAccessDenied
+		return wire.TitleDetail{}, apperr.ErrAccessDenied
 	}
 	r := rows[0]
-	return wire.T005TitleDetail{
+	return wire.TitleDetail{
 		Title:          titleWire(r.ID, r.Title, r.Authors, r.SeriesName, r.Languages, r.EditionCount, r.RecordingCount),
 		EditionsPath:   fmt.Sprintf("%s/editions?titleId=%s", s.apiBase, id),
 		RecordingsPath: fmt.Sprintf("%s/titles/%s/recordings", s.apiBase, id)}, nil
 }
 
 // TitleRecordings lists recording links in granted libraries only.
-func (s *Service) TitleRecordings(ctx context.Context, userID, titleID uuid.UUID, page, size int) (wire.T005RecordingLinks, error) {
+func (s *Service) TitleRecordings(ctx context.Context, userID, titleID uuid.UUID, page, size int) (wire.RecordingLinks, error) {
 	if _, err := s.Title(ctx, userID, titleID); err != nil {
-		return wire.T005RecordingLinks{}, err
+		return wire.RecordingLinks{}, err
 	}
 	rows, err := s.q.ListTitleRecordingsPage(ctx, sqlcgen.ListTitleRecordingsPageParams{UserID: userID, TitleID: titleID,
 		PageSize: int32(size), PageOffset: int32(page * size)})
 	if err != nil {
-		return wire.T005RecordingLinks{}, unavailable(err)
+		return wire.RecordingLinks{}, unavailable(err)
 	}
 	total, err := s.q.CountTitleRecordings(ctx, sqlcgen.CountTitleRecordingsParams{UserID: userID, TitleID: titleID})
 	if err != nil {
-		return wire.T005RecordingLinks{}, unavailable(err)
+		return wire.RecordingLinks{}, unavailable(err)
 	}
-	out := wire.T005RecordingLinks{Items: []wire.T005RecordingLink{}, Total: total, Page: int64(page), Size: int64(size)}
+	out := wire.RecordingLinks{Items: []wire.RecordingLink{}, Total: total, Page: int64(page), Size: int64(size)}
 	for _, r := range rows {
-		out.Items = append(out.Items, wire.T005RecordingLink{ID: r.ID.String(), LibraryID: r.LibraryID.String(), Label: r.Title,
+		out.Items = append(out.Items, wire.RecordingLink{ID: r.ID.String(), LibraryID: r.LibraryID.String(), Label: r.Title,
 			SnapshotPath: fmt.Sprintf("%s/recordings/%s", s.apiBase, r.ID)})
 	}
 	return out, nil
@@ -272,21 +272,21 @@ func (s *Service) TitleRecordings(ctx context.Context, userID, titleID uuid.UUID
 
 // TitlesByIDs returns the titles the caller can see among ids, preserving the
 // order of ids. Titles the caller cannot see are silently omitted.
-func (s *Service) TitlesByIDs(ctx context.Context, userID uuid.UUID, ids []uuid.UUID) ([]wire.T005Title, error) {
+func (s *Service) TitlesByIDs(ctx context.Context, userID uuid.UUID, ids []uuid.UUID) ([]wire.Title, error) {
 	if len(ids) == 0 {
-		return []wire.T005Title{}, nil
+		return []wire.Title{}, nil
 	}
 	rows, err := s.q.ListTitlesByIDs(ctx, sqlcgen.ListTitlesByIDsParams{UserID: userID, Ids: ids})
 	if err != nil {
 		return nil, unavailable(err)
 	}
-	byID := make(map[uuid.UUID]wire.T005Title, len(rows))
+	byID := make(map[uuid.UUID]wire.Title, len(rows))
 	for _, r := range rows {
 		if r.EditionCount+r.RecordingCount > 0 {
 			byID[r.ID] = titleWire(r.ID, r.Title, r.Authors, r.SeriesName, r.Languages, r.EditionCount, r.RecordingCount)
 		}
 	}
-	out := make([]wire.T005Title, 0, len(ids))
+	out := make([]wire.Title, 0, len(ids))
 	for _, id := range ids {
 		if t, ok := byID[id]; ok {
 			out = append(out, t)

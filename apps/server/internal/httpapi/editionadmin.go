@@ -23,8 +23,8 @@ var editionProviderFields = map[string]bool{"title": true, "authors": true, "ser
 	"public_rating": true, "public_rating_count": true}
 
 // providerQuery builds the only data sent to providers: the request's members, else the effective title, authors and ISBN.
-func providerQuery(rep wire.T005MetadataReport, in wire.T005ProviderQuery) (wire.T005ProviderQuery, error) {
-	out := wire.T005ProviderQuery{Title: strings.TrimSpace(in.Title), ISBN: strings.ToUpper(strings.TrimSpace(in.ISBN))}
+func providerQuery(rep wire.EditionMetadataReport, in wire.ProviderQuery) (wire.ProviderQuery, error) {
+	out := wire.ProviderQuery{Title: strings.TrimSpace(in.Title), ISBN: strings.ToUpper(strings.TrimSpace(in.ISBN))}
 	for _, a := range in.Authors {
 		if a = strings.TrimSpace(a); a != "" {
 			out.Authors = append(out.Authors, a)
@@ -67,8 +67,8 @@ func (a *API) registerEditionAdmin(api huma.API) {
 	huma.Register(api, writeOp(op("linkEditionTitle", http.MethodPut, "/admin/editions/{editionId}/title", "Link an edition to a title or separate it", "editions")),
 		func(ctx context.Context, in *struct {
 			EditionIn
-			Body wire.T005EditionLink
-		}) (*bodyOut[wire.T005Edition], error) {
+			Body wire.EditionLink
+		}) (*bodyOut[wire.Edition], error) {
 			if err := a.manageEdition(ctx, in.EditionID); err != nil {
 				return nil, err
 			}
@@ -76,11 +76,11 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005Edition]{Body: out}, nil
+			return &bodyOut[wire.Edition]{Body: out}, nil
 		})
 
 	huma.Register(api, readOp(op("getEditionMetadata", http.MethodGet, "/admin/editions/{editionId}/metadata", "Effective edition metadata with provenance", "editions")),
-		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.T005MetadataReport], error) {
+		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.EditionMetadataReport], error) {
 			if err := a.manageEdition(ctx, in.EditionID); err != nil {
 				return nil, err
 			}
@@ -88,14 +88,14 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005MetadataReport]{Body: out}, nil
+			return &bodyOut[wire.EditionMetadataReport]{Body: out}, nil
 		})
 
 	huma.Register(api, writeOp(op("setEditionMetadata", http.MethodPut, "/admin/editions/{editionId}/metadata/{field}", "Set a protected edit or protected clear", "editions")),
 		func(ctx context.Context, in *struct {
 			MetadataFieldIn
-			Body wire.T005MetadataWrite
-		}) (*bodyOut[wire.T005MetadataReport], error) {
+			Body wire.EditionMetadataWrite
+		}) (*bodyOut[wire.EditionMetadataReport], error) {
 			if err := a.manageEdition(ctx, in.EditionID); err != nil {
 				return nil, err
 			}
@@ -103,7 +103,7 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005MetadataReport]{Body: out}, nil
+			return &bodyOut[wire.EditionMetadataReport]{Body: out}, nil
 		})
 
 	huma.Register(api, writeOp(op("saveEditionMetadata", http.MethodPatch, "/admin/editions/{editionId}/metadata",
@@ -111,7 +111,7 @@ func (a *API) registerEditionAdmin(api huma.API) {
 		func(ctx context.Context, in *struct {
 			EditionIn
 			Body wire.MetadataSave
-		}) (*bodyOut[wire.T005MetadataReport], error) {
+		}) (*bodyOut[wire.EditionMetadataReport], error) {
 			if err := a.manageEdition(ctx, in.EditionID); err != nil {
 				return nil, err
 			}
@@ -119,14 +119,14 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005MetadataReport]{Body: out}, nil
+			return &bodyOut[wire.EditionMetadataReport]{Body: out}, nil
 		})
 
 	huma.Register(api, writeOp(op("removeEditionMetadata", http.MethodDelete, "/admin/editions/{editionId}/metadata/{field}", "Remove a protected override", "editions")),
 		func(ctx context.Context, in *struct {
 			MetadataFieldIn
-			Body wire.T005MetadataRemove
-		}) (*bodyOut[wire.T005MetadataReport], error) {
+			Body wire.EditionMetadataRemove
+		}) (*bodyOut[wire.EditionMetadataReport], error) {
 			if err := a.manageEdition(ctx, in.EditionID); err != nil {
 				return nil, err
 			}
@@ -134,14 +134,14 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005MetadataReport]{Body: out}, nil
+			return &bodyOut[wire.EditionMetadataReport]{Body: out}, nil
 		})
 
 	huma.Register(api, writeOp(op("searchEditionProviders", http.MethodPost, "/admin/editions/{editionId}/metadata/provider-search", "Search the library's enabled metadata providers for candidates to review", "editions")),
 		func(ctx context.Context, in *struct {
 			EditionIn
-			Body wire.T005ProviderSearch
-		}) (*bodyOut[wire.T005ProviderSearchResults], error) {
+			Body wire.ProviderSearch
+		}) (*bodyOut[wire.ProviderSearchResults], error) {
 			if err := a.manageEdition(ctx, in.EditionID); err != nil {
 				return nil, err
 			}
@@ -161,15 +161,15 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			out := wire.T005ProviderSearchResults{EditionID: in.EditionID, Enabled: res.Enabled, Query: q, Results: providerResultsWire(res, editionProviderFields)}
-			return &bodyOut[wire.T005ProviderSearchResults]{Body: out}, nil
+			out := wire.ProviderSearchResults{EditionID: in.EditionID, Enabled: res.Enabled, Query: q, Results: providerResultsWire(res, editionProviderFields)}
+			return &bodyOut[wire.ProviderSearchResults]{Body: out}, nil
 		})
 
 	huma.Register(api, writeOp(op("autoFillEditionMetadata", http.MethodPost, "/admin/editions/{editionId}/metadata/auto-fill", "Fill empty fields from an unambiguous identifier match", "editions")),
 		func(ctx context.Context, in *struct {
 			EditionIn
-			Body wire.T005AutoFill
-		}) (*bodyOut[wire.T005AutoFillResult], error) {
+			Body wire.EditionAutoFill
+		}) (*bodyOut[wire.AutoFillResult], error) {
 			if err := a.manageEdition(ctx, in.EditionID); err != nil {
 				return nil, err
 			}
@@ -185,7 +185,7 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			if rep.Revision != in.Body.BaseRevision {
 				return nil, a.fail(ctx, apperr.New(http.StatusConflict, "stale_revision", "The edition changed since that revision; refetch and retry.").With("currentRevision", rep.Revision))
 			}
-			q, err := providerQuery(rep, wire.T005ProviderQuery{})
+			q, err := providerQuery(rep, wire.ProviderQuery{})
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
@@ -213,9 +213,9 @@ func (a *API) registerEditionAdmin(api huma.API) {
 				return false
 			}
 			m, outcome, rule := metadata.PickAutoFill(res, metadata.Query{Title: q.Title, Authors: q.Authors, ISBN: q.ISBN}, language, fillsSomething)
-			out := wire.T005AutoFillResult{Outcome: outcome, Filled: []string{}, Revision: rep.Revision, Rule: rule}
+			out := wire.AutoFillResult{Outcome: outcome, Filled: []string{}, Revision: rep.Revision, Rule: rule}
 			if outcome != "filled" {
-				return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
+				return &bodyOut[wire.AutoFillResult]{Body: out}, nil
 			}
 			values := map[string]json.RawMessage{}
 			for k, v := range m.Fields {
@@ -225,20 +225,20 @@ func (a *API) registerEditionAdmin(api huma.API) {
 			}
 			if len(values) == 0 {
 				out.Outcome, out.Provider = "nothing_to_fill", m.Provider
-				return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
+				return &bodyOut[wire.AutoFillResult]{Body: out}, nil
 			}
 			if in.Body.DryRun { // the person reviews the values and saves the ones they keep (ADR-0090); nothing is stored here
-				out.Outcome, out.Provider, out.Proposed = "proposed", m.Provider, map[string]wire.T005MetadataValue{}
+				out.Outcome, out.Provider, out.Proposed = "proposed", m.Provider, map[string]wire.MetadataValue{}
 				for k, v := range values {
-					out.Proposed[k] = wire.T005MetadataValue{Raw: v}
+					out.Proposed[k] = wire.MetadataValue{Raw: v}
 				}
-				return &bodyOut[wire.T005AutoFillResult]{Body: out}, nil
+				return &bodyOut[wire.AutoFillResult]{Body: out}, nil
 			}
 			done, err := a.Reading.AutoFillEdition(ctx, a.readingActor(ctx), id, in.Body, m.Provider, values)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
 			done.Rule = rule
-			return &bodyOut[wire.T005AutoFillResult]{Body: done}, nil
+			return &bodyOut[wire.AutoFillResult]{Body: done}, nil
 		})
 }

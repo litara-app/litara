@@ -33,7 +33,7 @@ func TestIntegrationSettings(t *testing.T) {
 	userA := e.Login(seed.UserAName, "phone").AccessToken
 
 	// Initial state: everything disabled, contract defaults, revision zero.
-	var st wire.T006IntegrationSettings
+	var st wire.IntegrationSettings
 	g := e.Do("GET", "/integrations/settings", userA, nil)
 	g.JSON(t, &st)
 	if g.StatusCode != 200 || st.Revision != "0" || st.OpdsEnabled || st.EmailEnabled || st.KoreaderEnabled ||
@@ -109,7 +109,7 @@ func TestCredentialLifecycleAndAuthenticationBoundaries(t *testing.T) {
 	op := uuid.NewString()
 	create := map[string]any{"operationId": op, "kind": "opds", "label": "My reader", "password": pw}
 	r := e.Do("POST", "/integration-credentials", userA, create)
-	var cred wire.T006Credential
+	var cred wire.Credential
 	r.JSON(t, &cred)
 	if r.StatusCode != 201 || cred.Kind != "opds" || cred.Label != "My reader" || cred.Revoked || cred.LastUsedAt != nil ||
 		!strings.HasPrefix(cred.Username, "opds-") || strings.Contains(string(r.Body), pw) {
@@ -137,14 +137,14 @@ func TestCredentialLifecycleAndAuthenticationBoundaries(t *testing.T) {
 	}
 	kpw := secret("koreader-pw-")
 	kr := createCred(e, userA, "koreader", "Kobo", kpw)
-	var kcred wire.T006Credential
+	var kcred wire.Credential
 	kr.JSON(t, &kcred)
 	if kr.StatusCode != 201 || !strings.HasPrefix(kcred.Username, "kor-") {
 		t.Fatalf("koreader create: %d %s", kr.StatusCode, kr.Body)
 	}
 
 	// Only the owner's active credentials are listed; no secret material appears.
-	var list wire.T006CredentialList
+	var list wire.CredentialList
 	l := e.Do("GET", "/integration-credentials", userA, nil)
 	l.JSON(t, &list)
 	if len(list.Items) != 2 || strings.Contains(string(l.Body), pw) || strings.Contains(string(l.Body), "verifier") {
@@ -201,7 +201,7 @@ func TestCredentialLifecycleAndAuthenticationBoundaries(t *testing.T) {
 	// Revoke is idempotent, keeps metadata and takes effect immediately.
 	rvOp := map[string]any{"operationId": uuid.NewString()}
 	rv := e.Do("POST", "/integration-credentials/"+cred.ID+"/revoke", userA, rvOp)
-	var revoked wire.T006Credential
+	var revoked wire.Credential
 	rv.JSON(t, &revoked)
 	if rv.StatusCode != 200 || !revoked.Revoked || revoked.Username != cred.Username {
 		t.Fatalf("revoke: %d %s", rv.StatusCode, rv.Body)
@@ -210,7 +210,7 @@ func TestCredentialLifecycleAndAuthenticationBoundaries(t *testing.T) {
 		t.Fatalf("revoke replay: %d %s", rp.StatusCode, rp.Body)
 	}
 	again := e.Do("POST", "/integration-credentials/"+cred.ID+"/revoke", userA, map[string]any{"operationId": uuid.NewString()})
-	var r2 wire.T006Credential
+	var r2 wire.Credential
 	again.JSON(t, &r2)
 	if again.StatusCode != 200 || !r2.Revoked {
 		t.Fatalf("second revoke: %d %s", again.StatusCode, again.Body)
@@ -236,7 +236,7 @@ func TestCredentialLimitsAndThrottle(t *testing.T) {
 	e := apitest.New(t)
 	ctx := context.Background()
 	userA := e.Login(seed.UserAName, "phone").AccessToken
-	var first wire.T006Credential
+	var first wire.Credential
 	for i := 0; i < integrations.MaxActiveCredentials; i++ {
 		r := createCred(e, userA, "opds", "reader", secret(string(rune('a'+i%26))+string(rune('a'+i/26))+"-"))
 		if r.StatusCode != 201 {

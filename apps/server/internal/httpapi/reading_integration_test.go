@@ -18,7 +18,7 @@ type readingEnv struct {
 	e                   *apitest.Env
 	admin, userA, userB string
 	lib, root           string
-	ed                  wire.T005Edition
+	ed                  wire.Edition
 	book                string
 }
 
@@ -42,7 +42,7 @@ func newReadingEnvWith(t *testing.T, o apitest.Options) *readingEnv {
 	epub(t, book, "Second Volume", "Ada Author", "978-1-4028-9462-6")
 	scanTwice(t, e, admin, lib)
 	r := &readingEnv{e: e, admin: admin, userA: e.Login(seed.UserAName, "phone").AccessToken, userB: e.Login(seed.UserBName, "tablet").AccessToken, lib: lib, root: root, book: book}
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+lib, r.userA, nil).JSON(t, &eds)
 	if len(eds.Items) != 1 {
 		t.Fatalf("editions: %+v", eds)
@@ -75,7 +75,7 @@ func TestEditionPositionRevisionsReceiptsAndConflicts(t *testing.T) {
 	r := newReadingEnv(t)
 	e, v := r.e, r.ed.File.ContentVersion
 
-	var st wire.T005PositionState
+	var st wire.ReadingPositionState
 	e.Do("GET", "/editions/"+r.ed.ID+"/position", r.userA, nil).JSON(t, &st)
 	if st.Revision != "0" || st.Position.Value != nil || st.UnresolvedConflictCount != 0 {
 		t.Fatalf("initial: %+v", st)
@@ -148,12 +148,12 @@ func TestEditionPositionRevisionsReceiptsAndConflicts(t *testing.T) {
 	if st.UnresolvedConflictCount != 2 {
 		t.Fatalf("conflict count: %d", st.UnresolvedConflictCount)
 	}
-	var cs wire.T005Conflicts
+	var cs wire.PersonalConflicts
 	e.Do("GET", "/personal-conflicts?resourceId="+r.ed.ID, r.userA, nil).JSON(t, &cs)
 	if cs.Total != 2 || cs.Items[0].Candidate.Position == nil {
 		t.Fatalf("conflicts: %+v", cs)
 	}
-	var other wire.T005Conflicts
+	var other wire.PersonalConflicts
 	e.Do("GET", "/personal-conflicts", r.admin, nil).JSON(t, &other)
 	if other.Total != 0 {
 		t.Fatalf("conflicts leaked across accounts: %+v", other)
@@ -173,7 +173,7 @@ func TestEditionPositionRevisionsReceiptsAndConflicts(t *testing.T) {
 	useOp := uuid.NewString()
 	use := map[string]any{"operationId": useOp, "baseRevision": "3", "choice": "use_candidate", "contentVersion": v}
 	res := e.Do("POST", "/personal-conflicts/"+staleID+"/resolve", r.userA, use)
-	var rv wire.T005Resolved
+	var rv wire.ResolvedPersonalConflict
 	res.JSON(t, &rv)
 	if res.StatusCode != 200 || rv.Revision != "4" || rv.ResourceKind != "position" {
 		t.Fatalf("resolve: %d %s", res.StatusCode, res.Body)
@@ -191,7 +191,7 @@ func TestEditionPositionRevisionsReceiptsAndConflicts(t *testing.T) {
 	}
 
 	// keep_server resolves without replacing state.
-	var open wire.T005Conflicts
+	var open wire.PersonalConflicts
 	e.Do("GET", "/personal-conflicts?resourceId="+r.ed.ID, r.userA, nil).JSON(t, &open)
 	if open.Total == 0 {
 		t.Fatal("expected remaining open conflicts")
@@ -210,14 +210,14 @@ func TestEditionPositionRevisionsReceiptsAndConflicts(t *testing.T) {
 		t.Fatalf("ungranted read: %d", x.StatusCode)
 	}
 	// State is per user: the other granted account starts at revision 0.
-	var adminSt wire.T005PositionState
+	var adminSt wire.ReadingPositionState
 	e.Do("GET", "/editions/"+r.ed.ID+"/position", r.admin, nil).JSON(t, &adminSt)
 	if adminSt.Revision != "0" || adminSt.Position.Value != nil {
 		t.Fatalf("state leaked across users: %+v", adminSt)
 	}
 
 	// The reader snapshot and edition now show the saved state.
-	var rd wire.T005Reader
+	var rd wire.ReaderSnapshot
 	e.Do("GET", "/editions/"+r.ed.ID+"/reader", r.userA, nil).JSON(t, &rd)
 	if rd.Position.Revision != "4" || rd.Position.Position.Value == nil {
 		t.Fatalf("reader snapshot: %+v", rd.Position)
@@ -236,7 +236,7 @@ func TestEditionContentChangeInvalidatesLocationsAndCompletionHistory(t *testing
 		return e.Do("PUT", "/editions/"+r.ed.ID+"/completion", r.userA, map[string]any{"operationId": op, "baseRevision": base,
 			"fileId": r.ed.File.ID, "contentVersion": version, "event": event, "capturedAt": "2026-11-14T11:00:00Z"})
 	}
-	var c wire.T005Completion
+	var c wire.ReadingCompletion
 	x := fin(uuid.NewString(), "0", "manual_finish", v)
 	x.JSON(t, &c)
 	if x.StatusCode != 200 || c.Revision != "1" || !c.Finished || c.ChangedAt == nil {
@@ -250,22 +250,22 @@ func TestEditionContentChangeInvalidatesLocationsAndCompletionHistory(t *testing
 		t.Fatalf("unfinish: %+v", c)
 	}
 	fin(uuid.NewString(), "2", "manual_finish", v)
-	var st wire.T005PositionState
+	var st wire.ReadingPositionState
 	e.Do("GET", "/editions/"+r.ed.ID+"/position", r.userA, nil).JSON(t, &st)
 	if st.Revision != "1" || st.Position.Value == nil {
 		t.Fatalf("completion moved or cleared the location: %+v", st)
 	}
-	var h wire.T005History
+	var h wire.ReadingHistory
 	e.Do("GET", "/titles/"+r.ed.TitleID+"/reading-history", r.userA, nil).JSON(t, &h)
 	if h.Total != 3 || h.Items[0].Event != "manual_finish" || h.Items[1].Event != "manual_unfinish" || h.Items[0].EditionID != r.ed.ID {
 		t.Fatalf("history: %+v", h)
 	}
-	var ed wire.T005Edition
+	var ed wire.Edition
 	e.Do("GET", "/editions/"+r.ed.ID, r.userA, nil).JSON(t, &ed)
 	if !ed.Completion.Finished || ed.Completion.Revision != "3" {
 		t.Fatalf("edition completion: %+v", ed.Completion)
 	}
-	var otherHist wire.T005History
+	var otherHist wire.ReadingHistory
 	e.Do("GET", "/titles/"+r.ed.TitleID+"/reading-history", r.admin, nil).JSON(t, &otherHist)
 	if otherHist.Total != 0 {
 		t.Fatalf("history leaked: %+v", otherHist)
@@ -344,7 +344,7 @@ func TestEditionPositionConcurrency(t *testing.T) {
 	if wins != 1 || stale != 7 {
 		t.Fatalf("wins=%d stale=%d", wins, stale)
 	}
-	var st wire.T005PositionState
+	var st wire.ReadingPositionState
 	r.e.Do("GET", "/editions/"+r.ed.ID+"/position", r.userA, nil).JSON(t, &st)
 	if st.Revision != "1" || st.UnresolvedConflictCount != 7 {
 		t.Fatalf("state: %+v", st)

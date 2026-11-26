@@ -2,11 +2,11 @@ package wire
 
 // DirectoryField is one saved or derived detail of an author or a series (ADR-0102, ADR-0103).
 type DirectoryField struct {
-	Field   string            `json:"field" enum:"last_name,introduction,biography,description,book_count,status"`
-	Source  string            `json:"source" enum:"user,guessed,none" doc:"user is a saved edit, guessed is derived from the name, none has no value."`
-	Value   T005MetadataValue `json:"value"`
-	Cleared bool              `json:"cleared" doc:"A saved, deliberate clear."`
-	Locked  bool              `json:"locked"`
+	Field   string        `json:"field" enum:"last_name,introduction,biography,description,book_count,status"`
+	Source  string        `json:"source" enum:"user,guessed,none" doc:"user is a saved edit, guessed is derived from the name, none has no value."`
+	Value   MetadataValue `json:"value"`
+	Cleared bool          `json:"cleared" doc:"A saved, deliberate clear."`
+	Locked  bool          `json:"locked"`
 	// Provider and ProviderURL credit a value applied from a provider (ADR-0106).
 	Provider    *string `json:"provider,omitempty" doc:"Set for a value applied from a provider."`
 	ProviderURL *string `json:"providerUrl,omitempty" format:"uri" doc:"The record it came from."`
@@ -14,8 +14,8 @@ type DirectoryField struct {
 
 // AuthorPhoto describes an author's photo; the image is at the author photo route.
 type AuthorPhoto struct {
-	Source  string  `json:"source" enum:"upload,url,provider,none"`
-	Version *string `json:"version" format:"uuid" nullable:"true" doc:"Changes with every new image; null without one."`
+	Source      string  `json:"source" enum:"upload,url,provider,none"`
+	Version     *string `json:"version" format:"uuid" nullable:"true" doc:"Changes with every new image; null without one."`
 	Locked      bool    `json:"locked"`
 	Provider    *string `json:"provider,omitempty"`
 	ProviderURL *string `json:"providerUrl,omitempty" format:"uri"`

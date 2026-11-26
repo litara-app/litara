@@ -48,7 +48,7 @@ func TestTitleCovers(t *testing.T) {
 		t.Fatalf("grant admin: %d %s", r.StatusCode, r.Body)
 	}
 	find := func(q string) string {
-		var l wire.T009Titles
+		var l wire.TitleRows
 		e.Do("GET", "/titles?libraryId="+o.lib+"&q="+q, o.userA, nil).JSON(t, &l)
 		if len(l.Items) != 1 {
 			t.Fatalf("%s: %+v", q, l)
@@ -144,7 +144,7 @@ func TestTitleCovers(t *testing.T) {
 	}
 
 	// Writing the cover into the file goes through the reviewed plan; the EPUB writer is off until evidence is recorded.
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?titleId="+covered, o.admin, nil).JSON(t, &eds)
 	if len(eds.Items) != 1 {
 		t.Fatalf("editions: %+v", eds)

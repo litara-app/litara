@@ -147,6 +147,34 @@ if _t9.exists():
             raise SystemExit(f'T009 schema {_n} collides with an earlier contract')
         CONTRACT['components']['schemas'][_n] = _sch
 
+# The contract files keep the names they were agreed under, which carry task IDs. The server publishes neutral names,
+# listed in schema_names.json, so translate the merged contract before comparing.
+SCHEMA_NAMES = json.loads((ROOT / 'scripts' / 'contracts' / 'schema_names.json').read_text(encoding='utf-8'))
+
+
+def published(node):
+    if isinstance(node, dict):
+        return {k: published(v) for k, v in node.items()}
+    if isinstance(node, list):
+        return [published(v) for v in node]
+    if isinstance(node, str) and node.startswith('#/components/schemas/'):
+        prefix, name = node.rsplit('/', 1)
+        return f'{prefix}/{SCHEMA_NAMES.get(name, name)}'
+    return node
+
+
+CONTRACT = published(CONTRACT)
+CONTRACT['components']['schemas'] = {SCHEMA_NAMES.get(n, n): s for n, s in CONTRACT['components']['schemas'].items()}
+
+# ADR-0107 (supersedes the smart shelf grammar in contracts/t005): a smart shelf filter is the library search
+# TitleFilter, which also gained the "tag" field. Apply that to the merged contract before comparing.
+for _name in ('ShelfFilter', 'ShelfFilterGroup', 'ShelfFilterNot', 'ShelfPredicate'):
+    CONTRACT['components']['schemas'].pop(_name, None)
+for _branch in CONTRACT['components']['schemas']['ShelfData']['properties']['filter'].get('anyOf', []):
+    if _branch.get('$ref', '').endswith('/ShelfFilter'):
+        _branch['$ref'] = '#/components/schemas/TitleFilter'
+CONTRACT['components']['schemas']['TitleFilter']['properties']['field']['enum'].append('tag')
+
 if len(sys.argv) > 1:
     GENERATED = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 else:

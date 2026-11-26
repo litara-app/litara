@@ -41,7 +41,7 @@ type Problem struct {
 	headers http.Header
 	// t005 carries the T005 conflict members currentRevision and currentContentVersion.
 	// They are written by MarshalJSON so the generated T003 Problem schema does not grow
-	// them; T005Problem documents them.
+	// them; ContentProblem documents them.
 	t005 map[string]any
 }
 
@@ -212,11 +212,11 @@ func (a *API) toProblem(ctx context.Context, err error) *Problem {
 // fail is the single handler exit for errors.
 func (a *API) fail(ctx context.Context, err error) error { return a.toProblem(ctx, err) }
 
-// T005Problem documents the T005 error body in the generated OpenAPI. At
+// ContentProblem documents the T005 error body in the generated OpenAPI. At
 // runtime every error is a Problem; the T005 conflict fields (currentRevision,
 // currentContentVersion, successorRecordingIds) are added to Problem when the
 // personal-state and repair routes that emit them are implemented.
-type T005Problem struct {
+type ContentProblem struct {
 	Type                  string         `json:"type" format:"uri-reference"`
 	Title                 string         `json:"title" maxLength:"1024"`
 	Status                int            `json:"status" minimum:"400" maximum:"599"`

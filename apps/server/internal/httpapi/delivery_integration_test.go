@@ -34,9 +34,9 @@ const (
 
 type delEnv struct {
 	*opdsEnv
-	rec        wire.T006Recipient
+	rec        wire.Recipient
 	serverRev  string
-	ebook, cbz wire.T005Edition
+	ebook, cbz wire.Edition
 }
 
 func newDelEnv(t *testing.T, opts ...apitest.Options) *delEnv {
@@ -46,7 +46,7 @@ func newDelEnv(t *testing.T, opts ...apitest.Options) *delEnv {
 		t.Fatalf("enable email: %d %s", r.StatusCode, r.Body)
 	}
 	d := &delEnv{opdsEnv: o, serverRev: "0"}
-	var eds wire.T005Editions
+	var eds wire.Editions
 	o.e.Do("GET", "/editions?libraryId="+o.lib+"&size=200", o.userA, nil).JSON(t, &eds)
 	epubInfo, _ := os.Stat(o.epubPath)
 	for _, ed := range eds.Items {
@@ -71,51 +71,51 @@ func smtpBody(base string, enabled bool, host string, port int, tlsMode, user, a
 
 func str(s string) *string { return &s }
 
-func (d *delEnv) putServer(t *testing.T, s *smtptest.Server, mode string) wire.T006SmtpReport {
+func (d *delEnv) putServer(t *testing.T, s *smtptest.Server, mode string) wire.SmtpReport {
 	t.Helper()
-	var cur wire.T006SmtpReport
+	var cur wire.SmtpReport
 	d.e.Do("GET", "/admin/delivery/smtp", d.admin, nil).JSON(t, &cur)
 	r := d.e.Do("PUT", "/admin/delivery/smtp", d.admin, smtpBody(cur.Revision, true, s.Host, s.Port, mode, "", "keep", nil))
 	if r.StatusCode != 200 {
 		t.Fatalf("put server smtp: %d %s", r.StatusCode, r.Body)
 	}
-	var out wire.T006SmtpReport
+	var out wire.SmtpReport
 	r.JSON(t, &out)
 	d.serverRev = out.Revision
 	return out
 }
 
-func (d *delEnv) recipient(token, name, addr string) wire.T006Recipient {
+func (d *delEnv) recipient(token, name, addr string) wire.Recipient {
 	d.e.T.Helper()
 	r := d.e.Do("PUT", "/delivery/recipients/"+uuid.NewString(), token, map[string]any{"operationId": uuid.NewString(), "baseRevision": "0",
 		"data": map[string]any{"name": name, "address": addr}})
 	if r.StatusCode != 200 {
 		d.e.T.Fatalf("recipient: %d %s", r.StatusCode, r.Body)
 	}
-	var out wire.T006Recipient
+	var out wire.Recipient
 	r.JSON(d.e.T, &out)
 	return out
 }
 
-func (d *delEnv) sendBody(file, version string, rec wire.T006Recipient, transport, trRev string) map[string]any {
+func (d *delEnv) sendBody(file, version string, rec wire.Recipient, transport, trRev string) map[string]any {
 	return map[string]any{"operationId": uuid.NewString(), "fileId": file, "contentVersion": version, "recipientId": rec.ID,
 		"recipientRevision": rec.Revision, "transport": transport, "transportRevision": trRev, "resendOf": nil, "acknowledgePossibleDuplicate": false}
 }
 
-func (d *delEnv) send(t *testing.T, ed wire.T005Edition) wire.T006Delivery {
+func (d *delEnv) send(t *testing.T, ed wire.Edition) wire.Delivery {
 	t.Helper()
 	r := d.e.Do("POST", "/deliveries", d.userA, d.sendBody(ed.File.ID, ed.File.ContentVersion, d.rec, "server", d.serverRev))
 	if r.StatusCode != 202 {
 		t.Fatalf("send: %d %s", r.StatusCode, r.Body)
 	}
-	var out wire.T006Delivery
+	var out wire.Delivery
 	r.JSON(t, &out)
 	return out
 }
 
-func (d *delEnv) delivery(t *testing.T, id string) wire.T006Delivery {
+func (d *delEnv) delivery(t *testing.T, id string) wire.Delivery {
 	t.Helper()
-	var out wire.T006Delivery
+	var out wire.Delivery
 	r := d.e.Do("GET", "/deliveries/"+id, d.userA, nil)
 	if r.StatusCode != 200 {
 		t.Fatalf("get delivery: %d %s", r.StatusCode, r.Body)
@@ -181,7 +181,7 @@ func TestSMTPConfigurationOwnershipAndSecrets(t *testing.T) {
 		t.Fatalf("non-admin server read: %d", r.StatusCode)
 	}
 	// Unconfigured transports report revision zero and harmless defaults, not 404.
-	var rep wire.T006SmtpReport
+	var rep wire.SmtpReport
 	e.Do("GET", "/delivery/smtp", d.userA, nil).JSON(t, &rep)
 	if rep.Revision != "0" || rep.Configured || rep.HasPassword || rep.Port != 587 || rep.TLSMode != "starttls" || !rep.KeyAvailable {
 		t.Fatalf("defaults: %+v", rep)
@@ -207,7 +207,7 @@ func TestSMTPConfigurationOwnershipAndSecrets(t *testing.T) {
 	// Personal configuration with a stored password.
 	body := smtpBody("0", true, "smtp.example.com", 587, "starttls", "someone", "replace", &pw)
 	r := e.Do("PUT", "/delivery/smtp", d.userA, body)
-	var saved wire.T006SmtpReport
+	var saved wire.SmtpReport
 	r.JSON(t, &saved)
 	if r.StatusCode != 200 || saved.Revision != "1" || !saved.Configured || !saved.HasPassword || strings.Contains(string(r.Body), "SECRET") || strings.Contains(string(r.Body), "9876") {
 		t.Fatalf("personal put: %d %s", r.StatusCode, r.Body)
@@ -263,7 +263,7 @@ func TestSMTPConfigurationOwnershipAndSecrets(t *testing.T) {
 	if r := e.Do("PUT", "/delivery/smtp", d.userA, smtpBody("2", true, "smtp.example.com", 2525, "starttls", "someone", "replace", &pw)); r.StatusCode != 503 || r.Code() != "configuration_unavailable" {
 		t.Fatalf("replace with no key: %d %s", r.StatusCode, r.Body)
 	}
-	var tr wire.T006TransportList
+	var tr wire.TransportList
 	e.Do("GET", "/delivery/transports", d.userA, nil).JSON(t, &tr)
 	if tr.Personal.Available {
 		t.Fatal("a transport whose secret cannot be opened must not be available")
@@ -282,12 +282,12 @@ func TestSMTPConfigurationOwnershipAndSecrets(t *testing.T) {
 	srv := smtptest.Start(t, smtptest.StartTLS, e.CA, smtptest.Behavior{})
 	d.putServer(t, srv, "starttls")
 	body2 := e.Do("GET", "/delivery/transports", d.userB, nil)
-	var tl wire.T006TransportList
+	var tl wire.TransportList
 	body2.JSON(t, &tl)
 	if !tl.Server.Available || tl.Server.Revision != "1" || tl.Personal.Available || strings.Contains(string(body2.Body), "127.0.0.1") {
 		t.Fatalf("transports: %s", body2.Body)
 	}
-	var settings wire.T006IntegrationSettings
+	var settings wire.IntegrationSettings
 	e.Do("GET", "/integrations/settings", d.userB, nil).JSON(t, &settings)
 	if !settings.ServerSmtpAvailable {
 		t.Fatalf("serverSmtpAvailable: %+v", settings)
@@ -299,9 +299,9 @@ func TestSMTPConfigurationOwnershipAndSecrets(t *testing.T) {
 func TestSMTPConnectionTestsSendNothingAndNeverDowngrade(t *testing.T) {
 	d := newDelEnv(t)
 	e := d.e
-	test := func(srv *smtptest.Server, mode, user, action string, pw *string) wire.T006ConnectionTest {
+	test := func(srv *smtptest.Server, mode, user, action string, pw *string) wire.ConnectionTest {
 		t.Helper()
-		var cur wire.T006SmtpReport
+		var cur wire.SmtpReport
 		e.Do("GET", "/admin/delivery/smtp", d.admin, nil).JSON(t, &cur)
 		if r := e.Do("PUT", "/admin/delivery/smtp", d.admin, smtpBody(cur.Revision, true, srv.Host, srv.Port, mode, user, action, pw)); r.StatusCode != 200 {
 			t.Fatalf("configure: %d %s", r.StatusCode, r.Body)
@@ -311,7 +311,7 @@ func TestSMTPConnectionTestsSendNothingAndNeverDowngrade(t *testing.T) {
 		if r.StatusCode != 200 {
 			t.Fatalf("test: %d %s", r.StatusCode, r.Body)
 		}
-		var out wire.T006ConnectionTest
+		var out wire.ConnectionTest
 		r.JSON(t, &out)
 		return out
 	}
@@ -350,7 +350,7 @@ func TestSMTPConnectionTestsSendNothingAndNeverDowngrade(t *testing.T) {
 		}
 	}
 	// Stale revision and replay.
-	var cur wire.T006SmtpReport
+	var cur wire.SmtpReport
 	e.Do("GET", "/admin/delivery/smtp", d.admin, nil).JSON(t, &cur)
 	if r := e.Do("POST", "/admin/delivery/smtp/test", d.admin, map[string]any{"operationId": uuid.NewString(), "baseRevision": "0"}); r.StatusCode != 409 || r.Code() != "stale_revision" {
 		t.Fatalf("stale test: %d %s", r.StatusCode, r.Body)
@@ -390,9 +390,9 @@ func TestRecipientLifecycleIsPrivateAndInjectionSafe(t *testing.T) {
 	if !((codes[0] == 200 && codes[1] == 409) || (codes[0] == 409 && codes[1] == 200)) {
 		t.Fatalf("concurrent create: %v", codes)
 	}
-	var cur wire.T006Recipient
-	for _, x := range func() []wire.T006Recipient {
-		var l wire.T006RecipientList
+	var cur wire.Recipient
+	for _, x := range func() []wire.Recipient {
+		var l wire.RecipientList
 		e.Do("GET", "/delivery/recipients", d.userA, nil).JSON(t, &l)
 		return l.Items
 	}() {
@@ -416,7 +416,7 @@ func TestRecipientLifecycleIsPrivateAndInjectionSafe(t *testing.T) {
 	if r := e.Do("DELETE", "/delivery/recipients/"+id, d.userB, map[string]any{"operationId": uuid.NewString(), "baseRevision": "2"}); r.StatusCode != 404 {
 		t.Fatalf("foreign delete: %d", r.StatusCode)
 	}
-	var lb wire.T006RecipientList
+	var lb wire.RecipientList
 	e.Do("GET", "/delivery/recipients", d.userB, nil).JSON(t, &lb)
 	if len(lb.Items) != 0 {
 		t.Fatalf("recipients leaked: %+v", lb.Items)
@@ -431,7 +431,7 @@ func TestRecipientLifecycleIsPrivateAndInjectionSafe(t *testing.T) {
 	// Delete: tombstone, stable replay, retained but unlisted, cannot be revived.
 	del := map[string]any{"operationId": uuid.NewString(), "baseRevision": "2"}
 	r1 := e.Do("DELETE", "/delivery/recipients/"+id, d.userA, del)
-	var tomb wire.T006Recipient
+	var tomb wire.Recipient
 	r1.JSON(t, &tomb)
 	if r1.StatusCode != 200 || !tomb.Deleted || tomb.Revision != "3" || tomb.Data.Value != nil {
 		t.Fatalf("delete: %d %s", r1.StatusCode, r1.Body)
@@ -442,7 +442,7 @@ func TestRecipientLifecycleIsPrivateAndInjectionSafe(t *testing.T) {
 	if r := put(d.userA, id, "3", "Back", "back@example.invalid"); r.StatusCode != 409 {
 		t.Fatalf("revive: %d %s", r.StatusCode, r.Body)
 	}
-	var la wire.T006RecipientList
+	var la wire.RecipientList
 	e.Do("GET", "/delivery/recipients", d.userA, nil).JSON(t, &la)
 	for _, x := range la.Items {
 		if x.ID == id {
@@ -473,10 +473,10 @@ func TestDeliverySendsOriginalsByExactBytes(t *testing.T) {
 		{"comic", d.cbz.File.ID, d.cbz.File.ContentVersion, d.cbzPath, "application/vnd.comicbook+zip"},
 		{"audio", audio.ID.String(), audio.Version.String(), audioPath, "audio/mpeg"},
 	}
-	sent := map[string]wire.T006Delivery{}
+	sent := map[string]wire.Delivery{}
 	for _, tg := range targets {
 		r := e.Do("POST", "/deliveries", d.userA, d.sendBody(tg.file, tg.version, d.rec, "server", d.serverRev))
-		var dv wire.T006Delivery
+		var dv wire.Delivery
 		r.JSON(t, &dv)
 		if r.StatusCode != 202 || dv.State != "queued" || dv.Attempts != 0 || dv.RecipientAddress != toAddr || dv.Transport != "server" || dv.ResendOf != nil {
 			t.Fatalf("%s create: %d %s", tg.name, r.StatusCode, r.Body)
@@ -522,7 +522,7 @@ func TestDeliverySendsOriginalsByExactBytes(t *testing.T) {
 		}
 	}
 	// History is the owner's alone.
-	var lst wire.T006DeliveryList
+	var lst wire.DeliveryList
 	e.Do("GET", "/deliveries", d.userA, nil).JSON(t, &lst)
 	if lst.Total != 3 || len(lst.Items) != 3 {
 		t.Fatalf("list: %+v", lst)
@@ -556,7 +556,7 @@ func TestDeliveryCreateIsAtomicAndIdempotent(t *testing.T) {
 	if first.StatusCode != 202 {
 		t.Fatalf("create: %d %s", first.StatusCode, first.Body)
 	}
-	var dv wire.T006Delivery
+	var dv wire.Delivery
 	first.JSON(t, &dv)
 	// Concurrent and later identical requests return the original response.
 	var wg sync.WaitGroup
@@ -652,13 +652,13 @@ func TestDeliveryRechecksAuthorityAndInputsBeforeSubmission(t *testing.T) {
 		}},
 		{"encryption key unavailable", "configuration_unavailable", func(t *testing.T, d *delEnv, sink *smtptest.Server) {
 			// The transport authenticates with a stored secret that is sealed under the current key.
-			var cur wire.T006SmtpReport
+			var cur wire.SmtpReport
 			d.e.Do("GET", "/admin/delivery/smtp", d.admin, nil).JSON(t, &cur)
 			r := d.e.Do("PUT", "/admin/delivery/smtp", d.admin, smtpBody(cur.Revision, true, sink.Host, sink.Port, "starttls", "u", "replace", str("pw")))
 			if r.StatusCode != 200 {
 				t.Fatalf("secret: %d %s", r.StatusCode, r.Body)
 			}
-			var out wire.T006SmtpReport
+			var out wire.SmtpReport
 			r.JSON(t, &out)
 			d.serverRev = out.Revision
 		}, func(t *testing.T, d *delEnv) {
@@ -794,7 +794,7 @@ func TestDeliveryRetriesFailuresUnknownOutcomeAndExplicitResend(t *testing.T) {
 		body["acknowledgePossibleDuplicate"] = true
 		body["operationId"] = uuid.NewString()
 		r := d.e.Do("POST", "/deliveries", d.userA, body)
-		var re wire.T006Delivery
+		var re wire.Delivery
 		r.JSON(t, &re)
 		if r.StatusCode != 202 || re.ResendOf == nil || *re.ResendOf != dv.ID || re.ID == dv.ID {
 			t.Fatalf("resend: %d %s", r.StatusCode, r.Body)
@@ -875,7 +875,7 @@ func TestDeliveryCancelAndClaimRace(t *testing.T) {
 	}
 	op := map[string]any{"operationId": uuid.NewString(), "baseRevision": dv.Revision}
 	r := e.Do("POST", "/deliveries/"+dv.ID+"/cancel", d.userA, op)
-	var c wire.T006Delivery
+	var c wire.Delivery
 	r.JSON(t, &c)
 	if r.StatusCode != 200 || c.State != "cancelled" {
 		t.Fatalf("cancel: %d %s", r.StatusCode, r.Body)
@@ -1014,18 +1014,18 @@ func TestPersonalTransportUsesItsOwnCredentialsAndNeverFallsBack(t *testing.T) {
 	serverSink := smtptest.Start(t, smtptest.StartTLS, e.CA, smtptest.Behavior{})
 	d.putServer(t, serverSink, "starttls")
 	personal := smtptest.Start(t, smtptest.StartTLS, e.CA, smtptest.Behavior{AuthUser: "alice", AuthPass: "alice-secret"})
-	put := func(base, pw string) wire.T006SmtpReport {
+	put := func(base, pw string) wire.SmtpReport {
 		r := e.Do("PUT", "/delivery/smtp", d.userA, smtpBody(base, true, personal.Host, personal.Port, "starttls", "alice", "replace", &pw))
 		if r.StatusCode != 200 {
 			t.Fatalf("personal put: %d %s", r.StatusCode, r.Body)
 		}
-		var out wire.T006SmtpReport
+		var out wire.SmtpReport
 		r.JSON(t, &out)
 		return out
 	}
 	rep := put("0", "alice-secret")
-	if tl := func() wire.T006TransportList {
-		var l wire.T006TransportList
+	if tl := func() wire.TransportList {
+		var l wire.TransportList
 		e.Do("GET", "/delivery/transports", d.userA, nil).JSON(t, &l)
 		return l
 	}(); !tl.Personal.Available || tl.Personal.Revision != rep.Revision {
@@ -1035,7 +1035,7 @@ func TestPersonalTransportUsesItsOwnCredentialsAndNeverFallsBack(t *testing.T) {
 		t.Fatalf("personal test: %s", r.Body)
 	}
 	r := e.Do("POST", "/deliveries", d.userA, d.sendBody(d.ebook.File.ID, d.ebook.File.ContentVersion, d.rec, "personal", rep.Revision))
-	var dv wire.T006Delivery
+	var dv wire.Delivery
 	r.JSON(t, &dv)
 	if r.StatusCode != 202 || dv.Transport != "personal" {
 		t.Fatalf("personal send: %d %s", r.StatusCode, r.Body)

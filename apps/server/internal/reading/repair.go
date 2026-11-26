@@ -39,17 +39,17 @@ func repairProblem(status int, code, detail string) *apperr.Error {
 	return apperr.New(status, code, detail)
 }
 
-var genericWarnings = []wire.T005Issue{{Code: "state_retained", Detail: "Source recordings become tombstones. Every account's position, completion and history stays with its source recording; positions are offered as explicit candidates on a successor only where their file belongs to it. Successors start unfinished."}}
+var genericWarnings = []wire.EditionIssue{{Code: "state_retained", Detail: "Source recordings become tombstones. Every account's position, completion and history stays with its source recording; positions are offered as explicit candidates on a successor only where their file belongs to it. Successors start unfinished."}}
 
-func (s *Service) planWire(p sqlcgen.RepairPlan) (wire.T005RepairPlan, error) {
+func (s *Service) planWire(p sqlcgen.RepairPlan) (wire.RepairPlan, error) {
 	var srcs []planSource
 	if err := json.Unmarshal(p.Sources, &srcs); err != nil {
-		return wire.T005RepairPlan{}, err
+		return wire.RepairPlan{}, err
 	}
-	out := wire.T005RepairPlan{ID: p.ID.String(), Revision: strconv.FormatInt(p.Revision, 10), LibraryID: p.LibraryID.String(), TitleID: p.TitleID.String(),
-		Kind: p.Kind, State: p.State, Sources: []wire.T005RepairSource{}, Outputs: []wire.T005RepairOutput{}, Result: []wire.T005RepairResult{}, Warnings: genericWarnings}
+	out := wire.RepairPlan{ID: p.ID.String(), Revision: strconv.FormatInt(p.Revision, 10), LibraryID: p.LibraryID.String(), TitleID: p.TitleID.String(),
+		Kind: p.Kind, State: p.State, Sources: []wire.RepairSource{}, Outputs: []wire.RepairOutput{}, Result: []wire.RepairResult{}, Warnings: genericWarnings}
 	for _, sr := range srcs {
-		out.Sources = append(out.Sources, wire.T005RepairSource{RecordingID: sr.RecordingID, LayoutRevision: sr.LayoutRevision})
+		out.Sources = append(out.Sources, wire.RepairSource{RecordingID: sr.RecordingID, LayoutRevision: sr.LayoutRevision})
 	}
 	if err := json.Unmarshal(p.Outputs, &out.Outputs); err != nil {
 		return out, err
@@ -62,7 +62,7 @@ func (s *Service) planWire(p sqlcgen.RepairPlan) (wire.T005RepairPlan, error) {
 
 // RepairSourceLibrary returns the library of a plan's first source (for the
 // administrator authority check before the plan is read).
-func (s *Service) RepairSourceLibrary(ctx context.Context, w wire.T005RepairCreate) (uuid.UUID, error) {
+func (s *Service) RepairSourceLibrary(ctx context.Context, w wire.RepairCreate) (uuid.UUID, error) {
 	if len(w.Sources) == 0 {
 		return uuid.Nil, apperr.Validation("sources must name at least one recording.")
 	}
@@ -86,20 +86,20 @@ func (s *Service) RepairPlanLibrary(ctx context.Context, id uuid.UUID) (uuid.UUI
 	return p.LibraryID, dbErr(err)
 }
 
-func (s *Service) GetRepair(ctx context.Context, id uuid.UUID) (wire.T005RepairPlan, error) {
+func (s *Service) GetRepair(ctx context.Context, id uuid.UUID) (wire.RepairPlan, error) {
 	p, err := s.q.GetRepairPlan(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return wire.T005RepairPlan{}, apperr.ErrNotFound
+		return wire.RepairPlan{}, apperr.ErrNotFound
 	}
 	if err != nil {
-		return wire.T005RepairPlan{}, dbErr(err)
+		return wire.RepairPlan{}, dbErr(err)
 	}
 	return s.planWire(p)
 }
 
 // snapshotSources locks the source recordings in UUID order and captures their
 // current layouts; a problem means the sources are not repairable as named.
-func (s *Service) snapshotSources(ctx context.Context, q *sqlcgen.Queries, refs []wire.T005RepairSource) ([]planSource, []sqlcgen.LockRecordingsForRepairRow, *apperr.Error, error) {
+func (s *Service) snapshotSources(ctx context.Context, q *sqlcgen.Queries, refs []wire.RepairSource) ([]planSource, []sqlcgen.LockRecordingsForRepairRow, *apperr.Error, error) {
 	ids := make([]uuid.UUID, 0, len(refs))
 	want := map[uuid.UUID]string{}
 	for _, r := range refs {
@@ -157,7 +157,7 @@ func (s *Service) snapshotSources(ctx context.Context, q *sqlcgen.Queries, refs 
 func fileKey(f planFile) string { return f.FileID + "@" + f.ContentVersion }
 
 // validateOutputs checks the exact one-to-one partition of source memberships.
-func validateOutputs(kind string, srcs []planSource, outs []wire.T005RepairOutput) error {
+func validateOutputs(kind string, srcs []planSource, outs []wire.RepairOutput) error {
 	switch kind {
 	case "merge":
 		if len(srcs) < 2 || len(outs) != 1 {
@@ -215,16 +215,16 @@ func validateOutputs(kind string, srcs []planSource, outs []wire.T005RepairOutpu
 }
 
 // PlanRepair records a reviewed plan; it changes nothing else.
-func (s *Service) PlanRepair(ctx context.Context, a Actor, w wire.T005RepairCreate) (wire.T005RepairPlan, error) {
+func (s *Service) PlanRepair(ctx context.Context, a Actor, w wire.RepairCreate) (wire.RepairPlan, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005RepairPlan{}, err
+		return wire.RepairPlan{}, err
 	}
 	ids := make([]uuid.UUID, 0, len(w.Sources))
 	for _, r := range w.Sources {
 		id, err := parseUUID("recordingId", r.RecordingID)
 		if err != nil {
-			return wire.T005RepairPlan{}, err
+			return wire.RepairPlan{}, err
 		}
 		ids = append(ids, id)
 	}
@@ -251,9 +251,9 @@ func (s *Service) PlanRepair(ctx context.Context, a Actor, w wire.T005RepairCrea
 		return wire.Raw(pw), nil, err
 	})
 	if err != nil {
-		return wire.T005RepairPlan{}, err
+		return wire.RepairPlan{}, err
 	}
-	var out wire.T005RepairPlan
+	var out wire.RepairPlan
 	return out, json.Unmarshal(body, &out)
 }
 
@@ -263,9 +263,9 @@ func (s *Service) revalidate(ctx context.Context, q *sqlcgen.Queries, p sqlcgen.
 	if err := json.Unmarshal(p.Sources, &stored); err != nil {
 		return nil, nil, nil, err
 	}
-	refs := make([]wire.T005RepairSource, 0, len(stored))
+	refs := make([]wire.RepairSource, 0, len(stored))
 	for _, sr := range stored {
-		refs = append(refs, wire.T005RepairSource{RecordingID: sr.RecordingID, LayoutRevision: sr.LayoutRevision})
+		refs = append(refs, wire.RepairSource{RecordingID: sr.RecordingID, LayoutRevision: sr.LayoutRevision})
 	}
 	cur, rows, d, err := s.snapshotSources(ctx, q, refs)
 	if err != nil || d != nil {
@@ -290,17 +290,17 @@ func keysOf(fs []planFile) []string {
 }
 
 // repairStep runs approve, execute or cancel under plan and source locks.
-func (s *Service) repairStep(ctx context.Context, a Actor, planID uuid.UUID, step string, w wire.T005RepairApply) (wire.T005RepairPlan, error) {
+func (s *Service) repairStep(ctx context.Context, a Actor, planID uuid.UUID, step string, w wire.RepairApply) (wire.RepairPlan, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005RepairPlan{}, err
+		return wire.RepairPlan{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005RepairPlan{}, err
+		return wire.RepairPlan{}, err
 	}
 	if _, err := s.RepairPlanLibrary(ctx, planID); err != nil {
-		return wire.T005RepairPlan{}, err
+		return wire.RepairPlan{}, err
 	}
 	fp := fingerprint(http.MethodPost, "/admin/recording-repairs/"+planID.String()+"/"+step, w)
 	body, err := s.run(ctx, a, op, fp, func(q *sqlcgen.Queries) error {
@@ -317,7 +317,7 @@ func (s *Service) repairStep(ctx context.Context, a Actor, planID uuid.UUID, ste
 		wrongState := func(want string) (*apperr.Error, error) {
 			return apperr.New(http.StatusConflict, "plan_state", "The plan is "+p.State+", not "+want+"."), nil
 		}
-		var result []wire.T005RepairResult
+		var result []wire.RepairResult
 		next := p.State
 		switch step {
 		case "approve":
@@ -372,28 +372,28 @@ func (s *Service) repairStep(ctx context.Context, a Actor, planID uuid.UUID, ste
 		return wire.Raw(pw), nil, err
 	})
 	if err != nil {
-		return wire.T005RepairPlan{}, err
+		return wire.RepairPlan{}, err
 	}
-	var out wire.T005RepairPlan
+	var out wire.RepairPlan
 	return out, json.Unmarshal(body, &out)
 }
 
-func (s *Service) ApproveRepair(ctx context.Context, a Actor, id uuid.UUID, w wire.T005RepairApply) (wire.T005RepairPlan, error) {
+func (s *Service) ApproveRepair(ctx context.Context, a Actor, id uuid.UUID, w wire.RepairApply) (wire.RepairPlan, error) {
 	return s.repairStep(ctx, a, id, "approve", w)
 }
 
-func (s *Service) ExecuteRepair(ctx context.Context, a Actor, id uuid.UUID, w wire.T005RepairApply) (wire.T005RepairPlan, error) {
+func (s *Service) ExecuteRepair(ctx context.Context, a Actor, id uuid.UUID, w wire.RepairApply) (wire.RepairPlan, error) {
 	return s.repairStep(ctx, a, id, "execute", w)
 }
 
-func (s *Service) CancelRepair(ctx context.Context, a Actor, id uuid.UUID, w wire.T005RepairApply) (wire.T005RepairPlan, error) {
+func (s *Service) CancelRepair(ctx context.Context, a Actor, id uuid.UUID, w wire.RepairApply) (wire.RepairPlan, error) {
 	return s.repairStep(ctx, a, id, "cancel", w)
 }
 
 // applyRepair creates the successors and tombstones the sources in the caller's
 // transaction. Sources are already locked (UUID order) and revalidated.
-func (s *Service) applyRepair(ctx context.Context, q *sqlcgen.Queries, p sqlcgen.RepairPlan, rows []sqlcgen.LockRecordingsForRepairRow, srcs []planSource) ([]wire.T005RepairResult, error) {
-	var outs []wire.T005RepairOutput
+func (s *Service) applyRepair(ctx context.Context, q *sqlcgen.Queries, p sqlcgen.RepairPlan, rows []sqlcgen.LockRecordingsForRepairRow, srcs []planSource) ([]wire.RepairResult, error) {
+	var outs []wire.RepairOutput
 	if err := json.Unmarshal(p.Outputs, &outs); err != nil {
 		return nil, err
 	}
@@ -435,7 +435,7 @@ func (s *Service) applyRepair(ctx context.Context, q *sqlcgen.Queries, p sqlcgen
 		return nil, err
 	}
 	now := s.now()
-	results := make([]wire.T005RepairResult, 0, len(outs))
+	results := make([]wire.RepairResult, 0, len(outs))
 	successorIDs := make([]uuid.UUID, 0, len(outs))
 	for _, o := range outs {
 		sid := uuid.New()
@@ -514,7 +514,7 @@ func (s *Service) applyRepair(ctx context.Context, q *sqlcgen.Queries, p sqlcgen
 			}
 		}
 		successorIDs = append(successorIDs, sid)
-		results = append(results, wire.T005RepairResult{Key: o.Key, RecordingID: sid.String()})
+		results = append(results, wire.RepairResult{Key: o.Key, RecordingID: sid.String()})
 	}
 	for _, sr := range srcs {
 		id := mustParse(sr.RecordingID)

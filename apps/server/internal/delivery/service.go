@@ -156,8 +156,8 @@ func (s *Service) load(ctx context.Context, q *sqlcgen.Queries, o Owner, lock bo
 	return row, err == nil, err
 }
 
-func (s *Service) report(row sqlcgen.SmtpConfig, found bool) wire.T006SmtpReport {
-	r := wire.T006SmtpReport{Revision: "0", Port: 587, TLSMode: TLSStartTLS, KeyAvailable: s.ring().Available()}
+func (s *Service) report(row sqlcgen.SmtpConfig, found bool) wire.SmtpReport {
+	r := wire.SmtpReport{Revision: "0", Port: 587, TLSMode: TLSStartTLS, KeyAvailable: s.ring().Available()}
 	if !found {
 		return r
 	}
@@ -178,17 +178,17 @@ func derefStr(p *string) string {
 }
 
 // Report returns the transport's own report; secrets never appear, only their presence.
-func (s *Service) Report(ctx context.Context, o Owner) (wire.T006SmtpReport, error) {
+func (s *Service) Report(ctx context.Context, o Owner) (wire.SmtpReport, error) {
 	row, found, err := s.load(ctx, s.q, o, false)
 	if err != nil {
-		return wire.T006SmtpReport{}, err
+		return wire.SmtpReport{}, err
 	}
 	return s.report(row, found), nil
 }
 
 var hostRe = regexp.MustCompile(`^[A-Za-z0-9.\-:\[\]_]{1,253}$`)
 
-func (s *Service) validateWrite(o Owner, in wire.T006SmtpWrite) error {
+func (s *Service) validateWrite(o Owner, in wire.SmtpWrite) error {
 	if !hostRe.MatchString(in.Host) {
 		return apperr.Validation("host must be a plain host name or address")
 	}
@@ -234,17 +234,17 @@ func (s *Service) validateWrite(o Owner, in wire.T006SmtpWrite) error {
 }
 
 // Put changes a transport configuration at its current revision.
-func (s *Service) Put(ctx context.Context, actor uuid.UUID, o Owner, in wire.T006SmtpWrite) (wire.T006SmtpReport, error) {
+func (s *Service) Put(ctx context.Context, actor uuid.UUID, o Owner, in wire.SmtpWrite) (wire.SmtpReport, error) {
 	op, err := parseOp(in.OperationID)
 	if err != nil {
-		return wire.T006SmtpReport{}, err
+		return wire.SmtpReport{}, err
 	}
 	base, err := parseRev("baseRevision", in.BaseRevision)
 	if err != nil {
-		return wire.T006SmtpReport{}, err
+		return wire.SmtpReport{}, err
 	}
 	if err := s.validateWrite(o, in); err != nil {
-		return wire.T006SmtpReport{}, err
+		return wire.SmtpReport{}, err
 	}
 	digest := ""
 	if in.Password != nil {
@@ -299,9 +299,9 @@ func (s *Service) Put(ctx context.Context, actor uuid.UUID, o Owner, in wire.T00
 		return http.StatusOK, wire.Raw(s.report(row, true)), nil, nil
 	})
 	if err != nil {
-		return wire.T006SmtpReport{}, err
+		return wire.SmtpReport{}, err
 	}
-	var out wire.T006SmtpReport
+	var out wire.SmtpReport
 	if err := json.Unmarshal(body, &out); err != nil {
 		return out, err
 	}
@@ -310,7 +310,7 @@ func (s *Service) Put(ctx context.Context, actor uuid.UUID, o Owner, in wire.T00
 }
 
 // reportKeyAvailable keeps the live key state out of the replayed receipt.
-func (s *Service) reportKeyAvailable(ctx context.Context, o Owner, r wire.T006SmtpReport) bool {
+func (s *Service) reportKeyAvailable(ctx context.Context, o Owner, r wire.SmtpReport) bool {
 	if cur, err := s.Report(ctx, o); err == nil {
 		return cur.KeyAvailable
 	}
@@ -342,24 +342,24 @@ var testDetails = map[string]string{
 	"configuration_unavailable":  "The stored configuration cannot be used (missing or wrong encryption key).",
 }
 
-func testResult(code string) wire.T006ConnectionTest {
+func testResult(code string) wire.ConnectionTest {
 	d, ok := testDetails[code]
 	if !ok {
 		d = "The server did not accept the connection."
 	}
-	return wire.T006ConnectionTest{Success: code == "ok", Code: code, Detail: d}
+	return wire.ConnectionTest{Success: code == "ok", Code: code, Detail: d}
 }
 
 // Test connects, secures and authenticates against the stored configuration at
 // the stated revision. It sends no message and returns only sanitized codes.
-func (s *Service) Test(ctx context.Context, actor uuid.UUID, o Owner, in wire.T006Mutation) (wire.T006ConnectionTest, error) {
+func (s *Service) Test(ctx context.Context, actor uuid.UUID, o Owner, in wire.RevisionedMutation) (wire.ConnectionTest, error) {
 	op, err := parseOp(in.OperationID)
 	if err != nil {
-		return wire.T006ConnectionTest{}, err
+		return wire.ConnectionTest{}, err
 	}
 	base, err := parseRev("baseRevision", in.BaseRevision)
 	if err != nil {
-		return wire.T006ConnectionTest{}, err
+		return wire.ConnectionTest{}, err
 	}
 	fp := receipts.Fingerprint("POST", o.scope()+"/test", map[string]any{"b": base})
 	_, body, err := s.rc.Run(ctx, actor, op, fp, nil, func(_ pgx.Tx, q *sqlcgen.Queries) (int, []byte, *apperr.Error, error) {
@@ -386,9 +386,9 @@ func (s *Service) Test(ctx context.Context, actor uuid.UUID, o Owner, in wire.T0
 		return http.StatusOK, wire.Raw(testResult("ok")), nil, nil
 	})
 	if err != nil {
-		return wire.T006ConnectionTest{}, err
+		return wire.ConnectionTest{}, err
 	}
-	var out wire.T006ConnectionTest
+	var out wire.ConnectionTest
 	return out, json.Unmarshal(body, &out)
 }
 
@@ -401,17 +401,17 @@ func (s *Service) usable(row sqlcgen.SmtpConfig, found bool) bool {
 
 // Transports reports availability and revisions. The server's host, user name
 // and password are never exposed here.
-func (s *Service) Transports(ctx context.Context, userID uuid.UUID) (wire.T006TransportList, error) {
-	var out wire.T006TransportList
+func (s *Service) Transports(ctx context.Context, userID uuid.UUID) (wire.TransportList, error) {
+	var out wire.TransportList
 	for _, c := range []struct {
 		o   Owner
-		dst *wire.T006TransportState
+		dst *wire.TransportState
 	}{{Owner{}, &out.Server}, {Owner{Personal: true, User: userID}, &out.Personal}} {
 		row, found, err := s.load(ctx, s.q, c.o, false)
 		if err != nil {
 			return out, err
 		}
-		*c.dst = wire.T006TransportState{Available: s.usable(row, found), Revision: "0"}
+		*c.dst = wire.TransportState{Available: s.usable(row, found), Revision: "0"}
 		if found {
 			c.dst.Revision = rev(row.Revision)
 		}
@@ -427,10 +427,10 @@ func (s *Service) ServerAvailable(ctx context.Context) bool {
 
 // ---- recipients -------------------------------------------------------------
 
-func recipientView(r sqlcgen.DeliveryRecipient) wire.T006Recipient {
-	out := wire.T006Recipient{ID: r.ID.String(), Revision: rev(r.Revision), Deleted: r.Deleted}
+func recipientView(r sqlcgen.DeliveryRecipient) wire.Recipient {
+	out := wire.Recipient{ID: r.ID.String(), Revision: rev(r.Revision), Deleted: r.Deleted}
 	if !r.Deleted {
-		out.Data = wire.Some(&wire.T006RecipientData{Name: r.Name, Address: r.Address})
+		out.Data = wire.Some(&wire.RecipientData{Name: r.Name, Address: r.Address})
 	}
 	return out
 }
@@ -449,12 +449,12 @@ func cleanName(n string) (string, bool) {
 }
 
 // ListRecipients returns the caller's active recipients only.
-func (s *Service) ListRecipients(ctx context.Context, userID uuid.UUID) (wire.T006RecipientList, error) {
+func (s *Service) ListRecipients(ctx context.Context, userID uuid.UUID) (wire.RecipientList, error) {
 	rows, err := s.q.ListActiveRecipients(ctx, userID)
 	if err != nil {
-		return wire.T006RecipientList{}, err
+		return wire.RecipientList{}, err
 	}
-	out := wire.T006RecipientList{Items: []wire.T006Recipient{}}
+	out := wire.RecipientList{Items: []wire.Recipient{}}
 	for _, r := range rows {
 		out.Items = append(out.Items, recipientView(r))
 	}
@@ -462,19 +462,19 @@ func (s *Service) ListRecipients(ctx context.Context, userID uuid.UUID) (wire.T0
 }
 
 // PutRecipient creates (base 0, client UUID) or updates an owned recipient.
-func (s *Service) PutRecipient(ctx context.Context, userID, id uuid.UUID, in wire.T006RecipientWrite) (wire.T006Recipient, error) {
+func (s *Service) PutRecipient(ctx context.Context, userID, id uuid.UUID, in wire.RecipientWrite) (wire.Recipient, error) {
 	op, err := parseOp(in.OperationID)
 	if err != nil {
-		return wire.T006Recipient{}, err
+		return wire.Recipient{}, err
 	}
 	base, err := parseRev("baseRevision", in.BaseRevision)
 	if err != nil {
-		return wire.T006Recipient{}, err
+		return wire.Recipient{}, err
 	}
 	name, ok := cleanName(in.Data.Name)
 	addr, ok2 := ValidMailbox(in.Data.Address)
 	if !ok || !ok2 {
-		return wire.T006Recipient{}, apperr.Validation("name and address must be single-line, valid values")
+		return wire.Recipient{}, apperr.Validation("name and address must be single-line, valid values")
 	}
 	fp := receipts.Fingerprint("PUT", "delivery/recipients/"+id.String(), map[string]any{"b": base, "n": name, "a": addr})
 	lock := func(_ pgx.Tx, q *sqlcgen.Queries) error { _, err := q.LockUserRow(ctx, userID); return err }
@@ -516,21 +516,21 @@ func (s *Service) PutRecipient(ctx context.Context, userID, id uuid.UUID, in wir
 		return http.StatusOK, wire.Raw(recipientView(r)), nil, nil
 	})
 	if err != nil {
-		return wire.T006Recipient{}, err
+		return wire.Recipient{}, err
 	}
-	var out wire.T006Recipient
+	var out wire.Recipient
 	return out, json.Unmarshal(body, &out)
 }
 
 // DeleteRecipient tombstones an owned recipient; the tombstone is retained.
-func (s *Service) DeleteRecipient(ctx context.Context, userID, id uuid.UUID, in wire.T006Mutation) (wire.T006Recipient, error) {
+func (s *Service) DeleteRecipient(ctx context.Context, userID, id uuid.UUID, in wire.RevisionedMutation) (wire.Recipient, error) {
 	op, err := parseOp(in.OperationID)
 	if err != nil {
-		return wire.T006Recipient{}, err
+		return wire.Recipient{}, err
 	}
 	base, err := parseRev("baseRevision", in.BaseRevision)
 	if err != nil {
-		return wire.T006Recipient{}, err
+		return wire.Recipient{}, err
 	}
 	fp := receipts.Fingerprint("DELETE", "delivery/recipients/"+id.String(), map[string]any{"b": base})
 	_, body, err := s.rc.Run(ctx, userID, op, fp, nil, func(_ pgx.Tx, q *sqlcgen.Queries) (int, []byte, *apperr.Error, error) {
@@ -554,8 +554,8 @@ func (s *Service) DeleteRecipient(ctx context.Context, userID, id uuid.UUID, in 
 		return http.StatusOK, wire.Raw(recipientView(r)), nil, nil
 	})
 	if err != nil {
-		return wire.T006Recipient{}, err
+		return wire.Recipient{}, err
 	}
-	var out wire.T006Recipient
+	var out wire.Recipient
 	return out, json.Unmarshal(body, &out)
 }

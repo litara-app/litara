@@ -53,9 +53,9 @@ func TestEditionProviderSearchIsOptInAndChangesNothing(t *testing.T) {
 	r := newReadingEnvWith(t, apitest.Options{Providers: map[string]metadata.Provider{ol.name: ol, gb.name: gb}})
 	e, ed := r.e, r.ed.ID
 	path := "/admin/editions/" + ed + "/metadata/provider-search"
-	search := func(body any) (wire.T005ProviderSearchResults, apitest.Response) {
+	search := func(body any) (wire.ProviderSearchResults, apitest.Response) {
 		x := e.Do("POST", path, r.admin, body)
-		var out wire.T005ProviderSearchResults
+		var out wire.ProviderSearchResults
 		if x.StatusCode == 200 {
 			x.JSON(t, &out)
 		}
@@ -104,7 +104,7 @@ func TestEditionProviderSearchIsOptInAndChangesNothing(t *testing.T) {
 	}
 
 	// A search stores and changes nothing.
-	var rep wire.T005MetadataReport
+	var rep wire.EditionMetadataReport
 	e.Do("GET", "/admin/editions/"+ed+"/metadata", r.admin, nil).JSON(t, &rep)
 	if rep.Revision != "0" || field(rep, "publisher") != nil {
 		t.Fatalf("search changed the edition: %+v", rep)
@@ -134,7 +134,7 @@ func TestRecordingProviderSearchUsesTitleAndAsin(t *testing.T) {
 	if x := e.Do("POST", path, user, map[string]any{"query": map[string]any{}}); x.StatusCode != 403 {
 		t.Fatalf("non-admin: %d", x.StatusCode)
 	}
-	var out wire.T005RecordingProviderSearchResults
+	var out wire.RecordingProviderSearchResults
 	off := e.Do("POST", path, admin, map[string]any{"query": map[string]any{}})
 	off.JSON(t, &out)
 	if off.StatusCode != 200 || out.Enabled || len(au.got) != 0 {

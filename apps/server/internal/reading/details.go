@@ -21,20 +21,20 @@ import (
 // Descriptive book details and personal rating, review and reading dates (ADR-0081).
 
 // EditionDetails returns the effective descriptive fields of an edition the caller may see.
-func (s *Service) EditionDetails(ctx context.Context, userID, editionID uuid.UUID) (wire.T009EditionDetails, error) {
+func (s *Service) EditionDetails(ctx context.Context, userID, editionID uuid.UUID) (wire.EditionDetails, error) {
 	ed, err := s.cat.AuthorizeEdition(ctx, userID, editionID)
 	if err != nil {
-		return wire.T009EditionDetails{}, err
+		return wire.EditionDetails{}, err
 	}
 	rep, err := s.report(ctx, s.q, ed.ID, ed.Revision)
 	if err != nil {
-		return wire.T009EditionDetails{}, err
+		return wire.EditionDetails{}, err
 	}
 	created, err := s.q.GetEditionCreatedAt(ctx, ed.ID)
 	if err != nil {
-		return wire.T009EditionDetails{}, dbErr(err)
+		return wire.EditionDetails{}, dbErr(err)
 	}
-	out := wire.T009EditionDetails{EditionID: ed.ID.String(), AddedAt: rfc(created)}
+	out := wire.EditionDetails{EditionID: ed.ID.String(), AddedAt: rfc(created)}
 	for _, f := range rep.Fields {
 		if f.Cleared || len(f.Value.Raw) == 0 || string(f.Value.Raw) == "null" {
 			continue
@@ -80,8 +80,8 @@ func timePtr(t time.Time) *string {
 	return &v
 }
 
-func personalWire(titleID uuid.UUID, row *sqlcgen.TitlePersonal, started, finished time.Time) wire.T009Personal {
-	out := wire.T009Personal{TitleID: titleID.String(), Revision: "0", DerivedStartedAt: timePtr(started), DerivedFinishedAt: timePtr(finished)}
+func personalWire(titleID uuid.UUID, row *sqlcgen.TitlePersonal, started, finished time.Time) wire.TitlePersonal {
+	out := wire.TitlePersonal{TitleID: titleID.String(), Revision: "0", DerivedStartedAt: timePtr(started), DerivedFinishedAt: timePtr(finished)}
 	if row == nil {
 		return out
 	}
@@ -107,24 +107,24 @@ func personalWire(titleID uuid.UUID, row *sqlcgen.TitlePersonal, started, finish
 }
 
 // TitlePersonal returns the caller's own rating, review and dates for a visible title. Nobody else's are ever returned.
-func (s *Service) TitlePersonal(ctx context.Context, userID, titleID uuid.UUID) (wire.T009Personal, error) {
+func (s *Service) TitlePersonal(ctx context.Context, userID, titleID uuid.UUID) (wire.TitlePersonal, error) {
 	if err := s.cat.TitleVisible(ctx, userID, titleID); err != nil {
-		return wire.T009Personal{}, err
+		return wire.TitlePersonal{}, err
 	}
 	return s.personalRead(ctx, s.q, userID, titleID)
 }
 
-func (s *Service) personalRead(ctx context.Context, q *sqlcgen.Queries, userID, titleID uuid.UUID) (wire.T009Personal, error) {
+func (s *Service) personalRead(ctx context.Context, q *sqlcgen.Queries, userID, titleID uuid.UUID) (wire.TitlePersonal, error) {
 	d, err := q.DerivedTitleDates(ctx, sqlcgen.DerivedTitleDatesParams{UserID: userID, TitleID: titleID})
 	if err != nil {
-		return wire.T009Personal{}, dbErr(err)
+		return wire.TitlePersonal{}, dbErr(err)
 	}
 	row, err := q.GetTitlePersonal(ctx, sqlcgen.GetTitlePersonalParams{UserID: userID, TitleID: titleID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return personalWire(titleID, nil, d.StartedAt, d.FinishedAt), nil
 	}
 	if err != nil {
-		return wire.T009Personal{}, dbErr(err)
+		return wire.TitlePersonal{}, dbErr(err)
 	}
 	return personalWire(titleID, &row, d.StartedAt, d.FinishedAt), nil
 }
@@ -142,39 +142,39 @@ func parseOptTime(field string, v *string) (*time.Time, error) {
 
 // PutTitlePersonal replaces the caller's rating, review and date overrides at the stated revision. Replays of the same
 // operation return the first answer; a stale base is refused with the current revision and changes nothing.
-func (s *Service) PutTitlePersonal(ctx context.Context, a Actor, titleID uuid.UUID, w wire.T009PersonalWrite) (wire.T009Personal, error) {
+func (s *Service) PutTitlePersonal(ctx context.Context, a Actor, titleID uuid.UUID, w wire.TitlePersonalWrite) (wire.TitlePersonal, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T009Personal{}, err
+		return wire.TitlePersonal{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T009Personal{}, err
+		return wire.TitlePersonal{}, err
 	}
 	if _, err = parseTime("capturedAt", w.CapturedAt); err != nil {
-		return wire.T009Personal{}, err
+		return wire.TitlePersonal{}, err
 	}
 	d := w.Data
 	if d.RatingHalves != nil && (*d.RatingHalves < 1 || *d.RatingHalves > 10) {
-		return wire.T009Personal{}, apperr.Validation("data.ratingHalves must be 1 to 10 half stars, or null.")
+		return wire.TitlePersonal{}, apperr.Validation("data.ratingHalves must be 1 to 10 half stars, or null.")
 	}
 	if len([]rune(d.Review)) > 20000 {
-		return wire.T009Personal{}, apperr.Validation("data.review is limited to 20000 characters.")
+		return wire.TitlePersonal{}, apperr.Validation("data.review is limited to 20000 characters.")
 	}
 	started, err := parseOptTime("data.startedAt", d.StartedAt)
 	if err != nil {
-		return wire.T009Personal{}, err
+		return wire.TitlePersonal{}, err
 	}
 	finished, err := parseOptTime("data.finishedAt", d.FinishedAt)
 	if err != nil {
-		return wire.T009Personal{}, err
+		return wire.TitlePersonal{}, err
 	}
 	if started != nil && finished != nil && finished.Before(*started) {
-		return wire.T009Personal{}, apperr.Validation("data.finishedAt cannot be before data.startedAt.")
+		return wire.TitlePersonal{}, apperr.Validation("data.finishedAt cannot be before data.startedAt.")
 	}
 	// Authorization precedes any receipt so a denied request leaves no trace.
 	if err := s.cat.TitleVisible(ctx, a.UserID, titleID); err != nil {
-		return wire.T009Personal{}, err
+		return wire.TitlePersonal{}, err
 	}
 	var review *string
 	if strings.TrimSpace(d.Review) != "" {
@@ -220,27 +220,27 @@ func (s *Service) PutTitlePersonal(ctx context.Context, a Actor, titleID uuid.UU
 		return wire.Raw(out), nil, nil
 	})
 	if err != nil {
-		return wire.T009Personal{}, err
+		return wire.TitlePersonal{}, err
 	}
-	var out wire.T009Personal
+	var out wire.TitlePersonal
 	return out, json.Unmarshal(body, &out)
 }
 
 // RecordingDetails returns the effective descriptive fields of a recording the caller may see.
-func (s *Service) RecordingDetails(ctx context.Context, userID, recordingID uuid.UUID) (wire.T009RecordingDetails, error) {
+func (s *Service) RecordingDetails(ctx context.Context, userID, recordingID uuid.UUID) (wire.RecordingDetails, error) {
 	rec, err := s.cat.Authorize(ctx, userID, recordingID)
 	if err != nil {
-		return wire.T009RecordingDetails{}, err
+		return wire.RecordingDetails{}, err
 	}
 	created, err := s.q.GetRecordingCreatedAt(ctx, rec.ID)
 	if err != nil {
-		return wire.T009RecordingDetails{}, dbErr(err)
+		return wire.RecordingDetails{}, dbErr(err)
 	}
 	eff, err := metadata.EffectiveForTitle(ctx, s.q, rec.TitleID)
 	if err != nil {
-		return wire.T009RecordingDetails{}, dbErr(err)
+		return wire.RecordingDetails{}, dbErr(err)
 	}
-	out := wire.T009RecordingDetails{RecordingID: rec.ID.String(), AddedAt: rfc(created)}
+	out := wire.RecordingDetails{RecordingID: rec.ID.String(), AddedAt: rfc(created)}
 	text := func(k string) *string {
 		if e, ok := eff[k]; ok && !e.Cleared {
 			return jsonString(e.Raw)

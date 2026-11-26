@@ -84,12 +84,12 @@ func TestEbookEditionsEndToEnd(t *testing.T) {
 	scanTwice(t, e, admin, lib)
 
 	// Editions: one per file; metadata read from the container, file name otherwise.
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+lib, userA, nil).JSON(t, &eds)
 	if eds.Total != 3 || len(eds.Items) != 3 {
 		t.Fatalf("editions: %+v", eds)
 	}
-	byFormat := map[string]wire.T005Edition{}
+	byFormat := map[string]wire.Edition{}
 	for _, ed := range eds.Items {
 		byFormat[ed.File.Format] = ed
 	}
@@ -105,33 +105,33 @@ func TestEbookEditionsEndToEnd(t *testing.T) {
 	}
 
 	// Titles come from metadata; no recording is faked for any of them.
-	var titles wire.T005Titles
+	var titles wire.Titles
 	e.Do("GET", "/titles?q=SECOND", userA, nil).JSON(t, &titles)
 	if titles.Total != 1 || titles.Items[0].Title != "Second Volume" || titles.Items[0].Authors[0] != "Ada Author" ||
 		titles.Items[0].Series[0] != "Saga" || titles.Items[0].EditionCount != 1 || titles.Items[0].RecordingCount != 0 {
 		t.Fatalf("titles: %+v", titles)
 	}
-	var detail wire.T005TitleDetail
+	var detail wire.TitleDetail
 	if r := e.Do("GET", "/titles/"+ep.TitleID, userA, nil); r.StatusCode != 200 {
 		t.Fatalf("title: %d %s", r.StatusCode, r.Body)
 	} else {
 		r.JSON(t, &detail)
 	}
-	var recs wire.T005RecordingLinks
+	var recs wire.RecordingLinks
 	e.Do("GET", "/titles/"+ep.TitleID+"/recordings", userA, nil).JSON(t, &recs)
 	if recs.Total != 0 {
 		t.Fatalf("faked recordings: %+v", recs)
 	}
 
 	// Reader snapshot carries the pinned engine profile and no credentials.
-	var rd wire.T005Reader
+	var rd wire.ReaderSnapshot
 	e.Do("GET", "/editions/"+ep.ID+"/reader", userA, nil).JSON(t, &rd)
 	if rd.SchemaVersion != 1 || rd.Engine != "foliate" || !strings.HasPrefix(rd.EngineProfile, "foliate-js@") || rd.Position.Revision != "0" {
 		t.Fatalf("reader: %+v", rd)
 	}
 
 	// Authorization: ungranted user B sees none of it; ids are denied, lists are empty.
-	var empty wire.T005Editions
+	var empty wire.Editions
 	e.Do("GET", "/editions", userB, nil).JSON(t, &empty)
 	for _, ed := range empty.Items {
 		if ed.LibraryID == lib {
@@ -175,7 +175,7 @@ func TestEbookEditionsEndToEnd(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(root, "Saga", "vol2.epub"), append(book, []byte("PADDING")...), 0o644)
 	scanTwice(t, e, admin, lib)
 	scanTwice(t, e, admin, lib)
-	var after wire.T005Edition
+	var after wire.Edition
 	e.Do("GET", "/editions/"+ep.ID, userA, nil).JSON(t, &after)
 	if after.ID != ep.ID || after.File.ID != ep.File.ID || after.File.ContentVersion == ep.File.ContentVersion {
 		t.Fatalf("replacement identity: before %+v after %+v", ep.File, after.File)

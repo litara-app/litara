@@ -150,6 +150,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0104](0104-author-and-series-page-defaults.md) | Defaults for the author and series pages | Accepted |
 | [0105](0105-author-photos-and-concurrent-edits.md) | Store author photos like covers and refuse out-of-date edits | Accepted |
 | [0106](0106-provider-text-and-images.md) | Keep and credit author and series text and images from providers | Accepted |
+| [0107](0107-one-filter-format-for-search-and-smart-shelves.md) | Use one filter format for library search and smart shelves | Accepted |
 
 ## Workflow
 

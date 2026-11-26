@@ -6,7 +6,7 @@ import {
   stringifyParam, toWire, updateGroup, updateRule, withField, type DraftGroup, type DraftRule, type WireFilter,
 } from "./filterTree";
 
-const FORMATS = ["epub", "pdf", "mobi", "azw3", "cbz", "cbr", "m4b", "mp3", "audio"].map((f) => ({ value: f, label: f.toUpperCase() }));
+const FORMATS = ["epub", "kepub", "pdf", "mobi", "azw", "azw3", "fb2", "cbz", "cbr", "cb7", "m4b", "m4a", "mp3", "aac", "ogg", "opus", "flac", "wav", "wma", "mka", "audio"].map((f) => ({ value: f, label: f.toUpperCase() }));
 const STATUSES = [{ value: "unread", label: "Unread" }, { value: "reading", label: "Reading" }, { value: "finished", label: "Finished" }];
 const YES_NO = [{ value: "true", label: "Yes" }, { value: "false", label: "No" }];
 const FIELD_ITEMS = FIELDS.map((f) => ({ value: f.id, label: f.label }));
@@ -43,6 +43,11 @@ function RuleRow({ rule, libraries, onChange, onRemove }: { rule: DraftRule; lib
       <IconAction label={`Remove ${fieldOf(rule.field).label} filter`} icon={icons.close} onClick={onRemove} />
     </div>
   );
+}
+
+/** The nested rule rows on their own, for forms that keep the draft and save it themselves (smart shelves). */
+export function FilterEditor({ root, setRoot, libraries }: { root: DraftGroup; setRoot: (g: DraftGroup) => void; libraries: Library[] }) {
+  return <GroupView group={root} depth={1} root={root} setRoot={setRoot} libraries={libraries} total={countRules(root)} />;
 }
 
 function GroupView({ group, depth, root, setRoot, libraries, total }: {
@@ -86,7 +91,7 @@ export function FilterBuilder({ applied, libraries, onApply }: { applied: WireFi
     <Card framed data-testid="filter-builder">
       <Stack gap="sm">
         <Heading level={3}>Filters</Heading>
-        <GroupView group={root} depth={1} root={root} setRoot={setRoot} libraries={libraries} total={total} />
+        <FilterEditor root={root} setRoot={setRoot} libraries={libraries} />
         <Row justify="between">
           <Text size="sm" tone="dim">{total} {total === 1 ? "rule" : "rules"}{changed ? " · not applied yet" : ""}</Text>
           <Row gap="xs">

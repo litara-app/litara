@@ -58,7 +58,7 @@ func TestMixedFormatScanKeepsWorksDistinct(t *testing.T) {
 	writeZip(t, filepath.Join(root, "F", "same.cbz"), map[string]string{"ComicInfo.xml": `<ComicInfo><Title>Same Words</Title><Writer>Cy Panel</Writer></ComicInfo>`, "1.png": pngPage(2, 2)})
 	scanTwice(t, e, admin, lib)
 
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+lib+"&size=100", userA, nil).JSON(t, &eds)
 	if eds.Total != 7 {
 		t.Fatalf("every file is its own edition: %d", eds.Total)
@@ -72,13 +72,13 @@ func TestMixedFormatScanKeepsWorksDistinct(t *testing.T) {
 		files[ed.File.ID] = true
 		titleByFile[ed.File.Format+"|"+ed.Label] = ed.TitleID
 	}
-	var ts wire.T005Titles
+	var ts wire.Titles
 	e.Do("GET", "/titles?size=100&libraryId="+lib, userA, nil).JSON(t, &ts)
-	byID := map[string]wire.T005Title{}
+	byID := map[string]wire.Title{}
 	for _, x := range ts.Items {
 		byID[x.ID] = x
 	}
-	var sameWords, french, ann []wire.T005Title
+	var sameWords, french, ann []wire.Title
 	for _, x := range ts.Items {
 		switch {
 		case x.Title == "Same Words":
@@ -184,9 +184,9 @@ func TestEditionLinkFromTheEditionPageClosesItsGroupingReview(t *testing.T) {
 		`<author><first-name>Ann</first-name><last-name>Author</last-name></author><book-title>Linked Work</book-title><lang>en</lang></title-info></description><body><section><p>x</p></section></body></FictionBook>`), 0o644)
 	scanTwice(t, e, admin, lib)
 
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+lib+"&size=50", admin, nil).JSON(t, &eds)
-	var epubEd, fb2Ed wire.T005Edition
+	var epubEd, fb2Ed wire.Edition
 	for _, ed := range eds.Items {
 		switch ed.File.Format {
 		case "epub":

@@ -19,7 +19,7 @@ func TestEditionDetailsFromProtectedEdits(t *testing.T) {
 	r := newReadingEnv(t)
 	e, ed := r.e, r.ed.ID
 
-	var d wire.T009EditionDetails
+	var d wire.EditionDetails
 	e.Do("GET", "/editions/"+ed+"/details", r.userA, nil).JSON(t, &d)
 	if d.EditionID != ed || d.AddedAt == "" || d.Publisher != nil || d.Description != nil {
 		t.Fatalf("a file without those tags must report nothing: %+v", d)
@@ -32,7 +32,7 @@ func TestEditionDetailsFromProtectedEdits(t *testing.T) {
 		if x.StatusCode != http.StatusOK {
 			t.Fatalf("%s: %d %s", field, x.StatusCode, x.Body)
 		}
-		var rep wire.T005MetadataReport
+		var rep wire.EditionMetadataReport
 		x.JSON(t, &rep)
 		rev = rep.Revision
 	}
@@ -87,7 +87,7 @@ func TestTitlePersonalRatingReviewAndDates(t *testing.T) {
 		return e.Do("PUT", path, token, map[string]any{"operationId": op, "baseRevision": base, "capturedAt": time.Now().UTC().Format(time.RFC3339), "data": data})
 	}
 
-	var p wire.T009Personal
+	var p wire.TitlePersonal
 	e.Do("GET", path, r.userA, nil).JSON(t, &p)
 	if p.Revision != "0" || p.Data.RatingHalves != nil || p.Data.Review != "" || p.DerivedStartedAt != nil {
 		t.Fatalf("empty state: %+v", p)
@@ -119,7 +119,7 @@ func TestTitlePersonalRatingReviewAndDates(t *testing.T) {
 	}
 
 	// Privacy: an administrator with a grant sees only their own (empty) state, and a person without a grant is refused.
-	var other wire.T009Personal
+	var other wire.TitlePersonal
 	e.Do("GET", path, r.admin, nil).JSON(t, &other)
 	if other.Revision != "0" || other.Data.RatingHalves != nil || other.Data.Review != "" {
 		t.Fatalf("another account saw personal state: %+v", other)
@@ -151,12 +151,12 @@ func TestTitlePersonalRatingReviewAndDates(t *testing.T) {
 
 func TestOPDSCarriesTheDescriptiveFields(t *testing.T) {
 	o := newOPDSEnv(t)
-	var ts wire.T005Titles
+	var ts wire.Titles
 	o.e.Do("GET", "/titles?q=zebra", o.admin, nil).JSON(t, &ts)
 	if ts.Total != 1 {
 		t.Fatalf("titles: %+v", ts)
 	}
-	var eds wire.T005Editions
+	var eds wire.Editions
 	o.e.Do("GET", "/editions?titleId="+ts.Items[0].ID, o.admin, nil).JSON(t, &eds)
 	ed := eds.Items[0].ID
 
@@ -171,7 +171,7 @@ func TestOPDSCarriesTheDescriptiveFields(t *testing.T) {
 		if x.StatusCode != 200 {
 			t.Fatalf("%s: %d %s", field, x.StatusCode, x.Body)
 		}
-		var rep wire.T005MetadataReport
+		var rep wire.EditionMetadataReport
 		x.JSON(t, &rep)
 		rev = rep.Revision
 	}
@@ -200,13 +200,13 @@ func TestEbookSidecarReadRankAndExport(t *testing.T) {
 	r := newReadingEnv(t)
 	e, ed := r.e, r.ed.ID
 	side := filepath.Join(r.root, "Saga", "vol2.litara.json")
-	details := func() wire.T009EditionDetails {
-		var d wire.T009EditionDetails
+	details := func() wire.EditionDetails {
+		var d wire.EditionDetails
 		e.Do("GET", "/editions/"+ed+"/details", r.userA, nil).JSON(t, &d)
 		return d
 	}
 	titleOf := func() string {
-		var d wire.T005TitleDetail
+		var d wire.TitleDetail
 		e.Do("GET", "/titles/"+r.ed.TitleID, r.userA, nil).JSON(t, &d)
 		return d.Title.Title
 	}
@@ -222,7 +222,7 @@ func TestEbookSidecarReadRankAndExport(t *testing.T) {
 	if got := titleOf(); got != "Sidecar Title" {
 		t.Fatalf("the sidecar title should win over the file's: %q", got)
 	}
-	var rep wire.T005MetadataReport
+	var rep wire.EditionMetadataReport
 	e.Do("GET", "/admin/editions/"+ed+"/metadata", r.admin, nil).JSON(t, &rep)
 	if f := field(rep, "title"); f == nil || f.Source != "sidecar" || len(f.Conflicts) == 0 {
 		t.Fatalf("provenance: %+v", f)
@@ -293,7 +293,7 @@ func TestRecordingDetailsAndTagWriteBack(t *testing.T) {
 		t.Fatalf("grant: %d", r.StatusCode)
 	}
 	userA := e.Login(seed.UserAName, "phone").AccessToken
-	var rd wire.T009RecordingDetails
+	var rd wire.RecordingDetails
 	e.Do("GET", "/recordings/"+rec+"/details", userA, nil).JSON(t, &rd)
 	if rd.RecordingID != rec || rd.Publisher == nil || *rd.Publisher != "Tag House" || rd.Published == nil || *rd.Published != "2019-03-12" || rd.AddedAt == "" {
 		t.Fatalf("the files' own tags should show: %+v", rd)
@@ -315,9 +315,9 @@ func TestRecordingDetailsAndTagWriteBack(t *testing.T) {
 func TestLibraryTableSortsFiltersAndShowsColumns(t *testing.T) {
 	o := newOPDSEnv(t)
 	e := o.e
-	list := func(query string) wire.T009Titles {
+	list := func(query string) wire.TitleRows {
 		t.Helper()
-		var out wire.T009Titles
+		var out wire.TitleRows
 		r := e.Do("GET", "/titles?libraryId="+o.lib+"&"+query, o.userA, nil)
 		if r.StatusCode != http.StatusOK {
 			t.Fatalf("%s: %d %s", query, r.StatusCode, r.Body)
@@ -325,10 +325,10 @@ func TestLibraryTableSortsFiltersAndShowsColumns(t *testing.T) {
 		r.JSON(t, &out)
 		return out
 	}
-	names := func(l wire.T009Titles) []string {
+	names := func(l wire.TitleRows) []string {
 		var n []string
 		for _, i := range l.Items {
-			n = append(n, i.Title)
+			n = append(n, i.Title.Title)
 		}
 		return n
 	}
@@ -348,7 +348,7 @@ func TestLibraryTableSortsFiltersAndShowsColumns(t *testing.T) {
 		t.Fatalf("cbz filter: %+v", l)
 	}
 	// Text filters are literal substrings.
-	if l := list("author=zed"); l.Total != 1 || l.Items[0].Title != "Zebra Tales" {
+	if l := list("author=zed"); l.Total != 1 || l.Items[0].Title.Title != "Zebra Tales" {
 		t.Fatalf("author filter: %v", names(l))
 	}
 	if l := list("author=%25"); l.Total != 0 {
@@ -357,7 +357,7 @@ func TestLibraryTableSortsFiltersAndShowsColumns(t *testing.T) {
 	if l := list("series=saga"); l.Total != 2 {
 		t.Fatalf("series filter: %v", names(l))
 	}
-	first := func(r wire.T009TitleRow) string {
+	first := func(r wire.TitleRow) string {
 		if len(r.Authors) == 0 {
 			return ""
 		}
@@ -372,7 +372,7 @@ func TestLibraryTableSortsFiltersAndShowsColumns(t *testing.T) {
 
 	// The caller's own rating and status, sortable and filterable; another account's are never shown.
 	zebra := e.Do("GET", "/titles?libraryId="+o.lib+"&q=zebra", o.userA, nil)
-	var z wire.T009Titles
+	var z wire.TitleRows
 	zebra.JSON(t, &z)
 	zid := z.Items[0].ID
 	put := e.Do("PUT", "/titles/"+zid+"/personal", o.userA, map[string]any{"operationId": uuid.NewString(), "baseRevision": "0",
@@ -386,10 +386,10 @@ func TestLibraryTableSortsFiltersAndShowsColumns(t *testing.T) {
 	if l := list("rated=unrated"); l.Total != 2 {
 		t.Fatalf("unrated filter: %v", names(l))
 	}
-	if l := list("sort=rating&order=desc"); l.Items[0].Title != "Zebra Tales" {
+	if l := list("sort=rating&order=desc"); l.Items[0].Title.Title != "Zebra Tales" {
 		t.Fatalf("rating order: %v", names(l))
 	}
-	if l := list("sort=rating&order=asc"); l.Items[0].Title != "Zebra Tales" {
+	if l := list("sort=rating&order=asc"); l.Items[0].Title.Title != "Zebra Tales" {
 		t.Fatalf("unrated titles sort last in both directions, so the one rated title is first: %v", names(l))
 	}
 	if l := list("status=unread"); l.Total != 3 {
@@ -457,24 +457,24 @@ func TestLibraryIconIsSetByAdministratorsAndShownToEveryone(t *testing.T) {
 func TestTitleSearchFilterTree(t *testing.T) {
 	o := newOPDSEnv(t)
 	e := o.e
-	search := func(body map[string]any) (wire.T009Titles, int) {
+	search := func(body map[string]any) (wire.TitleRows, int) {
 		t.Helper()
 		body["libraryId"] = o.lib
 		r := e.Do("POST", "/titles/search", o.userA, body)
-		var out wire.T009Titles
+		var out wire.TitleRows
 		if r.StatusCode == http.StatusOK {
 			r.JSON(t, &out)
 		}
 		return out, r.StatusCode
 	}
-	get := func(query string) wire.T009Titles {
+	get := func(query string) wire.TitleRows {
 		t.Helper()
-		var out wire.T009Titles
+		var out wire.TitleRows
 		r := e.Do("GET", "/titles?libraryId="+o.lib+"&"+query, o.userA, nil)
 		r.JSON(t, &out)
 		return out
 	}
-	ids := func(l wire.T009Titles) string {
+	ids := func(l wire.TitleRows) string {
 		var s []string
 		for _, i := range l.Items {
 			s = append(s, i.ID)
@@ -512,7 +512,7 @@ func TestTitleSearchFilterTree(t *testing.T) {
 	}
 	or, _ := search(map[string]any{"filter": group("OR", rule("author", "contains", "zed"), rule("format", "is", "cbz"))})
 	union := map[string]bool{}
-	for _, l := range []wire.T009Titles{get("author=zed"), get("format=cbz")} {
+	for _, l := range []wire.TitleRows{get("author=zed"), get("format=cbz")} {
 		for _, i := range l.Items {
 			union[i.ID] = true
 		}

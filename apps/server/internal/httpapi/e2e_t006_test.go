@@ -29,7 +29,7 @@ func setupIntegrationsForBrowser(t *testing.T, e *apitest.Env, admin, bookPath, 
 
 	userA := e.Login(seed.UserAName, "e2e-setup").AccessToken
 	type dev struct {
-		cred wire.T006Credential
+		cred wire.Credential
 		pw   string
 	}
 	var devs []dev
@@ -39,7 +39,7 @@ func setupIntegrationsForBrowser(t *testing.T, e *apitest.Env, admin, bookPath, 
 		if r.StatusCode != 201 {
 			t.Fatalf("ko credential: %d %s", r.StatusCode, r.Body)
 		}
-		var c wire.T006Credential
+		var c wire.Credential
 		r.JSON(t, &c)
 		devs = append(devs, dev{c, pw})
 	}

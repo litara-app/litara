@@ -385,54 +385,54 @@ func messageFor(code int) string {
 
 func rev(n int64) string { return strconv.FormatInt(n, 10) }
 
-func positionOf(file, ver uuid.UUID, src sqlcgen.KoreaderSource) wire.T006KoPosition {
-	out := wire.T006KoPosition{Revision: rev(src.Revision), FileID: file.String(), ContentVersion: ver.String(), Source: "koreader"}
+func positionOf(file, ver uuid.UUID, src sqlcgen.KoreaderSource) wire.KoPosition {
+	out := wire.KoPosition{Revision: rev(src.Revision), FileID: file.String(), ContentVersion: ver.String(), Source: "koreader"}
 	if src.Revision > 0 {
-		out.Position = wire.Some(&wire.T006KoPositionData{Document: derefStr(src.Document), Progress: derefStr(src.Progress), Percentage: derefF(src.Percentage),
+		out.Position = wire.Some(&wire.KoPositionData{Document: derefStr(src.Document), Progress: derefStr(src.Progress), Percentage: derefF(src.Percentage),
 			Device: derefStr(src.Device), DeviceID: src.DeviceID, Timestamp: derefI(src.AcceptedTs)})
 	}
 	return out
 }
 
 // Position reports the separate KOReader source for an edition's current file.
-func (s *Service) Position(ctx context.Context, userID, editionID uuid.UUID) (wire.T006KoPosition, error) {
+func (s *Service) Position(ctx context.Context, userID, editionID uuid.UUID) (wire.KoPosition, error) {
 	if _, err := s.cat.AuthorizeEdition(ctx, userID, editionID); err != nil {
-		return wire.T006KoPosition{}, err
+		return wire.KoPosition{}, err
 	}
 	cur, err := s.q.GetEditionCurrentFile(ctx, editionID)
 	if err != nil {
-		return wire.T006KoPosition{}, apperr.ErrNotFound
+		return wire.KoPosition{}, apperr.ErrNotFound
 	}
 	src, err := s.q.GetSource(ctx, sqlcgen.GetSourceParams{UserID: userID, FileID: cur.FileID, ContentVersion: cur.ContentVersion})
 	if errors.Is(err, pgx.ErrNoRows) {
 		src = sqlcgen.KoreaderSource{UserID: userID, FileID: cur.FileID, ContentVersion: cur.ContentVersion}
 	} else if err != nil {
-		return wire.T006KoPosition{}, err
+		return wire.KoPosition{}, err
 	}
 	return positionOf(cur.FileID, cur.ContentVersion, src), nil
 }
 
-func (s *Service) conflictView(ctx context.Context, q *sqlcgen.Queries, c sqlcgen.KoreaderConflict) (wire.T006KoConflict, error) {
+func (s *Service) conflictView(ctx context.Context, q *sqlcgen.Queries, c sqlcgen.KoreaderConflict) (wire.KoConflict, error) {
 	var cur int64
 	if src, err := q.GetSource(ctx, sqlcgen.GetSourceParams{UserID: c.UserID, FileID: c.FileID, ContentVersion: c.ContentVersion}); err == nil {
 		cur = src.Revision
 	}
-	return wire.T006KoConflict{ID: c.ID.String(), Revision: rev(c.Revision), FileID: c.FileID.String(), ContentVersion: c.ContentVersion.String(),
+	return wire.KoConflict{ID: c.ID.String(), Revision: rev(c.Revision), FileID: c.FileID.String(), ContentVersion: c.ContentVersion.String(),
 		CredentialID: c.CredentialID.String(), Reason: c.Reason, CurrentRevision: rev(cur), Resolved: c.ResolvedAt != nil,
-		Candidate: wire.T006KoCandidate{Progress: c.Progress, Percentage: c.Percentage, Device: c.Device, DeviceID: c.DeviceID}}, nil
+		Candidate: wire.KoCandidate{Progress: c.Progress, Percentage: c.Percentage, Device: c.Device, DeviceID: c.DeviceID}}, nil
 }
 
 // ListConflicts pages the caller's own retained candidates.
-func (s *Service) ListConflicts(ctx context.Context, userID uuid.UUID, page, size int) (wire.T006KoConflictList, error) {
+func (s *Service) ListConflicts(ctx context.Context, userID uuid.UUID, page, size int) (wire.KoConflictList, error) {
 	rows, err := s.q.ListKoConflicts(ctx, sqlcgen.ListKoConflictsParams{UserID: userID, Limit: int32(size), Offset: int32(page * size)})
 	if err != nil {
-		return wire.T006KoConflictList{}, err
+		return wire.KoConflictList{}, err
 	}
 	total, err := s.q.CountKoConflicts(ctx, userID)
 	if err != nil {
-		return wire.T006KoConflictList{}, err
+		return wire.KoConflictList{}, err
 	}
-	out := wire.T006KoConflictList{Items: []wire.T006KoConflict{}, Page: page, Size: size, Total: total}
+	out := wire.KoConflictList{Items: []wire.KoConflict{}, Page: page, Size: size, Total: total}
 	for _, r := range rows {
 		v, err := s.conflictView(ctx, s.q, r)
 		if err != nil {
@@ -456,26 +456,26 @@ func staleRevision(cur int64) *apperr.Error {
 }
 
 // Resolve settles a retained candidate against the current source revision.
-func (s *Service) Resolve(ctx context.Context, userID, id uuid.UUID, in wire.T006KoResolve) (wire.T006KoPosition, error) {
+func (s *Service) Resolve(ctx context.Context, userID, id uuid.UUID, in wire.KoResolve) (wire.KoPosition, error) {
 	if in.Action != "keep_server" && in.Action != "use_candidate" {
-		return wire.T006KoPosition{}, apperr.Validation("action must be keep_server or use_candidate")
+		return wire.KoPosition{}, apperr.Validation("action must be keep_server or use_candidate")
 	}
 	return s.settle(ctx, userID, id, in.OperationID, in.BaseRevision, "resolve:"+in.Action, in.Action)
 }
 
 // Reapply deliberately applies an already-resolved retained place as a new event.
-func (s *Service) Reapply(ctx context.Context, userID, id uuid.UUID, in wire.T006Mutation) (wire.T006KoPosition, error) {
+func (s *Service) Reapply(ctx context.Context, userID, id uuid.UUID, in wire.RevisionedMutation) (wire.KoPosition, error) {
 	return s.settle(ctx, userID, id, in.OperationID, in.BaseRevision, "reapply", "reapply")
 }
 
-func (s *Service) settle(ctx context.Context, userID, id uuid.UUID, opStr, baseStr, kind, action string) (wire.T006KoPosition, error) {
+func (s *Service) settle(ctx context.Context, userID, id uuid.UUID, opStr, baseStr, kind, action string) (wire.KoPosition, error) {
 	op, err := uuid.Parse(opStr)
 	if err != nil {
-		return wire.T006KoPosition{}, apperr.Validation("operationId must be a UUID")
+		return wire.KoPosition{}, apperr.Validation("operationId must be a UUID")
 	}
 	base, err := parseRev("baseRevision", baseStr)
 	if err != nil {
-		return wire.T006KoPosition{}, err
+		return wire.KoPosition{}, err
 	}
 	fp := receipts.Fingerprint("POST", "koreader/conflicts/"+id.String()+"/"+kind, map[string]any{"base": base})
 	_, body, err := s.rc.Run(ctx, userID, op, fp, func(_ pgx.Tx, q *sqlcgen.Queries) error {
@@ -499,9 +499,9 @@ func (s *Service) settle(ctx context.Context, userID, id uuid.UUID, opStr, baseS
 		return s.settleLocked(ctx, q, userID, id, base, action)
 	})
 	if err != nil {
-		return wire.T006KoPosition{}, err
+		return wire.KoPosition{}, err
 	}
-	var out wire.T006KoPosition
+	var out wire.KoPosition
 	return out, json.Unmarshal(body, &out)
 }
 
@@ -587,22 +587,22 @@ func (s *Service) settleLocked(ctx context.Context, q *sqlcgen.Queries, userID, 
 
 // ---- bindings ---------------------------------------------------------------
 
-func bindingView(b sqlcgen.KoreaderBinding) wire.T006DigestBinding {
-	return wire.T006DigestBinding{ID: b.ID.String(), Revision: rev(b.Revision), CredentialID: b.CredentialID.String(), Document: b.Document,
+func bindingView(b sqlcgen.KoreaderBinding) wire.DigestBinding {
+	return wire.DigestBinding{ID: b.ID.String(), Revision: rev(b.Revision), CredentialID: b.CredentialID.String(), Document: b.Document,
 		FileID: b.FileID.String(), ContentVersion: b.ContentVersion.String(), Deleted: b.Deleted}
 }
 
 // ListBindings pages the caller's active bindings.
-func (s *Service) ListBindings(ctx context.Context, userID uuid.UUID, page, size int) (wire.T006DigestBindingList, error) {
+func (s *Service) ListBindings(ctx context.Context, userID uuid.UUID, page, size int) (wire.DigestBindingList, error) {
 	rows, err := s.q.ListBindings(ctx, sqlcgen.ListBindingsParams{UserID: userID, Limit: int32(size), Offset: int32(page * size)})
 	if err != nil {
-		return wire.T006DigestBindingList{}, err
+		return wire.DigestBindingList{}, err
 	}
 	total, err := s.q.CountBindings(ctx, userID)
 	if err != nil {
-		return wire.T006DigestBindingList{}, err
+		return wire.DigestBindingList{}, err
 	}
-	out := wire.T006DigestBindingList{Items: []wire.T006DigestBinding{}, Page: page, Size: size, Total: total}
+	out := wire.DigestBindingList{Items: []wire.DigestBinding{}, Page: page, Size: size, Total: total}
 	for _, r := range rows {
 		out.Items = append(out.Items, bindingView(r))
 	}
@@ -610,20 +610,20 @@ func (s *Service) ListBindings(ctx context.Context, userID uuid.UUID, page, size
 }
 
 // PutBinding creates (base 0) or retargets a per-credential digest binding.
-func (s *Service) PutBinding(ctx context.Context, userID, id uuid.UUID, in wire.T006DigestBindingWrite) (wire.T006DigestBinding, error) {
+func (s *Service) PutBinding(ctx context.Context, userID, id uuid.UUID, in wire.DigestBindingWrite) (wire.DigestBinding, error) {
 	op, err := uuid.Parse(in.OperationID)
 	if err != nil {
-		return wire.T006DigestBinding{}, apperr.Validation("operationId must be a UUID")
+		return wire.DigestBinding{}, apperr.Validation("operationId must be a UUID")
 	}
 	base, err := parseRev("baseRevision", in.BaseRevision)
 	if err != nil {
-		return wire.T006DigestBinding{}, err
+		return wire.DigestBinding{}, err
 	}
 	credID, e1 := uuid.Parse(in.CredentialID)
 	fileID, e2 := uuid.Parse(in.FileID)
 	ver, e3 := uuid.Parse(in.ContentVersion)
 	if e1 != nil || e2 != nil || e3 != nil || !isDigest(in.Document) {
-		return wire.T006DigestBinding{}, apperr.Validation("credentialId, fileId, contentVersion and document must be valid")
+		return wire.DigestBinding{}, apperr.Validation("credentialId, fileId, contentVersion and document must be valid")
 	}
 	fp := receipts.Fingerprint("PUT", "koreader/bindings/"+id.String(), map[string]any{"base": base, "c": credID, "d": in.Document, "f": fileID, "v": ver})
 	_, body, err := s.rc.Run(ctx, userID, op, fp, func(_ pgx.Tx, q *sqlcgen.Queries) error {
@@ -691,21 +691,21 @@ func (s *Service) PutBinding(ctx context.Context, userID, id uuid.UUID, in wire.
 		return http.StatusOK, wire.Raw(bindingView(b)), nil, nil
 	})
 	if err != nil {
-		return wire.T006DigestBinding{}, err
+		return wire.DigestBinding{}, err
 	}
-	var out wire.T006DigestBinding
+	var out wire.DigestBinding
 	return out, json.Unmarshal(body, &out)
 }
 
 // DeleteBinding tombstones a binding at its current revision.
-func (s *Service) DeleteBinding(ctx context.Context, userID, id uuid.UUID, in wire.T006Mutation) (wire.T006DigestBinding, error) {
+func (s *Service) DeleteBinding(ctx context.Context, userID, id uuid.UUID, in wire.RevisionedMutation) (wire.DigestBinding, error) {
 	op, err := uuid.Parse(in.OperationID)
 	if err != nil {
-		return wire.T006DigestBinding{}, apperr.Validation("operationId must be a UUID")
+		return wire.DigestBinding{}, apperr.Validation("operationId must be a UUID")
 	}
 	base, err := parseRev("baseRevision", in.BaseRevision)
 	if err != nil {
-		return wire.T006DigestBinding{}, err
+		return wire.DigestBinding{}, err
 	}
 	fp := receipts.Fingerprint("DELETE", "koreader/bindings/"+id.String(), map[string]any{"base": base})
 	_, body, err := s.rc.Run(ctx, userID, op, fp, func(_ pgx.Tx, q *sqlcgen.Queries) error {
@@ -744,8 +744,8 @@ func (s *Service) DeleteBinding(ctx context.Context, userID, id uuid.UUID, in wi
 		return http.StatusOK, wire.Raw(bindingView(d)), nil, nil
 	})
 	if err != nil {
-		return wire.T006DigestBinding{}, err
+		return wire.DigestBinding{}, err
 	}
-	var out wire.T006DigestBinding
+	var out wire.DigestBinding
 	return out, json.Unmarshal(body, &out)
 }

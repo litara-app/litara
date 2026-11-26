@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { api, get, op } from "../api/client";
-import type { Page as Paged, Shelf, ShelfFilter } from "../api/types";
-import { icons, Badge, Busy, Button, Card, EmptyState, ErrorBox, FormColumn, Page, PageHeader, Row, SelectField, Stack, Tabs, TextField, TextLink } from "../ui";
-
-const fields = ["title", "author", "series", "language", "tag", "format", "mediaKind", "finished", "inProgress"].map((v) => ({ value: v, label: v }));
-const operators = ["contains", "equals"].map((v) => ({ value: v, label: v }));
+import type { Page as Paged, Shelf } from "../api/types";
+import { FilterEditor } from "./filter/FilterBuilder";
+import { emptyRoot, isSavable, newRule, toWire, type DraftGroup } from "./filter/filterTree";
+import { useLibraries } from "./filter/useLibraries";
+import { icons, Badge, Busy, Button, Card, EmptyState, ErrorBox, FormColumn, Page, PageHeader, Row, SelectField, Stack, Tabs, Text, TextField, TextLink } from "../ui";
 
 function ShelfList({ scope }: { scope: "mine" | "shared" }) {
   const q = useQuery({ queryKey: ["shelves", scope], queryFn: () => get<Paged<Shelf>>(`/shelves?scope=${scope}&size=200`) });
@@ -37,18 +37,18 @@ function CreateShelf() {
   const [name, setName] = useState("");
   const [vis, setVis] = useState<string | null>("private");
   const [kind, setKind] = useState<string | null>("manual");
-  const [field, setField] = useState<string | null>("title");
-  const [operator, setOperator] = useState<string | null>("contains");
-  const [value, setValue] = useState("");
+  const [filterDraft, setFilterDraft] = useState<DraftGroup>(() => ({ ...emptyRoot(), rules: [newRule()] }));
+  const libraries = useLibraries();
+  const incomplete = kind === "smart" && !isSavable(filterDraft);
   const create = useMutation({
     mutationFn: () => {
       const id = crypto.randomUUID();
-      const filter: ShelfFilter | null = kind === "smart" ? { kind: "predicate", field: field!, operator: operator as "equals" | "contains", value } : null;
+      const filter = kind === "smart" ? toWire(filterDraft) : null;
       return api<Shelf>("PUT", `/shelves/${id}`, { ...op("0"), data: { name, visibility: vis, kind, filter } });
     },
     onSuccess: (s) => { qc.invalidateQueries({ queryKey: ["shelves"] }); nav(`/shelves/${s.id}`); },
   });
-  const submit = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
+  const submit = (e: FormEvent) => { e.preventDefault(); if (!incomplete) create.mutate(); };
   return (
     <form onSubmit={submit}>
       <FormColumn>
@@ -58,14 +58,13 @@ function CreateShelf() {
           <SelectField label="Kind" value={kind} onValue={setKind} items={[{ value: "manual", label: "Manual" }, { value: "smart", label: "Smart" }]} />
         </Row>
         {kind === "smart" && (
-          <Row grow align="end">
-            <SelectField label="Field" value={field} onValue={setField} items={fields} />
-            <SelectField label="Operator" value={operator} onValue={setOperator} items={operators} />
-            <TextField label="Value" value={value} onValue={setValue} required />
-          </Row>
+          <Stack gap="sm">
+            <FilterEditor root={filterDraft} setRoot={setFilterDraft} libraries={libraries} />
+            {incomplete && <Text size="sm" tone="dim">Add at least one filter, and complete or remove each one, to create the shelf.</Text>}
+          </Stack>
         )}
         <ErrorBox error={create.error} />
-        <Row><Button type="submit" variant="primary" loading={create.isPending} icon={icons.plus}>Create shelf</Button></Row>
+        <Row><Button type="submit" variant="primary" loading={create.isPending} disabled={incomplete} icon={icons.plus}>Create shelf</Button></Row>
       </FormColumn>
     </form>
   );

@@ -21,9 +21,9 @@ func TestAnnotationHubSearchExportPrivacyAndGrants(t *testing.T) {
 	e := r.e
 	epub(t, filepath.Join(r.root, "Other", "tale.epub"), "Other Tale", "Zed Writer", "978-0-306-40615-7")
 	scanTwice(t, e, r.admin, r.lib)
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+r.lib, r.userA, nil).JSON(t, &eds)
-	var saga, tale wire.T005Edition
+	var saga, tale wire.Edition
 	for _, ed := range eds.Items {
 		if ed.ID == r.ed.ID {
 			saga = ed
@@ -34,7 +34,7 @@ func TestAnnotationHubSearchExportPrivacyAndGrants(t *testing.T) {
 	if saga.ID == "" || tale.ID == "" {
 		t.Fatalf("editions: %+v", eds)
 	}
-	put := func(token string, ed wire.T005Edition, kind, text, quote string) string {
+	put := func(token string, ed wire.Edition, kind, text, quote string) string {
 		t.Helper()
 		id := uuid.NewString()
 		var sel any
@@ -57,7 +57,7 @@ func TestAnnotationHubSearchExportPrivacyAndGrants(t *testing.T) {
 		t.Fatalf("grant B: %d %s", resp.StatusCode, resp.Body)
 	}
 	put(r.userB, saga, "note", "user B private", "")
-	var g wire.T005Annotation
+	var g wire.Annotation
 	e.Do("GET", "/editions/"+tale.ID+"/annotations/"+gone, r.userA, nil).JSON(t, &g)
 	if d := e.Do("DELETE", "/editions/"+tale.ID+"/annotations/"+gone, r.userA, delBody(uuid.NewString(), g.Revision)); d.StatusCode != http.StatusOK {
 		t.Fatalf("delete: %d %s", d.StatusCode, d.Body)
