@@ -40,6 +40,7 @@ class ReadingSessionTracker @Inject constructor(
     private val api: ApiService,
     private val syncScheduler: SyncScheduler,
     private val session: SessionManager,
+    private val litara: LitaraSource = LitaraSource.None,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val recorder = ReadingSessionRecorder(maxGapMs = MAX_GAP_MS)
@@ -78,11 +79,13 @@ class ReadingSessionTracker @Inject constructor(
     /** Called while playing (every few seconds). Opens a session on first call for a book. */
     @Synchronized
     fun onListening(bookId: Int, firstFileId: Int, percent: Double) {
-        // Litara recordings have no listening-session API yet, and BookOrbit must never receive their local handles.
+        // Litara records its own listening (ADR-0109); BookOrbit must never receive Litara's local handles.
         if (bookId >= LitaraSource.HANDLE_BASE) {
             endLocked()
+            litara.listening(bookId, percent)
             return
         }
+        litara.listeningEnded()
         val key = "listen:$bookId"
         val now = now()
         if (recorder.key == key && recorder.inactiveForMs(now) > LISTEN_IDLE_CLOSE_MS) endLocked()
@@ -98,6 +101,7 @@ class ReadingSessionTracker @Inject constructor(
 
     @Synchronized
     fun setListeningActive(active: Boolean) {
+        if (!active) litara.listeningPaused()
         if (recorder.key?.startsWith("listen:") != true) return
         val now = now()
         if (active && recorder.inactiveForMs(now) > LISTEN_IDLE_CLOSE_MS) {
@@ -113,7 +117,10 @@ class ReadingSessionTracker @Inject constructor(
 
     /** Close the open session (if any) and queue it. */
     @Synchronized
-    fun end() = endLocked()
+    fun end() {
+        litara.listeningEnded()
+        endLocked()
+    }
 
     /**
      * Send the signed-in account's queued sessions. Returns true if any of them remain (so the sync

@@ -47,6 +47,7 @@ class LitaraReaderViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repo: LitaraRepository,
     private val settingsStore: ReaderSettingsStore,
+    private val activity: LitaraActivityRecorder,
 ) : ViewModel(), ReaderHost {
     private val editionId: String = savedStateHandle.get<String>("editionId").orEmpty()
 
@@ -136,6 +137,8 @@ class LitaraReaderViewModel @Inject constructor(
             )
         }
         if (cfi != null) currentCfi = cfi
+        // Opening and turning pages is what shows the person is reading (ADR-0092).
+        activity.onReading(editionId, fraction)
         if (cfi != null && fraction != null) {
             pending = cfi to fraction
             if (System.currentTimeMillis() - lastSent >= PROGRESS_THROTTLE_MS) flush()
@@ -270,6 +273,7 @@ class LitaraReaderViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        activity.endReading(editionId)
         flush()
         super.onCleared()
     }

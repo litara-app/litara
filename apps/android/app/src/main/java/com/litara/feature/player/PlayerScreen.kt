@@ -150,14 +150,11 @@ fun PlayerScreen(
                     Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.chapters))
                 }
             }
-            // Litara has no audio bookmark API yet, so its recordings do not offer the control.
-            if ((state.currentBook?.id ?: 0) < LitaraSource.HANDLE_BASE) {
-                IconButton(onClick = {
-                    vm.loadBookmarks()
-                    showBookmarks = true
-                }) {
-                    Icon(Icons.Filled.Bookmarks, contentDescription = stringResource(R.string.bookmarks))
-                }
+            IconButton(onClick = {
+                vm.loadBookmarks()
+                showBookmarks = true
+            }) {
+                Icon(Icons.Filled.Bookmarks, contentDescription = stringResource(R.string.bookmarks))
             }
             CastButton()
             val timerActive = state.sleepTimerRemainingSec != null
@@ -349,6 +346,8 @@ fun PlayerScreen(
                 showBookmarks = false
             },
             onDelete = { vm.deleteBookmark(it.id) },
+            // Only Litara bookmarks can be renamed.
+            onRename = if ((state.currentBook?.id ?: 0) >= LitaraSource.HANDLE_BASE) { b, name -> vm.renameBookmark(b.id, name) } else null,
             onDismiss = { showBookmarks = false },
         )
     }

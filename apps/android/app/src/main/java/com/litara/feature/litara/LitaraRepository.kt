@@ -196,6 +196,30 @@ class LitaraRepository @Inject constructor(
         }
     }
 
+    // ---- audiobook bookmarks (ADR-0110) -------------------------------------------------------
+
+    private val bookmarkSyncs = java.util.concurrent.ConcurrentHashMap<String, com.litara.core.litara.AudioBookmarkSync>()
+
+    /** One sync per account and recording, so two callers never deliver the same change at once. */
+    fun bookmarks(recordingId: String): com.litara.core.litara.AudioBookmarkSync {
+        val t = token()
+        val directory = recDir(t, recordingId)
+        val c = requireClient()
+        return bookmarkSyncs.getOrPut("${System.identityHashCode(c)}|${directory.path}") {
+            com.litara.core.litara.AudioBookmarkSync(c, recordingId, com.litara.core.litara.AudioBookmarkStore(directory))
+        }
+    }
+
+    /** Delivers every waiting bookmark change of the active account. True while some remain. */
+    suspend fun flushBookmarks(): Boolean {
+        val t = token()
+        val waiting = File(dir(t), "rec").listFiles { f -> f.isDirectory }.orEmpty()
+            .filter { com.litara.core.litara.AudioBookmarkStore(it).hasPending() }
+        var left = false
+        for (directory in waiting) if (bookmarks(directory.name).flushPending()) left = true
+        return left
+    }
+
     fun isLocked(recordingId: String): Boolean = File(recDir(token(), recordingId), "LOCKED").exists()
 
     /** Online snapshot compared with the local download; offline falls back to the downloaded snapshot (no lease). */

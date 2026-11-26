@@ -203,6 +203,36 @@ class LitaraClient(
     suspend fun writeEditionCompletion(editionId: String, w: LEditionCompletionWrite): LCompletion =
         sendJson("PUT", "/editions/$editionId/completion", LitaraJson.encodeToString(w))
 
+    /** Sends one reading or listening session; the server keeps the longest version it has seen (ADR-0109). */
+    suspend fun putSession(e: SessionEntry) {
+        val (path, body) = when (e.kind) {
+            SessionKind.READ -> "/editions/${e.targetId}/reading-sessions/${e.sessionId}" to
+                LitaraJson.encodeToString(LReadingSessionWrite(e.iso(e.startedAtMs), e.iso(e.endedAtMs), e.seconds, e.startFraction, e.endFraction))
+            SessionKind.LISTEN -> "/recordings/${e.targetId}/listening-sessions/${e.sessionId}" to
+                LitaraJson.encodeToString(LListeningSessionWrite(e.iso(e.startedAtMs), e.iso(e.endedAtMs), e.seconds, e.startFraction, e.endFraction))
+        }
+        call(Request.Builder().url(url(path)).put(body.toRequestBody(jsonType)), authenticated = true) // answers with no body
+    }
+
+    /** Every audiobook bookmark of the recording INCLUDING tombstones (ADR-0110). */
+    suspend fun listAllBookmarks(recordingId: String, pageSize: Int = 200, maxPages: Int = 100): List<LAudioBookmark> {
+        val all = ArrayList<LAudioBookmark>()
+        var page = 0
+        while (page < maxPages) {
+            val r: LAudioBookmarks = getJson("/recordings/$recordingId/bookmarks?page=$page&size=$pageSize&includeDeleted=true")
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
+    suspend fun putBookmark(recordingId: String, bookmarkId: String, w: LAudioBookmarkWrite): LAudioBookmark =
+        sendJson("PUT", "/recordings/$recordingId/bookmarks/$bookmarkId", LitaraJson.encodeToString(w))
+
+    suspend fun deleteBookmark(recordingId: String, bookmarkId: String, d: LAnnotationDelete): LAudioBookmark =
+        sendJson("DELETE", "/recordings/$recordingId/bookmarks/$bookmarkId", LitaraJson.encodeToString(d))
+
     /** The current extraction state of a comic file version; read-only and never starts a job. */
     suspend fun comicManifest(fileId: String, contentVersion: String): LPageManifest =
         getJson("/files/$fileId/versions/$contentVersion/pages")

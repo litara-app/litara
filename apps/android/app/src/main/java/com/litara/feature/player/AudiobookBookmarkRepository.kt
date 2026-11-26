@@ -11,15 +11,16 @@ import javax.inject.Singleton
 @Singleton
 class AudiobookBookmarkRepository @Inject constructor(
     private val api: ApiService,
+    private val litara: LitaraSource = LitaraSource.None,
 ) {
-    /** Litara handles have no server bookmarks in this release (never ask the old API about them). */
-    private fun unsupported(bookId: Int) = bookId >= LitaraSource.HANDLE_BASE
+    /** Litara keeps its own bookmarks (ADR-0110); the old API is never asked about its handles. */
+    private fun isLitara(bookId: Int) = bookId >= LitaraSource.HANDLE_BASE
 
     suspend fun list(bookId: Int): List<AudiobookBookmark> =
-        if (unsupported(bookId)) emptyList() else api.getAudiobookBookmarks(bookId).sortedBy { it.positionMs }
+        if (isLitara(bookId)) litara.bookmarks(bookId) else api.getAudiobookBookmarks(bookId).sortedBy { it.positionMs }
 
     suspend fun add(bookId: Int, positionSec: Double, title: String): AudiobookBookmark {
-        check(!unsupported(bookId)) { "Bookmarks are not available for Litara recordings yet" }
+        if (isLitara(bookId)) return checkNotNull(litara.addBookmark(bookId, positionSec, title)) { "This recording is not available" }
         return api.createAudiobookBookmark(
             bookId,
             CreateAudiobookBookmark(
@@ -30,5 +31,12 @@ class AudiobookBookmarkRepository @Inject constructor(
         )
     }
 
-    suspend fun delete(bookId: Int, bookmarkId: String) = api.deleteAudiobookBookmark(bookId, bookmarkId)
+    /** Only Litara bookmarks can be renamed. */
+    suspend fun rename(bookId: Int, bookmarkId: String, title: String) {
+        if (isLitara(bookId)) litara.renameBookmark(bookId, bookmarkId, title)
+    }
+
+    suspend fun delete(bookId: Int, bookmarkId: String) {
+        if (isLitara(bookId)) litara.deleteBookmark(bookId, bookmarkId) else api.deleteAudiobookBookmark(bookId, bookmarkId)
+    }
 }
