@@ -57,14 +57,16 @@ type Association struct {
 }
 
 type AuthorPhoto struct {
-	Kind      string        `json:"kind"`
-	NameKey   string        `json:"name_key"`
-	Source    string        `json:"source"`
-	Image     []byte        `json:"image"`
-	Locked    bool          `json:"locked"`
-	Version   uuid.UUID     `json:"version"`
-	UpdatedBy uuid.NullUUID `json:"updated_by"`
-	UpdatedAt time.Time     `json:"updated_at"`
+	Kind        string        `json:"kind"`
+	NameKey     string        `json:"name_key"`
+	Source      string        `json:"source"`
+	Image       []byte        `json:"image"`
+	Locked      bool          `json:"locked"`
+	Provider    *string       `json:"provider"`
+	ProviderUrl *string       `json:"provider_url"`
+	Version     uuid.UUID     `json:"version"`
+	UpdatedBy   uuid.NullUUID `json:"updated_by"`
+	UpdatedAt   time.Time     `json:"updated_at"`
 }
 
 type ChapterSource struct {
@@ -172,13 +174,15 @@ type DirectoryEntry struct {
 }
 
 type DirectoryValue struct {
-	Kind      string        `json:"kind"`
-	NameKey   string        `json:"name_key"`
-	Field     string        `json:"field"`
-	Value     []byte        `json:"value"`
-	Locked    bool          `json:"locked"`
-	UpdatedBy uuid.NullUUID `json:"updated_by"`
-	UpdatedAt time.Time     `json:"updated_at"`
+	Kind        string        `json:"kind"`
+	NameKey     string        `json:"name_key"`
+	Field       string        `json:"field"`
+	Value       []byte        `json:"value"`
+	Locked      bool          `json:"locked"`
+	Provider    *string       `json:"provider"`
+	ProviderUrl *string       `json:"provider_url"`
+	UpdatedBy   uuid.NullUUID `json:"updated_by"`
+	UpdatedAt   time.Time     `json:"updated_at"`
 }
 
 type Edition struct {
@@ -678,6 +682,28 @@ type ScanRun struct {
 	StartedAt   *time.Time `json:"started_at"`
 	CompletedAt *time.Time `json:"completed_at"`
 	Failure     *string    `json:"failure"`
+}
+
+type SeriesMatch struct {
+	Kind         string        `json:"kind"`
+	NameKey      string        `json:"name_key"`
+	Provider     string        `json:"provider"`
+	ProviderRef  string        `json:"provider_ref"`
+	ProviderName string        `json:"provider_name"`
+	Url          string        `json:"url"`
+	MatchedBy    uuid.NullUUID `json:"matched_by"`
+	MatchedAt    time.Time     `json:"matched_at"`
+}
+
+type SeriesMember struct {
+	NameKey      string        `json:"name_key"`
+	Position     int32         `json:"position"`
+	Title        string        `json:"title"`
+	Authors      []string      `json:"authors"`
+	Released     string        `json:"released"`
+	Url          string        `json:"url"`
+	Cover        []byte        `json:"cover"`
+	CoverVersion uuid.NullUUID `json:"cover_version"`
 }
 
 type ServerIdentity struct {

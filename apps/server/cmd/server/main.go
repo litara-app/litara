@@ -133,6 +133,8 @@ func run() error {
 	meta := metadata.New(pool)
 	enricher := &metadata.Enricher{Service: meta, Providers: metadata.NewProvidersWithHardcover(cfg.OpenLibraryContact, cfg.GoogleBooksAPIKey, cfg.HardcoverToken),
 		CacheTTL: time.Duration(cfg.ProviderSearchCacheMinutes) * time.Minute}
+	coverService := covers.New(pool, cfg.MediaRoot, covers.NewFetcher(false), covers.NewSearcher())
+	rd.EnableOnline(&reading.Online{Providers: reading.PeopleProviders(enricher.Providers), Image: coverService.Preview, CacheTTL: enricher.CacheTTL})
 	// Only writers with retained fidelity evidence are built in (ADR-0052). A writer stays disabled until an
 	// operator records its evidence with `ctl writers enable`.
 	wb := &writeback.Service{Pool: pool, Inspector: scanInsp, Scanner: scanner, Metadata: meta,
@@ -212,7 +214,7 @@ func run() error {
 		Addr: cfg.HTTPAddr, ReadHeaderTimeout: 10 * time.Second,
 		Handler: httpapi.New(httpapi.Deps{Web: appHandler(cfg), Pool: pool, Prober: insp, Workers: running.Load, Version: version,
 			API: &httpapi.APIDeps{Accounts: acc, Catalog: cat, Progress: progress.New(pool, cat, nil), Reading: rd, Library: library.New(pool), Config: apiCfg, Log: log,
-				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Covers: covers.New(pool, cfg.MediaRoot, covers.NewFetcher(false), covers.NewSearcher()), Notices: notices.New(pool), Integrations: integ, Delivery: deliverySvc, KOReader: koreader.New(pool, cat, nil)}}),
+				Pool: pool, Jobs: jobsEnq, Scanner: scanner, Metadata: meta, Enricher: enricher, Importer: imp, Writeback: wb, Covers: coverService, Notices: notices.New(pool), Integrations: integ, Delivery: deliverySvc, KOReader: koreader.New(pool, cat, nil)}}),
 	}
 	errc := make(chan error, 2)
 	go func() {

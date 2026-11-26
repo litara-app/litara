@@ -99,6 +99,8 @@ type Options struct {
 	NoSeed bool
 	// Providers replaces the (empty) metadata provider set, so a test can serve candidates without a network.
 	Providers map[string]metadata.Provider
+	// People replaces the (empty) author and series providers, so a test can serve records without a network.
+	People map[string]metadata.PeopleProvider
 	// ProviderCacheTTL turns the provider search cache on (it follows the controllable Clock).
 	ProviderCacheTTL time.Duration
 	// Web is mounted at "/" for browser end-to-end runs.
@@ -163,6 +165,7 @@ func New(t *testing.T, opts ...Options) *Env {
 		ConnectTimeout: 3 * time.Second, SendTimeout: 10 * time.Second}, Catalog: cat, Integrations: e.Integrations, Sched: e.DQ,
 		MediaRoot: o.Cfg.MediaRoot, Clock: clock.Now, Hooks: o.DeliveryHooks})
 	e.Covers = covers.New(pool, o.Cfg.MediaRoot, covers.NewFetcher(true), covers.NewSearcher())
+	e.Reading.EnableOnline(&reading.Online{Providers: o.People, Image: e.Covers.Preview, CacheTTL: o.ProviderCacheTTL, Now: clock.Now})
 	providers := o.Providers
 	if providers == nil {
 		providers = map[string]metadata.Provider{}

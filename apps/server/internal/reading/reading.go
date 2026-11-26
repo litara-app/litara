@@ -33,6 +33,8 @@ type Service struct {
 	q    *sqlcgen.Queries
 	cat  *catalog.Service
 	now  func() time.Time
+	// online is nil until EnableOnline.
+	online *Online
 	// comics is nil until EnableComics.
 	comics *comicState
 }

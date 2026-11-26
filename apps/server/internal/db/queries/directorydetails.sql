@@ -29,11 +29,12 @@ SELECT COALESCE((SELECT revision FROM directory_entries WHERE kind = $1 AND name
 UPDATE directory_entries SET revision = revision + 1 WHERE kind = $1 AND name_key = $2;
 
 -- name: ListDirectoryValues :many
-SELECT field, value, locked FROM directory_values WHERE kind = $1 AND name_key = $2;
+SELECT field, value, locked, provider, provider_url FROM directory_values WHERE kind = $1 AND name_key = $2;
 
 -- name: UpsertDirectoryValue :exec
-INSERT INTO directory_values (kind, name_key, field, value, updated_by) VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (kind, name_key, field) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now();
+INSERT INTO directory_values (kind, name_key, field, value, updated_by, provider, provider_url) VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (kind, name_key, field) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by,
+  provider = EXCLUDED.provider, provider_url = EXCLUDED.provider_url, updated_at = now();
 
 -- name: SetDirectoryValueLock :exec
 UPDATE directory_values SET locked = $4, updated_at = now() WHERE kind = $1 AND name_key = $2 AND field = $3;
@@ -45,12 +46,13 @@ DELETE FROM directory_values WHERE kind = $1 AND name_key = $2 AND field = $3;
 SELECT source, image, locked, version FROM author_photos WHERE name_key = $1;
 
 -- name: GetAuthorPhotoMeta :one
-SELECT source, locked, version FROM author_photos WHERE name_key = $1;
+SELECT source, locked, version, provider, provider_url FROM author_photos WHERE name_key = $1;
 
 -- name: UpsertAuthorPhoto :exec
-INSERT INTO author_photos (name_key, source, image, updated_by) VALUES ($1, $2, $3, $4)
+INSERT INTO author_photos (name_key, source, image, updated_by, provider, provider_url) VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (name_key) DO UPDATE
-SET source = EXCLUDED.source, image = EXCLUDED.image, updated_by = EXCLUDED.updated_by, version = gen_random_uuid(), updated_at = now();
+SET source = EXCLUDED.source, image = EXCLUDED.image, updated_by = EXCLUDED.updated_by,
+  provider = EXCLUDED.provider, provider_url = EXCLUDED.provider_url, version = gen_random_uuid(), updated_at = now();
 
 -- name: SetAuthorPhotoLock :exec
 UPDATE author_photos SET locked = $2, updated_at = now() WHERE name_key = $1;

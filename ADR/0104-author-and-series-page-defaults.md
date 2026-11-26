@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-11-26
 Decision owner: Repository owner
 Amends: [ADR-0101](0101-authors-by-last-name.md), [ADR-0102](0102-editable-lockable-author-data.md), [ADR-0103](0103-series-data-and-missing-books.md)
-Amended by: [ADR-0105](0105-author-photos-and-concurrent-edits.md) (2026-11-26): photo storage and limits, and refusing out-of-date edits.
+Amended by: [ADR-0105](0105-author-photos-and-concurrent-edits.md) (2026-11-26): photo storage and limits, and refusing out-of-date edits. Also amended by [ADR-0106](0106-provider-text-and-images.md) (2026-11-26): provider text and images are stored and credited.
 
 ## Context
 
@@ -50,6 +50,8 @@ Planned for each stage. Stage 1: library grants limit every new count and cover 
 Stage 1, 2026-11-26: Go test `TestAuthorAndSeriesDirectories` covers the new series covers, finished and series counts, the most-books order, Continue reading (nothing started, a later book in progress, finished books skipped) and an account without a grant. Web tests cover the cards, shelf filter, previous and next, missing-book places and the Continue button. Checked in Chromium against a local instance: Reading Room light and dark and Clean light had no sideways scroll, and the button opened the reader. At phone width every page, including ones this stage did not change, scrolls sideways by the width of the top bar's buttons. Not checked: Clean dark, other browsers, and the audiobook path in a browser.
 
 Stage 2, 2026-11-26: Go tests `TestGuessedLastNames` and `TestAuthorAndSeriesDetails` cover the name guess and letters, both sort orders, the letter filter, a correction moving an author, locks, reset, clears, revisions, retried operations, who may read and edit, and details staying under the old name after a rename. Web tests cover the A to Z row, saved details on both pages, editing, locked fields and photos and the conflict message. Checked in Chromium against a throwaway local instance: photo upload, saving and correcting a last name, the letter filter, series details, the Reading Room theme light and dark, and the edit tab at phone width. At phone width the top bar still scrolls the page sideways, as in stage 1. Not checked: the Clean theme, other browsers and the Playwright suite.
+
+Stage 3, 2026-11-26: Go test `TestAuthorAndSeriesOnline` covers, with fake providers, enablement, Hardcover first with Open Library only when it gives nothing, caching, review without saving, applying with credit, locks, finding a series through its books, missing books (owned by number or title, unreleased and undated left out), no catalog titles created, grants and removing a match. Adapter tests use synthetic Hardcover replies and trimmed Open Library replies. In Chromium, a throwaway instance used the live Open Library to match The Expanse, show books 3 to 9 as missing with covers, and apply an author's biography and photo; the missing books were also viewed at phone width in dark mode. One of those covers was from a French edition. Later the same day, with the token the owner configured, the Hardcover adapter was run live on public books and authors: author search and records, series by ISBN and by title, series members and image downloads through the address guard all returned data without errors. That run showed that searching "title author" missed Dune and that author searches returned unrelated people; both were fixed and rechecked live. The server and browser flow was not run against Hardcover.
 
 ## Open questions
 

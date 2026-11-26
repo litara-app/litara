@@ -183,16 +183,85 @@
         ],
         "type": "object"
       },
+      "AuthorCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "biography": {
+            "description": "Empty when the provider has none.",
+            "maxLength": 8000,
+            "type": "string"
+          },
+          "detail": {
+            "description": "A short line to tell people of the same name apart.",
+            "type": "string"
+          },
+          "hasPhoto": {
+            "type": "boolean"
+          },
+          "id": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "description": "The record on the provider's site.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "detail",
+          "url",
+          "biography",
+          "hasPhoto"
+        ],
+        "type": "object"
+      },
+      "AuthorLookupResults": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderAuthors"
+            },
+            "maxItems": 2,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "results"
+        ],
+        "type": "object"
+      },
       "AuthorPhoto": {
         "additionalProperties": false,
         "properties": {
           "locked": {
             "type": "boolean"
           },
+          "provider": {
+            "type": "string"
+          },
+          "providerUrl": {
+            "format": "uri",
+            "type": "string"
+          },
           "source": {
             "enum": [
               "upload",
               "url",
+              "provider",
               "none"
             ],
             "type": "string"
@@ -708,6 +777,59 @@
         ],
         "type": "object"
       },
+      "DirectoryApply": {
+        "additionalProperties": false,
+        "properties": {
+          "baseRevision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "candidateId": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "enum": [
+                "biography",
+                "description",
+                "book_count",
+                "status"
+              ],
+              "type": "string"
+            },
+            "maxItems": 5,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "operationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "photo": {
+            "description": "Authors only: also store the candidate's photo.",
+            "type": "boolean"
+          },
+          "provider": {
+            "enum": [
+              "hardcover",
+              "open_library"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "provider",
+          "candidateId",
+          "fields"
+        ],
+        "type": "object"
+      },
       "DirectoryAuthor": {
         "additionalProperties": false,
         "properties": {
@@ -845,6 +967,10 @@
               "null"
             ]
           },
+          "match": {
+            "$ref": "#/components/schemas/SeriesMatch",
+            "description": "Series only: the matched provider record."
+          },
           "name": {
             "type": "string"
           },
@@ -885,6 +1011,15 @@
           "locked": {
             "type": "boolean"
           },
+          "provider": {
+            "description": "Set for a value applied from a provider.",
+            "type": "string"
+          },
+          "providerUrl": {
+            "description": "The record it came from.",
+            "format": "uri",
+            "type": "string"
+          },
           "source": {
             "description": "user is a saved edit, guessed is derived from the name, none has no value.",
             "enum": [
@@ -905,6 +1040,16 @@
           "cleared",
           "locked"
         ],
+        "type": "object"
+      },
+      "DirectoryLookup": {
+        "additionalProperties": false,
+        "properties": {
+          "fresh": {
+            "description": "Ignore results cached from the last few minutes.",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "DirectorySeries": {
@@ -1745,6 +1890,77 @@
         ],
         "type": "object"
       },
+      "MissingBook": {
+        "additionalProperties": false,
+        "properties": {
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "coverVersion": {
+            "description": "Set when a cover is stored.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "number": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "released": {
+            "description": "YYYY or YYYY-MM-DD.",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "url": {
+            "description": "The book on the provider's site; empty when unknown.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "authors",
+          "released",
+          "url",
+          "coverVersion"
+        ],
+        "type": "object"
+      },
+      "MissingBooks": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MissingBook"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "match": {
+            "$ref": "#/components/schemas/SeriesMatch"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
       "Notification": {
         "additionalProperties": false,
         "properties": {
@@ -2112,6 +2328,80 @@
         "required": [
           "location",
           "message"
+        ],
+        "type": "object"
+      },
+      "ProviderAuthors": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/AuthorCandidate"
+            },
+            "maxItems": 5,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "provider": {
+            "enum": [
+              "hardcover",
+              "open_library"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "no_match",
+              "unavailable",
+              "unconfigured"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "status",
+          "candidates"
+        ],
+        "type": "object"
+      },
+      "ProviderSeries": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesCandidate"
+            },
+            "maxItems": 5,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "provider": {
+            "enum": [
+              "hardcover",
+              "open_library"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "no_match",
+              "unavailable",
+              "unconfigured"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "status",
+          "candidates"
         ],
         "type": "object"
       },
@@ -2848,6 +3138,133 @@
         "required": [
           "name",
           "index"
+        ],
+        "type": "object"
+      },
+      "SeriesCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "bookCount": {
+            "format": "int64",
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "description": {
+            "description": "Empty when the provider has none.",
+            "maxLength": 8000,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "matchedBooks": {
+            "description": "How many of the books searched point at this series.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "numberedBooks": {
+            "description": "Whole-numbered main books the provider lists.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "searchedBooks": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "ongoing",
+              "complete"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url",
+          "authors",
+          "description",
+          "bookCount",
+          "status",
+          "numberedBooks",
+          "matchedBooks",
+          "searchedBooks"
+        ],
+        "type": "object"
+      },
+      "SeriesLookupResults": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderSeries"
+            },
+            "maxItems": 2,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "results"
+        ],
+        "type": "object"
+      },
+      "SeriesMatch": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "hardcover",
+              "open_library"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "name",
+          "url"
         ],
         "type": "object"
       },
@@ -16695,6 +17112,466 @@
         ]
       }
     },
+    "/authors/lookup": {
+      "post": {
+        "operationId": "lookupAuthor",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectoryLookup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorLookupResults"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Search the enabled providers for an author, to review",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/authors/lookup/apply": {
+      "post": {
+        "operationId": "applyAuthorLookup",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectoryApply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryDetails"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Save chosen values from a provider's author record",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/authors/lookup/photo": {
+      "get": {
+        "operationId": "previewAuthorLookupPhoto",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "hardcover",
+                "open_library"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The candidate photo, always a JPEG",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "browserSession": [],
+            "csrf": []
+          }
+        ],
+        "summary": "A candidate's photo, fetched by the server for review only",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/authors/photo": {
       "get": {
         "operationId": "getAuthorPhoto",
@@ -26864,6 +27741,583 @@
           }
         ],
         "summary": "Change the details of a series under one revision",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/series/lookup": {
+      "post": {
+        "operationId": "lookupSeries",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectoryLookup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesLookupResults"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Find a series through its books with the enabled providers, to review",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/series/lookup/apply": {
+      "post": {
+        "operationId": "applySeriesLookup",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectoryApply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryDetails"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Match a series to a provider record and save chosen values",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/series/missing": {
+      "get": {
+        "operationId": "listMissingSeriesBooks",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingBooks"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The books of a matched series that the caller's libraries lack",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/series/missing/cover": {
+      "get": {
+        "operationId": "getMissingSeriesBookCover",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,4}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The cover, always a JPEG",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The stored cover of a book in a matched series",
         "tags": [
           "catalog"
         ]

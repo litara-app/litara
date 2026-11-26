@@ -7,12 +7,15 @@ import { useAuth } from "../../auth/session";
 import {
   icons, AuthorCard, Busy, Button, CardGrid, CoverFan, CoverLink, EmptyState, ErrorBox, Grow, Heading, IconAction, MissingBook, OrderGrid, OrderItem, Page, PageHeader,
   Panel, Portrait, Row, SearchField, SegmentedField, SelectField, SeriesCard, Shelf, ShelfItem, Stack, Text, TextLink, Toolbar,
-  Facts, LetterRail, Prose, TabBar, TabFrame, TabPane,
+  Facts, LetterRail, MissingMemberTile, Prose, SourceCredit, TabBar, TabFrame, TabPane,
 } from "../../ui";
 import { useDebounced } from "../../ui/useDebounced";
 import { useTitleActions } from "../useTitleActions";
 import { DirectoryEditor, PhotoTools } from "./DirectoryEditor";
-import { authorPhotoPath, fieldText, useDirectoryDetails, type DirectoryKind } from "./directoryDetails";
+import {
+  authorPhotoPath, fieldText, missingCoverPath, providerName, useDirectoryDetails, useMissingBooks,
+  type DirectoryDetails, type DirectoryKind, type MissingMember,
+} from "./directoryDetails";
 import { authorPath, bookNumber, coverMedium, formatsLine, groupBySeries, missingNumbers, seriesPath, titlesBy } from "./directory";
 import {
   defaultSort, rememberDirectory, useDirectory, useDirectoryNeighbours, type DirectoryAuthor, type DirectoryContext, type DirectoryPath, type DirectorySeries,
@@ -166,6 +169,13 @@ function Sections({ tab, kind, name, children }: { tab: ReturnType<typeof useEdi
   );
 }
 
+/** Links to where provider values came from (ADR-0106). One line per record. */
+function Credits({ details, fields, label }: { details: DirectoryDetails | undefined; fields: string[]; label: string }) {
+  const from = new Map<string, string>();
+  for (const f of details?.fields ?? []) if (fields.includes(f.field) && f.provider) from.set(f.providerUrl ?? "", f.provider);
+  return <>{[...from].map(([url, provider]) => <SourceCredit key={url} label={label} provider={providerName(provider)} url={url} />)}</>;
+}
+
 /** An author's books on a shelf, grouped by series in reading order, with one filter per group. */
 function AuthorShelf({ groups, total }: { groups: ReturnType<typeof groupBySeries>; total: number }) {
   const [filter, setFilter] = useState("all");
@@ -216,6 +226,7 @@ export function AuthorPage() {
         <div className="lt-folio-body">
           <aside className="lt-folio-side" aria-label="Portrait and actions">
             <Portrait name={shown} photo={photo} editTo={tab.canEdit && !tab.editing && rows.length > 0 ? `${authorPath(name)}?tab=edit` : undefined} />
+            {details.data?.photo?.provider && <SourceCredit label="Photo from" provider={providerName(details.data.photo.provider)} url={details.data.photo.providerUrl} />}
             {tab.editing ? <PhotoTools key={name.toLowerCase()} name={name} />
               : rows.length > 0 && <ContinueButton key={name.toLowerCase()} by="author" name={name} />}
           </aside>
@@ -228,7 +239,12 @@ export function AuthorPage() {
             <ErrorBox error={titles.error ?? details.error} />
             {titles.isPending ? <Busy /> : rows.length === 0 ? <EmptyState title="No books by this author">None of the libraries you can open has a book by {name}.</EmptyState> : (
               <Sections tab={tab} kind="author" name={name}>
-              {biography && <Panel title="About the author"><Prose testId="biography">{biography}</Prose></Panel>}
+              {biography && (
+                <Panel title="About the author">
+                  <Prose testId="biography">{biography}</Prose>
+                  <Credits details={details.data} fields={["biography"]} label="From" />
+                </Panel>
+              )}
               <Panel title="Works">
                 <ul className="lt-contents">
                   {groups.map((g) => (
@@ -251,15 +267,18 @@ export function AuthorPage() {
   );
 }
 
-/** The reading order: the books as the server ordered them, with each missing whole number in its place. */
-function orderOf(rows: TitleRow[], gaps: number[]): ({ gap: number } | { book: TitleRow })[] {
-  const out: ({ gap: number } | { book: TitleRow })[] = [];
-  const left = [...gaps];
+type Place = { gap: number } | { member: MissingMember } | { book: TitleRow };
+const numberOf = (p: { gap: number } | { member: MissingMember }) => ("gap" in p ? p.gap : p.member.number);
+
+/** The reading order: the books as the server ordered them, with each missing one in its place by number. */
+function orderOf(rows: TitleRow[], absent: ({ gap: number } | { member: MissingMember })[]): Place[] {
+  const out: Place[] = [];
+  const left = [...absent];
   for (const t of rows) {
-    while (left.length > 0 && (t.seriesIndex === null || left[0]! < t.seriesIndex)) out.push({ gap: left.shift()! });
+    while (left.length > 0 && (t.seriesIndex === null || numberOf(left[0]!) < t.seriesIndex)) out.push(left.shift()!);
     out.push({ book: t });
   }
-  return out;
+  return [...out, ...left];
 }
 
 /**
@@ -282,8 +301,12 @@ export function SeriesPage() {
   const rows = titles.data ?? [];
   const shown = rows[0]?.series[0] ?? name;
   const authors = [...new Map(rows.flatMap((t) => t.authors).map((a) => [a.toLowerCase(), a])).values()];
-  const missing = missingNumbers(rows.map((t) => t.seriesIndex));
+  const lacked = useMissingBooks(name, rows.length > 0);
+  const match = lacked.data?.match;
+  // Once matched, the provider's list says what is missing: a book owned under another number or no number is not.
+  const missing = match ? [] : missingNumbers(rows.map((t) => t.seriesIndex));
   const drawGaps = missing.length <= MAX_GAPS;
+  const absent = match ? lacked.data!.items.map((member) => ({ member })) : drawGaps ? missing.map((gap) => ({ gap })) : [];
   const finished = rows.filter((t) => t.status === "finished").length;
   const details = useDirectoryDetails("series", name, rows.length > 0);
   const tab = useEditTab("series");
@@ -311,8 +334,16 @@ export function SeriesPage() {
             <ErrorBox error={titles.error ?? details.error} />
             {titles.isPending ? <Busy /> : rows.length === 0 ? <EmptyState title="No books in this series">None of the libraries you can open has a book in {name}.</EmptyState> : (
               <Sections tab={tab} kind="series" name={name}>
-                {description && <Panel title="About this series"><Prose testId="description">{description}</Prose></Panel>}
-                <Panel title="Progress"><Facts testId="progress" items={facts} /></Panel>
+                {description && (
+                  <Panel title="About this series">
+                    <Prose testId="description">{description}</Prose>
+                    <Credits details={details.data} fields={["description"]} label="From" />
+                  </Panel>
+                )}
+                <Panel title="Progress">
+                  <Facts testId="progress" items={facts} />
+                  <Credits details={details.data} fields={["book_count", "status"]} label="Series facts from" />
+                </Panel>
               </Sections>
             )}
           </div>
@@ -322,10 +353,22 @@ export function SeriesPage() {
             <Panel title="Reading order">
               <Stack gap="sm">
                 {!drawGaps && <Text size="sm" tone="dim" data-testid="missing">Not in your libraries: books {missing.map((n) => `#${n}`).join(", ")}.</Text>}
+                <ErrorBox error={lacked.error} />
+                {match && <SourceCredit label="Books missing from your libraries are listed from" provider={providerName(match.provider)} url={match.url} />}
                 <OrderGrid>
-                  {orderOf(rows, drawGaps ? missing : []).map((item) => "gap" in item
-                    ? <OrderItem key={`gap-${item.gap}`} label={`Book ${item.gap}`}><MissingBook number={item.gap} /></OrderItem>
-                    : <OrderItem key={item.book.id} label={item.book.seriesIndex === null ? "Unnumbered" : `Book ${item.book.seriesIndex}`}><BookTile t={item.book} /></OrderItem>)}
+                  {orderOf(rows, absent).map((item) => {
+                    if ("gap" in item) return <OrderItem key={`gap-${item.gap}`} label={`Book ${item.gap}`}><MissingBook number={item.gap} /></OrderItem>;
+                    if ("member" in item) {
+                      const m = item.member;
+                      return (
+                        <OrderItem key={`missing-${m.number}`} label={`Book ${m.number}`}>
+                          <MissingMemberTile title={m.title} author={m.authors[0]} year={m.released.slice(0, 4)} url={m.url} provider={providerName(match!.provider)}
+                            cover={m.coverVersion ? missingCoverPath(name, m.number, m.coverVersion) : null} />
+                        </OrderItem>
+                      );
+                    }
+                    return <OrderItem key={item.book.id} label={item.book.seriesIndex === null ? "Unnumbered" : `Book ${item.book.seriesIndex}`}><BookTile t={item.book} /></OrderItem>;
+                  })}
                 </OrderGrid>
               </Stack>
             </Panel>

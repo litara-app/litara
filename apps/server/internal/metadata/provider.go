@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,6 +38,9 @@ type Match struct {
 	ByIdentifier bool   `json:"byIdentifier"`
 	Fields       Fields `json:"fields"`
 }
+
+// ErrNoSuchRecord means the provider has no record under the identifier asked for.
+var ErrNoSuchRecord = errors.New("the provider has no such record")
 
 // Provider looks up metadata. Implementations must be safe for concurrent use.
 type Provider interface {
