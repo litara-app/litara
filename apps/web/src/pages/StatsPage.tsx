@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { get } from "../api/client";
 import type { ReadingStats } from "../api/types";
-import { icons, Busy, Button, Card, ErrorBox, Heatmap, Page, PageHeader, Row, Stack, Table, TBody, TD, Text, TH, THead, TR, type HeatDay } from "../ui";
+import { icons, Busy, Button, Card, ErrorBox, Heatmap, Page, PageHeader, Pager, Row, Stack, Table, TBody, TD, Text, TH, THead, TR, type HeatDay } from "../ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -34,6 +34,8 @@ function lastYear(): { from: string; to: string; all: string[] } {
   return { from: all[0]!, to: all[all.length - 1]!, all };
 }
 
+const TABLE_ROWS = 25;
+
 function Tile({ value, label }: { value: string; label: string }) {
   return <div className="lt-stat-tile"><span className="lt-stat-value">{value}</span><span className="lt-stat-label">{label}</span></div>;
 }
@@ -42,6 +44,7 @@ function Tile({ value, label }: { value: string; label: string }) {
 export function StatsPage() {
   const [{ from, to, all }] = useState(lastYear);
   const [asTable, setAsTable] = useState(false);
+  const [page, setPage] = useState(1);
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const stats = useQuery({
     queryKey: ["stats", "reading", from, to, timeZone],
@@ -57,6 +60,10 @@ export function StatsPage() {
       label: `${long(date)}: ${secs ? `${readingTime(secs)} in ${d!.sessions} ${d!.sessions === 1 ? "session" : "sessions"}` : "no reading"}` };
   });
   const steps = ["No reading", `Under ${threshold}`, `${threshold} to 29 min`, "30 to 59 min", "1 hour or more"];
+  // The heatmap already needs the whole year, so the table pages through it here, newest day first.
+  const newestFirst = [...(s?.days ?? [])].reverse();
+  const pageCount = Math.max(1, Math.ceil(newestFirst.length / TABLE_ROWS));
+  const shown = Math.min(page, pageCount); // a refetch can leave fewer pages
   const streak = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
   return (
     <Page>
@@ -80,15 +87,18 @@ export function StatsPage() {
                 <Button size="sm" icon={asTable ? icons.stats : icons.list} onClick={() => setAsTable((v) => !v)}>{asTable ? "Show as calendar" : "Show as table"}</Button>
               </Row>
               {asTable ? (
-                <Table label="Reading by day" data-testid="stats-table">
-                  <THead><TR><TH>Day</TH><TH>Time read</TH><TH>Sessions</TH><TH>Reading day</TH></TR></THead>
-                  <TBody>
-                    {s.days.length === 0 && <TR><TD colSpan={4}><Text size="sm" tone="dim">No reading in the last year.</Text></TD></TR>}
-                    {[...s.days].reverse().map((d) => (
-                      <TR key={d.date}><TD>{long(d.date)}</TD><TD>{readingTime(d.activeSeconds)}</TD><TD>{d.sessions}</TD><TD>{d.readingDay ? "Yes" : "No"}</TD></TR>
-                    ))}
-                  </TBody>
-                </Table>
+                <>
+                  <Table label="Reading by day" data-testid="stats-table">
+                    <THead><TR><TH>Day</TH><TH>Time read</TH><TH>Sessions</TH><TH>Reading day</TH></TR></THead>
+                    <TBody>
+                      {s.days.length === 0 && <TR><TD colSpan={4}><Text size="sm" tone="dim">No reading in the last year.</Text></TD></TR>}
+                      {newestFirst.slice((shown - 1) * TABLE_ROWS, shown * TABLE_ROWS).map((d) => (
+                        <TR key={d.date}><TD>{long(d.date)}</TD><TD>{readingTime(d.activeSeconds)}</TD><TD>{d.sessions}</TD><TD>{d.readingDay ? "Yes" : "No"}</TD></TR>
+                      ))}
+                    </TBody>
+                  </Table>
+                  {pageCount > 1 && <Pager label="Reading by day pages" page={shown} pageCount={pageCount} onPage={setPage} />}
+                </>
               ) : (
                 <Heatmap days={days} steps={steps} label={`Minutes read per day from ${long(from)} to ${long(to)}`}
                   empty={s.sessions ? "Point at a day to see how long you read." : "No reading in the last year yet. Open a book to start."} />

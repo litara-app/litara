@@ -50,3 +50,19 @@ test("the stats page asks for the last year in the browser's time zone and shows
   expect(rows[1]!.textContent).toMatch(/1 h 7 min.*1.*Yes/);
   expect(rows[3]!.textContent).toMatch(/2 min.*No/);
 });
+
+test("the table shows 25 days at a time, newest first, and pages through the rest", async () => {
+  const many = Array.from({ length: 60 }, (_, i) => ({ date: daysAgo(59 - i), activeSeconds: 600, sessions: 1, readingDay: true }));
+  get.mockResolvedValueOnce({
+    from: daysAgo(364), to: daysAgo(0), timeZone: "Europe/Berlin", readingDaySeconds: 300,
+    days: many, activeSeconds: 36000, readingDays: 60, sessions: 60, books: 1, currentStreak: 60, longestStreak: 60,
+  });
+  render(<QueryClientProvider client={new QueryClient()}><StatsPage /></QueryClientProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "Show as table" }));
+  const rows = () => within(screen.getByTestId("stats-table")).getAllByRole("row").slice(1);
+  const first = rows()[0]!.textContent;
+  expect(rows()).toHaveLength(25);
+  fireEvent.click(screen.getByRole("button", { name: "Page 3" }));
+  expect(rows()).toHaveLength(10);
+  expect(rows()[0]!.textContent).not.toBe(first);
+});
