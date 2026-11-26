@@ -68,3 +68,16 @@ export function CoverChoice({ src, title, caption, onChoose, disabled }: { src: 
     </button>
   );
 }
+
+/** A cover that opens a page, with its name and a detail line under it: a book in a row, an author or a series. */
+export function CoverLink({ to, name, detail, title, author, titleId, medium, testId }: {
+  to: string; name: string; detail?: string; title: string; author?: string; titleId?: string; medium?: "ebook" | "audio"; testId?: string;
+}) {
+  return (
+    <Link to={to} className="lt-coverlink" data-testid={testId}>
+      <BookCover title={title} author={author} titleId={titleId} medium={medium} />
+      <span className="lt-coverlink-name">{name}</span>
+      {detail && <span className="lt-coverlink-detail">{detail}</span>}
+    </Link>
+  );
+}

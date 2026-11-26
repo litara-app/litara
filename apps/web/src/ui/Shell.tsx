@@ -51,6 +51,8 @@ function useNavModel(): { main: Entry[]; foot: Entry[] } {
     { kind: "group", key: "shelves", label: "Shelves", icon: icons.shelves, to: "/shelves", active: p.startsWith("/shelves"),
       items: [{ to: "/shelves", label: "All shelves", active: p === "/shelves" },
         ...shelfItems.map((s) => ({ to: `/shelves/${s.id}`, label: s.data!.name, count: s.visibleTitleCount, active: p === `/shelves/${s.id}` }))] },
+    { kind: "leaf", icon: icons.user, to: "/authors", label: "Authors", active: p.startsWith("/authors") },
+    { kind: "leaf", icon: icons.list, to: "/series", label: "Series", active: p.startsWith("/series") },
     { kind: "leaf", icon: icons.highlight, to: "/annotations", label: "Annotations", active: p.startsWith("/annotations") },
     { kind: "leaf", icon: icons.stats, to: "/stats", label: "Stats", active: p.startsWith("/stats") },
     { kind: "group", key: "sync", label: "Sync", icon: icons.sync, to: "/pending", active: p.startsWith("/pending"), badge: attention ? String(attention) : undefined,
