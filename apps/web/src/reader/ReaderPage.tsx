@@ -19,7 +19,7 @@ import { QuietReveal, useQuietBar } from "./useQuietBar";
 interface TocItem { label: string; href: string | null; items: TocItem[] }
 interface Where { cfi: string | null; fraction: number | null; pageIndex?: number; x?: number; y?: number; numPages?: number; tocLabel: string | null }
 
-const KINDS: Record<string, ReaderKind> = { epub: "epub", kepub: "epub", fb2: "fb2", pdf: "pdf", cbz: "cbz", mobi: "mobi", azw: "mobi", azw3: "mobi" };
+const KINDS: Record<string, ReaderKind> = { epub: "epub", kepub: "epub", fb2: "fb2", pdf: "pdf", mobi: "mobi", azw: "mobi", azw3: "mobi" };
 const STYLE_KEY = "litara.reader.style";
 const DEFAULT_STYLE: ReaderStyle = { fontPct: 100, theme: "light", flow: "paginated" };
 

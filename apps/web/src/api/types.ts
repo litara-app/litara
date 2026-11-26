@@ -1,167 +1,101 @@
+// The web app's names for the server's wire types. The shapes come from schema.gen.ts, which is generated from the
+// server's OpenAPI document (npm run gen:api); do not write a wire shape here by hand.
 import type { WireFilter } from "../pages/filter/filterTree";
-// Hand-written wire types for the subset of contracts/t003 and contracts/t005
-// that the web client uses. The server's generated OpenAPI is checked against
-// the contracts by scripts/contracts/compare.py; these types are not generated.
+import type * as S from "./schema.gen";
 
-export interface User { id: string; username: string; displayName: string; isAdmin: boolean; active: boolean }
-export interface BrowserSession { user: User; csrfToken: string }
+/**
+ * The document marks every list as nullable because that is how the server's OpenAPI library describes a Go slice.
+ * The server sends empty lists, and the web app has always relied on that, so this is the one place it is assumed.
+ */
+export type Wire<T> =
+  T extends readonly (infer E)[] ? Wire<E>[] :
+  T extends object ? { [K in keyof T]: [Extract<NonNullable<T[K]>, readonly unknown[]>] extends [never] ? Wire<T[K]> : Wire<NonNullable<T[K]>> } :
+  T;
+
+export type User = Wire<S.User>;
+export type BrowserSession = Wire<Pick<S.BrowserSession, "user" | "csrfToken">>;
+/** The envelope every paginated list uses. */
 export interface Page<T> { items: T[]; total: number; page: number; size: number }
-export interface Library { id: string; name: string; icon: string | null }
+export type Library = Wire<S.Library>;
 
-export interface Title {
-  id: string; title: string; authors: string[]; series: string[]; languages: string[];
-  editionCount: number; recordingCount: number;
-}
-export interface TitleDetail { title: Title; editionsPath: string; recordingsPath: string }
-export interface RecordingLink { id: string; libraryId: string; label: string; snapshotPath: string }
+export type Title = Wire<S.Title>;
+export type TitleDetail = Wire<S.TitleDetail>;
+export type RecordingLink = Wire<S.RecordingLink>;
 
-export interface Capability { state: "supported" | "incomplete" | "unsupported"; issues: { code: string; detail: string }[] }
-export interface Edition {
-  id: string; titleId: string; libraryId: string; revision: string; label: string; language: string | null;
-  file: { id: string; contentVersion: string; format: string; mimeType: string; sizeBytes: number | null; availability: string; contentPath: string | null };
-  readiness: "ready" | "incomplete" | "unsupported";
-  issues: { code: string; detail: string }[];
-  completion: { revision: string; finished: boolean; changedAt: string | null };
-  capabilities: Record<"read" | "download" | "resume" | "textSelection" | "textHighlight" | "pageNote" | "bookmark", Capability>;
-}
+export type Capability = Wire<S.Capability>;
+export type Edition = Wire<S.Edition>;
 
-/** A smart shelf's filter is the library search filter tree (ADR-0107). */
-export interface ShelfData { name: string; visibility: "private" | "shared"; kind: "manual" | "smart"; filter: WireFilter | null }
-export interface Shelf {
-  id: string; revision: string; ownerId: string; canEdit: boolean; deleted: boolean; data: ShelfData | null;
-  visibleTitleCount: number; evaluation: "manual" | "viewer-specific"; updatedAt: string;
-}
+/** A smart shelf's filter is the library search filter tree (ADR-0107), which filterTree types more closely. */
+export type ShelfData = Omit<Wire<S.ShelfData>, "filter"> & { filter: WireFilter | null };
+export type Shelf = Omit<Wire<S.Shelf>, "data"> & { data: ShelfData | null };
 
-export interface ProblemBody { code?: string; detail?: string; title?: string; status?: number; [k: string]: unknown }
+export type ProblemBody = Partial<Wire<S.Problem>> & Record<string, unknown>;
 
-export type Locator =
-  | { kind: "foliate-cfi"; version: 1; cfi: string }
-  | { kind: "pdf-page"; version: 1; pageIndex: number; x: number; y: number }
-  | { kind: "comic-page"; version: 1; pageIndex: number; entryId: string; manifestVersion: string };
-export interface Anchor { fileId: string; contentVersion: string; locator: Locator }
-export interface PositionState {
-  revision: string;
-  position: { anchor: Anchor; capturedAt: string; receivedAt: string; deviceName: string } | null;
-  unresolvedConflictCount: number;
-  conflictsPath: string;
-}
-export interface ReaderSnapshot {
-  schemaVersion: 1; edition: Edition; position: PositionState;
-  engine: "foliate" | "pdfjs" | "image-pages" | "none"; engineProfile: string; pageManifestPath: string | null;
-}
-export type Selection =
-  | { kind: "foliate-range"; version: 1; cfi: string }
-  | { kind: "pdf-rectangles"; version: 1; pageIndex: number; rectangles: { x: number; y: number; width: number; height: number }[] };
-export interface AnnotationData { kind: "highlight" | "note" | "bookmark"; anchor: Anchor; selection: Selection | null; text: string; quote: string }
-export interface Annotation { id: string; editionId: string; revision: string; deleted: boolean; data: AnnotationData | null; updatedAt: string }
+export type Locator = Wire<S.Locator>;
+export type Anchor = Wire<S.EditionAnchor>;
+export type PositionState = Wire<S.ReadingPositionState>;
+export type ReaderSnapshot = Wire<S.ReaderSnapshot>;
+export type Selection = Wire<S.Selection>;
+export type AnnotationData = Wire<S.AnnotationData>;
+export type Annotation = Wire<S.Annotation>;
 
-export interface MetadataField {
-  field: string; source: string; cleared: boolean; value: unknown;
-  /** The person's lock (ADR-0097), separate from the source: an edit is not locked unless locked. */
-  locked: boolean;
-  conflicts?: { source: string; value: unknown }[];
-}
+/** An edition's or a recording's metadata field. The lock (ADR-0097) is separate from the source. */
+export type MetadataField = Omit<Wire<S.MetadataField>, "field" | "source" | "conflicts"> & {
+  field: string; source: string; conflicts?: { source: string; value: unknown }[];
+};
 /** An edition's or a recording's metadata. A save sends revision back as its base revision. */
 export interface MetadataReport { editionId?: string; revision: string; fields: MetadataField[] }
 
-export interface RecordingFile { id: string; contentVersion: string; sequence: number; filename: string }
-export interface RecordingSnapshot { id: string; titleId: string; libraryId: string; title: string; layoutRevision: string; files: RecordingFile[] }
+export type RecordingFile = Pick<AudioFile, "id" | "contentVersion" | "sequence" | "filename">;
+export type RecordingSnapshot = Pick<AudioRecording, "id" | "titleId" | "libraryId" | "title" | "layoutRevision"> & { files: RecordingFile[] };
 
-export interface RepairOutput { key: string; label: string; files: { fileId: string; contentVersion: string }[] }
-export interface RepairPlan {
-  id: string; revision: string; libraryId: string; titleId: string; kind: "merge" | "split";
-  state: "planned" | "approved" | "applied" | "cancelled" | "stale";
-  sources: { recordingId: string; layoutRevision: string }[]; outputs: RepairOutput[];
-  result: { key: string; recordingId: string }[]; warnings: { code: string; detail: string }[];
-}
+export type RepairOutput = Wire<S.RepairOutput>;
+export type RepairPlan = Wire<S.RepairPlan>;
 
-export interface ScanRun { id: string; trigger: string; state: string; health?: string; filesSeen: number; createdAt: string; completedAt?: string; failure?: string }
-export interface Review { id: string; kind: string; subjectKey: string; candidates: Record<string, unknown>; createdAt: string }
-export interface LibraryDetail {
-  library: Library;
-  config: { mode: string; rootPath: string; followSymlinks: boolean; scanIntervalSecs?: number; writebackBackups: boolean; providerOrder: string[]; autoFillTitleMatch?: boolean };
-  health: { state: string; detail?: string; checkedAt?: string };
-}
+export type ScanRun = Wire<S.ScanRun>;
+export type Review = Wire<S.Review>;
+export type LibraryDetail = Wire<S.LibraryDetail>;
 
-export interface AudioFile { id: string; contentVersion: string; sequence: number; filename: string; mimeType: string; sizeBytes: number | null; durationMs: number | null; available: boolean; contentPath: string }
-export interface AudioChapter { id: string; label: string; start: { fileId: string; contentVersion: string; offsetMs: number }; recordingStartMs: number | null; source: string; generated: boolean }
-export interface AudioRecording {
-  id: string; titleId: string; libraryId: string; title: string; authors: string[]; narrators: string[];
-  readiness: "ready" | "incomplete"; durationMs: number | null; artwork: { thumbnailPath: string | null; coverPath: string | null };
-  completion: { revision: string; finished: boolean; changedAt: string | null };
-  schemaVersion: 1; layoutRevision: string; files: AudioFile[]; chapters: AudioChapter[];
-  capabilities: { play: boolean; download: boolean; wholeRecordingSeek: boolean };
-  issues: { code: string; message: string }[];
-}
-export interface AudioPosition { fileId: string; contentVersion: string; offsetMs: number; layoutRevision: string; capturedAt: string; receivedAt: string; deviceName: string }
-export interface AudioPositionState {
-  revision: string; position: AudioPosition | null;
-  unresolvedConflicts: { id: string; reason: string; candidate: AudioPosition | null; baseRevision: string }[];
-}
+export type AudioFile = Wire<S.File>;
+export type AudioChapter = Wire<S.Chapter>;
+export type AudioRecording = Wire<S.Recording>;
+export type AudioPosition = Wire<S.Position>;
+export type AudioPositionState = Wire<S.PositionState>;
 
 /** One stretch of reading by this account (ADR-0092). */
-export interface ReadingSession { id: string; editionId: string; titleId: string; startedAt: string; endedAt: string; activeSeconds: number; startFraction: number | null; endFraction: number | null }
-export interface ReadingEvent {
-  id: string; titleId: string; editionId?: string; recordingId?: string; fileId: string; contentVersion: string;
-  event: string; capturedAt: string; receivedAt: string;
-}
+export type ReadingSession = Wire<S.ReadingSession>;
+/** An ebook completion event (GET /titles/{id}/reading-history). */
+export type ReadingEvent = Wire<S.ReadingHistoryEntry>;
+/** An audiobook completion event (GET /titles/{id}/history). */
+export type ListeningEvent = Wire<S.HistoryEntry>;
 
 /** Effective descriptive metadata of one edition (ADR-0081). */
-export interface EditionDetails {
-  editionId: string; addedAt: string;
-  publisher: string | null; published: string | null; pageCount: number | null; isbn: string | null; description: string | null;
-}
+export type EditionDetails = Wire<S.EditionDetails>;
 /** The caller's private rating, review and reading dates for a title (ADR-0081). Dates in `data` are overrides. */
-export interface PersonalData { ratingHalves: number | null; review: string; startedAt: string | null; finishedAt: string | null }
-export interface TitlePersonal {
-  titleId: string; revision: string; data: PersonalData;
-  derivedStartedAt: string | null; derivedFinishedAt: string | null; updatedAt: string | null;
-}
-
-export interface RecordingDetails {
-  recordingId: string; addedAt: string;
-  publisher: string | null; published: string | null; isbn: string | null; description: string | null;
-}
+export type PersonalData = Wire<S.TitlePersonalData>;
+export type TitlePersonal = Wire<S.TitlePersonal>;
+export type RecordingDetails = Wire<S.RecordingDetails>;
 
 /** One row of the library table (GET /titles). */
-export interface TitleRow extends Title {
-  libraryIds: string[]; formats: string[]; addedAt: string; seriesIndex: number | null;
-  publisher: string | null; published: string | null; pageCount: number | null; ratingHalves: number | null;
-  status: "unread" | "reading" | "finished";
-}
+export type TitleRow = Wire<S.TitleRow>;
 
 /** Where a cover came from (ADR-0086). "none" means the files hold no cover, so the generated placeholder shows. */
-export interface CoverSlot { source: "upload" | "url" | "search" | "extracted" | "none"; version?: string }
-export interface TitleCovers { ebook: CoverSlot; audio: CoverSlot; searchEnabled: boolean }
-export interface CoverSearchResult { provider: string; title: string; author: string; imageUrl: string; thumbUrl: string }
+export type CoverSlot = Wire<S.CoverSlot>;
+export type TitleCovers = Wire<S.TitleCovers>;
+export type CoverSearchResult = Wire<S.CoverSearchResult>;
 
-export interface ProviderCandidate { id: string; byIdentifier: boolean; consistent: boolean; fields: Record<string, unknown> }
-export interface ProviderResult { provider: "open_library" | "google_books" | "audnexus" | "hardcover"; status: "ok" | "no_match" | "unavailable" | "unconfigured"; cached?: boolean; candidates: ProviderCandidate[] }
-export interface AutoFillResult {
-  outcome: "filled" | "proposed" | "nothing_to_fill" | "needs_review" | "no_match" | "disabled"; provider?: string; filled: string[]; revision?: string;
-  /** identifier, or title_author when the library lets Auto-fill use one clear title-and-author match (ADR-0090). */
-  rule?: "identifier" | "title_author";
-  /** With outcome proposed: the values Auto-fill would fill, not yet saved. */
-  proposed?: Record<string, unknown>;
-}
-export interface ProviderSearchResults { editionId: string; enabled: boolean; query: { title?: string; authors?: string[]; isbn?: string; asin?: string }; results: ProviderResult[] }
+export type ProviderCandidate = Wire<S.ProviderCandidate>;
+export type ProviderResult = Wire<S.ProviderResult>;
+export type AutoFillResult = Wire<S.AutoFillResult>;
+export type ProviderSearchResults = Wire<S.ProviderSearchResults>;
 
 /** One place this account is signed in (GET /sessions). current marks the session making the request. */
-export interface DeviceSession {
-  id: string; deviceName: string; client: "native" | "web";
-  createdAt: string; lastUsedAt: string; idleExpiresAt: string; absoluteExpiresAt: string; current: boolean;
-}
+export type DeviceSession = Wire<S.Session>;
 
 /** GET /stats/reading (ADR-0098): the caller's own ebook reading by local day, with totals and streaks. */
-export interface ReadingStats {
-  from: string; to: string; timeZone: string; readingDaySeconds: number;
-  days: { date: string; activeSeconds: number; sessions: number; readingDay: boolean }[];
-  activeSeconds: number; readingDays: number; sessions: number; books: number; currentStreak: number; longestStreak: number;
-}
+export type ReadingStats = Wire<S.ReadingStats>;
 
 /** One live annotation with its book, from the annotations hub (ADR-0099). */
-export interface AnnotationHubItem {
-  annotation: Annotation; createdAt: string; titleId: string; title: string; authors: string[]; editionLabel: string; format: string;
-}
+export type AnnotationHubItem = Wire<S.AnnotationHubItem>;
 /** A book with live annotations, for the hub's book filter. */
-export interface AnnotationHubTitle { titleId: string; title: string; authors: string[]; annotations: number }
+export type AnnotationHubTitle = Wire<S.AnnotationHubTitle>;
