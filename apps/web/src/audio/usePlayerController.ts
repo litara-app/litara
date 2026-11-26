@@ -6,6 +6,7 @@ import { chaptersOf, currentChapter, nextTarget, previousTarget } from "./chapte
 import { FADE_MS, fadeVolume, remainingMs, startSleep, type SleepChoice, type SleepTimer } from "./sleep";
 import { startOffsets, totalMs } from "./timeline";
 import { useAudioPlayer } from "./useAudioPlayer";
+import { useListeningSession } from "./useListeningSession";
 import { useRecordingSync } from "./useRecordingSync";
 
 export type PlayerController = ReturnType<typeof usePlayerController>;
@@ -25,6 +26,7 @@ export function usePlayerController({ recording: r, initial, autoplay, token }: 
   });
   const timed = useMemo(() => r.files.map((f) => ({ id: f.id, durationMs: f.durationMs ?? 0 })), [r.files]);
   const total = totalMs(timed);
+  useListeningSession(r.id, player.playing && !player.buffering, total > 0 ? Math.min(1, Math.max(0, player.whole / total)) : null);
   const offsets = useMemo(() => startOffsets(timed), [timed]);
   const chapters = useMemo(() => chaptersOf(r, offsets), [r, offsets]);
   const chapter = currentChapter(chapters, player.whole);

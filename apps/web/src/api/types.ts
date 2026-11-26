@@ -62,6 +62,13 @@ export type AudioRecording = Wire<S.Recording>;
 export type AudioPosition = Wire<S.Position>;
 export type AudioPositionState = Wire<S.PositionState>;
 
+/** One stretch of listening by this account (ADR-0109). */
+export type ListeningSession = Wire<S.ListeningSession>;
+/** A bookmarked place in an audiobook, and a change to one that waits for the listener's choice (ADR-0110). */
+export type AudioBookmark = Omit<Wire<S.AudioBookmark>, "data"> & { data: AudioBookmarkData | null };
+export type AudioBookmarkData = Wire<S.AudioBookmarkData>;
+export type AudioBookmarkConflict = Omit<Wire<S.AudioBookmarkConflict>, "candidate"> & { candidate: AudioBookmarkData | null };
+
 /** One stretch of reading by this account (ADR-0092). */
 export type ReadingSession = Wire<S.ReadingSession>;
 /** An ebook completion event (GET /titles/{id}/reading-history). */

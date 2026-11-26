@@ -40,7 +40,7 @@ function Tile({ value, label }: { value: string; label: string }) {
   return <div className="lt-stat-tile"><span className="lt-stat-value">{value}</span><span className="lt-stat-label">{label}</span></div>;
 }
 
-/** Reading stats from the person's own ebook reading sessions over the last year (ADR-0098). */
+/** Stats from the person's own reading and listening over the last year (ADR-0098, ADR-0109). */
 export function StatsPage() {
   const [{ from, to, all }] = useState(lastYear);
   const [asTable, setAsTable] = useState(false);
@@ -52,56 +52,60 @@ export function StatsPage() {
   });
   const s = stats.data;
   const threshold = readingTime(s?.readingDaySeconds ?? 300);
-  const byDate = new Map((s?.days ?? []).map((d) => [d.date, d]));
+  const byDate = new Map((s?.activity ?? []).map((d) => [d.date, d]));
   const days: HeatDay[] = all.map((date) => {
     const d = byDate.get(date);
-    const secs = d?.activeSeconds ?? 0;
+    const secs = d ? d.readingSeconds + d.listeningSeconds : 0;
+    const parts = d ? [d.readingSessions ? `${readingTime(d.readingSeconds)} read` : "", d.listeningSessions ? `${readingTime(d.listeningSeconds)} listened` : ""].filter(Boolean) : [];
     return { date, level: level(secs, s?.readingDaySeconds ?? 300),
-      label: `${long(date)}: ${secs ? `${readingTime(secs)} in ${d!.sessions} ${d!.sessions === 1 ? "session" : "sessions"}` : "no reading"}` };
+      label: `${long(date)}: ${parts.length ? parts.join(", ") : "no reading or listening"}` };
   });
-  const steps = ["No reading", `Under ${threshold}`, `${threshold} to 29 min`, "30 to 59 min", "1 hour or more"];
+  const steps = ["Nothing", `Under ${threshold}`, `${threshold} to 29 min`, "30 to 59 min", "1 hour or more"];
   // The heatmap already needs the whole year, so the table pages through it here, newest day first.
-  const newestFirst = [...(s?.days ?? [])].reverse();
+  const newestFirst = [...(s?.activity ?? [])].reverse();
   const pageCount = Math.max(1, Math.ceil(newestFirst.length / TABLE_ROWS));
   const shown = Math.min(page, pageCount); // a refetch can leave fewer pages
   const streak = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
   return (
     <Page>
       <PageHeader title="Reading stats"
-        description={`Your own ebook reading over the last year, by day in your time zone (${timeZone}). A day counts toward a streak when you read for ${threshold} or more. Audiobook listening is not counted yet.`} />
+        description={`Your own reading and listening over the last year, by day in your time zone (${timeZone}). A day counts toward a streak when you read and listen for ${threshold} or more in total.`} />
       {stats.isPending ? <Busy /> : <ErrorBox error={stats.error} />}
       {s && (
         <Stack>
           <div className="lt-stat-tiles" data-testid="stat-tiles">
+            <Tile value={readingTime(s.activeSeconds + s.listeningSeconds)} label="Total time" />
             <Tile value={readingTime(s.activeSeconds)} label="Time read" />
+            <Tile value={readingTime(s.listeningSeconds)} label="Time listened" />
             <Tile value={String(s.readingDays)} label="Reading days" />
             <Tile value={streak(s.currentStreak)} label="Current streak" />
             <Tile value={streak(s.longestStreak)} label="Longest streak" />
-            <Tile value={String(s.books)} label={s.books === 1 ? "Book" : "Books"} />
-            <Tile value={String(s.sessions)} label="Sessions" />
+            <Tile value={String(s.books)} label={s.books === 1 ? "Book read" : "Books read"} />
+            <Tile value={String(s.listenedBooks)} label={s.listenedBooks === 1 ? "Book listened to" : "Books listened to"} />
+            <Tile value={String(s.sessions + s.listeningSessions)} label="Sessions" />
           </div>
           <Card framed>
             <Stack gap="sm">
               <Row justify="between">
-                <Text strong>Minutes read per day</Text>
+                <Text strong>Reading and listening per day</Text>
                 <Button size="sm" icon={asTable ? icons.stats : icons.list} onClick={() => setAsTable((v) => !v)}>{asTable ? "Show as calendar" : "Show as table"}</Button>
               </Row>
               {asTable ? (
                 <>
-                  <Table label="Reading by day" data-testid="stats-table">
-                    <THead><TR><TH>Day</TH><TH>Time read</TH><TH>Sessions</TH><TH>Reading day</TH></TR></THead>
+                  <Table label="Activity by day" data-testid="stats-table">
+                    <THead><TR><TH>Day</TH><TH>Read</TH><TH>Listened</TH><TH>Total</TH><TH>Sessions</TH><TH>Reading day</TH></TR></THead>
                     <TBody>
-                      {s.days.length === 0 && <TR><TD colSpan={4}><Text size="sm" tone="dim">No reading in the last year.</Text></TD></TR>}
+                      {s.activity.length === 0 && <TR><TD colSpan={6}><Text size="sm" tone="dim">No reading or listening in the last year.</Text></TD></TR>}
                       {newestFirst.slice((shown - 1) * TABLE_ROWS, shown * TABLE_ROWS).map((d) => (
-                        <TR key={d.date}><TD>{long(d.date)}</TD><TD>{readingTime(d.activeSeconds)}</TD><TD>{d.sessions}</TD><TD>{d.readingDay ? "Yes" : "No"}</TD></TR>
+                        <TR key={d.date}><TD>{long(d.date)}</TD><TD>{readingTime(d.readingSeconds)}</TD><TD>{readingTime(d.listeningSeconds)}</TD><TD>{readingTime(d.readingSeconds + d.listeningSeconds)}</TD><TD>{d.readingSessions + d.listeningSessions}</TD><TD>{d.readingDay ? "Yes" : "No"}</TD></TR>
                       ))}
                     </TBody>
                   </Table>
-                  {pageCount > 1 && <Pager label="Reading by day pages" page={shown} pageCount={pageCount} onPage={setPage} />}
+                  {pageCount > 1 && <Pager label="Activity by day pages" page={shown} pageCount={pageCount} onPage={setPage} />}
                 </>
               ) : (
-                <Heatmap days={days} steps={steps} label={`Minutes read per day from ${long(from)} to ${long(to)}`}
-                  empty={s.sessions ? "Point at a day to see how long you read." : "No reading in the last year yet. Open a book to start."} />
+                <Heatmap days={days} steps={steps} label={`Minutes read and listened per day from ${long(from)} to ${long(to)}`}
+                  empty={s.activity.length ? "Point at a day to see how long you read and listened." : "Nothing in the last year yet. Open a book to start."} />
               )}
             </Stack>
           </Card>
