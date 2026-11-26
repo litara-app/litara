@@ -1172,7 +1172,64 @@ CREATE TABLE reading_sessions (
 CREATE INDEX reading_sessions_user_time ON reading_sessions (user_id, started_at DESC);
 CREATE INDEX reading_sessions_edition ON reading_sessions (edition_id, user_id, started_at DESC);
 
+-- ADR-0109: audiobook listening sessions. listened_seconds is wall-clock time during which audio played.
+CREATE TABLE listening_sessions (
+    user_id          uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    id               uuid NOT NULL,
+    recording_id     uuid NOT NULL REFERENCES recordings (id),
+    started_at       timestamptz NOT NULL,
+    ended_at         timestamptz NOT NULL,
+    listened_seconds integer NOT NULL CHECK (listened_seconds BETWEEN 0 AND 86400),
+    start_fraction   real CHECK (start_fraction IS NULL OR start_fraction BETWEEN 0 AND 1),
+    end_fraction     real CHECK (end_fraction IS NULL OR end_fraction BETWEEN 0 AND 1),
+    created_at       timestamptz NOT NULL DEFAULT now(),
+    updated_at       timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, id),
+    CHECK (ended_at >= started_at)
+);
+CREATE INDEX listening_sessions_user_time ON listening_sessions (user_id, started_at DESC);
+CREATE INDEX listening_sessions_recording ON listening_sessions (recording_id, user_id, started_at DESC);
+
+-- ADR-0110: private audiobook bookmarks. Client-generated UUID; deleting keeps a tombstone. The anchor is a file,
+-- content version and offset under one recording layout (ADR-0019); it is never moved to a guessed place.
+CREATE TABLE audio_bookmarks (
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    id              uuid NOT NULL,
+    recording_id    uuid NOT NULL REFERENCES recordings (id),
+    revision        bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
+    deleted         boolean NOT NULL DEFAULT false,
+    file_id         uuid NOT NULL,
+    content_version uuid NOT NULL,
+    offset_ms       bigint NOT NULL CHECK (offset_ms >= 0),
+    layout_revision uuid NOT NULL,
+    note            text NOT NULL DEFAULT '',
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, id)
+);
+CREATE INDEX audio_bookmarks_recording_idx ON audio_bookmarks (user_id, recording_id, id);
+
+-- Bookmark writes that could not be applied are kept until their owner chooses. candidate is null for a delete.
+CREATE TABLE audio_bookmark_conflicts (
+    id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id               uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    recording_id          uuid NOT NULL REFERENCES recordings (id),
+    bookmark_id           uuid NOT NULL,
+    reason                text NOT NULL CHECK (reason IN ('stale_revision', 'content_changed', 'layout_changed', 'deleted')),
+    operation_id          uuid NOT NULL,
+    candidate             jsonb,
+    base_revision         bigint NOT NULL,
+    current_revision      bigint NOT NULL,
+    created_at            timestamptz NOT NULL DEFAULT now(),
+    resolved_at           timestamptz,
+    resolved_operation_id uuid
+);
+CREATE INDEX audio_bookmark_conflicts_open_idx ON audio_bookmark_conflicts (user_id, recording_id, created_at) WHERE resolved_at IS NULL;
+
 -- +goose Down
+DROP TABLE audio_bookmark_conflicts;
+DROP TABLE audio_bookmarks;
+DROP TABLE listening_sessions;
 DROP TABLE reading_sessions;
 DROP TABLE notifications;
 DROP TABLE deliveries;

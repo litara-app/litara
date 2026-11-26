@@ -434,6 +434,16 @@ func (s *Service) applyRepair(ctx context.Context, q *sqlcgen.Queries, p sqlcgen
 	if err != nil {
 		return nil, err
 	}
+	sourceLayout := map[uuid.UUID]string{}
+	sourceIDs := make([]uuid.UUID, 0, len(srcs))
+	for _, sr := range srcs {
+		sourceLayout[mustParse(sr.RecordingID)] = sr.LayoutRevision
+		sourceIDs = append(sourceIDs, mustParse(sr.RecordingID))
+	}
+	bookmarks, err := q.ListBookmarksForRepair(ctx, sourceIDs)
+	if err != nil {
+		return nil, err
+	}
 	now := s.now()
 	results := make([]wire.RepairResult, 0, len(outs))
 	successorIDs := make([]uuid.UUID, 0, len(outs))
@@ -510,6 +520,16 @@ func (s *Service) applyRepair(ctx context.Context, q *sqlcgen.Queries, p sqlcgen
 				LayoutRevision: layout.String(), CapturedAt: rfc(*ps.CapturedAt), ReceivedAt: rfc(*ps.ReceivedAt), DeviceName: dev}
 			if _, err := q.InsertConflict(ctx, sqlcgen.InsertConflictParams{UserID: ps.UserID, RecordingID: sid, Kind: "position", Reason: "repair_source",
 				OperationID: p.ID, Candidate: wire.Raw(cand), BaseRevision: 0, LayoutRevision: uuid.NullUUID{UUID: layout, Valid: true}, CreatedAt: now}); err != nil {
+				return nil, err
+			}
+		}
+		// Source bookmarks stay with their tombstone. Those that were still valid there are copied.
+		for _, b := range bookmarks {
+			if b.LayoutRevision.String() != sourceLayout[b.RecordingID] || !inOutput[b.FileID.String()+"@"+b.ContentVersion.String()] {
+				continue
+			}
+			if err := q.CopyAudioBookmark(ctx, sqlcgen.CopyAudioBookmarkParams{UserID: b.UserID, RecordingID: sid, FileID: b.FileID,
+				ContentVersion: b.ContentVersion, OffsetMs: b.OffsetMs, LayoutRevision: layout, Note: b.Note, CreatedAt: b.CreatedAt}); err != nil {
 				return nil, err
 			}
 		}

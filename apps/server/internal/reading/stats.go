@@ -43,8 +43,13 @@ func (s *Service) Stats(ctx context.Context, userID uuid.UUID, from, to, timeZon
 	if err != nil {
 		return wire.ReadingStats{}, dbErr(err)
 	}
+	heard, err := s.q.ListListeningSessionsForStats(ctx, sqlcgen.ListListeningSessionsForStatsParams{
+		UserID: userID, FromTime: start, ToTime: end.AddDate(0, 0, 1)})
+	if err != nil {
+		return wire.ReadingStats{}, dbErr(err)
+	}
 	today := s.now().In(loc)
-	return summarize(rows, loc, start, end, time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc), timeZone), nil
+	return summarize(rows, heard, loc, start, end, time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc), timeZone), nil
 }
 
 // dayIndex is the number of calendar days from a to b, both local midnights; it is exact across DST changes.
@@ -54,8 +59,8 @@ func dayIndex(a, b time.Time) int {
 	return int(ub.Sub(ua).Hours() / 24)
 }
 
-func summarize(rows []sqlcgen.ListReadingSessionsForStatsRow, loc *time.Location, start, end, today time.Time, tz string) wire.ReadingStats {
-	out := wire.ReadingStats{From: start.Format(day), To: end.Format(day), TimeZone: tz, ReadingDaySeconds: ReadingDaySeconds, Days: []wire.ReadingStatsDay{}}
+func summarize(rows []sqlcgen.ListReadingSessionsForStatsRow, heard []sqlcgen.ListListeningSessionsForStatsRow, loc *time.Location, start, end, today time.Time, tz string) wire.ReadingStats {
+	out := wire.ReadingStats{From: start.Format(day), To: end.Format(day), TimeZone: tz, ReadingDaySeconds: ReadingDaySeconds, Days: []wire.ReadingStatsDay{}, Activity: []wire.ActivityDay{}}
 	n := dayIndex(start, end) + 1
 	secs, count := make([]int64, n), make([]int64, n)
 	books := map[uuid.UUID]bool{}
@@ -71,11 +76,35 @@ func summarize(rows []sqlcgen.ListReadingSessionsForStatsRow, loc *time.Location
 		out.Sessions++
 	}
 	out.Books = int64(len(books))
+	heardSecs, heardCount := make([]int64, n), make([]int64, n)
+	listened := map[uuid.UUID]bool{}
+	for _, r := range heard {
+		i := dayIndex(start, r.StartedAt.In(loc))
+		if i < 0 || i >= n {
+			continue
+		}
+		heardSecs[i] += int64(r.ListenedSeconds)
+		heardCount[i]++
+		listened[r.TitleID] = true
+		out.ListeningSeconds += int64(r.ListenedSeconds)
+		out.ListeningSessions++
+	}
+	out.ListenedBooks = int64(len(listened))
+	// A day counts toward reading days and streaks on reading and listening together (ADR-0109).
+	total := make([]int64, n)
+	for i := range total {
+		total[i] = secs[i] + heardSecs[i]
+	}
 	run := int64(0)
 	for i := 0; i < n; i++ {
-		reading := secs[i] >= ReadingDaySeconds
+		reading := total[i] >= ReadingDaySeconds
+		date := start.AddDate(0, 0, i).Format(day)
 		if count[i] > 0 {
-			out.Days = append(out.Days, wire.ReadingStatsDay{Date: start.AddDate(0, 0, i).Format(day), ActiveSeconds: secs[i], Sessions: count[i], ReadingDay: reading})
+			out.Days = append(out.Days, wire.ReadingStatsDay{Date: date, ActiveSeconds: secs[i], Sessions: count[i], ReadingDay: reading})
+		}
+		if count[i] > 0 || heardCount[i] > 0 {
+			out.Activity = append(out.Activity, wire.ActivityDay{Date: date, ReadingSeconds: secs[i], ReadingSessions: count[i],
+				ListeningSeconds: heardSecs[i], ListeningSessions: heardCount[i], ReadingDay: reading})
 		}
 		if reading {
 			out.ReadingDays++
@@ -88,10 +117,10 @@ func summarize(rows []sqlcgen.ListReadingSessionsForStatsRow, loc *time.Location
 	// The current streak ends today, or yesterday when today has no reading day yet; a range that ends before
 	// yesterday has none.
 	last := dayIndex(start, today)
-	if last >= n || last < 0 || secs[last] < ReadingDaySeconds {
+	if last >= n || last < 0 || total[last] < ReadingDaySeconds {
 		last--
 	}
-	for i := last; i >= 0 && i < n && secs[i] >= ReadingDaySeconds; i-- {
+	for i := last; i >= 0 && i < n && total[i] >= ReadingDaySeconds; i-- {
 		out.CurrentStreak++
 	}
 	return out

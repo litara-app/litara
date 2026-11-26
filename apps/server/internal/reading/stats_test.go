@@ -31,7 +31,7 @@ func TestSummarizeDaysThresholdAndStreaks(t *testing.T) {
 		// 19 and 20 March: a run ending today.
 		row(d(3, 19, 8, 0), 300, b), row(d(3, 20, 8, 0), 300, b),
 	}
-	st := summarize(rows, loc, start, end, d(3, 20, 0, 0), "America/New_York")
+	st := summarize(rows, nil, loc, start, end, d(3, 20, 0, 0), "America/New_York")
 	if len(st.Days) != 8 || st.Days[0].Date != "2026-03-01" || st.Days[0].ActiveSeconds != 400 {
 		t.Fatalf("days: %+v", st.Days)
 	}
@@ -48,11 +48,11 @@ func TestSummarizeDaysThresholdAndStreaks(t *testing.T) {
 		t.Fatalf("streaks: longest %d current %d", st.LongestStreak, st.CurrentStreak)
 	}
 	// Nothing yet today: the streak ending yesterday still counts.
-	if st := summarize(rows[:len(rows)-1], loc, start, end, d(3, 20, 0, 0), ""); st.CurrentStreak != 1 {
+	if st := summarize(rows[:len(rows)-1], nil, loc, start, end, d(3, 20, 0, 0), ""); st.CurrentStreak != 1 {
 		t.Fatalf("through yesterday: %d", st.CurrentStreak)
 	}
 	// A day without reading in between breaks it.
-	if st := summarize(rows, loc, start, end, d(3, 22, 0, 0), ""); st.CurrentStreak != 0 {
+	if st := summarize(rows, nil, loc, start, end, d(3, 22, 0, 0), ""); st.CurrentStreak != 0 {
 		t.Fatalf("after a gap: %d", st.CurrentStreak)
 	}
 }

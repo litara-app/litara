@@ -37,30 +37,15 @@ func (s *Service) PutSession(ctx context.Context, userID, editionID, sessionID u
 	if sessionID == uuid.Nil {
 		return apperr.Validation("sessionId must be a UUID.")
 	}
-	start, err := time.Parse(time.RFC3339, w.StartedAt)
+	start, end, err := s.sessionWindow(w.StartedAt, w.EndedAt, w.ActiveSeconds, "activeSeconds")
 	if err != nil {
-		return apperr.Validation("startedAt must be an RFC 3339 time.")
-	}
-	end, err := time.Parse(time.RFC3339, w.EndedAt)
-	if err != nil {
-		return apperr.Validation("endedAt must be an RFC 3339 time.")
-	}
-	now := s.now()
-	switch {
-	case end.Before(start):
-		return apperr.Validation("endedAt must not be before startedAt.")
-	case end.Sub(start) > maxSessionWindow:
-		return apperr.Validation("a session spans at most 24 hours.")
-	case end.After(now.Add(10 * time.Minute)):
-		return apperr.Validation("endedAt is in the future.")
-	case time.Duration(w.ActiveSeconds)*time.Second > end.Sub(start)+time.Minute:
-		return apperr.Validation("activeSeconds cannot exceed the length of the session.")
+		return err
 	}
 	if _, err := s.cat.Edition(ctx, userID, editionID); err != nil {
 		return err
 	}
 	n, err := s.q.UpsertReadingSession(ctx, sqlcgen.UpsertReadingSessionParams{
-		UserID: userID, ID: sessionID, EditionID: editionID, StartedAt: start.UTC(), EndedAt: end.UTC(),
+		UserID: userID, ID: sessionID, EditionID: editionID, StartedAt: start, EndedAt: end,
 		ActiveSeconds: int32(w.ActiveSeconds), StartFraction: f32(w.StartFraction), EndFraction: f32(w.EndFraction),
 	})
 	if err != nil {

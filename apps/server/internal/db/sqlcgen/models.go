@@ -56,6 +56,36 @@ type Association struct {
 	EditionID   uuid.NullUUID `json:"edition_id"`
 }
 
+type AudioBookmark struct {
+	UserID         uuid.UUID `json:"user_id"`
+	ID             uuid.UUID `json:"id"`
+	RecordingID    uuid.UUID `json:"recording_id"`
+	Revision       int64     `json:"revision"`
+	Deleted        bool      `json:"deleted"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	OffsetMs       int64     `json:"offset_ms"`
+	LayoutRevision uuid.UUID `json:"layout_revision"`
+	Note           string    `json:"note"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type AudioBookmarkConflict struct {
+	ID                  uuid.UUID     `json:"id"`
+	UserID              uuid.UUID     `json:"user_id"`
+	RecordingID         uuid.UUID     `json:"recording_id"`
+	BookmarkID          uuid.UUID     `json:"bookmark_id"`
+	Reason              string        `json:"reason"`
+	OperationID         uuid.UUID     `json:"operation_id"`
+	Candidate           []byte        `json:"candidate"`
+	BaseRevision        int64         `json:"base_revision"`
+	CurrentRevision     int64         `json:"current_revision"`
+	CreatedAt           time.Time     `json:"created_at"`
+	ResolvedAt          *time.Time    `json:"resolved_at"`
+	ResolvedOperationID uuid.NullUUID `json:"resolved_operation_id"`
+}
+
 type AuthorPhoto struct {
 	Kind        string        `json:"kind"`
 	NameKey     string        `json:"name_key"`
@@ -476,6 +506,19 @@ type LibraryConfig struct {
 	ProviderOrder      []string  `json:"provider_order"`
 	AutofillTitleMatch bool      `json:"autofill_title_match"`
 	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+type ListeningSession struct {
+	UserID          uuid.UUID `json:"user_id"`
+	ID              uuid.UUID `json:"id"`
+	RecordingID     uuid.UUID `json:"recording_id"`
+	StartedAt       time.Time `json:"started_at"`
+	EndedAt         time.Time `json:"ended_at"`
+	ListenedSeconds int32     `json:"listened_seconds"`
+	StartFraction   *float32  `json:"start_fraction"`
+	EndFraction     *float32  `json:"end_fraction"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type MediaFile struct {
