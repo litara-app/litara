@@ -33,7 +33,7 @@ func get(h http.Handler, method, p string) *httptest.ResponseRecorder {
 
 func TestAppFallbackRestrictedAndNoReader(t *testing.T) {
 	h := App(appFS(), origins)
-	for _, p := range []string{"/", "/library", "/titles/abc", "/read/x/y", "/stats", "/settings/devices", "/pending"} {
+	for _, p := range []string{"/", "/library", "/titles/abc", "/read/x/y", "/stats", "/annotations", "/settings/devices", "/pending"} {
 		w := get(h, "GET", p)
 		if w.Code != 200 || !strings.Contains(w.Body.String(), "app") {
 			t.Fatalf("%s: %d", p, w.Code)

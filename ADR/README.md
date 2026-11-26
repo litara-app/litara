@@ -142,6 +142,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0096](0096-reconcile-metadata-editing-with-provider-and-cover-decisions.md) | Reconcile ADR-0095 with the Hardcover, auto-fill and cover decisions | Accepted |
 | [0097](0097-metadata-field-locks.md) | Make metadata locks separate from edits | Accepted |
 | [0098](0098-reading-stats-and-heatmap.md) | Reading stats and a reading heatmap | Accepted |
+| [0099](0099-annotations-hub.md) | An annotations hub with search and export | Accepted |
 
 ## Workflow
 

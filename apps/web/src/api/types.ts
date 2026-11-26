@@ -160,3 +160,10 @@ export interface ReadingStats {
   days: { date: string; activeSeconds: number; sessions: number; readingDay: boolean }[];
   activeSeconds: number; readingDays: number; sessions: number; books: number; currentStreak: number; longestStreak: number;
 }
+
+/** One live annotation with its book, from the annotations hub (ADR-0099). */
+export interface AnnotationHubItem {
+  annotation: Annotation; createdAt: string; titleId: string; title: string; authors: string[]; editionLabel: string; format: string;
+}
+/** A book with live annotations, for the hub's book filter. */
+export interface AnnotationHubTitle { titleId: string; title: string; authors: string[]; annotations: number }

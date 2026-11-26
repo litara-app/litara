@@ -3,9 +3,11 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/deranjer/ebooker/apps/server/internal/reading"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
 
@@ -67,6 +69,74 @@ func (a *API) registerAnnotations(api huma.API) {
 			}
 			return &bodyOut[wire.T005Annotation]{Body: out}, nil
 		})
+}
+
+// HubQuery narrows the annotations hub (ADR-0099).
+type HubQuery struct {
+	Q       string `query:"q" maxLength:"200" doc:"Case-insensitive text in the note, the quote, the book title or an author."`
+	Kind    string `query:"kind" enum:"highlight,note,bookmark" doc:"Only this kind; omitted for every kind."`
+	TitleID string `query:"titleId" format:"uuid" doc:"Only annotations on this title."`
+}
+
+func (q HubQuery) filter() reading.HubFilter {
+	f := reading.HubFilter{Query: q.Q, Kind: q.Kind}
+	if q.TitleID != "" {
+		f.TitleID = mustUUID(q.TitleID)
+	}
+	return f
+}
+
+func (a *API) registerAnnotationHub(api huma.API) {
+	huma.Register(api, readOp(op("listAllAnnotations", http.MethodGet, "/annotations",
+		"The caller private live annotations across every edition they can see, newest change first", "annotations")),
+		func(ctx context.Context, in *struct {
+			HubQuery
+			PageQuery
+		}) (*bodyOut[wire.AnnotationHub], error) {
+			page, size := in.normalized()
+			out, err := a.Reading.Hub(ctx, principal(ctx).UserID, in.filter(), page, size)
+			if err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			return &bodyOut[wire.AnnotationHub]{Body: out}, nil
+		})
+
+	huma.Register(api, readOp(op("listAnnotatedTitles", http.MethodGet, "/annotations/titles",
+		"The titles the caller has live annotations on, with counts", "annotations")),
+		func(ctx context.Context, _ *struct{}) (*bodyOut[wire.AnnotationHubTitles], error) {
+			out, err := a.Reading.HubTitles(ctx, principal(ctx).UserID)
+			if err != nil {
+				return nil, a.fail(ctx, err)
+			}
+			return &bodyOut[wire.AnnotationHubTitles]{Body: out}, nil
+		})
+
+	exp := readOp(op("exportAnnotations", http.MethodGet, "/annotations/export",
+		"Download the caller annotations matching the filters as Markdown, CSV or JSON", "annotations"))
+	exp.Responses["200"] = &huma.Response{Description: "The export file, as an attachment",
+		Headers: map[string]*huma.Param{"Content-Disposition": {Schema: &huma.Schema{Type: "string"}}},
+		Content: map[string]*huma.MediaType{
+			"text/markdown":    {Schema: &huma.Schema{Type: "string"}},
+			"text/csv":         {Schema: &huma.Schema{Type: "string"}},
+			"application/json": {Schema: &huma.Schema{Type: "object"}},
+		}}
+	huma.Register(api, exp, func(ctx context.Context, in *struct {
+		HubQuery
+		Format string `query:"format" enum:"markdown,csv,json" required:"true"`
+	}) (*huma.StreamResponse, error) {
+		out, err := a.Reading.ExportHub(ctx, principal(ctx).UserID, in.filter(), in.Format)
+		if err != nil {
+			return nil, a.fail(ctx, err)
+		}
+		return &huma.StreamResponse{Body: func(hc huma.Context) {
+			hc.SetHeader("Content-Type", out.ContentType)
+			hc.SetHeader("Content-Disposition", contentDisposition(out.Filename))
+			hc.SetHeader("Cache-Control", "private, no-store")
+			hc.SetHeader("Content-Length", strconv.Itoa(len(out.Body)))
+			hc.SetStatus(http.StatusOK)
+			_, _ = hc.BodyWriter().Write(out.Body)
+		}}, nil
+	})
 }
 
 func (a *API) registerShelves(api huma.API) {
