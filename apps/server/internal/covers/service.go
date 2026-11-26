@@ -139,6 +139,16 @@ func sizeOf(f *os.File, fallback int64) int64 {
 	return fallback
 }
 
+// Prepare re-encodes an uploaded image under the cover limits without storing it, for other stored pictures
+// (author photos, ADR-0105).
+func (s *Service) Prepare(data []byte) ([]byte, error) {
+	img, err := Normalize(bytes.NewReader(data))
+	if err != nil {
+		return nil, rejected(err)
+	}
+	return img, nil
+}
+
 // Upload stores an uploaded image as the title's cover.
 func (s *Service) Upload(ctx context.Context, titleID uuid.UUID, medium string, data []byte, by uuid.UUID) (Meta, error) {
 	img, err := Normalize(bytes.NewReader(data))

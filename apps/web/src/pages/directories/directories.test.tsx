@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { ApiError } from "../../api/client";
 import type { Title, TitleRow } from "../../api/types";
 import { initials } from "../../ui/people";
 import { AuthorPage, AuthorsPage, SeriesListPage, SeriesPage } from "./DirectoryPages";
@@ -21,12 +22,29 @@ const search = async (_m: string, _p: string, body: { filter: { field: string; v
 };
 const api = vi.fn(search);
 let next: unknown = { titleId: "2", title: "Second", medium: "ebook", state: "reading" };
+let admin = false;
+vi.mock("../../auth/session", () => ({ useAuth: () => ({ user: { isAdmin: admin } }) }));
+const field = (name: string, value: unknown = null, source = value === null ? "none" : "user", locked = false) => ({ field: name, value, source, cleared: false, locked });
+const authorDetails = () => ({
+  name: "Ada Author", revision: "4", photo: { source: "none", version: null as string | null, locked: false },
+  fields: [field("last_name", "Author", "guessed"), field("introduction", "Writes sagas."), field("biography", "Born by the sea.", "user", true)],
+});
+let details: unknown = authorDetails();
 const responses = async (p: string): Promise<unknown> => {
   if (p.startsWith("/continue-reading")) return next;
+  if (p.startsWith("/authors/details")) return details;
+  if (p.startsWith("/series/details")) {
+    return { name: "The Saga", revision: "2", fields: [field("description", "Five parishes."), field("book_count", 6), field("status", "ongoing")] };
+  }
   if (p.startsWith("/series")) {
     return { items: [{ name: "The Saga", titles: 3, coverTitleId: "1", authors: ["Ada Author"], finished: 1, covers: [{ titleId: "1", title: "First", medium: "ebook" }, { titleId: "2", title: "Second", medium: "audio" }] }], total: 1, page: 0, size: 60 };
   }
-  return { items: ["Ada Author", "Bo Writer", "Cy Panel"].map((name) => ({ name, titles: 5, coverTitleId: "1", seriesCount: name === "Cy Panel" ? 0 : 2 })), total: 3, page: 0, size: 60 };
+  return {
+    items: ["Ada Author", "Bo Writer", "Cy Panel"].map((name) => ({
+      name, titles: 5, coverTitleId: "1", seriesCount: name === "Cy Panel" ? 0 : 2, lastName: name.split(" ")[1], photoVersion: name === "Bo Writer" ? "v1" : null,
+    })),
+    letters: ["A", "P", "W"], total: 3, page: 0, size: 60,
+  };
 };
 const get = vi.fn(responses);
 vi.mock("../../api/client", async (orig) => ({
@@ -38,6 +56,7 @@ vi.mock("../useTitleActions", () => ({ useTitleActions: () => ({ read, listen, d
 beforeEach(() => {
   api.mockClear(); api.mockImplementation(search); get.mockClear(); read.mockClear(); listen.mockClear(); sessionStorage.clear();
   next = { titleId: "2", title: "Second", medium: "ebook", state: "reading" };
+  admin = false; details = authorDetails();
 });
 afterEach(cleanup);
 
@@ -69,6 +88,20 @@ test("the authors directory shows a card per author with initials, books and ser
   expect(items[0]!.textContent).toContain("5books"); // the ribbon
   expect(items[0]!.textContent).toContain("2 series");
   expect(items[2]!.textContent).toContain("No series");
+  expect(items[1]!.querySelector("img")!.getAttribute("src")).toBe("/api/v1/authors/photo?name=Bo+Writer&v=v1");
+});
+
+test("the A to Z row filters authors by letter and offers only letters with someone", async () => {
+  at("/authors", "/authors", <AuthorsPage />);
+  await screen.findAllByTestId("directory-item");
+  const rail = screen.getByRole("group", { name: "Filter by first letter of last name" });
+  expect((within(rail).getByRole("button", { name: "B" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(within(rail).getByRole("button", { name: "W" }));
+  await vi.waitFor(() => expect(get).toHaveBeenCalledWith("/authors?letter=W&page=0&size=60"));
+  await vi.waitFor(() => expect(screen.getByTestId("total").textContent).toBe("3 authors with a last name starting with W"));
+  expect(within(rail).getByRole("button", { name: "W" }).getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(within(rail).getByRole("button", { name: "All" }));
+  await vi.waitFor(() => expect(screen.getByTestId("total").textContent).toBe("3 authors"));
 });
 
 test("the series directory stacks covers and shows progress", async () => {
@@ -86,6 +119,9 @@ test("an author page lists works by series, shelves the books and continues the 
   expect(api).toHaveBeenCalledWith("POST", "/titles/search", expect.objectContaining({ filter: { type: "rule", field: "author", operator: "is", value: ["Ada Author"] } }));
   expect(groups.map((g) => g.textContent)).toEqual(["Other1 book", "The Saga3 books", "No series1 book"]);
   expect(screen.getByRole("img", { name: "No photo of Ada Author" })).toBeTruthy();
+  expect((await screen.findByTestId("introduction")).textContent).toBe("Writes sagas.");
+  expect(screen.getByTestId("biography").textContent).toBe("Born by the sea.");
+  expect(screen.queryByRole("tab")).toBeNull(); // only an administrator edits
   expect(screen.getAllByTestId("book-item").map((b) => b.getAttribute("href"))).toEqual(["/titles/5", "/titles/1", "/titles/2", "/titles/4", "/titles/9"]);
 
   fireEvent.click(screen.getByRole("radio", { name: "The Saga" }));
@@ -138,4 +174,65 @@ test("the title page rows leave out the open title and hide when nothing else is
   await vi.waitFor(() => expect(api).toHaveBeenCalled());
   expect(screen.queryByTestId("related-series")).toBeNull();
   expect(screen.queryByTestId("related-author")).toBeNull();
+});
+
+test("a series page shows its saved description and facts", async () => {
+  at("/series/The%20Saga", "/series/:name", <SeriesPage />);
+  expect((await screen.findByTestId("description")).textContent).toBe("Five parishes.");
+  expect(screen.getByTestId("progress").textContent).toBe("3 of 6 in your libraries0 finishedOngoing series status");
+});
+
+test("an administrator edits against the loaded revision, and a locked field is read-only", async () => {
+  admin = true;
+  at("/authors/Ada%20Author?tab=edit", "/authors/:name", <AuthorPage />);
+  const fields = await screen.findByTestId("directory-fields");
+  expect(screen.getByRole("tab", { name: "Edit author" }).getAttribute("aria-selected")).toBe("true");
+  expect((within(fields).getByRole("button", { name: "Biography is locked" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(within(screen.getByTestId("field-last_name")).getByText("Guessed")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Reset Last name to the guess" })).toBeNull();
+
+  const saved = authorDetails();
+  saved.revision = "5";
+  saved.fields[0] = field("last_name", "Authorson", "user");
+  api.mockImplementation(async (method: string) => (method === "PATCH" ? saved : { items: SAGA, total: 3, page: 0, size: 200 }) as never);
+  fireEvent.click(within(fields).getByRole("button", { name: "Edit Last name" }));
+  expect(within(screen.getByTestId("field-last_name")).queryByRole("button", { name: "Leave empty" })).toBeNull();
+  fireEvent.change(within(screen.getByTestId("field-last_name")).getByRole("textbox"), { target: { value: " Authorson " } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByRole("button", { name: "Reset Last name to the guess" });
+  expect(api).toHaveBeenCalledWith("PATCH", "/authors/details?name=Ada+Author", {
+    operationId: expect.any(String), baseRevision: "4", changes: [{ field: "last_name", action: "set", clear: false, value: "Authorson" }],
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Lock photo" }));
+  await vi.waitFor(() => expect(api).toHaveBeenCalledWith("PATCH", "/authors/details?name=Ada+Author", {
+    operationId: expect.any(String), baseRevision: "5", changes: [{ field: "photo", action: "lock" }],
+  }));
+});
+
+test("an out-of-date edit says so and reloads", async () => {
+  admin = true;
+  at("/authors/Ada%20Author?tab=edit", "/authors/:name", <AuthorPage />);
+  await screen.findByTestId("directory-fields");
+  api.mockImplementation(async (method: string) => {
+    if (method === "PATCH") throw new ApiError(409, { code: "stale_revision" } as never);
+    return { items: SAGA, total: 3, page: 0, size: 200 } as never;
+  });
+  const loads = () => get.mock.calls.filter(([p]) => p.startsWith("/authors/details")).length;
+  const before = loads();
+  fireEvent.click(screen.getByRole("button", { name: "Lock Last name as it is" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("changed elsewhere");
+  await vi.waitFor(() => expect(loads()).toBeGreaterThan(before));
+});
+
+test("a locked photo offers no way to replace it", async () => {
+  admin = true;
+  const locked = authorDetails();
+  locked.photo = { source: "url", version: "v2", locked: true };
+  details = locked;
+  at("/authors/Ada%20Author?tab=edit", "/authors/:name", <AuthorPage />);
+  await screen.findByTestId("photo-tools");
+  expect((screen.getByRole("button", { name: "Remove photo" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: "Use this address" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole("img", { name: "Photo of Ada Author" }).querySelector("img")!.getAttribute("src")).toContain("v=v2");
 });

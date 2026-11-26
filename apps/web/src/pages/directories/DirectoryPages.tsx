@@ -1,17 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { get, qs } from "../../api/client";
 import type { TitleRow } from "../../api/types";
+import { useAuth } from "../../auth/session";
 import {
   icons, AuthorCard, Busy, Button, CardGrid, CoverFan, CoverLink, EmptyState, ErrorBox, Grow, Heading, IconAction, MissingBook, OrderGrid, OrderItem, Page, PageHeader,
   Panel, Portrait, Row, SearchField, SegmentedField, SelectField, SeriesCard, Shelf, ShelfItem, Stack, Text, TextLink, Toolbar,
+  Facts, LetterRail, Prose, TabBar, TabFrame, TabPane,
 } from "../../ui";
 import { useDebounced } from "../../ui/useDebounced";
 import { useTitleActions } from "../useTitleActions";
+import { DirectoryEditor, PhotoTools } from "./DirectoryEditor";
+import { authorPhotoPath, fieldText, useDirectoryDetails, type DirectoryKind } from "./directoryDetails";
 import { authorPath, bookNumber, coverMedium, formatsLine, groupBySeries, missingNumbers, seriesPath, titlesBy } from "./directory";
 import {
-  rememberDirectory, useDirectory, useDirectoryNeighbours, type DirectoryAuthor, type DirectoryContext, type DirectoryPath, type DirectorySeries,
+  defaultSort, rememberDirectory, useDirectory, useDirectoryNeighbours, type DirectoryAuthor, type DirectoryContext, type DirectoryPath, type DirectorySeries,
 } from "./directoryList";
 
 const books = (n: number) => `${n} ${n === 1 ? "book" : "books"}`;
@@ -21,27 +25,41 @@ const MAX_GAPS = 12;
 /** A searchable, paged directory: the authors or the series of the titles the viewer can see (ADR-0100). */
 function Directory<T extends { name: string }>({ path, title, description, placeholder, empty, sorts, kind, tile }: {
   path: DirectoryPath; title: string; description: string; placeholder: string; empty: string; kind: "authors" | "series";
-  sorts?: { value: string; label: string }[]; tile: (item: T) => React.ReactNode;
+  sorts: { value: string; label: string }[]; tile: (item: T) => React.ReactNode;
 }) {
   const [text, setText] = useState("");
-  const [sort, setSort] = useState("name");
+  const [sort, setSort] = useState(defaultSort(path));
+  const [letter, setLetter] = useState("");
   const q = useDebounced(text, 300).trim().slice(0, 200);
-  const ctx: DirectoryContext = { q, sort };
+  const ctx: DirectoryContext = { q, sort, letter };
   const list = useDirectory<T>(path, ctx);
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
   const total = list.data?.pages[0]?.total ?? 0;
+  const letters = list.data?.pages[0]?.letters;
+  // The row stays up while a new letter or sort loads.
+  const lastLetters = useRef<string[]>([]);
+  if (letters) lastLetters.current = letters;
+  const by = sort === "first" ? "first name" : "last name";
+  const noun = title.toLowerCase().replace(/s$/, total === 1 ? "" : "s");
+  const nothing = q || letter;
   return (
     <Page>
       <PageHeader title={title} description={description} />
       <Toolbar aria-label={`${title} search`}>
         <Grow><SearchField label={`Search ${title.toLowerCase()}`} placeholder={placeholder} value={text} onValue={setText} /></Grow>
-        {sorts && <SelectField label="Sort" items={sorts} value={sort} onValue={(v) => setSort(v ?? "name")} />}
+        {/* A letter belongs to the sorted name, so changing the sort clears it. */}
+        <SelectField label="Sort" items={sorts} value={sort} onValue={(v) => { setSort(v ?? defaultSort(path)); setLetter(""); }} />
       </Toolbar>
+      {kind === "authors" && <LetterRail label={`Filter by first letter of ${by}`} available={lastLetters.current} value={letter} onValue={setLetter} />}
       <ErrorBox error={list.error} />
       {list.isPending ? <Busy /> : (
         <Stack>
-          <Text size="sm" tone="dim" data-testid="total">{total} {title.toLowerCase().replace(/s$/, total === 1 ? "" : "s")}</Text>
-          {items.length === 0 && <EmptyState title={q ? "Nothing matches" : empty}>{q ? "Try another search." : "Titles appear here once a library you can open has them."}</EmptyState>}
+          <Text size="sm" tone="dim" data-testid="total">{total} {noun}{letter && ` with a ${by} starting with ${letter}`}</Text>
+          {items.length === 0 && (
+            <EmptyState title={nothing ? "Nothing matches" : empty}>
+              {nothing ? "Try another search or letter." : "Titles appear here once a library you can open has them."}
+            </EmptyState>
+          )}
           <div onClickCapture={() => rememberDirectory(path, ctx)}><CardGrid kind={kind}>{items.map(tile)}</CardGrid></div>
           {list.hasNextPage && <Button icon={icons.chevDown} loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>Show more</Button>}
         </Stack>
@@ -54,7 +72,9 @@ export function AuthorsPage() {
   return (
     <Directory<DirectoryAuthor> path="/authors" kind="authors" title="Authors" placeholder="Author name" empty="No authors yet"
       description="Everyone who wrote a book you can open. Names that differ only in capital letters count as one author."
+      sorts={[{ value: "last", label: "Sort by last name" }, { value: "first", label: "Sort by first name" }]}
       tile={(a) => <AuthorCard key={a.name.toLowerCase()} testId="directory-item" to={authorPath(a.name)} name={a.name} books={a.titles}
+        photo={a.photoVersion ? authorPhotoPath(a.name, a.photoVersion) : null}
         detail={a.seriesCount > 0 ? `${a.seriesCount} series` : "No series"} />} />
   );
 }
@@ -98,11 +118,14 @@ function ContinueButton({ by, name }: { by: "author" | "series"; name: string })
 }
 
 /** The bar above an author or series page, laid out as on a title page: back on the left, previous and next on the right. */
-function FolioBar({ path, back, name, pathTo }: { path: DirectoryPath; back: string; name: string; pathTo: (n: string) => string }) {
+function FolioBar({ path, back, name, pathTo, tabs }: {
+  path: DirectoryPath; back: string; name: string; pathTo: (n: string) => string; tabs?: React.ReactNode;
+}) {
   const neighbours = useDirectoryNeighbours(path, name);
   return (
     <div className="lt-folio-bar">
       <Button variant="subtle" size="sm" to={path} icon={icons.arrowLeft}>{back}</Button>
+      {tabs}
       {neighbours && (
         <nav className="lt-folio-nav" aria-label={`Move between ${back.toLowerCase()}`}>
           <IconAction label="Previous" icon={icons.chevLeft} to={neighbours.prev ? pathTo(neighbours.prev) : undefined} disabled={!neighbours.prev} />
@@ -111,6 +134,35 @@ function FolioBar({ path, back, name, pathTo }: { path: DirectoryPath; back: str
         </nav>
       )}
     </div>
+  );
+}
+
+/**
+ * The Details and Edit tabs of an author or series page. Only an administrator sees them (ADR-0104); the server also
+ * requires a granted library, which seeing the page already implies. Previous and next keep the open tab.
+ */
+function useEditTab(kind: DirectoryKind) {
+  const { user } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const canEdit = !!user?.isAdmin;
+  const editing = canEdit && params.get("tab") === "edit";
+  return {
+    canEdit, editing,
+    value: editing ? "edit" : "details",
+    set: (v: string) => { const n = new URLSearchParams(params); if (v === "edit") n.set("tab", "edit"); else n.delete("tab"); setParams(n, { replace: true }); },
+    keep: (to: string) => (editing ? `${to}?tab=edit` : to),
+    bar: canEdit ? <TabBar label="Page sections" tabs={[{ value: "details", label: "Details", icon: icons.info }, { value: "edit", label: `Edit ${kind}`, icon: icons.pencil }]} /> : undefined,
+  };
+}
+
+/** The page body, under the tabs when there are any. */
+function Sections({ tab, kind, name, children }: { tab: ReturnType<typeof useEditTab>; kind: DirectoryKind; name: string; children: React.ReactNode }) {
+  if (!tab.canEdit) return <>{children}</>;
+  return (
+    <>
+      <TabPane value="details"><div className="lt-folio-sections">{children}</div></TabPane>
+      <TabPane value="edit"><DirectoryEditor key={name.toLowerCase()} kind={kind} name={name} /></TabPane>
+    </>
   );
 }
 
@@ -151,22 +203,32 @@ export function AuthorPage() {
   const rows = titles.data ?? [];
   const shown = rows.flatMap((t) => t.authors).find((a) => a.toLowerCase() === name.toLowerCase()) ?? name;
   const groups = groupBySeries(rows);
+  const details = useDirectoryDetails("author", name, rows.length > 0);
+  const tab = useEditTab("author");
+  const photo = details.data?.photo?.version ? authorPhotoPath(name, details.data.photo.version) : null;
+  const introduction = fieldText(details.data, "introduction");
+  const biography = fieldText(details.data, "biography");
   return (
     <Page>
+      <TabFrame value={tab.value} onValueChange={tab.set}>
       <div className="lt-folio">
-        <FolioBar path="/authors" back="Authors" name={name} pathTo={authorPath} />
+        <FolioBar path="/authors" back="Authors" name={name} pathTo={(n) => tab.keep(authorPath(n))} tabs={tab.bar} />
         <div className="lt-folio-body">
           <aside className="lt-folio-side" aria-label="Portrait and actions">
-            <Portrait name={shown} />
-            {rows.length > 0 && <ContinueButton key={name.toLowerCase()} by="author" name={name} />}
+            <Portrait name={shown} photo={photo} editTo={tab.canEdit && !tab.editing && rows.length > 0 ? `${authorPath(name)}?tab=edit` : undefined} />
+            {tab.editing ? <PhotoTools key={name.toLowerCase()} name={name} />
+              : rows.length > 0 && <ContinueButton key={name.toLowerCase()} by="author" name={name} />}
           </aside>
           <div className="lt-folio-main">
             <header className="lt-folio-head">
               <Heading level={1} serif>{shown}</Heading>
-              {titles.data && <Text tone="dim" size="lg">{books(rows.length)} you can open</Text>}
+              {introduction && <Text size="lg" data-testid="introduction">{introduction}</Text>}
+              {titles.data && <Text tone="dim" size={introduction ? undefined : "lg"}>{books(rows.length)} you can open</Text>}
             </header>
-            <ErrorBox error={titles.error} />
+            <ErrorBox error={titles.error ?? details.error} />
             {titles.isPending ? <Busy /> : rows.length === 0 ? <EmptyState title="No books by this author">None of the libraries you can open has a book by {name}.</EmptyState> : (
+              <Sections tab={tab} kind="author" name={name}>
+              {biography && <Panel title="About the author"><Prose testId="biography">{biography}</Prose></Panel>}
               <Panel title="Works">
                 <ul className="lt-contents">
                   {groups.map((g) => (
@@ -178,11 +240,13 @@ export function AuthorPage() {
                   ))}
                 </ul>
               </Panel>
+              </Sections>
             )}
           </div>
         </div>
         {rows.length > 0 && <div className="lt-folio-wide"><AuthorShelf key={name.toLowerCase()} groups={groups} total={rows.length} /></div>}
       </div>
+      </TabFrame>
     </Page>
   );
 }
@@ -198,6 +262,19 @@ function orderOf(rows: TitleRow[], gaps: number[]): ({ gap: number } | { book: T
   return out;
 }
 
+/**
+ * What the series page counts. The saved number of books gives "4 of 6" unless the libraries hold more than that, for
+ * example with extra volumes, when both are shown separately.
+ */
+function seriesFacts(have: number, finished: number, total: string, status: string): { value: string; label: string }[] {
+  const count = Number(total) || 0;
+  const out = [{ value: count >= have ? `${have} of ${count}` : String(have), label: "in your libraries" }];
+  if (count > 0 && count < have) out.push({ value: String(count), label: "books in the series" });
+  out.push({ value: String(finished), label: "finished" });
+  if (status) out.push({ value: status === "complete" ? "Complete" : "Ongoing", label: "series status" });
+  return out;
+}
+
 /** One series in reading order, with the whole numbers no book has. */
 export function SeriesPage() {
   const name = useParams().name ?? "";
@@ -208,10 +285,15 @@ export function SeriesPage() {
   const missing = missingNumbers(rows.map((t) => t.seriesIndex));
   const drawGaps = missing.length <= MAX_GAPS;
   const finished = rows.filter((t) => t.status === "finished").length;
+  const details = useDirectoryDetails("series", name, rows.length > 0);
+  const tab = useEditTab("series");
+  const description = fieldText(details.data, "description");
+  const facts = seriesFacts(rows.length, finished, fieldText(details.data, "book_count"), fieldText(details.data, "status"));
   return (
     <Page>
+      <TabFrame value={tab.value} onValueChange={tab.set}>
       <div className="lt-folio">
-        <FolioBar path="/series" back="Series" name={name} pathTo={seriesPath} />
+        <FolioBar path="/series" back="Series" name={name} pathTo={(n) => tab.keep(seriesPath(n))} tabs={tab.bar} />
         <div className="lt-folio-body">
           <aside className="lt-folio-side" aria-label="Covers and actions">
             <div className="lt-folio-fan">
@@ -226,11 +308,12 @@ export function SeriesPage() {
                 <Text tone="dim" size="lg">by {authors.map((a, i) => <span key={a}>{i > 0 && ", "}<TextLink to={authorPath(a)}>{a}</TextLink></span>)}</Text>
               )}
             </header>
-            <ErrorBox error={titles.error} />
+            <ErrorBox error={titles.error ?? details.error} />
             {titles.isPending ? <Busy /> : rows.length === 0 ? <EmptyState title="No books in this series">None of the libraries you can open has a book in {name}.</EmptyState> : (
-              <Panel title="Progress">
-                <Text data-testid="progress">{books(rows.length)} you can open, {finished} finished.</Text>
-              </Panel>
+              <Sections tab={tab} kind="series" name={name}>
+                {description && <Panel title="About this series"><Prose testId="description">{description}</Prose></Panel>}
+                <Panel title="Progress"><Facts testId="progress" items={facts} /></Panel>
+              </Sections>
             )}
           </div>
         </div>
@@ -249,6 +332,7 @@ export function SeriesPage() {
           </div>
         )}
       </div>
+      </TabFrame>
     </Page>
   );
 }

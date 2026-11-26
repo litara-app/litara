@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router";
 import { Cover } from "./feedback";
+import { IconAction } from "./controls";
+import { icons } from "./icons";
 
 /* The author and series pieces (ADR-0104): portraits on cabinet cards, fanned series covers and the shelf rail. */
 
@@ -9,22 +11,24 @@ export function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 3).map((w) => [...w][0]!.toUpperCase()).join("");
 }
 
-function Mount({ name, children }: { name: string; children?: ReactNode }) {
+function Mount({ name, photo, children }: { name: string; photo?: string | null; children?: ReactNode }) {
   return (
     <>
       <span className="lt-mount-corner" data-at="tl" aria-hidden="true" /><span className="lt-mount-corner" data-at="tr" aria-hidden="true" />
       <span className="lt-mount-corner" data-at="bl" aria-hidden="true" /><span className="lt-mount-corner" data-at="br" aria-hidden="true" />
-      <span className="lt-mount-arch" aria-hidden="true"><span>{initials(name)}</span></span>
+      <span className="lt-mount-arch" aria-hidden="true">{photo ? <img src={photo} alt="" loading="lazy" /> : <span>{initials(name)}</span>}</span>
       {children}
     </>
   );
 }
 
 /** An author in the directory. The ribbon with the book count drops on hover or focus, and always shows on touch screens. */
-export function AuthorCard({ to, name, books, detail, testId }: { to: string; name: string; books: number; detail: string; testId?: string }) {
+export function AuthorCard({ to, name, books, detail, photo, testId }: {
+  to: string; name: string; books: number; detail: string; photo?: string | null; testId?: string;
+}) {
   return (
     <Link to={to} className="lt-mount" data-testid={testId}>
-      <Mount name={name}>
+      <Mount name={name} photo={photo}>
         <span className="lt-mount-name">{name}</span>
         <span className="lt-mount-detail">{detail}</span>
         <span className="lt-mount-ribbon"><strong>{books}</strong><span>{books === 1 ? "book" : "books"}</span></span>
@@ -33,9 +37,44 @@ export function AuthorCard({ to, name, books, detail, testId }: { to: string; na
   );
 }
 
-/** The large portrait on an author's page. */
-export function Portrait({ name }: { name: string }) {
-  return <div className="lt-mount" data-static role="img" aria-label={`No photo of ${name}`}><Mount name={name}><span className="lt-mount-name" aria-hidden="true">{name}</span></Mount></div>;
+/** The large portrait on an author's page. `editTo` adds the hover control that opens the author's edit tab. */
+export function Portrait({ name, photo, editTo }: { name: string; photo?: string | null; editTo?: string }) {
+  return (
+    <div className="lt-portrait">
+      <div className="lt-mount" data-static role="img" aria-label={photo ? `Photo of ${name}` : `No photo of ${name}`}>
+        <Mount name={name} photo={photo}><span className="lt-mount-name" aria-hidden="true">{name}</span></Mount>
+      </div>
+      {editTo && <span className="lt-portrait-edit"><IconAction label="Edit author and photo" icon={icons.pencil} to={editTo} /></span>}
+    </div>
+  );
+}
+
+const LETTERS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
+
+/** The A to Z row above the authors. A letter nobody is filed under cannot be chosen; the chosen one stays enabled. */
+export function LetterRail({ label, available, value, onValue }: { label: string; available: string[]; value: string; onValue: (v: string) => void }) {
+  return (
+    <div className="lt-letters" role="group" aria-label={label}>
+      <button type="button" aria-pressed={value === ""} onClick={() => onValue("")}>All</button>
+      {LETTERS.map((l) => (
+        <button key={l} type="button" aria-pressed={value === l} disabled={value !== l && !available.includes(l)} onClick={() => onValue(value === l ? "" : l)}>{l}</button>
+      ))}
+    </div>
+  );
+}
+
+/** Saved text such as a biography, with its line breaks. */
+export function Prose({ children, testId }: { children: string; testId?: string }) {
+  return <div className="lt-prose" data-testid={testId}>{children}</div>;
+}
+
+/** A few large figures with what each one counts. */
+export function Facts({ items, testId }: { items: { value: string; label: string }[]; testId?: string }) {
+  return (
+    <ul className="lt-facts-row" data-testid={testId}>
+      {items.map((i) => <li key={i.label}><strong>{i.value}</strong> <span>{i.label}</span></li>)}
+    </ul>
+  );
 }
 
 export interface FanCover { titleId: string; title: string; medium: "ebook" | "audio" }

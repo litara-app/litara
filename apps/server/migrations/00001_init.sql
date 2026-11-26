@@ -996,6 +996,89 @@ CREATE TABLE title_covers (
     CHECK ((source = 'none') = (image IS NULL))
 );
 
+-- Saved author and series details (ADR-0102 to ADR-0105). Authors and series are names matched ignoring case, so
+-- both are keyed by the lowercased name: after a rename in title metadata the details stay under the old name.
+-- The revision covers every field and the author's photo.
+CREATE TABLE directory_entries (
+    kind     text NOT NULL CHECK (kind IN ('author', 'series')),
+    name_key text NOT NULL,
+    revision bigint NOT NULL DEFAULT 0,
+    PRIMARY KEY (kind, name_key)
+);
+
+-- One saved edit per field. A null value is a deliberate clear; without a row the field falls back to its source.
+CREATE TABLE directory_values (
+    kind       text NOT NULL,
+    name_key   text NOT NULL,
+    field      text NOT NULL,
+    value      jsonb,
+    locked     boolean NOT NULL DEFAULT false,
+    updated_by uuid REFERENCES users (id) ON DELETE SET NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (kind, name_key, field),
+    FOREIGN KEY (kind, name_key) REFERENCES directory_entries (kind, name_key) ON DELETE CASCADE
+);
+
+-- An author's photo, stored like a cover (ADR-0105): a bounded JPEG the server re-encoded. Source "none" has no image
+-- and exists only to hold a lock.
+CREATE TABLE author_photos (
+    kind       text NOT NULL DEFAULT 'author' CHECK (kind = 'author'),
+    name_key   text PRIMARY KEY,
+    source     text NOT NULL CHECK (source IN ('upload', 'url', 'none')),
+    image      bytea,
+    locked     boolean NOT NULL DEFAULT false,
+    version    uuid NOT NULL DEFAULT gen_random_uuid(),
+    updated_by uuid REFERENCES users (id) ON DELETE SET NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY (kind, name_key) REFERENCES directory_entries (kind, name_key) ON DELETE CASCADE,
+    CHECK ((source = 'none') = (image IS NULL))
+);
+
+-- The guessed last name of an author (ADR-0101, ADR-0104): the last word, keeping common surname prefixes with it
+-- ("Ursula K. Le Guin") and skipping suffixes such as "Jr.". "Last, First" is read as written. An administrator can
+-- correct any guess.
+-- +goose StatementBegin
+CREATE FUNCTION guess_last_name(p_name text) RETURNS text LANGUAGE plpgsql IMMUTABLE STRICT AS $$
+DECLARE
+    suffixes constant text[] := ARRAY['jr', 'sr', 'ii', 'iii', 'iv', 'phd', 'md', 'esq'];
+    prefixes constant text[] := ARRAY['al', 'bin', 'da', 'das', 'de', 'del', 'della', 'den', 'der', 'di', 'dos', 'du',
+                                      'el', 'ibn', 'la', 'le', 'saint', 'st', 'ten', 'ter', 'van', 'von'];
+    cleaned text := btrim(regexp_replace(p_name, '\s+', ' ', 'g'));
+    parts text[] := string_to_array(cleaned, ',');
+    words text[];
+    last_word int;
+    first_word int;
+BEGIN
+    IF array_length(parts, 1) > 1 THEN
+        IF btrim(parts[1]) <> '' AND NOT (lower(replace(btrim(parts[2]), '.', '')) = ANY (suffixes)) THEN
+            RETURN btrim(parts[1]);
+        END IF;
+        cleaned := btrim(parts[1]);
+    END IF;
+    words := string_to_array(cleaned, ' ');
+    last_word := array_length(words, 1);
+    IF last_word IS NULL THEN
+        RETURN btrim(p_name);
+    END IF;
+    WHILE last_word > 1 AND lower(replace(words[last_word], '.', '')) = ANY (suffixes) LOOP
+        last_word := last_word - 1;
+    END LOOP;
+    first_word := last_word;
+    -- The first word is never taken as a prefix, so "Van Morrison" is filed under M.
+    WHILE first_word > 2 AND lower(replace(words[first_word - 1], '.', '')) = ANY (prefixes) LOOP
+        first_word := first_word - 1;
+    END LOOP;
+    RETURN array_to_string(words[first_word:last_word], ' ');
+END
+$$;
+-- +goose StatementEnd
+
+-- The A to Z letter a name is filed under, with accents removed; empty when it starts with anything else.
+CREATE FUNCTION directory_letter(p_name text) RETURNS text LANGUAGE sql IMMUTABLE STRICT AS $$
+    SELECT CASE WHEN c <> '' AND strpos('ABCDEFGHIJKLMNOPQRSTUVWXYZ', c) > 0 THEN c ELSE '' END
+    FROM (SELECT upper(left(normalize(ltrim(translate(p_name, 'ØøŁłÆæŒœĐđÞþ', 'OoLlAaOoDdTt'), ' "''(['), NFD), 1)) AS c) AS first_letter
+$$;
+
 -- Whether the server may query third-party sites for covers. Off until an administrator turns it on (ADR-0086).
 CREATE TABLE cover_settings (
     singleton      boolean PRIMARY KEY DEFAULT true CHECK (singleton),
@@ -1100,6 +1183,11 @@ DROP TABLE titles;
 DROP TABLE refresh_exchanges;
 DROP TABLE sessions;
 DROP TABLE user_library_grants;
+DROP TABLE IF EXISTS author_photos;
+DROP TABLE IF EXISTS directory_values;
+DROP TABLE IF EXISTS directory_entries;
+DROP FUNCTION IF EXISTS directory_letter(text);
+DROP FUNCTION IF EXISTS guess_last_name(text);
 DROP TABLE IF EXISTS cover_settings;
 DROP TABLE IF EXISTS title_covers;
 DROP FUNCTION IF EXISTS title_rows(uuid);

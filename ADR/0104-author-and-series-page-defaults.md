@@ -4,6 +4,7 @@ Status: Accepted
 Date: 2026-11-26
 Decision owner: Repository owner
 Amends: [ADR-0101](0101-authors-by-last-name.md), [ADR-0102](0102-editable-lockable-author-data.md), [ADR-0103](0103-series-data-and-missing-books.md)
+Amended by: [ADR-0105](0105-author-photos-and-concurrent-edits.md) (2026-11-26): photo storage and limits, and refusing out-of-date edits.
 
 ## Context
 
@@ -47,6 +48,8 @@ Stage 1 needs only additive read fields ([ADR-0082](0082-api-compatibility-polic
 Planned for each stage. Stage 1: library grants limit every new count and cover ([ADR-0013](0013-library-access-local-login.md)); the pages work in the Reading Room and Clean themes, light and dark, and at phone width; Continue reading follows the rule above.
 
 Stage 1, 2026-11-26: Go test `TestAuthorAndSeriesDirectories` covers the new series covers, finished and series counts, the most-books order, Continue reading (nothing started, a later book in progress, finished books skipped) and an account without a grant. Web tests cover the cards, shelf filter, previous and next, missing-book places and the Continue button. Checked in Chromium against a local instance: Reading Room light and dark and Clean light had no sideways scroll, and the button opened the reader. At phone width every page, including ones this stage did not change, scrolls sideways by the width of the top bar's buttons. Not checked: Clean dark, other browsers, and the audiobook path in a browser.
+
+Stage 2, 2026-11-26: Go tests `TestGuessedLastNames` and `TestAuthorAndSeriesDetails` cover the name guess and letters, both sort orders, the letter filter, a correction moving an author, locks, reset, clears, revisions, retried operations, who may read and edit, and details staying under the old name after a rename. Web tests cover the A to Z row, saved details on both pages, editing, locked fields and photos and the conflict message. Checked in Chromium against a throwaway local instance: photo upload, saving and correcting a last name, the letter filter, series details, the Reading Room theme light and dark, and the edit tab at phone width. At phone width the top bar still scrolls the page sideways, as in stage 1. Not checked: the Clean theme, other browsers and the Playwright suite.
 
 ## Open questions
 

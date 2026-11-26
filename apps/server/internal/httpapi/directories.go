@@ -18,13 +18,15 @@ type DirectoryQuery struct {
 // "author is" or "series is" filter.
 func (a *API) registerDirectories(api huma.API) {
 	huma.Register(api, readOp(op("listAuthors", http.MethodGet, "/authors",
-		"Authors of the titles visible through granted libraries, by name ignoring case", "catalog")),
+		"Authors of the titles visible through granted libraries, by last name unless sorted by first name", "catalog")),
 		func(ctx context.Context, in *struct {
 			DirectoryQuery
 			PageQuery
+			Sort   string `query:"sort" enum:"last,first" doc:"last (default) sorts by last name; first sorts by the name as written."`
+			Letter string `query:"letter" pattern:"^[A-Z]$" doc:"Only authors filed under this letter of the sorted name."`
 		}) (*bodyOut[wire.DirectoryAuthors], error) {
 			page, size := in.normalized()
-			out, err := a.Catalog.Authors(ctx, principal(ctx).UserID, in.Q, page, size)
+			out, err := a.Catalog.Authors(ctx, principal(ctx).UserID, in.Q, in.Sort, in.Letter, page, size)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
@@ -45,6 +47,8 @@ func (a *API) registerDirectories(api huma.API) {
 			}
 			return &bodyOut[wire.DirectorySeriesPage]{Body: out}, nil
 		})
+
+	a.registerDirectoryDetails(api)
 
 	huma.Register(api, readOp(op("getContinueReading", http.MethodGet, "/continue-reading",
 		"The title to continue for an author or a series: the unfinished one used most recently, else the first unread", "catalog")),
