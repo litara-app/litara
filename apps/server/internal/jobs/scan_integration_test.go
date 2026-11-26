@@ -27,7 +27,7 @@ func TestScanRunsThroughRiverAndIsSerializedPerLibrary(t *testing.T) {
 	testutil.FFmpeg(t, append(testutil.Sine(1), "-c:a", "libmp3lame", filepath.Join(root, "a.mp3"))...)
 
 	d, err := library.New(pool).Create(ctx, wire.CreateLibrary{Name: "Jobs", Config: wire.LibraryConfig{
-		Mode: "index", RootPath: root, ScanIntervalSecs: 900, VerifyIntervalSecs: 86400, StabilitySecs: 1, ProviderOrder: []string{}}})
+		Mode: "index", RootPath: root, ScanIntervalSecs: 900, VerifyIntervalSecs: 86400, StabilitySecs: 30, ProviderOrder: []string{}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,8 +66,10 @@ func TestScanRunsThroughRiverAndIsSerializedPerLibrary(t *testing.T) {
 		t.Fatalf("run: %+v", r)
 	}
 
-	// The file is cataloged by the second scan (stability window is 1s here).
-	time.Sleep(1200 * time.Millisecond)
+	// The file is cataloged by the second scan once the stability window has passed, so age the first observation.
+	if _, err := pool.Exec(ctx, `UPDATE file_candidates SET first_seen_at = first_seen_at - interval '31 seconds' WHERE library_id=$1`, lib); err != nil {
+		t.Fatal(err)
+	}
 	second, created, err := jobs.RequestScan(ctx, pool, enq, lib, "manual")
 	if err != nil || !created {
 		t.Fatalf("second run: %v %v", created, err)

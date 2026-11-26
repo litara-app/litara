@@ -58,7 +58,7 @@ call('GET', '/admin/writers', None, expect=401)
 def make_library(name, mode, root):
     _, d = call('POST', '/admin/libraries', token, {'name': name, 'config': {
         'mode': mode, 'rootPath': root, 'followSymlinks': False, 'writebackBackups': False,
-        'stabilitySecs': 1, 'providerOrder': []}}, expect=201)
+        'stabilitySecs': 30, 'providerOrder': []}}, expect=201)
     lib = d['library']['id']
     # Creating a library grants nobody, not even the creator.
     call('GET', f'/admin/libraries/{lib}', token, expect=403)
@@ -85,7 +85,7 @@ idx = make_library('Live index', 'index', '/media')
 first = scan(idx)
 if first['health'] != 'healthy' or first['filesSeen'] < 4:
     raise SystemExit(f'FAIL first scan: {first}')
-time.sleep(2)  # stability window (1s) elapses
+time.sleep(31)  # stability window (30s) elapses
 scan(idx)
 _, recs = call('GET', f'/recordings?libraryId={idx}&size=50', token, expect=200)
 if not recs['items']:
@@ -131,7 +131,7 @@ if done['state'] != 'completed' or not published:
 recs = {'items': []}
 for _attempt in range(5):  # a file needs two stable observations; a single fixed wait was timing-sensitive
     scan(mgd)
-    time.sleep(2)
+    time.sleep(16)
     _, recs = call('GET', f'/recordings?libraryId={mgd}&size=50', token, expect=200)
     if recs['items']:
         break

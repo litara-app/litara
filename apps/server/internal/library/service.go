@@ -61,7 +61,7 @@ func Validate(c wire.LibraryConfig) error {
 			return apperr.Validation("importTemplate: " + err.Error())
 		}
 	}
-	if c.ScanIntervalSecs < 60 || c.VerifyIntervalSecs < 3600 || c.StabilitySecs < 1 {
+	if c.ScanIntervalSecs < 60 || c.VerifyIntervalSecs < 3600 || c.StabilitySecs < 30 {
 		return apperr.Validation("interval below the minimum")
 	}
 	for _, p := range c.ProviderOrder {
