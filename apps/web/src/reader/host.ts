@@ -5,7 +5,7 @@
 export const MAX_RANGE = 8 * 1024 * 1024;
 export const MAX_OUTSTANDING = 2;
 
-export type ReaderKind = "epub" | "cbz" | "fb2" | "pdf" | "mobi";
+export type ReaderKind = "epub" | "fb2" | "pdf" | "mobi";
 
 /** Byte source for the exact file/version being opened. */
 export interface ByteSource {

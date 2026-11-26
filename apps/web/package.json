@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "gen:api": "node scripts/generate-api-types.mjs",
     "test": "vitest run"
   },
   "dependencies": {

@@ -6,6 +6,7 @@ import { ProviderReview, RULE_TEXT, type Draft } from "./ProviderReview";
 import { icons, Alert, Badge, Busy, Button, ErrorBox, IconAction, InlineValue, Row, SegmentedField, Stack, Text, TextAreaField, TextField, type Tone } from "../../ui";
 import { FIELDS, GROUPS, parseValue, show, type FieldDef } from "./metadataFields";
 import { saveMetadata, type FieldChange } from "./metadataSave";
+import { MetadataWriteback } from "./MetadataWriteback";
 
 const sourceTone = (s: string): Tone => (s === "user" ? "info" : s === "filename" ? "neutral" : "success");
 const sourceName = (s: string) =>
@@ -27,7 +28,7 @@ export function MetadataTab({ editions, recordings = [] }: { title?: Title; edit
       {targets.length > 1 && (
         <SegmentedField label="Edit" value={target.id} onValue={setId} items={targets.map((t) => ({ value: t.id, label: t.kind === "recording" ? `Audio: ${t.label}` : t.label }))} />
       )}
-      <Editor key={target.id} target={target} />
+      <Editor key={target.id} target={target} edition={editions.find((e) => e.id === target.id)} />
     </Stack>
   );
 }
@@ -37,7 +38,7 @@ const PROVIDER_NAMES: Record<string, string> = { open_library: "Open Library", g
 /** A change to one field from this tab, and what the notification says once it is saved (locking says nothing: the icon shows it). */
 type Change = FieldChange & { note?: string };
 
-function Editor({ target }: { target: Target }) {
+function Editor({ target, edition: file }: { target: Target; edition?: Edition }) {
   const qc = useQueryClient();
   const edition = target.kind === "edition";
   const base = edition ? `/admin/editions/${target.id}/metadata` : `/admin/recordings/${target.id}/metadata`;
@@ -132,6 +133,7 @@ function Editor({ target }: { target: Target }) {
           );
         })}
       </div>
+      <MetadataWriteback target={target} edition={file} report={report.data} />
     </Stack>
   );
 }

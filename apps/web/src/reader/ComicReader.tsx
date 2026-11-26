@@ -72,7 +72,7 @@ export function ComicReader({ snapshot }: { snapshot: ReaderSnapshot }) {
         <div data-testid="comic-unsupported">
           <Alert tone="warning" title="These pages cannot be shown in the browser">
             {m.issues.map((i) => i.detail).join(" ") || "This archive cannot be read as comic pages."}{" "}
-            Your original file is untouched{e.file.format !== "cbz" ? ` (${e.file.format.toUpperCase()} extraction is not available yet)` : ""}.
+            Your original file is untouched.
           </Alert>
           <Row>{back}{download}</Row>
         </div>
