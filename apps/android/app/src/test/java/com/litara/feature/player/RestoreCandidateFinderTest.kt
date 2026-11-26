@@ -95,4 +95,17 @@ class RestoreCandidateFinderTest {
 
         assertEquals(listOf(5), finder.find().map { it.first })
     }
+
+    @Test
+    fun `a Litara recording listened to on another device is offered`() = runTest {
+        val source = object : LitaraSource by LitaraSource.None {
+            override suspend fun started() = listOf(card(7))
+        }
+        coEvery { progress.recent() } returns listOf(row(1, 40.0))
+        coEvery { browse.scroller(any(), any(), any()) } throws RuntimeException("no BookOrbit server")
+        coEvery { progress.resumePoint(1, false) } returns point(40.0, at = 1_000)
+        coEvery { progress.resumePoint(7, false) } returns point(10.0, at = 5_000)
+
+        assertEquals(listOf(7, 1), RestoreCandidateFinder(progress, browse, source).find().map { it.first })
+    }
 }

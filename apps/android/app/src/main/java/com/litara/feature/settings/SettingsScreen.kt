@@ -71,7 +71,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(vm: SettingsViewModel = hiltViewModel(), litara: Boolean = false) {
     val readerInterface by vm.readerInterface.collectAsStateWithLifecycle()
     val readingFullscreen by vm.readingFullscreen.collectAsStateWithLifecycle()
     val themeMode by vm.themeMode.collectAsStateWithLifecycle()
@@ -135,153 +135,160 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             }
             item { HorizontalDivider() }
 
-            item { SectionHeader(stringResource(R.string.settings_reading)) }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_reader_interface),
-                    subtitle = stringResource(R.string.settings_reader_interface_desc),
-                    trailing = {},
-                )
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    ReaderInterface.entries.forEachIndexed { index, mode ->
-                        SegmentedButton(
-                            selected = readerInterface == mode,
-                            onClick = { vm.setReaderInterface(mode) },
-                            shape = SegmentedButtonDefaults.itemShape(index, ReaderInterface.entries.size),
-                            label = { Text(stringResource(if (mode == ReaderInterface.APP) R.string.reader_interface_app else R.string.reader_interface_web)) },
-                        )
+            if (!litara) {
+                item { SectionHeader(stringResource(R.string.settings_reading)) }
+                item {
+                    SettingsRow(
+                        title = stringResource(R.string.settings_reader_interface),
+                        subtitle = stringResource(R.string.settings_reader_interface_desc),
+                        trailing = {},
+                    )
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        ReaderInterface.entries.forEachIndexed { index, mode ->
+                            SegmentedButton(
+                                selected = readerInterface == mode,
+                                onClick = { vm.setReaderInterface(mode) },
+                                shape = SegmentedButtonDefaults.itemShape(index, ReaderInterface.entries.size),
+                                label = { Text(stringResource(if (mode == ReaderInterface.APP) R.string.reader_interface_app else R.string.reader_interface_web)) },
+                            )
+                        }
                     }
                 }
-            }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_reading_fullscreen),
-                    subtitle = stringResource(R.string.settings_reading_fullscreen_desc),
-                    trailing = { Switch(checked = readingFullscreen, onCheckedChange = vm::setReadingFullscreen) },
-                )
-            }
-            item { HorizontalDivider() }
-
-            item { SectionHeader(stringResource(R.string.settings_nav_bar)) }
-            item {
-                Text(
-                    stringResource(R.string.settings_nav_bar_desc, NavConfig.MAX_ITEMS),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-            itemsIndexed(navItems) { index, navItem ->
-                val label = stringResource(navItem.labelRes())
-                ListItem(
-                    headlineContent = { Text(label) },
-                    leadingContent = { Icon(navItem.icon(), contentDescription = null) },
-                    trailingContent = {
-                        Row {
-                            IconButton(onClick = { vm.moveNavItem(index, -1) }, enabled = index > 0) {
-                                Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.settings_nav_move_up, label))
-                            }
-                            IconButton(onClick = { vm.moveNavItem(index, 1) }, enabled = index < navItems.lastIndex) {
-                                Icon(Icons.Filled.ArrowDownward, contentDescription = stringResource(R.string.settings_nav_move_down, label))
-                            }
-                            IconButton(onClick = { vm.removeNavItem(navItem) }, enabled = navItem != NavItem.YOU) {
-                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.settings_nav_remove, label))
-                            }
-                        }
-                    },
-                )
-            }
-            val addable = NavConfig.available(navItems, vm.canUseBookDrop)
-            if (addable.isNotEmpty()) {
                 item {
-                    Text(
-                        if (navItems.size >= NavConfig.MAX_ITEMS) stringResource(R.string.settings_nav_full) else stringResource(R.string.settings_nav_available),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                    SettingsRow(
+                        title = stringResource(R.string.settings_reading_fullscreen),
+                        subtitle = stringResource(R.string.settings_reading_fullscreen_desc),
+                        trailing = { Switch(checked = readingFullscreen, onCheckedChange = vm::setReadingFullscreen) },
                     )
                 }
-                items(addable) { navItem ->
+                item { HorizontalDivider() }
+
+                item { SectionHeader(stringResource(R.string.settings_nav_bar)) }
+                item {
+                    Text(
+                        stringResource(R.string.settings_nav_bar_desc, NavConfig.MAX_ITEMS),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
+                itemsIndexed(navItems) { index, navItem ->
                     val label = stringResource(navItem.labelRes())
                     ListItem(
                         headlineContent = { Text(label) },
                         leadingContent = { Icon(navItem.icon(), contentDescription = null) },
                         trailingContent = {
-                            IconButton(onClick = { vm.addNavItem(navItem) }, enabled = navItems.size < NavConfig.MAX_ITEMS) {
-                                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.settings_nav_add, label))
+                            Row {
+                                IconButton(onClick = { vm.moveNavItem(index, -1) }, enabled = index > 0) {
+                                    Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.settings_nav_move_up, label))
+                                }
+                                IconButton(onClick = { vm.moveNavItem(index, 1) }, enabled = index < navItems.lastIndex) {
+                                    Icon(Icons.Filled.ArrowDownward, contentDescription = stringResource(R.string.settings_nav_move_down, label))
+                                }
+                                IconButton(onClick = { vm.removeNavItem(navItem) }, enabled = navItem != NavItem.YOU) {
+                                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.settings_nav_remove, label))
+                                }
                             }
                         },
                     )
                 }
-            }
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    OutlinedButton(onClick = vm::resetNavItems, enabled = navItems != NavConfig.DEFAULT) {
-                        Text(stringResource(R.string.settings_nav_reset))
+                val addable = NavConfig.available(navItems, vm.canUseBookDrop)
+                if (addable.isNotEmpty()) {
+                    item {
+                        Text(
+                            if (navItems.size >= NavConfig.MAX_ITEMS) stringResource(R.string.settings_nav_full) else stringResource(R.string.settings_nav_available),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                        )
+                    }
+                    items(addable) { navItem ->
+                        val label = stringResource(navItem.labelRes())
+                        ListItem(
+                            headlineContent = { Text(label) },
+                            leadingContent = { Icon(navItem.icon(), contentDescription = null) },
+                            trailingContent = {
+                                IconButton(onClick = { vm.addNavItem(navItem) }, enabled = navItems.size < NavConfig.MAX_ITEMS) {
+                                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.settings_nav_add, label))
+                                }
+                            },
+                        )
                     }
                 }
-            }
-            item { HorizontalDivider() }
-
-            item { SectionHeader(stringResource(R.string.settings_security)) }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_trust_user_cas),
-                    subtitle = stringResource(R.string.settings_trust_user_cas_desc, vm.certificateHost),
-                    trailing = { Switch(checked = trustUserCas, enabled = vm.certificateHost.isNotBlank(), onCheckedChange = vm::setTrustUserCas) },
-                )
-            }
-            item { HorizontalDivider() }
-
-            item { SectionHeader(stringResource(R.string.downloads)) }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_wifi_only),
-                    subtitle = stringResource(R.string.settings_wifi_only_desc),
-                    trailing = { Switch(checked = wifiOnly, onCheckedChange = vm::setWifiOnlyDownloads) },
-                )
-            }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_download_location),
-                    subtitle = downloadLocationLabel.asString(),
-                    trailing = { TextButton(onClick = { folderLauncher.launch(null) }) { Text(stringResource(R.string.change)) } },
-                )
-            }
-            if (downloadTreeUri != null) {
                 item {
-                    Row(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        TextButton(onClick = vm::resetDownloadLocation) { Text(stringResource(R.string.use_app_storage_instead)) }
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        OutlinedButton(onClick = vm::resetNavItems, enabled = navItems != NavConfig.DEFAULT) {
+                            Text(stringResource(R.string.settings_nav_reset))
+                        }
                     }
                 }
+                item { HorizontalDivider() }
             }
-            if (downloadTreeUri != null && !downloadLocationAccessible) {
+
+            // Certificate trust is per HTTPS host, so a plain-HTTP server has nothing to offer.
+            if (!litara || vm.certificateHost.isNotBlank()) {
+                item { SectionHeader(stringResource(R.string.settings_security)) }
                 item {
-                    Text(
-                        stringResource(R.string.settings_folder_inaccessible),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    SettingsRow(
+                        title = stringResource(R.string.settings_trust_user_cas),
+                        subtitle = stringResource(R.string.settings_trust_user_cas_desc, vm.certificateHost),
+                        trailing = { Switch(checked = trustUserCas, enabled = vm.certificateHost.isNotBlank(), onCheckedChange = vm::setTrustUserCas) },
                     )
                 }
+                item { HorizontalDivider() }
             }
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text(
-                        pluralStringResource(R.plurals.settings_downloads_summary, downloadsSummary.count, downloadsSummary.count, formatBytes(downloadsSummary.totalBytes)),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+            if (!litara) {
+                item { SectionHeader(stringResource(R.string.downloads)) }
+                item {
+                    SettingsRow(
+                        title = stringResource(R.string.settings_wifi_only),
+                        subtitle = stringResource(R.string.settings_wifi_only_desc),
+                        trailing = { Switch(checked = wifiOnly, onCheckedChange = vm::setWifiOnlyDownloads) },
                     )
-                    OutlinedButton(
-                        onClick = { confirmClearDownloads = true },
-                        enabled = downloadsSummary.count > 0,
-                        modifier = Modifier.padding(top = 8.dp),
-                    ) {
-                        Text(stringResource(R.string.clear_all_downloads))
+                }
+                item {
+                    SettingsRow(
+                        title = stringResource(R.string.settings_download_location),
+                        subtitle = downloadLocationLabel.asString(),
+                        trailing = { TextButton(onClick = { folderLauncher.launch(null) }) { Text(stringResource(R.string.change)) } },
+                    )
+                }
+                if (downloadTreeUri != null) {
+                    item {
+                        Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            TextButton(onClick = vm::resetDownloadLocation) { Text(stringResource(R.string.use_app_storage_instead)) }
+                        }
                     }
                 }
+                if (downloadTreeUri != null && !downloadLocationAccessible) {
+                    item {
+                        Text(
+                            stringResource(R.string.settings_folder_inaccessible),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Text(
+                            pluralStringResource(R.plurals.settings_downloads_summary, downloadsSummary.count, downloadsSummary.count, formatBytes(downloadsSummary.totalBytes)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedButton(
+                            onClick = { confirmClearDownloads = true },
+                            enabled = downloadsSummary.count > 0,
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) {
+                            Text(stringResource(R.string.clear_all_downloads))
+                        }
+                    }
+                }
+                item { HorizontalDivider() }
             }
-            item { HorizontalDivider() }
 
             item { SectionHeader(stringResource(R.string.storage)) }
             item {
@@ -366,7 +373,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     trailing = {},
                 )
             }
-            if (appInfo != null) {
+            if (!litara && appInfo != null) {
                 item {
                     val updateAvailable = appInfo?.updateAvailable == true
                     SettingsRow(

@@ -1,5 +1,6 @@
 package com.litara.feature.sessions
 
+import com.litara.feature.player.LitaraSource
 import com.litara.core.auth.SessionManager
 import com.litara.core.db.PendingReadingSessionDao
 import com.litara.core.db.PendingReadingSessionEntity
@@ -108,5 +109,18 @@ class ReadingSessionTrackerTest {
         signedIn = someoneElse
         assertFalse(tracker.flushPending())
         coVerify(exactly = 1) { api.saveReadingSession(9, any()) }
+    }
+
+    @Test
+    fun `queued Litara handles are kept but never sent to BookOrbit`() = runTest {
+        dao.upsert(
+            PendingReadingSessionEntity(
+                sessionId = "litara", fileId = LitaraSource.HANDLE_BASE + 1, sessionType = "LISTEN",
+                startedAt = 0, endedAt = 60_000, durationSeconds = 60, progressDelta = null, endProgress = null, userId = null,
+            ),
+        )
+        assertFalse(tracker.flushPending())
+        coVerify(exactly = 0) { api.saveReadingSession(any(), any()) }
+        assertEquals(1, dao.rows.size)
     }
 }

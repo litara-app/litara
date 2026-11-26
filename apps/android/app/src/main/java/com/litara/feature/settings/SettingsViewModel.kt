@@ -50,6 +50,7 @@ class SettingsViewModel @Inject constructor(
     private val appInfoRepository: AppInfoRepository,
     private val session: SessionManager,
     private val userCaSettings: UserCaSettings,
+    private val litara: com.litara.feature.litara.LitaraRepository,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     val appInfo: StateFlow<AppInfo?> = appInfoRepository.appInfo
@@ -95,13 +96,17 @@ class SettingsViewModel @Inject constructor(
     val wifiOnlyDownloads: StateFlow<Boolean> = appSettings.wifiOnlyDownloads
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    val certificateHost: String get() = UserCaSettings.httpsHost(session.serverUrl).orEmpty()
+    /** The server certificate trust applies to: the signed-in Litara server, else the BookOrbit one. */
+    private val certificateUrl: String?
+        get() = litara.currentIdentity?.serverUrl?.takeIf { litara.signedIn } ?: session.serverUrl
 
-    val trustUserCas: StateFlow<Boolean> = userCaSettings.hosts.map { userCaSettings.isEnabledForUrl(session.serverUrl) }
+    val certificateHost: String get() = UserCaSettings.httpsHost(certificateUrl).orEmpty()
+
+    val trustUserCas: StateFlow<Boolean> = userCaSettings.hosts.map { userCaSettings.isEnabledForUrl(certificateUrl) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun setTrustUserCas(enabled: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) { userCaSettings.setEnabledForUrl(session.serverUrl, enabled) }
+        viewModelScope.launch(Dispatchers.IO) { userCaSettings.setEnabledForUrl(certificateUrl, enabled) }
     }
 
     val downloadsSummary: StateFlow<DownloadsSummary> = downloadsRepo.downloads

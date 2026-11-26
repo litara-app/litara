@@ -69,4 +69,37 @@ class AutoCatalogTest {
         coEvery { browse.scroller(any(), any(), any()) } returns listOf(card(1), card(2))
         assertEquals(listOf("book/2"), catalog.continueListening(labels).map { it.mediaId })
     }
+
+    private fun litara(started: List<BookCard>, all: List<BookCard>) = object : LitaraSource by LitaraSource.None {
+        override fun scopeKey() = "server|user"
+        override suspend fun cards() = all
+        override suspend fun started() = started
+    }
+
+    @Test fun `continue lists only started Litara recordings`() = runTest {
+        coEvery { browse.scroller(any(), any(), any()) } throws java.io.IOException("No server URL configured")
+        val source = litara(started = listOf(card(2)), all = listOf(card(1), card(2), card(3)))
+        val shelf = AutoCatalog(api, browse, books, downloads, progress, source).continueListening(labels)
+        assertEquals(listOf("book/2"), shelf.map { it.mediaId })
+    }
+
+    @Test fun `continue keeps a recording known only from this device's history`() = runTest {
+        coEvery { browse.scroller(any(), any(), any()) } returns emptyList()
+        coEvery { progress.recent() } returns listOf(point(3, 20.0))
+        val source = litara(started = emptyList(), all = listOf(card(1), card(3)))
+        val shelf = AutoCatalog(api, browse, books, downloads, progress, source).continueListening(labels)
+        assertEquals(listOf("book/3"), shelf.map { it.mediaId })
+    }
+
+    @Test fun `a Litara search with no match is empty instead of an error`() = runTest {
+        coEvery { api.queryBooks(any()) } throws java.io.IOException("No server URL configured")
+        val auto = AutoCatalog(api, browse, books, downloads, progress, litara(emptyList(), listOf(card(1))))
+        assertEquals(emptyList<String>(), auto.page(0, labels, "nothing like it").entries.map { it.mediaId })
+        assertEquals(emptyList<String>(), auto.page(1, labels).entries.map { it.mediaId })
+    }
+
+    @Test fun `without a Litara account a server failure still surfaces`() = runTest {
+        coEvery { api.queryBooks(any()) } throws java.io.IOException("offline")
+        assertTrue(runCatching { catalog.page(0, labels, "Dune") }.isFailure)
+    }
 }

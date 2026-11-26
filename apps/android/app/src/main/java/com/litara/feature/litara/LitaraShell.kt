@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -60,6 +61,7 @@ import com.litara.R
 import com.litara.feature.player.MiniPlayer
 import com.litara.feature.player.PlayerScreen
 import com.litara.feature.player.PlayerViewModel
+import com.litara.feature.settings.SettingsScreen
 import com.litara.ui.LocalImageUrls
 
 /** Test tags for the Litara shell. */
@@ -72,6 +74,7 @@ object ShellTags {
     const val DOWNLOAD = "shell-download"
     const val DELETE_DOWNLOAD = "shell-delete-download"
     const val SIGN_OUT = "shell-sign-out"
+    const val SETTINGS = "shell-settings"
     const val DETAIL_TITLE = "shell-detail-title"
     const val EMPTY_DOWNLOADS = "shell-empty-downloads"
     const val BOOKS_NOTE = "shell-books-note"
@@ -88,13 +91,14 @@ object ShellTags {
 
 private const val ROUTE_MAIN = "main"
 private const val ROUTE_PLAYER = "player"
+private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_READER = "reader/{editionId}"
 private const val ROUTE_PDF = "pdf/{editionId}"
 private const val ROUTE_COMIC = "comic/{editionId}"
 
 /**
- * The phone app for a signed-in Litara account: Library, Downloads and Account over recording detail.
- * Reading (ebooks, PDF, comics) is not part of this release's Litara server API and is not offered here.
+ * The phone app for a signed-in Litara account: Library, Books, Downloads and Account over recording detail,
+ * with full-screen ebook, PDF and comic readers, the audiobook player and settings.
  */
 @Composable
 fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
@@ -106,7 +110,7 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
             ShellMain(vm, onListen = { handle ->
                 player.loadAndPlay(handle)
                 nav.navigate(ROUTE_PLAYER)
-            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onReadBook = { id, format ->
+            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onOpenSettings = { nav.navigate(ROUTE_SETTINGS) }, onReadBook = { id, format ->
                 nav.navigate(when {
                     format == "pdf" -> "pdf/$id"
                     format in COMIC_FORMATS -> "comic/$id"
@@ -123,12 +127,18 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
         composable(ROUTE_READER) {
             com.litara.feature.reader.ReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraReaderViewModel>())
         }
+        composable(ROUTE_SETTINGS) {
+            Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+                TextButton(dropUnlessResumed { nav.popBackStack() }) { Text(stringResource(R.string.back)) }
+                SettingsScreen(litara = true)
+            }
+        }
         composable(ROUTE_PLAYER) { PlayerScreen(onBack = dropUnlessResumed { nav.popBackStack() }) }
     }
 }
 
 @Composable
-private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onReadBook: (String, String) -> Unit) {
+private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onOpenSettings: () -> Unit, onReadBook: (String, String) -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     BackHandler(enabled = ui.detail != null) { vm.closeDetail() }
@@ -158,7 +168,7 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
                 tab == 0 -> ShellLibrary(vm, ui)
                 tab == 1 -> ShellBooks(onReadBook)
                 tab == 2 -> ShellDownloads(vm, ui)
-                else -> ShellAccount(vm, ui)
+                else -> ShellAccount(vm, ui, onOpenSettings)
             }
         }
     }
@@ -355,12 +365,13 @@ private fun ShellDownloads(vm: LitaraShellViewModel, ui: ShellUi) {
 }
 
 @Composable
-private fun ShellAccount(vm: LitaraShellViewModel, ui: ShellUi) {
+private fun ShellAccount(vm: LitaraShellViewModel, ui: ShellUi, onOpenSettings: () -> Unit) {
     Text(stringResource(R.string.litara_tab_account), style = MaterialTheme.typography.titleLarge)
     Text(stringResource(R.string.litara_signed_in_as, ui.account))
     Text(stringResource(R.string.litara_account_server, ui.server), style = MaterialTheme.typography.bodySmall)
     Text(stringResource(R.string.litara_account_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text(stringResource(R.string.litara_audio_only), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    OutlinedButton(onOpenSettings, Modifier.testTag(ShellTags.SETTINGS)) { Text(stringResource(R.string.litara_settings)) }
     OutlinedButton({ vm.signOut() }, Modifier.testTag(ShellTags.SIGN_OUT)) { Text(stringResource(R.string.litara_sign_out)) }
 }
 

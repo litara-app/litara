@@ -37,9 +37,11 @@ class AutoCatalog @Inject constructor(
         catch (e: CancellationException) { throw e }
         catch (_: Exception) { emptyList() }
         val finished = history.filter { it.percentage >= ResumeCandidates.FINISHED_PERCENT }.map { it.bookId }.toSet()
-        val online = (remote.filter { it.id !in finished } + runCatching { litara.cards() }.getOrDefault(emptyList()).filter { it.id !in finished })
-            .mapNotNull { entry(it, labels) }
-        val byId = (online + local).associateBy { it.mediaId }
+        val online = (remote + runCatching { litara.started() }.getOrDefault(emptyList()))
+            .filter { it.id !in finished }.mapNotNull { entry(it, labels) }
+        // The whole Litara list only names books in this device's history (a position the server has not received yet).
+        val known = runCatching { litara.cards() }.getOrDefault(emptyList()).mapNotNull { entry(it, labels) }
+        val byId = (known + online + local).associateBy { it.mediaId }
         val recent = history.filter { it.percentage < ResumeCandidates.FINISHED_PERCENT }
             .sortedByDescending { it.updatedAt }.mapNotNull { byId[AutoBrowseTree.bookMediaId(it.bookId)] }
         return (recent + online + local).distinctBy { it.mediaId }.take(80)
@@ -62,11 +64,14 @@ class AutoCatalog @Inject constructor(
                     LibrarySort(), page, PAGE_SIZE, query))
             }
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-            if (mine.isEmpty()) throw e else null
+            if (litaraSignedOut()) throw e else null
         } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { if (mine.isEmpty()) throw e else null }
+        catch (e: Exception) { if (litaraSignedOut()) throw e else null }
         return Page(mine + (result?.items?.mapNotNull { entry(it, labels) } ?: emptyList()), (result?.total ?: 0) + mine.size)
     }
+
+    /** With a Litara account signed in, a missing BookOrbit server is not an error: no match is just no match. */
+    private fun litaraSignedOut() = litara.scopeKey().isEmpty()
 
     suspend fun item(bookId: Int, labels: AutoBrowseTree.Labels): AutoBrowseTree.BrowseEntry? {
         if (litara.owns(bookId)) {
