@@ -126,6 +126,47 @@ export function MissingBook({ number }: { number: number }) {
   return <div className="lt-missing" data-testid="missing-book"><span>Book {number} is not in your libraries</span></div>;
 }
 
+/** A link to a provider's record, which credits what came from it (ADR-0106). Only https addresses are linked. */
+export function SourceCredit({ label, provider, url }: { label: string; provider: string; url?: string }) {
+  return (
+    <p className="lt-credit">
+      {label} {url?.startsWith("https://") ? <a href={url} target="_blank" rel="noopener noreferrer">{provider}</a> : provider}
+    </p>
+  );
+}
+
+/** A book of a matched series that the libraries lack: its cover greyed, always with the words saying so. */
+export function MissingMemberTile({ title, author, year, cover, url, provider }: {
+  title: string; author?: string; year: string; cover: string | null; url: string; provider: string;
+}) {
+  return (
+    <div className="lt-member" data-testid="missing-member">
+      <div className="lt-member-cover">
+        {cover ? <img src={cover} alt="" loading="lazy" /> : <span className="lt-member-blank" aria-hidden="true">{title}{author && <small>{author}</small>}</span>}
+        <span className="lt-member-tag">Not in your libraries</span>
+      </div>
+      <span className="lt-coverlink-name">{title}</span>
+      {year && <span className="lt-coverlink-detail">First published {year}</span>}
+      <SourceCredit label="About this book on" provider={provider} url={url} />
+    </div>
+  );
+}
+
+/** What is saved beside what a provider offers. */
+export function ReviewValue({ before, after }: { before: string; after: string }) {
+  return (
+    <dl className="lt-review">
+      <div><dt>Now</dt><dd>{before}</dd></div>
+      <div><dt>Online</dt><dd>{after}</dd></div>
+    </dl>
+  );
+}
+
+/** A small picture offered for review. */
+export function Thumb({ src, alt }: { src: string; alt: string }) {
+  return <img className="lt-thumb" src={src} alt={alt} />;
+}
+
 /** A numbered place in the reading order: the label above, then the book or its gap. */
 export function OrderItem({ label, children }: { label: string; children: ReactNode }) {
   return <div className="lt-order-item"><span className="lt-order-no">{label}</span>{children}</div>;

@@ -30,9 +30,11 @@ const authorDetails = () => ({
   fields: [field("last_name", "Author", "guessed"), field("introduction", "Writes sagas."), field("biography", "Born by the sea.", "user", true)],
 });
 let details: unknown = authorDetails();
+let missingBooks: unknown = { items: [] };
 const responses = async (p: string): Promise<unknown> => {
   if (p.startsWith("/continue-reading")) return next;
   if (p.startsWith("/authors/details")) return details;
+  if (p.startsWith("/series/missing")) return missingBooks;
   if (p.startsWith("/series/details")) {
     return { name: "The Saga", revision: "2", fields: [field("description", "Five parishes."), field("book_count", 6), field("status", "ongoing")] };
   }
@@ -56,7 +58,7 @@ vi.mock("../useTitleActions", () => ({ useTitleActions: () => ({ read, listen, d
 beforeEach(() => {
   api.mockClear(); api.mockImplementation(search); get.mockClear(); read.mockClear(); listen.mockClear(); sessionStorage.clear();
   next = { titleId: "2", title: "Second", medium: "ebook", state: "reading" };
-  admin = false; details = authorDetails();
+  admin = false; details = authorDetails(); missingBooks = { items: [] };
 });
 afterEach(cleanup);
 
@@ -235,4 +237,61 @@ test("a locked photo offers no way to replace it", async () => {
   expect((screen.getByRole("button", { name: "Remove photo" }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByRole("button", { name: "Use this address" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByRole("img", { name: "Photo of Ada Author" }).querySelector("img")!.getAttribute("src")).toContain("v=v2");
+});
+
+test("a matched series shows the books the libraries lack, labelled and credited, instead of bare numbers", async () => {
+  missingBooks = {
+    match: { provider: "hardcover", name: "The Saga", url: "https://hardcover.app/series/saga" },
+    items: [{ number: 5, title: "Fifth", authors: ["Ada Author"], released: "2021-03-04", url: "https://hardcover.app/books/fifth", coverVersion: "c1" },
+      { number: 6, title: "Sixth", authors: [], released: "2022", url: "", coverVersion: null }],
+  };
+  at("/series/The%20Saga", "/series/:name", <SeriesPage />);
+  const absent = await screen.findAllByTestId("missing-member");
+  expect(screen.queryByTestId("missing-book")).toBeNull(); // the gap at 3 is not on the provider's missing list
+  expect(absent.map((a) => a.textContent)).toEqual([
+    "Not in your librariesFifthFirst published 2021About this book on Hardcover",
+    "SixthNot in your librariesSixthFirst published 2022About this book on Hardcover",
+  ]);
+  expect(absent[0]!.querySelector("img")!.getAttribute("src")).toBe("/api/v1/series/missing/cover?name=The+Saga&number=5&v=c1");
+  expect(within(absent[0]!).getByRole("link").getAttribute("href")).toBe("https://hardcover.app/books/fifth");
+  expect(within(absent[1]!).queryByRole("link")).toBeNull(); // no address, so nothing to link
+});
+
+test("provider values are credited with a link", async () => {
+  const applied = authorDetails();
+  applied.photo = { source: "provider", version: "v3", locked: false, provider: "hardcover", providerUrl: "https://hardcover.app/authors/ada" } as never;
+  applied.fields[2] = { ...field("biography", "Born by the sea."), provider: "open_library", providerUrl: "https://openlibrary.org/authors/OL1A" } as never;
+  details = applied;
+  at("/authors/Ada%20Author", "/authors/:name", <AuthorPage />);
+  expect((await screen.findByRole("link", { name: "Hardcover" })).getAttribute("href")).toBe("https://hardcover.app/authors/ada");
+  expect(screen.getByRole("link", { name: "Open Library" }).getAttribute("href")).toBe("https://openlibrary.org/authors/OL1A");
+});
+
+const results = {
+  enabled: true,
+  results: [{ provider: "hardcover", status: "ok", candidates: [{ id: "5", name: "Ada Author", url: "https://hardcover.app/authors/ada", detail: "2 works listed", biography: "From the provider.", hasPhoto: true }] }],
+};
+
+test("a lookup is reviewed value by value; Use all leaves saved and locked fields", async () => {
+  admin = true;
+  api.mockImplementation(async (_m: string, p: string) => (p.startsWith("/authors/lookup/apply") ? authorDetails() : p.startsWith("/authors/lookup") ? results : { items: SAGA, total: 3, page: 0, size: 200 }) as never);
+  at("/authors/Ada%20Author?tab=edit", "/authors/:name", <AuthorPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Find author online" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Review" }));
+  expect(api).toHaveBeenCalledWith("POST", "/authors/lookup?name=Ada+Author", {});
+  expect((screen.getByRole("button", { name: "Apply 0 selected" }) as HTMLButtonElement).disabled).toBe(true); // nothing is ticked in advance
+  expect(screen.getByRole("img", { name: "Photo offered by Hardcover" }).getAttribute("src")).toBe("/api/v1/authors/lookup/photo?name=Ada+Author&provider=hardcover&id=5");
+
+  fireEvent.click(screen.getByRole("button", { name: "Use all" })); // the biography is locked, so only the photo
+  fireEvent.click(screen.getByRole("button", { name: "Apply 1 selected" }));
+  await vi.waitFor(() => expect(api).toHaveBeenCalledWith("POST", "/authors/lookup/apply?name=Ada+Author",
+    { operationId: expect.any(String), baseRevision: "4", provider: "hardcover", candidateId: "5", fields: [], photo: true }));
+});
+
+test("a lookup with no provider turned on says what to do", async () => {
+  admin = true;
+  api.mockImplementation(async (_m: string, p: string) => (p.startsWith("/series/lookup") ? { enabled: false, results: [] } : { items: SAGA, total: 3, page: 0, size: 200 }) as never);
+  at("/series/The%20Saga?tab=edit", "/series/:name", <SeriesPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Find series online" }));
+  expect((await screen.findByTestId("lookup-results")).textContent).toContain("Turn one on in the library settings");
 });

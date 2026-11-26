@@ -149,6 +149,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0103](0103-series-data-and-missing-books.md) | Series data and books missing from the library | Accepted |
 | [0104](0104-author-and-series-page-defaults.md) | Defaults for the author and series pages | Accepted |
 | [0105](0105-author-photos-and-concurrent-edits.md) | Store author photos like covers and refuse out-of-date edits | Accepted |
+| [0106](0106-provider-text-and-images.md) | Keep and credit author and series text and images from providers | Accepted |
 
 ## Workflow
 

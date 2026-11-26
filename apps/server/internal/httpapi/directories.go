@@ -49,6 +49,7 @@ func (a *API) registerDirectories(api huma.API) {
 		})
 
 	a.registerDirectoryDetails(api)
+	a.registerDirectoryOnline(api)
 
 	huma.Register(api, readOp(op("getContinueReading", http.MethodGet, "/continue-reading",
 		"The title to continue for an author or a series: the unfinished one used most recently, else the first unread", "catalog")),

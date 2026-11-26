@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-11-26
 Decision owner: Repository owner
 Amends: [ADR-0100](0100-author-and-series-directories.md)
-Amended by: [ADR-0104](0104-author-and-series-page-defaults.md) (2026-11-26): answers several open questions below.
+Amended by: [ADR-0104](0104-author-and-series-page-defaults.md) (2026-11-26): answers several open questions below. Also amended by [ADR-0106](0106-provider-text-and-images.md) (2026-11-26): provider text and images are stored and credited.
 
 ## Context
 

@@ -1013,8 +1013,12 @@ CREATE TABLE directory_values (
     field      text NOT NULL,
     value      jsonb,
     locked     boolean NOT NULL DEFAULT false,
+    -- Set for a value applied from a provider, which is credited with a link (ADR-0106).
+    provider     text,
+    provider_url text,
     updated_by uuid REFERENCES users (id) ON DELETE SET NULL,
     updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK ((provider IS NULL) = (provider_url IS NULL)),
     PRIMARY KEY (kind, name_key, field),
     FOREIGN KEY (kind, name_key) REFERENCES directory_entries (kind, name_key) ON DELETE CASCADE
 );
@@ -1024,14 +1028,46 @@ CREATE TABLE directory_values (
 CREATE TABLE author_photos (
     kind       text NOT NULL DEFAULT 'author' CHECK (kind = 'author'),
     name_key   text PRIMARY KEY,
-    source     text NOT NULL CHECK (source IN ('upload', 'url', 'none')),
+    source     text NOT NULL CHECK (source IN ('upload', 'url', 'provider', 'none')),
     image      bytea,
     locked     boolean NOT NULL DEFAULT false,
+    provider     text,
+    provider_url text,
     version    uuid NOT NULL DEFAULT gen_random_uuid(),
     updated_by uuid REFERENCES users (id) ON DELETE SET NULL,
     updated_at timestamptz NOT NULL DEFAULT now(),
     FOREIGN KEY (kind, name_key) REFERENCES directory_entries (kind, name_key) ON DELETE CASCADE,
-    CHECK ((source = 'none') = (image IS NULL))
+    CHECK ((source = 'none') = (image IS NULL)),
+    CHECK ((source = 'provider') = (provider IS NOT NULL)),
+    CHECK ((provider IS NULL) = (provider_url IS NULL))
+);
+
+-- The provider record an administrator matched a series to (ADR-0103).
+CREATE TABLE series_matches (
+    kind          text NOT NULL DEFAULT 'series' CHECK (kind = 'series'),
+    name_key      text PRIMARY KEY,
+    provider      text NOT NULL,
+    provider_ref  text NOT NULL,
+    provider_name text NOT NULL,
+    url           text NOT NULL,
+    matched_by    uuid REFERENCES users (id) ON DELETE SET NULL,
+    matched_at    timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY (kind, name_key) REFERENCES directory_entries (kind, name_key) ON DELETE CASCADE
+);
+
+-- The provider's numbered books of a matched series, for showing the ones a viewer lacks. Display information only:
+-- they are not catalog titles. Covers are re-encoded copies (ADR-0106).
+CREATE TABLE series_members (
+    name_key      text NOT NULL REFERENCES series_matches (name_key) ON DELETE CASCADE,
+    position      integer NOT NULL CHECK (position >= 1),
+    title         text NOT NULL,
+    authors       text[] NOT NULL DEFAULT '{}',
+    released      text NOT NULL DEFAULT '',
+    url           text NOT NULL DEFAULT '',
+    cover         bytea,
+    cover_version uuid,
+    PRIMARY KEY (name_key, position),
+    CHECK ((cover IS NULL) = (cover_version IS NULL))
 );
 
 -- The guessed last name of an author (ADR-0101, ADR-0104): the last word, keeping common surname prefixes with it
@@ -1183,6 +1219,8 @@ DROP TABLE titles;
 DROP TABLE refresh_exchanges;
 DROP TABLE sessions;
 DROP TABLE user_library_grants;
+DROP TABLE IF EXISTS series_members;
+DROP TABLE IF EXISTS series_matches;
 DROP TABLE IF EXISTS author_photos;
 DROP TABLE IF EXISTS directory_values;
 DROP TABLE IF EXISTS directory_entries;

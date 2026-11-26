@@ -33,6 +33,14 @@ Hardcover ([ADR-0087](../../ADR/0087-hardcover-provider-search-cache-and-reviewe
 
 Google Books and Audnexus each start at one request per second. These budgets are shared by library jobs in one server process. Litara can retry a throttled request once within its 15-second lookup budget and honors longer Retry-After cooldowns across jobs. Open Library responses can be cached in memory for up to 15 minutes when response headers permit it. Audnexus remains an opt-in ASIN lookup.
 
+### Author and series lookups
+
+Administrators can look up authors and series from their pages ([ADR-0102](../../ADR/0102-editable-lockable-author-data.md), [ADR-0103](../../ADR/0103-series-data-and-missing-books.md)). Hardcover is asked first and Open Library only when Hardcover gives nothing, and only when a library holding that author or series enables them. A lookup sends the author's name, or the titles, authors and ISBNs of a few books in the series. Nothing is saved until an administrator applies it.
+
+Litara keeps its own copies of the author photos you apply and of covers for the books a matched series is missing. It shows them only to signed-in users who can see that author or series, and links to the source on the author and series pages ([ADR-0106](../../ADR/0106-provider-text-and-images.md)). The author directory shows applied photos without a link of its own.
+
+**If your server is reachable by the public, check the providers' terms first.** Hardcover's images are uploaded by its users, and its documentation says that anyone showing them publicly needs a DMCA takedown policy. No license was found for Open Library author photos or biographies. Neither provider has confirmed that this use is allowed.
+
 ## Damaged EPUB or KEPUB
 
 An edition marked **Damaged file** still has its catalog entry, history, and authorized original download. Replace the damaged file at its existing library path and run a scan. Litara checks the replacement under its new content version and clears the damage issue when its basic EPUB structure passes.

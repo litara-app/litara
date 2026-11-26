@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Badge, Busy, Button, ErrorBox, IconAction, icons, ImageDrop, InlineValue, SelectField, Stack, Text, TextAreaField, TextField } from "../../ui";
-import { useDirectoryDetails, useDirectoryEdit, type DirectoryEdit, type DirectoryField, type DirectoryKind } from "./directoryDetails";
+import { Badge, Busy, Button, ErrorBox, IconAction, icons, ImageDrop, InlineValue, SelectField, SourceCredit, Stack, Text, TextAreaField, TextField } from "../../ui";
+import { providerName, useDirectoryDetails, useDirectoryEdit, type DirectoryEdit, type DirectoryField, type DirectoryKind } from "./directoryDetails";
+import { DirectoryLookup } from "./DirectoryLookup";
 
 interface Def { field: string; label: string; input?: "multiline" | "number" | "status"; hint?: string; max?: number }
 
@@ -43,6 +44,18 @@ export function DirectoryEditor({ kind, name }: { kind: DirectoryKind; name: str
         Click a value to edit it. These details are shared with everyone who can see this {kind}. A locked field cannot be changed until it is unlocked.
         {kind === "author" && " Change the photo under the portrait."}
       </Text>
+      <DirectoryLookup kind={kind} name={name} details={details.data} />
+      {details.data.match && (
+        <div data-testid="series-match">
+          <Stack gap="xs">
+            <SourceCredit label={`Matched to “${details.data.match.name}” on`} provider={providerName(details.data.match.provider)} url={details.data.match.url} />
+            <div>
+              <Button size="sm" icon={icons.trash} disabled={busy}
+                onClick={() => save.mutate({ kind: "changes", changes: [{ field: "match", action: "reset" }], note: "Series match removed" })}>Remove match</Button>
+            </div>
+          </Stack>
+        </div>
+      )}
       {conflict ? <Conflict /> : <ErrorBox error={save.error} />}
       <div className="lt-mf" data-testid="directory-fields">
         {GROUPS[kind].map((g) => (
@@ -107,6 +120,7 @@ function Row({ def, f, busy, onSave }: { def: Def; f: DirectoryField; busy: bool
           </InlineValue>
         )}
         {def.field === "last_name" && !editing && <Text size="xs" tone="dim">{def.hint}</Text>}
+        {f.provider && !editing && <SourceCredit label="From" provider={providerName(f.provider)} url={f.providerUrl} />}
       </div>
       <div className="lt-mf-tools">
         {f.source !== "none" && <Badge tone={f.source === "user" ? "info" : "neutral"}>{f.source === "user" ? "Edited" : "Guessed"}</Badge>}
@@ -121,7 +135,9 @@ function Row({ def, f, busy, onSave }: { def: Def; f: DirectoryField; busy: bool
   );
 }
 
-const PHOTO_SOURCE = { upload: "an image you uploaded", url: "an image from an address you entered", none: "nothing, so initials are shown" };
+const PHOTO_SOURCE = {
+  upload: "an image you uploaded", url: "an image from an address you entered", provider: "a photo from an online lookup", none: "nothing, so initials are shown",
+};
 
 /** The photo tools under the portrait, laid out as the cover tools on a title page (ADR-0105). */
 export function PhotoTools({ name }: { name: string }) {

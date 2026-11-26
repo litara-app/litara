@@ -75,6 +75,8 @@ Run with the owner's permission, using public author names and well-known books 
 - **Gaps:** the series description was empty for all three. `is_completed` was missing for Murderbot.
 - **Limits:** the token reported 60 requests per minute with a burst of 10, and 5,000 per day.
 
+A later run through Litara's adapter found that Hardcover's book search ranks "title author" poorly: for "Dune Frank Herbert" the book Dune was not in the first ten results, while "Dune" alone put it first. The adapter searches the title alone first and checks the author on each result. An author search for one name also returned other people, so exact name matches are preferred.
+
 The test covers data quality and coverage on a very small sample. It does not settle the terms of use.
 
 ## Recommendation (not a decision)

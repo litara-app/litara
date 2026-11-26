@@ -121,19 +121,27 @@ func (q *Queries) GetAuthorPhoto(ctx context.Context, nameKey string) (GetAuthor
 }
 
 const getAuthorPhotoMeta = `-- name: GetAuthorPhotoMeta :one
-SELECT source, locked, version FROM author_photos WHERE name_key = $1
+SELECT source, locked, version, provider, provider_url FROM author_photos WHERE name_key = $1
 `
 
 type GetAuthorPhotoMetaRow struct {
-	Source  string    `json:"source"`
-	Locked  bool      `json:"locked"`
-	Version uuid.UUID `json:"version"`
+	Source      string    `json:"source"`
+	Locked      bool      `json:"locked"`
+	Version     uuid.UUID `json:"version"`
+	Provider    *string   `json:"provider"`
+	ProviderUrl *string   `json:"provider_url"`
 }
 
 func (q *Queries) GetAuthorPhotoMeta(ctx context.Context, nameKey string) (GetAuthorPhotoMetaRow, error) {
 	row := q.db.QueryRow(ctx, getAuthorPhotoMeta, nameKey)
 	var i GetAuthorPhotoMetaRow
-	err := row.Scan(&i.Source, &i.Locked, &i.Version)
+	err := row.Scan(
+		&i.Source,
+		&i.Locked,
+		&i.Version,
+		&i.Provider,
+		&i.ProviderUrl,
+	)
 	return i, err
 }
 
@@ -165,7 +173,7 @@ func (q *Queries) GuessLastName(ctx context.Context, name string) (string, error
 }
 
 const listDirectoryValues = `-- name: ListDirectoryValues :many
-SELECT field, value, locked FROM directory_values WHERE kind = $1 AND name_key = $2
+SELECT field, value, locked, provider, provider_url FROM directory_values WHERE kind = $1 AND name_key = $2
 `
 
 type ListDirectoryValuesParams struct {
@@ -174,9 +182,11 @@ type ListDirectoryValuesParams struct {
 }
 
 type ListDirectoryValuesRow struct {
-	Field  string `json:"field"`
-	Value  []byte `json:"value"`
-	Locked bool   `json:"locked"`
+	Field       string  `json:"field"`
+	Value       []byte  `json:"value"`
+	Locked      bool    `json:"locked"`
+	Provider    *string `json:"provider"`
+	ProviderUrl *string `json:"provider_url"`
 }
 
 func (q *Queries) ListDirectoryValues(ctx context.Context, arg ListDirectoryValuesParams) ([]ListDirectoryValuesRow, error) {
@@ -188,7 +198,13 @@ func (q *Queries) ListDirectoryValues(ctx context.Context, arg ListDirectoryValu
 	var items []ListDirectoryValuesRow
 	for rows.Next() {
 		var i ListDirectoryValuesRow
-		if err := rows.Scan(&i.Field, &i.Value, &i.Locked); err != nil {
+		if err := rows.Scan(
+			&i.Field,
+			&i.Value,
+			&i.Locked,
+			&i.Provider,
+			&i.ProviderUrl,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -251,16 +267,19 @@ func (q *Queries) SetDirectoryValueLock(ctx context.Context, arg SetDirectoryVal
 }
 
 const upsertAuthorPhoto = `-- name: UpsertAuthorPhoto :exec
-INSERT INTO author_photos (name_key, source, image, updated_by) VALUES ($1, $2, $3, $4)
+INSERT INTO author_photos (name_key, source, image, updated_by, provider, provider_url) VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (name_key) DO UPDATE
-SET source = EXCLUDED.source, image = EXCLUDED.image, updated_by = EXCLUDED.updated_by, version = gen_random_uuid(), updated_at = now()
+SET source = EXCLUDED.source, image = EXCLUDED.image, updated_by = EXCLUDED.updated_by,
+  provider = EXCLUDED.provider, provider_url = EXCLUDED.provider_url, version = gen_random_uuid(), updated_at = now()
 `
 
 type UpsertAuthorPhotoParams struct {
-	NameKey   string        `json:"name_key"`
-	Source    string        `json:"source"`
-	Image     []byte        `json:"image"`
-	UpdatedBy uuid.NullUUID `json:"updated_by"`
+	NameKey     string        `json:"name_key"`
+	Source      string        `json:"source"`
+	Image       []byte        `json:"image"`
+	UpdatedBy   uuid.NullUUID `json:"updated_by"`
+	Provider    *string       `json:"provider"`
+	ProviderUrl *string       `json:"provider_url"`
 }
 
 func (q *Queries) UpsertAuthorPhoto(ctx context.Context, arg UpsertAuthorPhotoParams) error {
@@ -269,21 +288,26 @@ func (q *Queries) UpsertAuthorPhoto(ctx context.Context, arg UpsertAuthorPhotoPa
 		arg.Source,
 		arg.Image,
 		arg.UpdatedBy,
+		arg.Provider,
+		arg.ProviderUrl,
 	)
 	return err
 }
 
 const upsertDirectoryValue = `-- name: UpsertDirectoryValue :exec
-INSERT INTO directory_values (kind, name_key, field, value, updated_by) VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (kind, name_key, field) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()
+INSERT INTO directory_values (kind, name_key, field, value, updated_by, provider, provider_url) VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (kind, name_key, field) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by,
+  provider = EXCLUDED.provider, provider_url = EXCLUDED.provider_url, updated_at = now()
 `
 
 type UpsertDirectoryValueParams struct {
-	Kind      string        `json:"kind"`
-	NameKey   string        `json:"name_key"`
-	Field     string        `json:"field"`
-	Value     []byte        `json:"value"`
-	UpdatedBy uuid.NullUUID `json:"updated_by"`
+	Kind        string        `json:"kind"`
+	NameKey     string        `json:"name_key"`
+	Field       string        `json:"field"`
+	Value       []byte        `json:"value"`
+	UpdatedBy   uuid.NullUUID `json:"updated_by"`
+	Provider    *string       `json:"provider"`
+	ProviderUrl *string       `json:"provider_url"`
 }
 
 func (q *Queries) UpsertDirectoryValue(ctx context.Context, arg UpsertDirectoryValueParams) error {
@@ -293,6 +317,8 @@ func (q *Queries) UpsertDirectoryValue(ctx context.Context, arg UpsertDirectoryV
 		arg.Field,
 		arg.Value,
 		arg.UpdatedBy,
+		arg.Provider,
+		arg.ProviderUrl,
 	)
 	return err
 }

@@ -113,6 +113,7 @@ func (s *Service) directoryReport(ctx context.Context, q *sqlcgen.Queries, kind 
 		f := wire.DirectoryField{Field: field, Source: "none"}
 		if r, ok := saved[field]; ok {
 			f.Source, f.Value.Raw, f.Cleared, f.Locked = "user", r.Value, r.Value == nil, r.Locked
+			f.Provider, f.ProviderURL = r.Provider, r.ProviderUrl
 		} else if field == "last_name" {
 			guess, err := q.GuessLastName(ctx, n.Name)
 			if err != nil {
@@ -129,13 +130,21 @@ func (s *Service) directoryReport(ctx context.Context, q *sqlcgen.Queries, kind 
 			return out, err
 		}
 		if err == nil {
-			photo.Source, photo.Locked = p.Source, p.Locked
+			photo.Source, photo.Locked, photo.Provider, photo.ProviderURL = p.Source, p.Locked, p.Provider, p.ProviderUrl
 			if p.Source != "none" {
 				v := p.Version.String()
 				photo.Version = &v
 			}
 		}
 		out.Photo = &photo
+	} else {
+		m, err := q.GetSeriesMatch(ctx, n.NameKey)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return out, err
+		}
+		if err == nil {
+			out.Match = &wire.SeriesMatch{Provider: m.Provider, Name: m.ProviderName, URL: m.Url}
+		}
 	}
 	return out, nil
 }
@@ -198,12 +207,15 @@ func (s *Service) SaveDirectoryDetails(ctx context.Context, a Actor, kind, name 
 	var none wire.DirectoryDetails
 	changes := MetadataChanges(w.Changes)
 	if d := metadata.CheckChanges(changes, func(f string) bool {
-		return validDirectoryField(kind, f) || (kind == KindAuthor && f == photoField)
+		return validDirectoryField(kind, f) || (kind == KindAuthor && f == photoField) || (kind == KindSeries && f == matchField)
 	}); d != nil {
 		return none, d
 	}
 	stored := map[string]json.RawMessage{}
 	for _, c := range changes {
+		if c.Field == matchField && c.Action != metadata.ActionReset {
+			return none, apperr.Validation("A match is made by applying a lookup; here it can only be reset.")
+		}
 		if c.Action != metadata.ActionSet {
 			continue
 		}
@@ -241,9 +253,12 @@ func (s *Service) SaveDirectoryDetails(ctx context.Context, a Actor, kind, name 
 		}
 		for _, c := range changes {
 			var err error
-			if c.Field == photoField {
+			switch c.Field {
+			case photoField:
 				err = changePhoto(ctx, q, n.NameKey, a.UserID, c.Action)
-			} else {
+			case matchField:
+				err = q.DeleteSeriesMatch(ctx, n.NameKey)
+			default:
 				err = changeDirectoryField(ctx, q, kind, n.NameKey, a.UserID, c.Action, current[c.Field], c.Field, stored[c.Field])
 			}
 			if err != nil {
