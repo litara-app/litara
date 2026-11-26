@@ -8,17 +8,21 @@ async function signIn(page: Page, user = "fixture-user-a") {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 async function openComic(page: Page, title: string) {
   await page.goto("/");
   await page.getByLabel("Search").fill(title);
   await expect(page.getByTestId("title-item").filter({ hasNotText: title })).toHaveCount(0, { timeout: 15_000 }); // only matches remain: the list has settled
-  await page.getByText(title, { exact: true }).click();
+  // By exact title: another fixture's title can contain this one. The count of other cards above can already be zero
+  // for the previous list, so wait for the card itself, then for the title page.
+  const card = page.getByTestId("title-item").filter({ has: page.getByText(title, { exact: true }) }).first();
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await card.getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/titles\/[0-9a-f-]+$/);
   await page.getByRole("tab", { name: /^Files/ }).click();
-  await page.getByRole("table", { name: "Ebook files" }).getByRole("link").first().click();
-  await page.getByRole("link", { name: "Read" }).click();
+  await page.getByRole("region", { name: "Ebook files" }).getByRole("link", { name: "Read", exact: true }).first().click();
 }
 
 async function editionId(page: Page, title: string): Promise<string> {

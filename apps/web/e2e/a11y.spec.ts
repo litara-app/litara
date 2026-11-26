@@ -8,10 +8,12 @@ async function signIn(page: Page, user = "fixture-admin") {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 async function violations(page: Page) {
+  // A scan taken during a fade-in measures half-faded text and reports contrast that no one ever sees.
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined))));
   const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   return r.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.slice(0, 2).map((n) => n.target.join(" ")).join(" | ")}`);
 }
@@ -87,7 +89,7 @@ test("keyboard: every primary control is reachable and dialogs trap and release 
   expect(seen.size).toBeGreaterThan(5);
   await page.goto(`/read/${i.epub}`);
   await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
-  const opener = page.getByRole("button", { name: "Contents & notes" });
+  const opener = page.getByRole("button", { name: "Contents & notes", exact: true });
   await opener.focus();
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog");

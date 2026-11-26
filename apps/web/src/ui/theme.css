@@ -207,7 +207,8 @@ body {
 .lt-book[data-phase="opening"] .lt-cover-front { box-shadow: 0 0 0 1px #1a0f08; }
 .lt-cover-front::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 24px; border-radius: 4px 0 0 4px; background: linear-gradient(90deg, rgb(0 0 0 / .5), rgb(255 255 255 / .12) 45%, rgb(0 0 0 / .3)); border-right: 1px solid rgb(0 0 0 / .5); }
 .lt-cover-front::after { content: ""; position: absolute; left: 7px; top: 22px; bottom: 22px; width: 10px; background: repeating-linear-gradient(transparent 0 38px, var(--lt-foil) 38px 40px, transparent 40px 78px); opacity: .85; }
-.lt-cover-back { position: absolute; inset: 0; transform: rotateY(180deg); background: linear-gradient(rgb(20 14 8 / .25), rgb(20 14 8 / .25)), var(--endpaper) center / cover, #2c3a33; border: 1px solid #1a0f08; box-shadow: inset 0 0 40px rgb(0 0 0 / .55); }
+/* The inside of the cover is decoration. WebKit still hit-tests this hidden back face, which put it over the sign-in button. */
+.lt-cover-back { pointer-events: none; position: absolute; inset: 0; transform: rotateY(180deg); background: linear-gradient(rgb(20 14 8 / .25), rgb(20 14 8 / .25)), var(--endpaper) center / cover, #2c3a33; border: 1px solid #1a0f08; box-shadow: inset 0 0 40px rgb(0 0 0 / .55); }
 .lt-book-frame { position: relative; border: 2px solid var(--lt-foil); outline: 1px solid color-mix(in srgb, var(--lt-foil) 60%, transparent); outline-offset: -8px; padding: 22px 20px 20px; border-radius: 2px; display: flex; flex-direction: column; gap: var(--lt-s3); }
 .lt-book-frame::before, .lt-book-frame::after { content: "❦"; position: absolute; color: var(--lt-foil); font-size: 18px; line-height: 1; }
 .lt-book-frame::before { top: 2px; left: 6px; transform: rotate(-45deg); }
