@@ -152,6 +152,8 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0106](0106-provider-text-and-images.md) | Keep and credit author and series text and images from providers | Accepted |
 | [0107](0107-one-filter-format-for-search-and-smart-shelves.md) | Use one filter format for library search and smart shelves | Accepted |
 | [0108](0108-schema-names-in-api-compatibility.md) | Keep published schema names stable within `v1` | Accepted |
+| [0109](0109-audiobook-listening-sessions.md) | Record audiobook listening sessions | Accepted |
+| [0110](0110-audiobook-bookmarks.md) | Audiobook bookmarks | Accepted |
 
 ## Workflow
 
