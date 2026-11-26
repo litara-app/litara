@@ -10,7 +10,7 @@ type LibraryConfig struct {
 	SentinelSHA256     *string  `json:"sentinelSha256,omitempty" pattern:"^[0-9a-f]{64}$"`
 	ScanIntervalSecs   int      `json:"scanIntervalSecs,omitempty" minimum:"60" default:"900"`
 	VerifyIntervalSecs int      `json:"verifyIntervalSecs,omitempty" minimum:"3600" default:"86400"`
-	StabilitySecs      int      `json:"stabilitySecs,omitempty" minimum:"1" default:"30"`
+	StabilitySecs      int      `json:"stabilitySecs,omitempty" minimum:"30" default:"30"`
 	ImportTemplate     *string  `json:"importTemplate,omitempty" maxLength:"512"`
 	WritebackBackups   bool     `json:"writebackBackups"`
 	BackupRoot         *string  `json:"backupRoot,omitempty" maxLength:"4096"`

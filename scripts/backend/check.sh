@@ -23,13 +23,21 @@ go build ./...
 echo "== sqlc generated code is current"
 sqlc diff
 
-echo "== tests"
-go test ./... -count=1 "$@"
-echo "== generated OpenAPI matches the shared T003 contract"
 PY=""
 for cand in python3 python; do
   if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'import sys' >/dev/null 2>&1; then PY="$cand"; break; fi
 done
+
+# The OPDS 2.0 conformance test reads schemas that are not committed (upstream declares no license). The script
+# downloads them from a pinned commit and verifies each SHA-256.
+if [ ! -f ../../.tmp/t006-opds-schemas/feed.schema.json ] && [ -n "$PY" ]; then
+  echo "== fetch pinned OPDS schemas"
+  "$PY" ../../scripts/contracts/fetch_opds_schemas.py || echo "could not fetch the OPDS schemas; that conformance test will skip, or fail with LITARA_REQUIRE_INTEGRATION=1" >&2
+fi
+
+echo "== tests"
+go test ./... -count=1 "$@"
+echo "== generated OpenAPI matches the shared T003 contract"
 if [ -n "$PY" ]; then
   "$PY" ../../scripts/contracts/compare.py
 elif [ "${LITARA_REQUIRE_INTEGRATION:-}" = "1" ]; then

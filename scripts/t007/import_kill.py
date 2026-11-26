@@ -91,7 +91,7 @@ def main():
     proc = start()
     tp = stack.api("POST", "/auth/native/login", body={"username": c["admin"][0], "password": c["admin"][1], "deviceName": "import-kill"})
     adm = tp["accessToken"]
-    cfg = {"mode": "managed", "rootPath": str(lib_root), "followSymlinks": False, "stabilitySecs": 1, "writebackBackups": False, "providerOrder": []}
+    cfg = {"mode": "managed", "rootPath": str(lib_root), "followSymlinks": False, "stabilitySecs": 30, "writebackBackups": False, "providerOrder": []}
     lib = stack.api("POST", "/admin/libraries", adm, {"name": "Managed", "config": cfg})["library"]["id"]
     stack.api("PUT", f"/admin/users/{tp['user']['id']}/libraries/{lib}", adm)
     plan = stack.api("POST", f"/admin/libraries/{lib}/imports", adm, {"sourcePath": str(src)})
@@ -135,7 +135,7 @@ def main():
             stack.api("POST", f"/admin/libraries/{lib}/scans", adm, {})
         except SystemExit:
             pass
-        time.sleep(6)
+        time.sleep(8)  # the scans together must span the 30 s stability window
     rep["editionsInManagedLibrary"] = sql(f"SELECT count(*) FROM editions WHERE library_id='{lib}'")
     rep["duplicateTitles"] = sql(f"SELECT count(*) FROM (SELECT title FROM titles GROUP BY title HAVING count(*) > 1) x")
     ok = hit and final == "completed" and rep["allTargetsMatchReviewedBytes"] and not rep["tempFilesAfterRestart"] and rep["sourceUnchanged"] and rep["editionsInManagedLibrary"] == str(N) and rep["duplicateTitles"] == "0"
