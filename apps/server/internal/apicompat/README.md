@@ -6,6 +6,7 @@
 
 - Within `v1` only additive change is allowed: new endpoints, optional parameters and request properties, response properties, error statuses and enum values. Clients must ignore unknown response properties and enum values.
 - Anything else is breaking: removing or renaming operations, `operationId`s, parameters or properties; changing types, formats or locations; new required request fields; tighter request limits; looser response guarantees; removing a success status or a response header; changing security. A breaking change needs a new major version (`/api/v2`) served beside `v1`.
+- Component schema names are part of the promise (ADR-0108), because generated clients name their types after them. Wherever a client already reaches a schema, its name must not change, be dropped for an inline schema, or be added to one. Names under new operations or properties, and components nothing reaches, are free. The server takes names from Go type names, so renaming a Go type can break the check. Each pair of names is one change, with one waiver ID however many places use it: `schema-name-changed Old -> New` (`(inline)` stands for no name).
 
 ## Files (`snapshots/`, built into the binary)
 
