@@ -2,6 +2,8 @@ package com.litara.feature.litara
 
 import com.litara.core.litara.LFile
 import com.litara.core.litara.LRecording
+import com.litara.core.litara.LRecordingSummary
+import com.litara.core.litara.startedRecordings
 import com.litara.core.litara.ProgressSync
 import com.litara.core.litara.ReportOutcome
 import com.litara.core.litara.ScopeToken
@@ -93,11 +95,15 @@ class LitaraBackend @Inject constructor(
         BookFileRef(handle(t, f.id), ext(f), "primary", f.sizeBytes, f.durationMs?.div(1000.0), f.filename)
     }
 
-    override suspend fun cards(): List<BookCard> {
+    override suspend fun cards(): List<BookCard> = listedCards { items -> items.filter { it.readiness == "ready" } }
+
+    override suspend fun started(): List<BookCard> = listedCards(::startedRecordings)
+
+    private suspend fun listedCards(select: (List<LRecordingSummary>) -> List<LRecordingSummary>): List<BookCard> {
         val t = token() ?: return emptyList()
         if (!repo.signedIn) return emptyList()
         val list = try { repo.recordings() } catch (_: SessionEndedException) { return emptyList() } catch (_: TransientException) { return emptyList() }
-        return list.items.filter { it.readiness == "ready" }.map { r ->
+        return select(list.items).map { r ->
             val h = handle(t, r.id)
             BookCard(h, r.title, r.authors, files = listOf(BookFileRef(h, "m4b", "primary", durationSeconds = r.durationMs?.div(1000.0))),
                 addedAt = "", narrators = r.narrators, hasCover = r.artwork?.thumbnailPath != null)

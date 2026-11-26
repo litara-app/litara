@@ -20,20 +20,25 @@ import javax.inject.Singleton
 class RestoreCandidateFinder @Inject constructor(
     private val audioProgress: AudioProgressRepository,
     private val browse: BrowseRepository,
+    private val litara: LitaraSource = LitaraSource.None,
 ) {
     /** Unfinished books to try, most recently played first, each with its resume position. */
     suspend fun find(): List<Pair<Int, AudioProgress>> = coroutineScope {
         runCatching { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { audioProgress.flushPending() } }
 
-        val serverIds = async {
+        val bookOrbitIds = async {
             withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
                 runCatching { browse.scroller(ScrollerType.CONTINUE_LISTENING, limit = SERVER_CANDIDATES) }.getOrNull()
             }.orEmpty().map { it.id }
         }
+        val litaraIds = async {
+            withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { litara.started() }.getOrNull() }
+                .orEmpty().take(SERVER_CANDIDATES).map { it.id }
+        }
         val localIds = audioProgress.recent()
             .filter { it.percentage < ResumeCandidates.FINISHED_PERCENT }.take(SERVER_CANDIDATES).map { it.bookId }
         val local = localIds.map { id -> async { id to point(id) } }
-        val server = serverIds.await().distinct().filter { it !in localIds }.map { id -> async { id to point(id) } }
+        val server = (bookOrbitIds.await() + litaraIds.await()).distinct().filter { it !in localIds }.map { id -> async { id to point(id) } }
 
         val points = (local + server).awaitAll()
         val byId = points.toMap()

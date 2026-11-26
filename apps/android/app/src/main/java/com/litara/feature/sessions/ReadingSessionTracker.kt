@@ -13,6 +13,7 @@ import com.litara.core.model.SaveReadingSession
 import com.litara.core.network.ApiService
 import com.litara.core.sync.SyncScheduler
 import com.litara.core.sync.isPermanentRejection
+import com.litara.feature.player.LitaraSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -77,6 +78,11 @@ class ReadingSessionTracker @Inject constructor(
     /** Called while playing (every few seconds). Opens a session on first call for a book. */
     @Synchronized
     fun onListening(bookId: Int, firstFileId: Int, percent: Double) {
+        // Litara recordings have no listening-session API yet, and BookOrbit must never receive their local handles.
+        if (bookId >= LitaraSource.HANDLE_BASE) {
+            endLocked()
+            return
+        }
         val key = "listen:$bookId"
         val now = now()
         if (recorder.key == key && recorder.inactiveForMs(now) > LISTEN_IDLE_CLOSE_MS) endLocked()
@@ -122,7 +128,10 @@ class ReadingSessionTracker @Inject constructor(
     }
 
     /** Rows queued before owners were recorded have none and go out with whoever is signed in. */
-    private suspend fun mine(user: Int) = dao.all().filter { it.userId == null || it.userId == user }
+    private suspend fun mine(user: Int) = dao.all().filter {
+        // Rows an earlier build queued for Litara handles stay stored but are never sent.
+        (it.userId == null || it.userId == user) && it.fileId < LitaraSource.HANDLE_BASE
+    }
 
     @Synchronized
     private fun onForeground(foreground: Boolean) {

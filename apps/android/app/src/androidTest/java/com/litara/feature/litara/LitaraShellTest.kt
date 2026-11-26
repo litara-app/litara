@@ -3,6 +3,12 @@ package com.litara.feature.litara
 import android.content.ComponentName
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performTextInput
+import com.litara.R
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -75,6 +81,36 @@ class LitaraShellTest {
             val err = if (present(LitaraTags.ERROR)) "an error is shown" else "no error shown"
             throw AssertionError("tag $tag never appeared ($err)", e)
         }
+    }
+
+    @Test
+    fun searchFiltersTheAudiobookListAndClears() {
+        val recording = args.getString("litaraRecording")!!
+        waitTag(ShellTags.recording(recording))
+        compose.onNodeWithTag(ShellTags.SEARCH).performTextInput("zzzz no such book")
+        waitTag(ShellTags.NO_MATCHES)
+        assertFalse(present(ShellTags.recording(recording)))
+        compose.onNodeWithContentDescription(context.getString(R.string.litara_search_clear)).performClick()
+        waitTag(ShellTags.recording(recording))
+        compose.onNodeWithTag(ShellTags.SEARCH).performTextInput("fixture NARRATOR")
+        waitTag(ShellTags.recording(recording))
+        assertFalse(present(ShellTags.NO_MATCHES))
+    }
+
+    @Test
+    fun accountOpensTheSettingsThatApplyToLitara() {
+        val text = { id: Int -> context.getString(id) }
+        fun shown(value: String) = compose.onAllNodes(hasText(value)).fetchSemanticsNodes().isNotEmpty()
+        waitTag(ShellTags.TAB_ACCOUNT)
+        compose.onNodeWithTag(ShellTags.TAB_ACCOUNT).performClick()
+        waitTag(ShellTags.SETTINGS)
+        compose.onNodeWithTag(ShellTags.SETTINGS).performClick()
+        compose.waitUntil(10_000) { shown(text(R.string.appearance)) }
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(text(R.string.playback)))
+        // BookOrbit-only sections, and certificate trust for this plain-HTTP server, are not offered.
+        assertFalse(shown(text(R.string.settings_trust_user_cas)))
+        assertFalse(shown(text(R.string.settings_nav_bar)))
+        assertFalse(shown(text(R.string.settings_download_location)))
     }
 
     @Test

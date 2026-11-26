@@ -348,7 +348,7 @@ class MediaLibraryCallback @Inject constructor(
     private fun dataScope() = "${sessionManager.serverUrl}|${sessionManager.currentUser?.id}|${litara.scopeKey()}"
 
     private fun error(error: Throwable): SessionError {
-        val reason = if (sessionManager.accessToken == null && error is java.io.IOException) AutoFailure.SIGN_IN else AutoFailure.from(error)
+        val reason = if (sessionManager.accessToken == null && litara.scopeKey().isEmpty() && error is java.io.IOException) AutoFailure.SIGN_IN else AutoFailure.from(error)
         val (code, message) = when (reason) {
             AutoFailure.SIGN_IN -> SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED to R.string.auto_err_sign_in
             AutoFailure.NETWORK -> SessionError.ERROR_IO to R.string.auto_err_network

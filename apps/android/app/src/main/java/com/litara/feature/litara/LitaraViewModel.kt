@@ -97,6 +97,7 @@ data class LitaraUi(
 class LitaraViewModel @Inject constructor(
     private val app: Application,
     private val repo: LitaraRepository,
+    private val userCaSettings: com.litara.core.network.UserCaSettings,
 ) : AndroidViewModel(app) {
     private val _ui = MutableStateFlow(LitaraUi(signedIn = repo.signedIn, account = repo.currentIdentity?.user?.username))
     val ui: StateFlow<LitaraUi> = _ui.asStateFlow()
@@ -128,7 +129,13 @@ class LitaraViewModel @Inject constructor(
         _ui.update { it.copy(busy = false) }
     }
 
-    fun signIn(url: String, insecure: Boolean, user: String, password: String) = launch {
+    fun trustsUserCas(url: String): Boolean = userCaSettings.isEnabledForUrl(url)
+
+    fun signIn(url: String, insecure: Boolean, user: String, password: String, trustUserCas: Boolean) = launch {
+        // Saved before the first request so sign-in itself can use a user-installed certificate.
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            userCaSettings.setEnabledForUrl(url.trim(), trustUserCas)
+        }
         val id = repo.signIn(url, insecure, user, password, "Android ${android.os.Build.MODEL}")
         _ui.update { it.copy(signedIn = true, account = id.user.username) }
         loadRecordings()

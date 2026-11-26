@@ -3,6 +3,13 @@ package com.litara.feature.litara
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -60,6 +68,7 @@ import com.litara.R
 import com.litara.feature.player.MiniPlayer
 import com.litara.feature.player.PlayerScreen
 import com.litara.feature.player.PlayerViewModel
+import com.litara.feature.settings.SettingsScreen
 import com.litara.ui.LocalImageUrls
 
 /** Test tags for the Litara shell. */
@@ -72,6 +81,9 @@ object ShellTags {
     const val DOWNLOAD = "shell-download"
     const val DELETE_DOWNLOAD = "shell-delete-download"
     const val SIGN_OUT = "shell-sign-out"
+    const val SETTINGS = "shell-settings"
+    const val SEARCH = "shell-search"
+    const val NO_MATCHES = "shell-no-matches"
     const val DETAIL_TITLE = "shell-detail-title"
     const val EMPTY_DOWNLOADS = "shell-empty-downloads"
     const val BOOKS_NOTE = "shell-books-note"
@@ -88,13 +100,14 @@ object ShellTags {
 
 private const val ROUTE_MAIN = "main"
 private const val ROUTE_PLAYER = "player"
+private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_READER = "reader/{editionId}"
 private const val ROUTE_PDF = "pdf/{editionId}"
 private const val ROUTE_COMIC = "comic/{editionId}"
 
 /**
- * The phone app for a signed-in Litara account: Library, Downloads and Account over recording detail.
- * Reading (ebooks, PDF, comics) is not part of this release's Litara server API and is not offered here.
+ * The phone app for a signed-in Litara account: Library, Books, Downloads and Account over recording detail,
+ * with full-screen ebook, PDF and comic readers, the audiobook player and settings.
  */
 @Composable
 fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
@@ -106,7 +119,7 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
             ShellMain(vm, onListen = { handle ->
                 player.loadAndPlay(handle)
                 nav.navigate(ROUTE_PLAYER)
-            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onReadBook = { id, format ->
+            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onOpenSettings = { nav.navigate(ROUTE_SETTINGS) }, onReadBook = { id, format ->
                 nav.navigate(when {
                     format == "pdf" -> "pdf/$id"
                     format in COMIC_FORMATS -> "comic/$id"
@@ -123,14 +136,23 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
         composable(ROUTE_READER) {
             com.litara.feature.reader.ReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraReaderViewModel>())
         }
+        composable(ROUTE_SETTINGS) {
+            Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+                TextButton(dropUnlessResumed { nav.popBackStack() }) { Text(stringResource(R.string.back)) }
+                SettingsScreen(litara = true)
+            }
+        }
         composable(ROUTE_PLAYER) { PlayerScreen(onBack = dropUnlessResumed { nav.popBackStack() }) }
     }
 }
 
 @Composable
-private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onReadBook: (String, String) -> Unit) {
+private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onOpenSettings: () -> Unit, onReadBook: (String, String) -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    // Held here so a search survives opening a recording or a book and coming back.
+    var libraryQuery by rememberSaveable { mutableStateOf("") }
+    var booksQuery by rememberSaveable { mutableStateOf("") }
     BackHandler(enabled = ui.detail != null) { vm.closeDetail() }
     Scaffold(
         bottomBar = {
@@ -155,10 +177,10 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
             if (ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             when {
                 ui.detail != null -> ShellDetail(vm, ui, onListen)
-                tab == 0 -> ShellLibrary(vm, ui)
-                tab == 1 -> ShellBooks(onReadBook)
+                tab == 0 -> ShellLibrary(vm, ui, libraryQuery) { libraryQuery = it }
+                tab == 1 -> ShellBooks(onReadBook, booksQuery, { booksQuery = it })
                 tab == 2 -> ShellDownloads(vm, ui)
-                else -> ShellAccount(vm, ui)
+                else -> ShellAccount(vm, ui, onOpenSettings)
             }
         }
     }
@@ -184,7 +206,27 @@ private fun Cover(handle: Int, title: String, size: Int) {
 }
 
 @Composable
-private fun ShellLibrary(vm: LitaraShellViewModel, ui: ShellUi) {
+private fun SearchField(query: String, onQuery: (String) -> Unit, label: Int) {
+    val focus = LocalFocusManager.current
+    OutlinedTextField(
+        value = query, onValueChange = onQuery, singleLine = true,
+        label = { Text(stringResource(label)) },
+        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+        trailingIcon = if (query.isEmpty()) null else {
+            { IconButton({ onQuery("") }) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.litara_search_clear)) } }
+        },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
+        modifier = Modifier.fillMaxWidth().testTag(ShellTags.SEARCH),
+    )
+}
+
+@Composable
+private fun NoMatches() = Text(stringResource(R.string.litara_search_no_matches),
+    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag(ShellTags.NO_MATCHES))
+
+@Composable
+private fun ShellLibrary(vm: LitaraShellViewModel, ui: ShellUi, query: String, onQuery: (String) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.litara_tab_library) + (if (ui.fromCache) stringResource(R.string.litara_offline_list) else ""),
             style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
@@ -193,8 +235,11 @@ private fun ShellLibrary(vm: LitaraShellViewModel, ui: ShellUi) {
     if (ui.library.isEmpty() && !ui.busy) {
         Text(stringResource(R.string.litara_no_recordings), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+    if (ui.library.isNotEmpty()) SearchField(query, onQuery, R.string.litara_search_audiobooks)
+    val shown = searchRecordings(ui.library, query)
+    if (shown.isEmpty() && ui.library.isNotEmpty()) NoMatches()
     LazyColumn {
-        items(ui.library, key = { it.summary.id }) { row ->
+        items(shown, key = { it.summary.id }) { row ->
             val r = row.summary
             Row(Modifier.fillMaxWidth().clickable { vm.open(row) }.padding(vertical = 8.dp).testTag(ShellTags.recording(r.id)),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -213,7 +258,7 @@ private fun ShellLibrary(vm: LitaraShellViewModel, ui: ShellUi) {
 }
 
 @Composable
-private fun ShellBooks(onRead: (String, String) -> Unit, vm: LitaraBooksViewModel = hiltViewModel()) {
+private fun ShellBooks(onRead: (String, String) -> Unit, query: String, onQuery: (String) -> Unit, vm: LitaraBooksViewModel = hiltViewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     var deciding by rememberSaveable { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -237,8 +282,11 @@ private fun ShellBooks(onRead: (String, String) -> Unit, vm: LitaraBooksViewMode
     if (ui.books.isEmpty() && !ui.loading && ui.error == null) {
         Text(stringResource(R.string.litara_no_books), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+    if (ui.books.isNotEmpty()) SearchField(query, onQuery, R.string.litara_search_books)
+    val shown = searchBooks(ui.books, query)
+    if (shown.isEmpty() && ui.books.isNotEmpty()) NoMatches()
     LazyColumn {
-        items(ui.books, key = { it.edition.id }) { row ->
+        items(shown, key = { it.edition.id }) { row ->
             val e = row.edition
             val open = openability(e)
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag(ShellTags.book(e.id)), verticalAlignment = Alignment.CenterVertically) {
@@ -355,12 +403,13 @@ private fun ShellDownloads(vm: LitaraShellViewModel, ui: ShellUi) {
 }
 
 @Composable
-private fun ShellAccount(vm: LitaraShellViewModel, ui: ShellUi) {
+private fun ShellAccount(vm: LitaraShellViewModel, ui: ShellUi, onOpenSettings: () -> Unit) {
     Text(stringResource(R.string.litara_tab_account), style = MaterialTheme.typography.titleLarge)
     Text(stringResource(R.string.litara_signed_in_as, ui.account))
     Text(stringResource(R.string.litara_account_server, ui.server), style = MaterialTheme.typography.bodySmall)
     Text(stringResource(R.string.litara_account_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text(stringResource(R.string.litara_audio_only), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    OutlinedButton(onOpenSettings, Modifier.testTag(ShellTags.SETTINGS)) { Text(stringResource(R.string.litara_settings)) }
     OutlinedButton({ vm.signOut() }, Modifier.testTag(ShellTags.SIGN_OUT)) { Text(stringResource(R.string.litara_sign_out)) }
 }
 

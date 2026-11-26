@@ -109,6 +109,9 @@ data class LRecording(
 )
 
 @Serializable
+data class LSeries(val name: String, val index: Double? = null)
+
+@Serializable
 data class LRecordingSummary(
     val id: String,
     val titleId: String,
@@ -118,7 +121,20 @@ data class LRecordingSummary(
     val authors: List<String> = emptyList(),
     val narrators: List<String> = emptyList(),
     val artwork: LArtwork? = null,
+    val completion: LCompletion? = null,
+    /** When this account last saved a position or changed completion; null for a recording it never touched. */
+    val lastActivityAt: String? = null,
+    val series: LSeries? = null,
 )
+
+/** Playable recordings this account has started and not finished, most recently used first. */
+fun startedRecordings(items: List<LRecordingSummary>): List<LRecordingSummary> = items
+    .mapNotNull { r ->
+        val at = r.lastActivityAt?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+        if (at == null || r.readiness != "ready" || r.completion?.finished == true) null else r to at
+    }
+    .sortedByDescending { it.second }
+    .map { it.first }
 
 @Serializable
 data class LRecordings(val items: List<LRecordingSummary>, val total: Long, val page: Long, val size: Long)
