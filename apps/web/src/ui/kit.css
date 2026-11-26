@@ -156,7 +156,8 @@ a { color: var(--lt-pri); }
 .lt-logo { color: var(--lt-logo); flex: none; }
 .lt-icon-btn[data-mobile] { display: none; }
 @media (max-width: 760px) { .lt-icon-btn[data-mobile] { display: inline-flex; } }
-.lt-topsearch { flex: 1; max-width: 520px; }
+.lt-topsearch { flex: 1; min-width: 0; max-width: 520px; }
+.lt-pending-icon { display: none; }
 .lt-topright { margin-left: auto; display: flex; align-items: center; gap: var(--lt-s3); color: var(--lt-dim); }
 .lt-main { min-width: 0; overflow: auto; background: var(--lt-bg); }
 .lt-main-wrap { display: flex; min-width: 0; min-height: 0; }
@@ -190,6 +191,13 @@ a { color: var(--lt-pri); }
   .lt-side { display: none; }
   .lt-app[data-open] .lt-side { display: flex; position: fixed; top: var(--lt-topbar); bottom: 0; left: 0; width: var(--lt-side); }
   .lt-brand { width: auto; }
+  /* Phone top bar: the search field takes what is left, and the pending badge shows an icon and its count. Its words stay in the link's name. */
+  .lt-topbar, .lt-topright { gap: var(--lt-s2); }
+  .lt-topbar .lt-kbd { display: none; }
+  .lt-topright .lt-link { display: inline-flex; align-items: center; min-height: 28px; }
+  .lt-pending-icon { display: inline-grid; place-items: center; }
+  .lt-pending-icon svg { width: 12px; height: 12px; }
+  .lt-pending-words { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
 /* Utilities and screen-specific layout. */
