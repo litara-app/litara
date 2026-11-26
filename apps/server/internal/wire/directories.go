@@ -7,13 +7,18 @@ type DirectoryAuthor struct {
 	Titles       int64  `json:"titles" minimum:"1"`
 	CoverTitleID string `json:"coverTitleId" format:"uuid" doc:"A title of this author whose cover can stand for them."`
 	SeriesCount  int64  `json:"seriesCount" minimum:"0" doc:"How many series this author's visible titles belong to."`
+	// LastName is the saved correction, or the guess from the name (ADR-0101).
+	LastName     string  `json:"lastName" doc:"The last name used for sorting and letters: a saved correction, or a guess."`
+	PhotoVersion *string `json:"photoVersion" format:"uuid" nullable:"true" doc:"Set when the author has a stored photo; changes with it."`
 }
 
 type DirectoryAuthors struct {
 	Items []DirectoryAuthor `json:"items" maxItems:"200"`
-	Total int64             `json:"total" minimum:"0" maximum:"9007199254740991"`
-	Page  int64             `json:"page" minimum:"0" maximum:"9007199254740991"`
-	Size  int64             `json:"size" minimum:"1" maximum:"200"`
+	// Letters ignores the letter filter, so the A to Z row keeps its other choices.
+	Letters []string `json:"letters" maxItems:"26" doc:"The A to Z letters with authors matching the search under this sort."`
+	Total   int64    `json:"total" minimum:"0" maximum:"9007199254740991"`
+	Page    int64    `json:"page" minimum:"0" maximum:"9007199254740991"`
+	Size    int64    `json:"size" minimum:"1" maximum:"200"`
 }
 
 // DirectorySeries is one series in the series directory (ADR-0100).

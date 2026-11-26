@@ -16,19 +16,36 @@ import (
 )
 
 // Authors lists the authors of the titles the user can see, by name ignoring case (ADR-0100).
-func (s *Service) Authors(ctx context.Context, userID uuid.UUID, q string, page, size int) (wire.DirectoryAuthors, error) {
+// Order "first" sorts and files them by the name as written; otherwise by last name (ADR-0101). letter, when set,
+// keeps only the authors filed under it.
+func (s *Service) Authors(ctx context.Context, userID uuid.UUID, q, order, letter string, page, size int) (wire.DirectoryAuthors, error) {
 	q = strings.TrimSpace(q)
-	rows, err := s.q.ListAuthors(ctx, sqlcgen.ListAuthorsParams{UserID: userID, Q: q, PageSize: int32(size), PageOffset: int32(page * size)})
+	rows, err := s.q.ListAuthors(ctx, sqlcgen.ListAuthorsParams{UserID: userID, Q: q, Sort: order, Letter: letter,
+		PageSize: int32(size), PageOffset: int32(page * size)})
 	if err != nil {
 		return wire.DirectoryAuthors{}, unavailable(err)
 	}
-	total, err := s.q.CountAuthors(ctx, sqlcgen.CountAuthorsParams{UserID: userID, Q: q})
+	letters, err := s.q.CountAuthorLetters(ctx, sqlcgen.CountAuthorLettersParams{UserID: userID, Q: q, Sort: order})
 	if err != nil {
 		return wire.DirectoryAuthors{}, unavailable(err)
 	}
-	out := wire.DirectoryAuthors{Items: []wire.DirectoryAuthor{}, Total: total, Page: int64(page), Size: int64(size)}
+	out := wire.DirectoryAuthors{Items: []wire.DirectoryAuthor{}, Letters: []string{}, Page: int64(page), Size: int64(size)}
+	for _, l := range letters {
+		if l.Letter != "" {
+			out.Letters = append(out.Letters, l.Letter)
+		}
+		if letter == "" || letter == l.Letter {
+			out.Total += l.Authors
+		}
+	}
 	for _, r := range rows {
-		out.Items = append(out.Items, wire.DirectoryAuthor{Name: r.Name, Titles: r.Titles, CoverTitleID: r.CoverTitleID.String(), SeriesCount: r.SeriesCount})
+		item := wire.DirectoryAuthor{Name: r.Name, Titles: r.Titles, CoverTitleID: r.CoverTitleID.String(), SeriesCount: r.SeriesCount,
+			LastName: r.LastName}
+		if r.PhotoVersion.Valid {
+			v := r.PhotoVersion.UUID.String()
+			item.PhotoVersion = &v
+		}
+		out.Items = append(out.Items, item)
 	}
 	return out, nil
 }

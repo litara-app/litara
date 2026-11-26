@@ -6,36 +6,42 @@ import type { FanCover } from "../../ui";
 
 export const DIRECTORY_SIZE = 60;
 
-export interface DirectoryAuthor { name: string; titles: number; coverTitleId: string; seriesCount: number }
+export interface DirectoryAuthor { name: string; titles: number; coverTitleId: string; seriesCount: number; lastName: string; photoVersion: string | null }
 export interface DirectorySeries { name: string; titles: number; coverTitleId: string; authors: string[]; covers: FanCover[]; finished: number }
 
 export type DirectoryPath = "/authors" | "/series";
 /** What a directory was showing, so a page opened from it can step to its neighbours in that same list. */
-export interface DirectoryContext { q: string; sort: string }
+export interface DirectoryContext { q: string; sort: string; letter: string }
+/** Authors are listed by last name unless the viewer asks otherwise (ADR-0101); series by name. */
+export const defaultSort = (path: DirectoryPath) => (path === "/authors" ? "last" : "name");
 
 const store = (path: DirectoryPath) => `litara.directory${path}`;
-export const DEFAULT_CONTEXT: DirectoryContext = { q: "", sort: "name" };
+const defaultContext = (path: DirectoryPath): DirectoryContext => ({ q: "", sort: defaultSort(path), letter: "" });
+
+/** A directory page. `letters`, for authors, are the A to Z choices that have anyone under the current search and sort. */
+export type DirectoryPage<T> = Paged<T> & { letters?: string[] };
 
 export function useDirectory<T extends { name: string }>(path: DirectoryPath, ctx: DirectoryContext) {
   return useInfiniteQuery({
-    queryKey: ["directory", path, ctx.q, ctx.sort],
+    queryKey: ["directory", path, ctx.q, ctx.sort, ctx.letter],
     initialPageParam: 0,
-    queryFn: ({ pageParam }) => get<Paged<T>>(`${path}${qs({ q: ctx.q, sort: ctx.sort === "name" ? "" : ctx.sort, page: pageParam, size: DIRECTORY_SIZE })}`),
+    queryFn: ({ pageParam }) => get<DirectoryPage<T>>(
+      `${path}${qs({ q: ctx.q, sort: ctx.sort === defaultSort(path) ? "" : ctx.sort, letter: ctx.letter, page: pageParam, size: DIRECTORY_SIZE })}`),
     getNextPageParam: (last, all) => (all.length * DIRECTORY_SIZE < last.total ? all.length : undefined),
     staleTime: 30_000,
   });
 }
 
 export function rememberDirectory(path: DirectoryPath, ctx: DirectoryContext) {
-  try { sessionStorage.setItem(store(path), JSON.stringify(ctx)); } catch { /* storage can be unavailable; the pager then uses name order */ }
+  try { sessionStorage.setItem(store(path), JSON.stringify(ctx)); } catch { /* storage can be unavailable; the pager then uses the default order */ }
 }
 
 function recalledDirectory(path: DirectoryPath): DirectoryContext {
   try {
     const raw = sessionStorage.getItem(store(path));
-    if (raw) return { ...DEFAULT_CONTEXT, ...(JSON.parse(raw) as Partial<DirectoryContext>) };
+    if (raw) return { ...defaultContext(path), ...(JSON.parse(raw) as Partial<DirectoryContext>) };
   } catch { /* fall through to the default */ }
-  return DEFAULT_CONTEXT;
+  return defaultContext(path);
 }
 
 const MAX_PAGES = 100;

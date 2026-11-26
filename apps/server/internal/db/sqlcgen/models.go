@@ -56,6 +56,17 @@ type Association struct {
 	EditionID   uuid.NullUUID `json:"edition_id"`
 }
 
+type AuthorPhoto struct {
+	Kind      string        `json:"kind"`
+	NameKey   string        `json:"name_key"`
+	Source    string        `json:"source"`
+	Image     []byte        `json:"image"`
+	Locked    bool          `json:"locked"`
+	Version   uuid.UUID     `json:"version"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
 type ChapterSource struct {
 	ID          uuid.UUID `json:"id"`
 	RecordingID uuid.UUID `json:"recording_id"`
@@ -152,6 +163,22 @@ type DeliveryRecipient struct {
 	Name      string    `json:"name"`
 	Address   string    `json:"address"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type DirectoryEntry struct {
+	Kind     string `json:"kind"`
+	NameKey  string `json:"name_key"`
+	Revision int64  `json:"revision"`
+}
+
+type DirectoryValue struct {
+	Kind      string        `json:"kind"`
+	NameKey   string        `json:"name_key"`
+	Field     string        `json:"field"`
+	Value     []byte        `json:"value"`
+	Locked    bool          `json:"locked"`
+	UpdatedBy uuid.NullUUID `json:"updated_by"`
+	UpdatedAt time.Time     `json:"updated_at"`
 }
 
 type Edition struct {
