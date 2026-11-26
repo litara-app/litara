@@ -144,6 +144,10 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0098](0098-reading-stats-and-heatmap.md) | Reading stats and a reading heatmap | Accepted |
 | [0099](0099-annotations-hub.md) | An annotations hub with search and export | Accepted |
 | [0100](0100-author-and-series-directories.md) | Author and series directories | Accepted |
+| [0101](0101-authors-by-last-name.md) | Sort and filter authors by last name by default | Accepted |
+| [0102](0102-editable-lockable-author-data.md) | Pull, edit and lock author data as for books | Accepted |
+| [0103](0103-series-data-and-missing-books.md) | Series data and books missing from the library | Accepted |
+| [0104](0104-author-and-series-page-defaults.md) | Defaults for the author and series pages | Accepted |
 
 ## Workflow
 
