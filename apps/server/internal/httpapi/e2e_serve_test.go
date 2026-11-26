@@ -110,7 +110,15 @@ func TestE2EServe(t *testing.T) {
 	if err != nil || os.Getenv("LITARA_E2E_WEBDIR") == "" {
 		t.Fatal("LITARA_E2E_WEBDIR must name the built web directory")
 	}
-	const app, reader = "http://127.0.0.1:8091", "http://localhost:8092"
+	// LITARA_E2E_APP_PORT and LITARA_E2E_READER_PORT move the two origins so two harnesses can run side by side.
+	port := func(env, def string) string {
+		if v := os.Getenv(env); v != "" {
+			return v
+		}
+		return def
+	}
+	appPort, readerPort := port("LITARA_E2E_APP_PORT", "8091"), port("LITARA_E2E_READER_PORT", "8092")
+	app, reader := "http://127.0.0.1:"+appPort, "http://localhost:"+readerPort
 	origins := webui.Origins{App: app, Reader: reader}
 	allowed := []string{app}
 	if dev := os.Getenv("LITARA_E2E_DEV_ORIGIN"); dev != "" { // the Vite dev server, for the dev-proxy test
@@ -202,8 +210,8 @@ func TestE2EServe(t *testing.T) {
 	if err != nil || len(sub) == 0 {
 		t.Fatalf("web build has no reader directory: %v", err)
 	}
-	serve("127.0.0.1:8091", e.Handler)
-	serve("127.0.0.1:8092", webui.Reader(os.DirFS(filepath.Join(webDir, "reader")), origins))
+	serve("127.0.0.1:"+appPort, e.Handler)
+	serve("127.0.0.1:"+readerPort, webui.Reader(os.DirFS(filepath.Join(webDir, "reader")), origins))
 	// Run queued scans, comic extractions and imports as the River worker would. The test queue records a job the
 	// moment a handler enqueues it, which is before that request's transaction commits (River's enqueue only becomes
 	// visible on commit). Running a job in that gap would find no row and silently drop it, so each job waits a

@@ -30,6 +30,38 @@ func (q *Queries) CountAnnotations(ctx context.Context, arg CountAnnotationsPara
 	return count, err
 }
 
+const countHubAnnotations = `-- name: CountHubAnnotations :one
+SELECT count(*)
+FROM annotations a
+JOIN editions e ON e.id = a.edition_id
+JOIN titles t ON t.id = e.title_id
+JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = a.user_id
+WHERE a.user_id = $1 AND NOT a.deleted
+  AND ($2::text = '' OR a.kind = $2::text)
+  AND ($3::uuid IS NULL OR t.id = $3::uuid)
+  AND ($4::text = '' OR a.text ILIKE $4::text OR a.quote ILIKE $4::text
+       OR t.title ILIKE $4::text OR array_to_string(t.authors, ' ') ILIKE $4::text)
+`
+
+type CountHubAnnotationsParams struct {
+	UserID  uuid.UUID     `json:"user_id"`
+	Kind    string        `json:"kind"`
+	TitleID uuid.NullUUID `json:"title_id"`
+	Pattern string        `json:"pattern"`
+}
+
+func (q *Queries) CountHubAnnotations(ctx context.Context, arg CountHubAnnotationsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countHubAnnotations,
+		arg.UserID,
+		arg.Kind,
+		arg.TitleID,
+		arg.Pattern,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getAnnotation = `-- name: GetAnnotation :one
 SELECT user_id, id, edition_id, revision, kind, deleted, file_id, content_version, locator, selection, text, quote, created_at, updated_at FROM annotations WHERE user_id = $1 AND id = $2
 `
@@ -141,6 +173,141 @@ func (q *Queries) ListAnnotations(ctx context.Context, arg ListAnnotationsParams
 			&i.Quote,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHubAnnotationTitles = `-- name: ListHubAnnotationTitles :many
+SELECT t.id AS title_id, t.title AS title_name, t.authors, count(*) AS annotations
+FROM annotations a
+JOIN editions e ON e.id = a.edition_id
+JOIN titles t ON t.id = e.title_id
+JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = a.user_id
+WHERE a.user_id = $1 AND NOT a.deleted
+GROUP BY t.id, t.title, t.authors
+ORDER BY lower(t.title), t.id
+`
+
+type ListHubAnnotationTitlesRow struct {
+	TitleID     uuid.UUID `json:"title_id"`
+	TitleName   string    `json:"title_name"`
+	Authors     []string  `json:"authors"`
+	Annotations int64     `json:"annotations"`
+}
+
+func (q *Queries) ListHubAnnotationTitles(ctx context.Context, userID uuid.UUID) ([]ListHubAnnotationTitlesRow, error) {
+	rows, err := q.db.Query(ctx, listHubAnnotationTitles, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHubAnnotationTitlesRow
+	for rows.Next() {
+		var i ListHubAnnotationTitlesRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.TitleName,
+			&i.Authors,
+			&i.Annotations,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHubAnnotations = `-- name: ListHubAnnotations :many
+SELECT a.id, a.edition_id, a.revision, a.kind, a.file_id, a.content_version, a.locator, a.selection, a.text, a.quote,
+       a.created_at, a.updated_at, t.id AS title_id, t.title AS title_name, t.authors, e.label AS edition_label, e.format
+FROM annotations a
+JOIN editions e ON e.id = a.edition_id
+JOIN titles t ON t.id = e.title_id
+JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = a.user_id
+WHERE a.user_id = $1 AND NOT a.deleted
+  AND ($2::text = '' OR a.kind = $2::text)
+  AND ($3::uuid IS NULL OR t.id = $3::uuid)
+  AND ($4::text = '' OR a.text ILIKE $4::text OR a.quote ILIKE $4::text
+       OR t.title ILIKE $4::text OR array_to_string(t.authors, ' ') ILIKE $4::text)
+ORDER BY a.updated_at DESC, a.id
+LIMIT $6 OFFSET $5
+`
+
+type ListHubAnnotationsParams struct {
+	UserID     uuid.UUID     `json:"user_id"`
+	Kind       string        `json:"kind"`
+	TitleID    uuid.NullUUID `json:"title_id"`
+	Pattern    string        `json:"pattern"`
+	PageOffset int32         `json:"page_offset"`
+	PageSize   int32         `json:"page_size"`
+}
+
+type ListHubAnnotationsRow struct {
+	ID             uuid.UUID `json:"id"`
+	EditionID      uuid.UUID `json:"edition_id"`
+	Revision       int64     `json:"revision"`
+	Kind           string    `json:"kind"`
+	FileID         uuid.UUID `json:"file_id"`
+	ContentVersion uuid.UUID `json:"content_version"`
+	Locator        []byte    `json:"locator"`
+	Selection      []byte    `json:"selection"`
+	Text           string    `json:"text"`
+	Quote          string    `json:"quote"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	TitleID        uuid.UUID `json:"title_id"`
+	TitleName      string    `json:"title_name"`
+	Authors        []string  `json:"authors"`
+	EditionLabel   string    `json:"edition_label"`
+	Format         string    `json:"format"`
+}
+
+// The annotations hub (ADR-0099): the caller's live annotations on editions they can still see, newest change first.
+// pattern is ” for no search, otherwise an ILIKE pattern with wildcards already escaped.
+func (q *Queries) ListHubAnnotations(ctx context.Context, arg ListHubAnnotationsParams) ([]ListHubAnnotationsRow, error) {
+	rows, err := q.db.Query(ctx, listHubAnnotations,
+		arg.UserID,
+		arg.Kind,
+		arg.TitleID,
+		arg.Pattern,
+		arg.PageOffset,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHubAnnotationsRow
+	for rows.Next() {
+		var i ListHubAnnotationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EditionID,
+			&i.Revision,
+			&i.Kind,
+			&i.FileID,
+			&i.ContentVersion,
+			&i.Locator,
+			&i.Selection,
+			&i.Text,
+			&i.Quote,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TitleID,
+			&i.TitleName,
+			&i.Authors,
+			&i.EditionLabel,
+			&i.Format,
 		); err != nil {
 			return nil, err
 		}
