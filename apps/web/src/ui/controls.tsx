@@ -252,9 +252,9 @@ export function RangeSlider({ label, min, max, step, value, onChange, onCommit, 
 
 export function SearchField({ label, value, onValue, placeholder }: { label: string; value: string; onValue: (v: string) => void; placeholder?: string }) {
   return (
-    <InputGroup>
+    <InputGroup className="lt-search-field">
       <Input type="search" aria-label={label} placeholder={placeholder} value={value} onChange={(e) => onValue(e.currentTarget.value)} />
-      <InputClear aria-label={`Clear ${label.toLowerCase()}`} />
+      <InputClear aria-label={`Clear ${label.toLowerCase()}`}>{icons.close}</InputClear>
     </InputGroup>
   );
 }
