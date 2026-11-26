@@ -63,6 +63,20 @@ Today's Hardcover adapter reads only a series name and position, only when a boo
 - Commercial products and public sites may not use user-owned data (libraries, reviews, ratings, lists). Author and series catalog fields are not in that list.
 - One passage says the API is "only for offline use at this time" and reachable from "localhost or APIs". A server-side call from a self-hosted install appears to fit, but this has not been confirmed with Hardcover.
 
+## Live Hardcover test (2026-11-26)
+
+Run with the owner's permission, using public author names and well-known books only.
+
+- **Authors:** Frank Herbert, N. K. Jemisin, Martha Wells and Ursula K. Le Guin each had a biography (379 to 927 characters) and a photo (from 280x340 up to 1024x1024) on the canonical record. Name searches also return duplicate records; filter on `canonical_id` being null.
+- **Series from a book:** nine text searches took the first hit only. Eight hits had a series. The ninth hit was a sampler with none, and the Dune search returned God Emperor of Dune, so a first text hit must not be trusted; match by identifier or check title and author.
+- **Several series per book:** the Dune hit had three, all or mostly marked featured, and Leviathan Wakes had two. The reviewer has to be able to choose.
+- **Members and covers:** Dune, The Murderbot Diaries and The Broken Earth returned members with positions, release dates and covers.
+- **Filtering:** lists include positions such as 0 (a magazine issue), 0.5 and 2.5, and entries with no position (Hunters of Dune). Keeping whole numbers from 1 up gives the main books ADR-0104 describes. `primary_books_count` matched that in all three; `books_count` includes extras.
+- **Gaps:** the series description was empty for all three. `is_completed` was missing for Murderbot.
+- **Limits:** the token reported 60 requests per minute with a burst of 10, and 5,000 per day.
+
+The test covers data quality and coverage on a very small sample. It does not settle the terms of use.
+
 ## Recommendation (not a decision)
 
 Use Hardcover first for authors and series, because it has series descriptions, member positions and completion fields. Use Open Library as a fallback, including for installs without a Hardcover token. Fetch only on request or for series and authors in the library, cache results, store chosen photos locally, and show where each came from. Leave Audnexus out of the first version. Before building on Hardcover, run a live check with the operator's token to measure coverage and confirm the image fields.

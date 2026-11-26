@@ -57,14 +57,15 @@ func (q *Queries) CountSeries(ctx context.Context, arg CountSeriesParams) (int64
 const listAuthors = `-- name: ListAuthors :many
 
 WITH visible AS (
-  SELECT t.id, t.title, t.authors FROM titles t
+  SELECT t.id, t.title, t.authors, t.series_name FROM titles t
   WHERE EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $3 WHERE e.title_id = t.id)
      OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $3 WHERE r.title_id = t.id)
 ), names AS (
-  SELECT v.id, v.title, a.name FROM visible v CROSS JOIN LATERAL unnest(v.authors) AS a(name)
+  SELECT v.id, v.title, v.series_name, a.name FROM visible v CROSS JOIN LATERAL unnest(v.authors) AS a(name)
   WHERE btrim(a.name) <> '' AND ($4::text = '' OR position(lower($4::text) in lower(a.name)) > 0)
 )
 SELECT (mode() WITHIN GROUP (ORDER BY n.name))::text AS name, count(DISTINCT n.id)::bigint AS titles,
+       count(DISTINCT lower(n.series_name)) FILTER (WHERE btrim(n.series_name) <> '')::bigint AS series_count,
        ((array_agg(n.id ORDER BY lower(n.title), n.id))[1])::uuid AS cover_title_id
 FROM names n
 GROUP BY lower(n.name)
@@ -82,6 +83,7 @@ type ListAuthorsParams struct {
 type ListAuthorsRow struct {
 	Name         string    `json:"name"`
 	Titles       int64     `json:"titles"`
+	SeriesCount  int64     `json:"series_count"`
 	CoverTitleID uuid.UUID `json:"cover_title_id"`
 }
 
@@ -101,7 +103,12 @@ func (q *Queries) ListAuthors(ctx context.Context, arg ListAuthorsParams) ([]Lis
 	var items []ListAuthorsRow
 	for rows.Next() {
 		var i ListAuthorsRow
-		if err := rows.Scan(&i.Name, &i.Titles, &i.CoverTitleID); err != nil {
+		if err := rows.Scan(
+			&i.Name,
+			&i.Titles,
+			&i.SeriesCount,
+			&i.CoverTitleID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -114,41 +121,52 @@ func (q *Queries) ListAuthors(ctx context.Context, arg ListAuthorsParams) ([]Lis
 
 const listSeries = `-- name: ListSeries :many
 WITH visible AS (
-  SELECT t.id, t.title, t.authors, t.series_name, t.series_index FROM titles t
+  SELECT t.id, t.title, t.authors, t.series_name, t.series_index,
+    EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $4 WHERE e.title_id = t.id) AS has_ebook,
+    (EXISTS (SELECT 1 FROM edition_completion_state c JOIN editions e ON e.id = c.edition_id WHERE c.user_id = $4 AND e.title_id = t.id AND c.finished)
+      OR EXISTS (SELECT 1 FROM completion_state c JOIN recordings r ON r.id = c.recording_id WHERE c.user_id = $4 AND r.title_id = t.id AND c.finished)) AS finished
+  FROM titles t
   WHERE t.series_name IS NOT NULL AND btrim(t.series_name) <> ''
-    AND ($3::text = '' OR position(lower($3::text) in lower(t.series_name)) > 0)
+    AND ($5::text = '' OR position(lower($5::text) in lower(t.series_name)) > 0)
     AND (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $4 WHERE e.title_id = t.id)
       OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $4 WHERE r.title_id = t.id))
 )
 SELECT (mode() WITHIN GROUP (ORDER BY v.series_name))::text AS name, count(*)::bigint AS titles,
        ((array_agg(v.id ORDER BY v.series_index NULLS LAST, lower(v.title), v.id))[1])::uuid AS cover_title_id,
+       to_jsonb((array_agg(jsonb_build_object('titleId', v.id, 'title', v.title, 'medium', CASE WHEN v.has_ebook THEN 'ebook' ELSE 'audio' END)
+                           ORDER BY v.series_index NULLS LAST, lower(v.title), v.id))[1:5])::jsonb AS covers,
+       count(*) FILTER (WHERE v.finished)::bigint AS finished,
        COALESCE(array_agg(DISTINCT v.authors[1]) FILTER (WHERE v.authors[1] IS NOT NULL AND btrim(v.authors[1]) <> ''), '{}')::text[] AS authors
 FROM visible v
 GROUP BY lower(v.series_name)
-ORDER BY lower(v.series_name)
-LIMIT $2 OFFSET $1
+ORDER BY CASE WHEN $1::text = 'titles' THEN count(*) END DESC NULLS LAST, lower(v.series_name)
+LIMIT $3 OFFSET $2
 `
 
 type ListSeriesParams struct {
+	Sort       string    `json:"sort"`
 	PageOffset int32     `json:"page_offset"`
 	PageSize   int32     `json:"page_size"`
-	Q          string    `json:"q"`
 	UserID     uuid.UUID `json:"user_id"`
+	Q          string    `json:"q"`
 }
 
 type ListSeriesRow struct {
 	Name         string    `json:"name"`
 	Titles       int64     `json:"titles"`
 	CoverTitleID uuid.UUID `json:"cover_title_id"`
+	Covers       []byte    `json:"covers"`
+	Finished     int64     `json:"finished"`
 	Authors      []string  `json:"authors"`
 }
 
 func (q *Queries) ListSeries(ctx context.Context, arg ListSeriesParams) ([]ListSeriesRow, error) {
 	rows, err := q.db.Query(ctx, listSeries,
+		arg.Sort,
 		arg.PageOffset,
 		arg.PageSize,
-		arg.Q,
 		arg.UserID,
+		arg.Q,
 	)
 	if err != nil {
 		return nil, err
@@ -161,6 +179,8 @@ func (q *Queries) ListSeries(ctx context.Context, arg ListSeriesParams) ([]ListS
 			&i.Name,
 			&i.Titles,
 			&i.CoverTitleID,
+			&i.Covers,
+			&i.Finished,
 			&i.Authors,
 		); err != nil {
 			return nil, err

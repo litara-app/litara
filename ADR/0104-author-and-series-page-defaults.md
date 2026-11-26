@@ -31,7 +31,7 @@ Defaults for later stages:
 5. **Lookups:** they run only on request and are reviewed before use. There is no auto-fill or automatic refresh yet.
 6. **Missing books:** published, whole-numbered main books are shown, including those after the last one owned. Novellas, collections and unreleased books are left out.
 
-Separately, on 2026-11-26 the owner permitted using their Hardcover token for testing. A live Hardcover test is still needed before stage 3.
+Separately, on 2026-11-26 the owner permitted using their Hardcover token for testing. The [live test](../research/author-series-sources.md) ran the same day: author text and photos and series members and covers were returned; the three series checked had no description.
 
 ## Alternatives
 
@@ -46,9 +46,11 @@ Stage 1 needs only additive read fields ([ADR-0082](0082-api-compatibility-polic
 
 Planned for each stage. Stage 1: library grants limit every new count and cover ([ADR-0013](0013-library-access-local-login.md)); the pages work in the Reading Room and Clean themes, light and dark, and at phone width; Continue reading follows the rule above.
 
+Stage 1, 2026-11-26: Go test `TestAuthorAndSeriesDirectories` covers the new series covers, finished and series counts, the most-books order, Continue reading (nothing started, a later book in progress, finished books skipped) and an account without a grant. Web tests cover the cards, shelf filter, previous and next, missing-book places and the Continue button. Checked in Chromium against a local instance: Reading Room light and dark and Clean light had no sideways scroll, and the button opened the reader. At phone width every page, including ones this stage did not change, scrolls sideways by the width of the top bar's buttons. Not checked: Clean dark, other browsers, and the audiobook path in a browser.
+
 ## Open questions
 
 - Rules for family-name-first, single and corporate names beyond what a correction can fix.
-- The terms for storing and showing provider text and images, and the results of a live Hardcover test.
+- The terms for storing and showing provider text and images.
 - Photo storage limits.
 - Which other book behaviors apply to author and series editing, such as revision conflict handling.

@@ -68,6 +68,61 @@ func TestAuthorAndSeriesDirectories(t *testing.T) {
 		t.Fatalf("series: %d %+v", resp.StatusCode, s)
 	}
 
+	// ADR-0104: a series carries covers in reading order and the caller's finished count; an author carries a series count.
+	if len(s.Items[0].Covers) != 3 || s.Items[0].Covers[0].TitleID != first || s.Items[0].Covers[0].Medium != "ebook" || s.Items[0].Finished != 0 {
+		t.Fatalf("series covers: %+v", s.Items[0])
+	}
+	if a, _ := authors(r.userA, "q=ada"); a.Items[0].SeriesCount != 2 { // "The Saga" in two spellings, and "Saga"
+		t.Fatalf("series count: %+v", a.Items[0])
+	}
+	var many wire.DirectorySeriesPage
+	e.Do("GET", "/series?sort=titles", r.userA, nil).JSON(t, &many)
+	if len(many.Items) == 0 || many.Items[0].Name != "The Saga" {
+		t.Fatalf("most titles first: %+v", many)
+	}
+	next := func(token, by, name string) (wire.ContinueReading, int) {
+		var out wire.ContinueReading
+		resp := e.Do("GET", "/continue-reading?by="+by+"&name="+strings.ReplaceAll(name, " ", "+"), token, nil)
+		if resp.StatusCode == http.StatusOK {
+			resp.JSON(t, &out)
+		}
+		return out, resp.StatusCode
+	}
+	if c, code := next(r.userA, "series", "the saga"); code != 200 || c.TitleID == nil || *c.TitleID != first || *c.State != "unread" || *c.Medium != "ebook" {
+		t.Fatalf("continue, nothing started: %d %+v", code, c)
+	}
+	// A book in progress wins over an earlier unread one; a finished book is never offered.
+	var user, third, thirdEdition string
+	if err := e.Pool.QueryRow(t.Context(), `SELECT u.id::text, t.id::text, ed.id::text FROM users u, titles t JOIN editions ed ON ed.title_id = t.id
+		WHERE u.id = $1 AND t.title = 'Third Volume'`, e.Fix.UserAID).Scan(&user, &third, &thirdEdition); err != nil {
+		t.Fatal(err)
+	}
+	exec(`INSERT INTO edition_completion_state (user_id, edition_id, finished) SELECT $1, ed.id, true FROM editions ed WHERE ed.title_id = $2`, user, first)
+	if c, _ := next(r.userA, "series", "The Saga"); c.TitleID == nil || *c.TitleID == first {
+		t.Fatalf("finished book offered: %+v", c)
+	}
+	// Third Volume is later in the series than the unread Second Volume, but it is the one in progress.
+	exec(`INSERT INTO edition_position_state (user_id, edition_id, captured_at) VALUES ($1, $2, now())`, user, thirdEdition)
+	if c, _ := next(r.userA, "series", "The Saga"); c.TitleID == nil || *c.TitleID != third || *c.State != "reading" || *c.Medium != "ebook" {
+		t.Fatalf("book in progress: %+v (third %s)", c, third)
+	}
+	if c, _ := next(r.userA, "author", "ADA AUTHOR"); c.TitleID == nil || *c.TitleID != third {
+		t.Fatalf("author in progress: %+v", c)
+	}
+	e.Do("GET", "/series?q=the+saga", r.userA, nil).JSON(t, &s)
+	if s.Items[0].Finished != 1 {
+		t.Fatalf("finished count: %+v", s.Items[0])
+	}
+	if c, code := next(r.userB, "series", "The Saga"); code != 200 || c.TitleID != nil {
+		t.Fatalf("without a grant: %d %+v", code, c)
+	}
+	if _, code := next("", "series", "The Saga"); code != http.StatusUnauthorized {
+		t.Fatalf("anonymous continue: %d", code)
+	}
+	if _, code := next(r.userA, "shelf", "x"); code != http.StatusUnprocessableEntity {
+		t.Fatalf("bad kind: %d", code)
+	}
+
 	// The author and series pages use the title search; "is" matches either spelling.
 	var titles wire.T005Titles
 	resp = e.Do("POST", "/titles/search", r.userA, map[string]any{"filter": map[string]any{"type": "rule", "field": "series", "operator": "is", "value": []string{"THE SAGA"}},

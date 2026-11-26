@@ -406,6 +406,53 @@
         ],
         "type": "object"
       },
+      "ContinueReading": {
+        "additionalProperties": false,
+        "properties": {
+          "medium": {
+            "description": "What to open: the one used most recently, or the ebook of an unread title.",
+            "enum": [
+              "ebook",
+              "audio"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "enum": [
+              "reading",
+              "unread"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "maxLength": 2048,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "titleId",
+          "title",
+          "medium",
+          "state"
+        ],
+        "type": "object"
+      },
       "CoverFromURL": {
         "additionalProperties": false,
         "properties": {
@@ -618,6 +665,12 @@
           "name": {
             "type": "string"
           },
+          "seriesCount": {
+            "description": "How many series this author's visible titles belong to.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "titles": {
             "format": "int64",
             "minimum": 1,
@@ -627,7 +680,8 @@
         "required": [
           "name",
           "titles",
-          "coverTitleId"
+          "coverTitleId",
+          "seriesCount"
         ],
         "type": "object"
       },
@@ -671,6 +725,33 @@
         ],
         "type": "object"
       },
+      "DirectoryCover": {
+        "additionalProperties": false,
+        "properties": {
+          "medium": {
+            "description": "Which cover to show: the ebook one when the caller can see an ebook.",
+            "enum": [
+              "ebook",
+              "audio"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "titleId",
+          "title",
+          "medium"
+        ],
+        "type": "object"
+      },
       "DirectorySeries": {
         "additionalProperties": false,
         "properties": {
@@ -690,6 +771,23 @@
             "format": "uuid",
             "type": "string"
           },
+          "covers": {
+            "description": "Up to five titles in series order, for a stack of covers.",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryCover"
+            },
+            "maxItems": 5,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "finished": {
+            "description": "How many of the visible titles the caller has finished.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "name": {
             "type": "string"
           },
@@ -703,7 +801,9 @@
           "name",
           "titles",
           "coverTitleId",
-          "authors"
+          "authors",
+          "covers",
+          "finished"
         ],
         "type": "object"
       },
@@ -16142,6 +16242,151 @@
         ]
       }
     },
+    "/continue-reading": {
+      "get": {
+        "operationId": "getContinueReading",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "by",
+            "required": true,
+            "schema": {
+              "enum": [
+                "author",
+                "series"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContinueReading"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/T005Problem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The title to continue for an author or a series: the unfinished one used most recently, else the first unread",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/deliveries": {
       "get": {
         "operationId": "listDeliveries",
@@ -25289,6 +25534,20 @@
               "format": "int64",
               "minimum": 1,
               "type": "integer"
+            }
+          },
+          {
+            "description": "name (default), or titles for the most titles first.",
+            "explode": false,
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "description": "name (default), or titles for the most titles first.",
+              "enum": [
+                "name",
+                "titles"
+              ],
+              "type": "string"
             }
           }
         ],
