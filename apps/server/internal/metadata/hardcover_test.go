@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -72,6 +74,116 @@ func TestHardcoverTextSearchIsNeverAnIdentifierMatch(t *testing.T) {
 	}
 	if _, has := ms[1].Fields["series_name"]; has {
 		t.Fatalf("a book in several series is ambiguous: %+v", ms[1].Fields)
+	}
+}
+
+// newline separates the documents of one synthetic reply.
+const newline = string(rune(10))
+
+// hardcoverSearches answers each search text with the given documents (a text without an entry finds nothing; the
+// reply "fail" is a server error) and records the texts in order. All replies are synthetic.
+func hardcoverSearches(t *testing.T, replies map[string]string) (metadata.Hardcover, *[]string) {
+	t.Helper()
+	var sent []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Query     string         `json:"query"`
+			Variables map[string]any `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		text, _ := body.Variables["q"].(string)
+		if len(body.Variables) != 1 || !contains(body.Query, "per_page: 10") {
+			t.Errorf("only the search text is sent, for ten results: %+v %s", body.Variables, body.Query)
+		}
+		sent = append(sent, text)
+		if replies[text] == "fail" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		var hits []string
+		if replies[text] != "" {
+			for _, doc := range strings.Split(replies[text], newline) {
+				hits = append(hits, `{"document":`+doc+`}`)
+			}
+		}
+		_, _ = w.Write([]byte(`{"data":{"search":{"results":{"hits":[` + strings.Join(hits, ",") + `]}}}}`))
+	}))
+	t.Cleanup(srv.Close)
+	return metadata.Hardcover{HTTP: metadata.HTTP{BaseURL: srv.URL}, Token: "t"}, &sent
+}
+
+func hardcoverDoc(id, title string, authors ...string) string {
+	b, _ := json.Marshal(map[string]any{"id": id, "title": title, "author_names": authors})
+	return string(b)
+}
+
+func TestHardcoverSearchOrderAndFiltering(t *testing.T) {
+	dune := metadata.Query{Title: "Dune", Authors: []string{"Frank Herbert"}, ASIN: "B000TEST01"}
+	sequel := hardcoverDoc("2", "Dune Messiah", "Frank Herbert")
+	guide := hardcoverDoc("3", "Dune", "Study Guide Press")
+	franchise := hardcoverDoc("4", "Dune: House Atreides", "Brian Herbert")
+	graphic := hardcoverDoc("5", "Dune: The Graphic Novel", "Frank Herbert")
+	book := hardcoverDoc("1", "DUNE", "frank herbert")
+	lines := func(docs ...string) string { return strings.Join(docs, newline) }
+	many := []string{sequel, guide, franchise}
+	for _, id := range []string{"11", "12", "13", "14", "15", "16"} {
+		many = append(many, hardcoverDoc(id, "Companion "+id, "Someone Else"))
+	}
+	for _, c := range []struct {
+		name    string
+		query   metadata.Query
+		replies map[string]string
+		sent    []string
+		ids     []string
+	}{
+		{"the title alone finds the book, which moves ahead of the others", dune,
+			map[string]string{"Dune": lines(sequel, guide, graphic, book)},
+			[]string{"Dune"}, []string{"1", "5", "2", "3"}},
+		{"a book beyond the fifth result is kept, and five are offered", dune,
+			map[string]string{"Dune": lines(append(many, book)...)},
+			[]string{"Dune"}, []string{"1", "2", "3", "4", "11"}},
+		{"the author is added when the title alone has no agreeing hit", dune,
+			map[string]string{"Dune": lines(guide, franchise), "Dune Frank Herbert": lines(sequel, book, guide)},
+			[]string{"Dune", "Dune Frank Herbert"}, []string{"1", "2", "3", "4"}},
+		{"when nothing agrees the title-and-author results lead and repeats are dropped", dune,
+			map[string]string{"Dune": lines(guide, franchise), "Dune Frank Herbert": lines(sequel, guide)},
+			[]string{"Dune", "Dune Frank Herbert"}, []string{"2", "3", "4"}},
+		{"title results remain when the second search finds nothing", dune,
+			map[string]string{"Dune": guide},
+			[]string{"Dune", "Dune Frank Herbert"}, []string{"3"}},
+		{"neither search finds anything", dune, nil, []string{"Dune", "Dune Frank Herbert"}, nil},
+		{"without an author there is one search", metadata.Query{Title: "Dune"},
+			map[string]string{"Dune": lines(sequel, guide)},
+			[]string{"Dune"}, []string{"3", "2"}},
+		{"one side may leave out the subtitle", metadata.Query{Title: "Emma: A Novel", Authors: []string{"Jane Austen"}},
+			map[string]string{"Emma: A Novel": lines(hardcoverDoc("8", "Emma: Annotated Study", "Jane Austen"), hardcoverDoc("9", "Emma", "Jane Austen"))},
+			[]string{"Emma: A Novel"}, []string{"9", "8"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			p, sent := hardcoverSearches(t, c.replies)
+			ms, err := p.Lookup(context.Background(), c.query)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var ids []string
+			for _, m := range ms {
+				if m.ByIdentifier {
+					t.Errorf("a search hit is never an identifier match: %+v", m)
+				}
+				ids = append(ids, strings.TrimPrefix(m.ID, "book:"))
+			}
+			if !slices.Equal(*sent, c.sent) || !slices.Equal(ids, c.ids) {
+				t.Fatalf("sent %q want %q; ids %q want %q", *sent, c.sent, ids, c.ids)
+			}
+		})
+	}
+}
+
+func TestHardcoverFailedSecondSearchFailsTheLookup(t *testing.T) {
+	p, sent := hardcoverSearches(t, map[string]string{"Dune": hardcoverDoc("3", "Dune", "Study Guide Press"), "Dune Frank Herbert": "fail"})
+	ms, err := p.Lookup(context.Background(), metadata.Query{Title: "Dune", Authors: []string{"Frank Herbert"}})
+	if err == nil || ms != nil || len(*sent) != 2 {
+		t.Fatalf("an incomplete search must not be returned (it would be cached): %+v %v %q", ms, err, *sent)
 	}
 }
 

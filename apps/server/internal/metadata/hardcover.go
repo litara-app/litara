@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -60,8 +61,11 @@ const hardcoverEditionQuery = `query($isbn: String!) {
 }`
 
 const hardcoverSearchQuery = `query($q: String!) {
-  search(query: $q, query_type: "book", per_page: 5, page: 1) { results }
+  search(query: $q, query_type: "book", per_page: 10, page: 1) { results }
 }`
+
+// maxHardcoverCandidates is how many text-search results are offered for review.
+const maxHardcoverCandidates = 5
 
 func (h Hardcover) Lookup(ctx context.Context, q Query) ([]Match, error) {
 	switch {
@@ -153,23 +157,21 @@ func (h Hardcover) byISBN(ctx context.Context, isbn string) ([]Match, error) {
 	return out, nil
 }
 
-func (h Hardcover) bySearch(ctx context.Context, q Query) ([]Match, error) {
-	text := q.Title
-	if len(q.Authors) > 0 {
-		text += " " + q.Authors[0]
-	}
+type hardcoverDocument struct {
+	ID                     json.Number `json:"id"`
+	Title                  string      `json:"title"`
+	Description            string      `json:"description"`
+	AuthorNames            []string    `json:"author_names"`
+	SeriesNames            []string    `json:"series_names"`
+	FeaturedSeriesPosition *float64    `json:"featured_series_position"`
+}
+
+func (h Hardcover) searchBooks(ctx context.Context, text string) ([]hardcoverDocument, error) {
 	var data struct {
 		Search struct {
 			Results struct {
 				Hits []struct {
-					Document struct {
-						ID                     json.Number `json:"id"`
-						Title                  string      `json:"title"`
-						Description            string      `json:"description"`
-						AuthorNames            []string    `json:"author_names"`
-						SeriesNames            []string    `json:"series_names"`
-						FeaturedSeriesPosition *float64    `json:"featured_series_position"`
-					} `json:"document"`
+					Document hardcoverDocument `json:"document"`
 				} `json:"hits"`
 			} `json:"results"`
 		} `json:"search"`
@@ -177,9 +179,89 @@ func (h Hardcover) bySearch(ctx context.Context, q Query) ([]Match, error) {
 	if err := h.query(ctx, hardcoverSearchQuery, map[string]any{"q": text}, &data); err != nil {
 		return nil, err
 	}
-	var out []Match
+	var out []hardcoverDocument
 	for _, hit := range data.Search.Results.Hits {
-		d := hit.Document
+		out = append(out, hit.Document)
+	}
+	return out, nil
+}
+
+// How well a search hit agrees with the book asked for, best first.
+const (
+	hitSameTitle    = iota // the same title and, when the query has authors, a shared author
+	hitSubtitleOnly        // as above, but only one of the two titles has a subtitle
+	hitOther
+)
+
+// hardcoverAgreement ranks a hit. It only orders results for a person to review; it never makes one an identifier
+// match (ADR-0060).
+func hardcoverAgreement(q Query, d hardcoverDocument) int {
+	if len(q.Authors) > 0 && !slices.ContainsFunc(d.AuthorNames, func(name string) bool {
+		return norm(name) != "" && slices.ContainsFunc(q.Authors, func(a string) bool { return norm(a) == norm(name) })
+	}) {
+		return hitOther
+	}
+	want, got := norm(q.Title), norm(d.Title)
+	if want == "" || got == "" {
+		return hitOther
+	}
+	if want == got {
+		return hitSameTitle
+	}
+	// Two titles that share only the part before the colon, as books of a franchise do, are different books.
+	if head, _, found := strings.Cut(q.Title, ":"); found && norm(head) == got {
+		return hitSubtitleOnly
+	}
+	if head, _, found := strings.Cut(d.Title, ":"); found && norm(head) == want {
+		return hitSubtitleOnly
+	}
+	return hitOther
+}
+
+// searchHits searches the title alone first: adding the author to the text can push the book itself out of the results,
+// behind sequels, collections and study guides. The author is added in a second search only when the first has no hit
+// that agrees with the title and authors. Agreeing hits come first; the provider's order is otherwise kept. When
+// nothing agrees, the title-and-author results lead, so a differently spelled name can still be reviewed.
+func (h Hardcover) searchHits(ctx context.Context, q Query) ([]hardcoverDocument, error) {
+	rank := func(docs []hardcoverDocument) {
+		slices.SortStableFunc(docs, func(a, b hardcoverDocument) int {
+			return hardcoverAgreement(q, a) - hardcoverAgreement(q, b)
+		})
+	}
+	docs, err := h.searchBooks(ctx, q.Title)
+	if err != nil {
+		return nil, err
+	}
+	rank(docs)
+	agreed := len(docs) > 0 && hardcoverAgreement(q, docs[0]) != hitOther
+	if !agreed && len(q.Authors) > 0 && strings.TrimSpace(q.Authors[0]) != "" {
+		// A failure here fails the whole lookup, so an incomplete result is never cached or recorded.
+		more, err := h.searchBooks(ctx, q.Title+" "+q.Authors[0])
+		if err != nil {
+			return nil, err
+		}
+		docs = append(more, docs...)
+		rank(docs)
+		seen := map[json.Number]bool{}
+		docs = slices.DeleteFunc(docs, func(d hardcoverDocument) bool {
+			repeat := seen[d.ID]
+			seen[d.ID] = true
+			return repeat
+		})
+	}
+	if len(docs) > maxHardcoverCandidates {
+		docs = docs[:maxHardcoverCandidates]
+	}
+	return docs, nil
+}
+
+func (h Hardcover) bySearch(ctx context.Context, q Query) ([]Match, error) {
+	docs, err := h.searchHits(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	var out []Match
+	for _, d := range docs {
 		f := Fields{}
 		if strings.TrimSpace(d.Title) != "" {
 			set(f, FieldTitle, d.Title)
