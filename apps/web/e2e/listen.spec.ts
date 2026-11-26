@@ -7,7 +7,7 @@ async function signIn(page: Page, user = "fixture-user-a") {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 async function recordingId(page: Page): Promise<string> {
@@ -30,6 +30,12 @@ async function startPlayback(page: Page): Promise<"playing" | "unsupported"> {
   ]);
   if (result === "unsupported") await expect(page.getByTestId("player-error")).toContainText(/cannot play|could not be played|blocked/);
   return result;
+}
+
+/** Opens the player's actions menu and returns its finish or unfinish item. */
+async function finishItem(page: Page) {
+  await page.getByRole("button", { name: "Recording actions" }).click();
+  return page.getByRole("menuitem", { name: /^Mark (un)?finished$/ });
 }
 
 async function savedPosition(page: Page, id: string) {
@@ -55,10 +61,11 @@ test("the player shows the recording, plays real audio and saves the place on pa
     await page.getByTestId("play").click(); // pause
     await expect(page.getByTestId("save-status")).toHaveText("position saved", { timeout: 15_000 });
     await expect.poll(async () => (await savedPosition(page, id)).position?.offsetMs ?? 0, { timeout: 15_000 }).toBeGreaterThan(30_000); // a file anchor past the chapter start, not a percentage
-    await page.reload();
+    // The direct link leaves you on the book's page, so open the link again: a reload there does not reopen the player.
+    await page.goto(`/listen/${id}`);
     await expect(page.getByTestId("total")).toHaveText("3:00");
     expect(await secs(page)).toBeGreaterThanOrEqual(91); // resumed at the saved place, not at the start
-    await expect(page.getByTestId("play")).toHaveText("Play"); // never auto-plays
+    await expect(page.getByTestId("play")).toHaveAccessibleName("Play"); // never auto-plays
   }
 });
 
@@ -69,12 +76,12 @@ test("seeking and skipping cross file boundaries while playing", async ({ page }
   await page.getByTestId("chapter").first().click();
   await expect.poll(() => secs(page)).toBeLessThan(5);
   if ((await startPlayback(page)) === "unsupported") return;
-  await page.getByRole("button", { name: "Forward 30 seconds" }).click();
-  await page.getByRole("button", { name: "Forward 30 seconds" }).click();
+  await page.getByTestId("deck").getByRole("button", { name: "Forward 30 seconds" }).click();
+  await page.getByTestId("deck").getByRole("button", { name: "Forward 30 seconds" }).click();
   await expect.poll(() => secs(page), { timeout: 15_000 }).toBeGreaterThanOrEqual(60); // now in the second file
   const before = await secs(page);
   await expect.poll(() => secs(page), { timeout: 10_000 }).toBeGreaterThan(before); // and still playing
-  await page.getByRole("button", { name: "Back 30 seconds" }).click();
+  await page.getByTestId("deck").getByRole("button", { name: "Back 30 seconds" }).click();
   await expect.poll(() => secs(page), { timeout: 10_000 }).toBeLessThan(before);
   await page.getByTestId("play").click();
 });
@@ -103,11 +110,11 @@ test("finishing a recording is recorded as a completion, and can be undone", asy
   await signIn(page);
   const id = await recordingId(page);
   await page.goto(`/listen/${id}`);
-  const finish = page.getByRole("button", { name: /Mark (un)?finished/ });
+  const finish = await finishItem(page);
   const was = (await finish.innerText()).includes("unfinished");
   await finish.click();
   await expect.poll(async () => (await (await page.request.get(`/api/v1/recordings/${id}/completion`)).json()).finished, { timeout: 15_000 }).toBe(!was);
-  await page.getByRole("button", { name: /Mark (un)?finished/ }).click();
+  await (await finishItem(page)).click();
   await expect.poll(async () => (await (await page.request.get(`/api/v1/recordings/${id}/completion`)).json()).finished, { timeout: 15_000 }).toBe(was);
 });
 
@@ -126,8 +133,9 @@ test("playing to the natural end records a completion; nothing is finished by me
   const id = await recordingId(page);
   const completion = async () => (await (await page.request.get(`/api/v1/recordings/${id}/completion`)).json()) as { finished: boolean; revision: string };
   await page.goto(`/listen/${id}`);
-  const finish = page.getByRole("button", { name: /Mark (un)?finished/ });
-  if ((await finish.innerText()).includes("unfinished")) { // start unfinished (shared server)
+  const finish = await finishItem(page);
+  if (!(await finish.innerText()).includes("unfinished")) await page.keyboard.press("Escape");
+  else { // start unfinished (shared server)
     await finish.click();
     await expect.poll(async () => (await completion()).finished, { timeout: 15_000 }).toBe(false);
   }
@@ -150,7 +158,7 @@ test("playing to the natural end records a completion; nothing is finished by me
   expect(JSON.stringify(after)).toContain("natural_end");
 
   // Undo so the shared server is as found.
-  await page.getByRole("button", { name: /Mark unfinished/ }).click();
+  await (await finishItem(page)).click();
   await expect.poll(async () => (await completion()).finished, { timeout: 15_000 }).toBe(false);
 });
 

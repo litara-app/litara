@@ -9,7 +9,7 @@ async function signIn(page: Page, user = "fixture-user-a") {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 async function csrf(page: Page) {
@@ -42,7 +42,7 @@ async function clearAnnotations(page: Page, edition: string) {
 async function openReader(page: Page) {
   await openTitle(page, "The Browser Novel");
   await openEpubEdition(page);
-  await page.getByRole("link", { name: "Read" }).click();
+  await page.getByRole("link", { name: "Read", exact: true }).click();
   await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
 }
 
@@ -60,7 +60,7 @@ async function stored(page: Page): Promise<{ scope: string; status: string; id: 
 
 const API_WRITES = "**/api/v1/editions/*/annotations/*";
 const openNotes = async (page: Page) => {
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await page.getByRole("tab", { name: /Notes/ }).click();
 };
 

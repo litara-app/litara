@@ -14,7 +14,7 @@ async function signIn(page: Page, user: string) {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 const csrf = async (page: Page) => ((await (await page.request.get("/api/v1/auth/web/session")).json()) as { csrfToken: string }).csrfToken;
 const rule = (field: string, operator: string, value: string) => ({ type: "rule", field, operator, value });

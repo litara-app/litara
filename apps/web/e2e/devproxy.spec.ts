@@ -13,7 +13,7 @@ test("through the dev proxy: sign in works, the cookie is HttpOnly, a mutation n
   await page.getByLabel(/Username/).fill("fixture-user-a");
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 
   const cookies = await context.cookies();
   expect(cookies.length).toBeGreaterThan(0);
@@ -41,7 +41,7 @@ test("through the dev proxy: sign in works, the cookie is HttpOnly, a mutation n
   // The app, running through the same proxy, shows the shelf the proxied write created.
   await page.goto("/shelves");
   await expect(page.getByRole("heading", { name: /Shelves/ }).first()).toBeVisible();
-  await expect(page.getByText("Dev proxy shelf")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("main").getByText("Dev proxy shelf").first()).toBeVisible({ timeout: 15_000 }); // the sidebar lists shelves too
 
   // Clean up.
   const cur = (await (await page.request.get(`/api/v1/shelves/${sid}`)).json()) as { revision: string };
