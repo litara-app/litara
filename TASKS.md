@@ -1,6 +1,6 @@
 # Litara rebuild work packages
 
-Updated: 2026-11-17
+Updated: 2026-11-26
 Coordination owner: the user and the ADR/integration chat
 
 ## Start here
@@ -13,7 +13,7 @@ Coordination owner: the user and the ADR/integration chat
 
 **T006 is reviewed and merged for its scoped implementation.** [PR #86](https://github.com/litara-app/litara/pull/86) merged into main at `8de06b96c704bbf2a6067dc4df61a25401390393` on 2026-11-17. The [handoff](handoffs/T006.md) records checks and resolved findings; its integration-pending wording is historical. All 26 management operations and 16 protocol operations are implemented; the ledger's 36 covered and two partial scenarios retain their explicit client/conformance limits. The merge is not fresh runtime/hardware acceptance.
 
-**T007 implementation is complete and submitted for review.** The repository owner closed the scoped implementation on 2026-11-18. See the [handoff](handoffs/T007.md) and [release gates](research/t007/release-gates.md). The user-assisted phone follow-up, screen-reader, keyboard and touch checks, Android Auto, and Chromecast remain deferred. Chromecast is last. PR review, integration into main, and release approval are separate.
+**T007 is merged for its scoped implementation.** [PR #87](https://github.com/litara-app/litara/pull/87) merged into main at `2276200` on 2026-11-19. See the [handoff](handoffs/T007.md) and [release gates](research/t007/release-gates.md); their review-pending wording is historical, and the gate states are as recorded at that time. The user-assisted phone follow-up, screen-reader, keyboard and touch checks, Android Auto, and Chromecast remain deferred. Chromecast is last. The merge is not release approval or fresh runtime/hardware acceptance.
 
 **T008 is reserved for separate legacy personal-state migration**, explicitly selected by the user on 2026-11-17. Its concrete source/mapping/conversion decisions and implementation brief are not ready. It remains a release blocker under ADR-0063 and must not overlap T007 server/schema writes without an explicit narrowed transfer.
 
@@ -23,7 +23,7 @@ Prefer substantial end-to-end packages over small tickets. Each package may cont
 
 The authoritative working repository is `G:\Programming\ebooker`. `E:\Programming\ebooker` was a separate audit folder, not this Git repository. External reference clones/logs under `E:\Programming\_reference\` are optional local resources, not portable project dependencies.
 
-**T007 assignment checkout:** start from the final coordinator-supplied immutable `codex/t007-readiness` commit, based on merged main `8de06b96c704bbf2a6067dc4df61a25401390393`. The checkpoint includes accepted ADRs, existing T003–T006 APIs/fixtures, the full T007 brief, 32-scenario ledger and inherited gap/resource inventory. Suggested implementation branch: `codex/t007-integration`. Source/checkpoint evidence is in [research/t007/readiness.md](research/t007/readiness.md). Earlier readiness branches are historical provenance, not this assignment's starting point. Do not restore historical deletions or commit another owner's local work.
+**T007 assignment checkout (historical, closed):** the assignment started from an immutable `codex/t007-readiness` commit based on main `8de06b96c704bbf2a6067dc4df61a25401390393`. Source/checkpoint evidence is in [research/t007/readiness.md](research/t007/readiness.md). Do not start new work from it; branch from current `main`.
 
 ## Assignment and ownership rules
 
@@ -46,11 +46,11 @@ The authoritative working repository is `G:\Programming\ebooker`. `E:\Programmin
 | T004 | Catalog, library ingestion, metadata, and NAS recovery | Merged with named gaps: PR #82, integrated to main by #83 | Closed merged assignment; follow-ups need explicit ownership | See handoff: ebook entities, merge/split, writers, provider/NAS verification remain incomplete |
 | T005 | Redesigned web library and complete reading/listening flows | Done: reviewed and merged, PR #85 at c65738a | Closed implementation assignment | handoffs/T005.md; two T007 partials and release gates retained |
 | T006 | OPDS, email delivery, and basic KOReader integration | Done for scoped implementation: reviewed/merged PR #86 at 8de06b9 | Closed implementation assignment | handoffs/T006.md; named partials and release gates retained |
-| T007 | Native Android readers, cross-client integration, and release evidence | Implementation complete; PR review pending | Closed implementation scope | [Handoff](handoffs/T007.md) and [release gates](research/t007/release-gates.md); deferred user-assisted checks, Chromecast last |
+| T007 | Native Android readers, cross-client integration, and release evidence | Merged: PR #87 at 2276200; deferred checks and release gates open | Closed implementation scope | [Handoff](handoffs/T007.md) and [release gates](research/t007/release-gates.md); deferred user-assisted checks, Chromecast last |
 | T008 | Legacy personal-state migration | Not ready: source/mapping/conversion decisions and brief needed | Unassigned; user selected separate package | ADR-0063; mandatory release gate; serialize overlapping server/schema scope with T007 |
-| T009 | Complete web UI overhaul | UI SDK setup ready for review; redesign scope pending | Setup only | `apps/web`; preserve existing app behavior during setup and follow ADR-0010 |
+| T009 | Complete web UI overhaul | Rebuild merged: PRs #88–#90 at dfb89aa on 2026-11-21 | Closed rebuild; later web changes have their own PRs and ADRs | ADR-0079 (UI SDK only) supersedes ADR-0010; [handoff](handoffs/T009.md) |
 
-T001–T006 are integrated, and T007 implementation is complete with PR review pending. External and production gates remain in the release ledger. T008 requires a separate decision and design pass before assignment.
+T001–T007 and the T009 web rebuild are merged. External and production gates remain in the release ledger. T008 requires a separate decision and design pass before assignment. Work merged after 2026-11-21 (including metadata editing, notifications, reading statistics, annotations, author and series pages, and API compatibility changes) was delivered through pull requests under accepted ADRs and has no task number.
 
 ## T007 preparation — 2026-11-17
 
@@ -250,7 +250,7 @@ One full-stack owner receives the explicit server/schema/contracts/web brief. No
 
 Completed implementation scope: [handoffs/T007-assignment.md](handoffs/T007-assignment.md), [acceptance inventory](contracts/t007/README.md), [gap inventory](research/t007/gaps.md), [user scope/resource choices](research/t007/decisions.md). One owner adapts the preserved Android ebook/PDF/comic reader to the real APIs, fixes integrated workflows, qualifies metadata writers and supplies recovery/TLS/backup/restore/client/corpus/accessibility/unsigned-package evidence. Do not reimplement T005's edition/repair work or label prior partial tests as fresh passes.
 
-Local and emulator verification is recorded in the [handoff](handoffs/T007.md). The repository owner deferred assisted phone confirmation, accessibility, Android Auto, and Chromecast to a later segment. Chromecast remains last. The release gates also track outstanding verification and production decisions. This closeout authorizes the review PR. Release publishing, signing, tagging, and Actions reactivation remain held.
+Local and emulator verification is recorded in the [handoff](handoffs/T007.md). The repository owner deferred assisted phone confirmation, accessibility, Android Auto, and Chromecast to a later segment. Chromecast remains last. The release gates also track outstanding verification and production decisions. The scoped work merged in PR #87. Release publishing, signing, tagging, and Actions reactivation remain held.
 
 ## T008 — Separate legacy personal-state migration
 
@@ -258,9 +258,7 @@ User selected a separate migration package on 2026-11-17. ADR-0063 requires a ve
 
 ## T009 — Complete web UI overhaul
 
-Start by setting up UI SDK in the existing React and Vite app. Maintain the Mantine foundation selected in ADR-0010 during setup. See the [setup handoff](handoffs/T009.md).
-
-Confirm the screens and user flows for the redesign before implementation. Verify the agreed library, reading, listening, and administration flows as their interfaces are updated.
+The UI SDK setup milestone was followed on 2026-11-19 by [ADR-0079](ADR/0079-ui-sdk-only-web-interface.md), which supersedes ADR-0010: the web app uses UI SDK only and Mantine is removed. The rebuild merged in PRs #88–#90. Its [handoff](handoffs/T009.md) records the verification of that time. New web work follows ADR-0079 and `design/DESIGN-LANGUAGE.md`.
 
 ## Worker handoff format
 
