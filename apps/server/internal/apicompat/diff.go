@@ -22,7 +22,8 @@ const (
 	Additive Severity = "additive"
 )
 
-// Change is one difference between two documents. ID is stable and is what a waiver names.
+// Change is one difference between two documents. ID is stable and is what a waiver names. Where is the place in the API,
+// except for a changed schema name, where it is the pair of names.
 type Change struct {
 	Severity Severity `json:"severity"`
 	Rule     string   `json:"rule"`
@@ -53,6 +54,8 @@ type differ struct {
 	oldDoc, newDoc obj
 	changes        []Change
 	seen           map[string]bool
+	// ignoreNames compares shapes only. It is set on a probe that looks for the union branch a renamed one came from.
+	ignoreNames bool
 }
 
 // Diff compares two OpenAPI 3.x documents (JSON) and lists every difference that affects a client, breaking ones first.
@@ -312,7 +315,9 @@ func (d *differ) headers(loc string, o, n obj) {
 	for _, h := range sortedKeys(oh) {
 		if _, ok := nh[h]; !ok {
 			d.brk("response-header-removed", loc+" header "+h, "")
+			continue
 		}
+		d.name(loc+" header "+h, asObj(asObj(oh[h])["schema"]), asObj(asObj(nh[h])["schema"]))
 	}
 }
 
@@ -412,12 +417,35 @@ func num(v any) (float64, bool) {
 	return f, ok
 }
 
+// inlineName stands for a schema written out where it is used, which has no published name.
+const inlineName = "(inline)"
+
+func schemaName(raw obj) string {
+	if ref := str(raw["$ref"]); ref != "" {
+		return strings.TrimPrefix(ref, "#/components/schemas/")
+	}
+	return inlineName
+}
+
+// name keeps the published schema name at a place a client already reaches (ADR-0108): generated clients name their types
+// after it. The change is identified by the two names, not the place, so one rename is one change however widely the schema
+// is used.
+func (d *differ) name(where string, oraw, nraw obj) {
+	if d.ignoreNames || oraw == nil {
+		return
+	}
+	if a, b := schemaName(oraw), schemaName(nraw); a != b {
+		d.brk("schema-name-changed", a+" -> "+b, "first at "+where)
+	}
+}
+
 // schema compares two schemas in the direction they travel. Direction request means a client sends it to the server;
 // response means the server sends it to a client.
 func (d *differ) schema(where string, oraw, nraw obj, oldDoc, newDoc obj, dr dir, depth int) {
 	if depth > 24 {
 		return
 	}
+	d.name(where, oraw, nraw)
 	o, n := resolve(oldDoc, oraw), resolve(newDoc, nraw)
 	if o == nil && n == nil {
 		return
@@ -482,7 +510,7 @@ func (d *differ) schema(where string, oraw, nraw obj, oldDoc, newDoc obj, dr dir
 
 	// compositions
 	for _, kw := range []string{"oneOf", "anyOf", "allOf"} {
-		d.composition(where, kw, asList(o[kw]), asList(n[kw]), oldDoc, newDoc, dr, depth)
+		d.composition(where, kw, asList(o[kw]), asList(n[kw]), nraw, oldDoc, newDoc, dr, depth)
 	}
 }
 
@@ -645,15 +673,34 @@ func (d *differ) object(where string, o, n obj, oldDoc, newDoc obj, dr dir, dept
 }
 
 // composition: every alternative a request used to accept must still be accepted; every alternative a response may now send
-// must already have been one it could send.
-func (d *differ) composition(where, kw string, ob, nb []any, oldDoc, newDoc obj, dr dir, depth int) {
+// must already have been one it could send. A response that drops a oneOf or anyOf altogether must stay within one of the
+// old alternatives. nraw is the whole new schema that carries nb.
+func (d *differ) composition(where, kw string, ob, nb []any, nraw, oldDoc, newDoc obj, dr dir, depth int) {
 	if len(ob) == 0 && len(nb) == 0 {
 		return
 	}
-	compatible := func(a any, aDoc obj, b any, bDoc obj, direction dir) bool {
-		probe := &differ{oldDoc: aDoc, newDoc: bDoc, seen: map[string]bool{}}
-		probe.schema("x", asObj(a), asObj(b), aDoc, bDoc, direction, depth+1)
-		return len(Breaks(probe.changes)) == 0
+	compare := func(a, b any, direction dir, ignoreNames bool) []Change {
+		probe := &differ{oldDoc: oldDoc, newDoc: newDoc, seen: map[string]bool{}, ignoreNames: ignoreNames}
+		probe.schema("x", asObj(a), asObj(b), oldDoc, newDoc, direction, depth+1)
+		return probe.changes
+	}
+	compatible := func(a, b any, direction dir) bool { return len(Breaks(compare(a, b, direction, d.ignoreNames))) == 0 }
+	// renamed looks among n candidate pairs for two branches that differ only in names, and reports those, which says more
+	// than a missing branch. The shapes must be identical: a merely compatible one, such as a smaller response shape, could
+	// be an unrelated branch.
+	renamed := func(n int, pair func(int) (a, b any), direction dir) bool {
+		for i := range n {
+			a, b := pair(i)
+			if len(compare(a, b, direction, true)) > 0 {
+				continue
+			}
+			names := Breaks(compare(a, b, direction, false))
+			for _, c := range names {
+				d.brk(c.Rule, c.Where, "first in a "+kw+" branch at "+where)
+			}
+			return len(names) > 0
+		}
+		return false
 	}
 	switch dr {
 	case request:
@@ -664,12 +711,12 @@ func (d *differ) composition(where, kw string, ob, nb []any, oldDoc, newDoc obj,
 		for i, a := range ob {
 			found := false
 			for _, b := range nb {
-				if compatible(a, oldDoc, b, newDoc, request) {
+				if compatible(a, b, request) {
 					found = true
 					break
 				}
 			}
-			if !found {
+			if !found && !renamed(len(nb), func(j int) (any, any) { return a, nb[j] }, request) {
 				d.brk("request-"+kw+"-branch-removed", fmt.Sprintf("%s.%s[%d]", where, kw, i), "")
 			}
 		}
@@ -678,17 +725,83 @@ func (d *differ) composition(where, kw string, ob, nb []any, oldDoc, newDoc obj,
 			d.brk("response-"+kw+"-added", where, "")
 			return
 		}
+		if len(ob) > 0 && len(nb) == 0 && kw != "allOf" {
+			within := func(branch any) bool { return compatible(branch, nraw, response) }
+			if !staysWithinBranch(ob, resolve(newDoc, nraw), oldDoc, newDoc, within) {
+				d.brk("response-"+kw+"-removed", where, "the new schema is not provably one of the old alternatives")
+			}
+			return
+		}
 		for i, b := range nb {
 			found := false
 			for _, a := range ob {
-				if compatible(a, oldDoc, b, newDoc, response) {
+				if compatible(a, b, response) {
 					found = true
 					break
 				}
 			}
-			if !found {
+			if !found && !renamed(len(ob), func(j int) (any, any) { return ob[j], b }, response) {
 				d.brk("response-"+kw+"-branch-added", fmt.Sprintf("%s.%s[%d]", where, kw, i), "")
 			}
 		}
 	}
+}
+
+// staysWithinBranch reports whether schema n, which replaces a response union, promises at least what one old branch did.
+// within applies the ordinary response rules. They are not enough here, because they only compare what both sides declare:
+// a branch's required names and enum or const values must also survive. And when the union told several object shapes apart,
+// a closed branch must not turn into an open object or gain properties, or merging the shapes into one looser object would
+// pass as "properties added".
+func staysWithinBranch(branches []any, n, oldDoc, newDoc obj, within func(any) bool) bool {
+	shapes := 0
+	for _, raw := range branches {
+		if len(asObj(resolve(oldDoc, asObj(raw))["properties"])) > 0 {
+			shapes++
+		}
+	}
+	for _, raw := range branches {
+		b := resolve(oldDoc, asObj(raw))
+		if !within(raw) || !subsetOf(requiredSet(b), requiredSet(n)) || !keepsValues(b, n) {
+			continue
+		}
+		if shapes > 1 && b["additionalProperties"] == false {
+			if n["additionalProperties"] != false || !subsetOf(propertySet(newDoc, n), propertySet(oldDoc, b)) {
+				continue
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func propertySet(doc, s obj) map[string]bool {
+	out := map[string]bool{}
+	for name := range asObj(resolve(doc, s)["properties"]) {
+		out[name] = true
+	}
+	return out
+}
+
+// keepsValues reports whether n allows no value outside the enum or const that b was limited to.
+func keepsValues(b, n obj) bool {
+	allowed := func(s obj) map[string]bool {
+		var values []any
+		if c, ok := s["const"]; ok {
+			values = []any{c}
+		} else if values = asList(s["enum"]); len(values) == 0 {
+			return nil
+		}
+		out := map[string]bool{}
+		for _, v := range values {
+			j, _ := json.Marshal(v)
+			out[string(j)] = true
+		}
+		return out
+	}
+	old := allowed(b)
+	if old == nil {
+		return true
+	}
+	cur := allowed(n)
+	return cur != nil && subsetOf(cur, old)
 }

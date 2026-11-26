@@ -69,6 +69,28 @@ func TestDevelopmentBaseline(t *testing.T) {
 	}
 }
 
+func TestASchemaRenameNeedsAWaiver(t *testing.T) {
+	const v = "1.0.0-development"
+	dir := newDir(t, State{"development", v}, docAt(t, v, nil))
+	renamed := docAt(t, v, func(d obj) { rename(d, "Thing", "Item") })
+	const id = "schema-name-changed Thing -> Item"
+	if p := problems(t, dir, renamed); !strings.Contains(p, id) {
+		t.Fatalf("an unrecorded rename must fail: %q", p)
+	}
+	if _, err := Update(dir, renamed); err == nil || !strings.Contains(err.Error(), id) {
+		t.Fatalf("an unwaived rename must be refused: %v", err)
+	}
+	if err := writeJSON(filepath.Join(dir, waiversFile), waivers{Waivers: []Waiver{{ID: id, Reason: "test"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Update(dir, renamed); err != nil {
+		t.Fatalf("a waived rename: %v", err)
+	}
+	if p := problems(t, dir, renamed); p != "" {
+		t.Fatalf("after the update: %s", p)
+	}
+}
+
 func TestUpdateRefusesBreaksAndConsumesWaivers(t *testing.T) {
 	const v = "1.0.0-development"
 	dir := newDir(t, State{"development", v}, docAt(t, v, nil))

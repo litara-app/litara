@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-20
 Decision owner: Repository owner
+Amended by: [ADR-0108](0108-schema-names-in-api-compatibility.md) (2026-11-26): published schema names are part of the `v1` promise; renaming, adding or removing the name of a schema where a client already reaches it is breaking.
 
 ## Context
 
