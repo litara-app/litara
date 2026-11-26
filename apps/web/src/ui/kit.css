@@ -472,6 +472,15 @@ button.lt-tl-mark:hover::before, button.lt-tl-mark:focus-visible::before { outli
 .lt-select-wrap [data-slot="select-clear"] { position: absolute; inset-block: 0; inset-inline-end: 30px; display: grid; place-items: center; width: 24px; padding: 0; border: 0; background: none; color: var(--lt-dim); cursor: pointer; }
 .lt-select-wrap [data-slot="select-clear"]:hover { color: var(--lt-ink); }
 .lt-select-wrap [data-slot="select-clear"] svg { width: 14px; height: 14px; }
+/* A search field with a clear control: the control sits inside the input's right edge, drawn as a small close icon. */
+.lt-search-field { position: relative; display: flex; align-items: center; min-width: 0; }
+.lt-search-field > [data-slot="input"] { flex: 1; min-width: 0; }
+/* Leave room for the clear button so typed text is never drawn underneath it, and drop the browser's own cancel button. */
+.lt-search-field[data-filled] > [data-slot="input"] { padding-inline-end: 32px; }
+.lt-search-field > [data-slot="input"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.lt-search-field [data-slot="input-clear"] { position: absolute; inset-block: 0; inset-inline-end: 4px; display: grid; place-items: center; width: 24px; padding: 0; border: 0; background: none; color: var(--lt-dim); cursor: pointer; }
+.lt-search-field [data-slot="input-clear"]:hover { color: var(--lt-ink); }
+.lt-search-field [data-slot="input-clear"] svg { width: 14px; height: 14px; }
 .lt-seg[data-icon-only] [data-slot="segmented-control-item"] { padding-inline: var(--lt-s3); }
 .lt-seg .lt-btn-icon { display: inline-grid; margin-inline-end: 6px; }
 .lt-seg[data-icon-only] .lt-btn-icon { margin: 0; }
