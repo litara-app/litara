@@ -274,6 +274,26 @@ body {
   .lt-folio .lt-quote blockquote { font-family: var(--lt-font-accent); font-size: 17px; line-height: 1.55; }
 }
 
+/* Authors are cabinet cards: cream card stock, an arched portrait window and brass corners. Series cards are stacked sheets,
+   and an author's books stand on a wooden ledge. */
+:root:not([data-theme="clean"]) {
+  .lt-mount { background: linear-gradient(var(--lt-mount), var(--lt-mount-2)); border-color: var(--lt-mount-edge); border-radius: 0; color: var(--lt-mount-ink); box-shadow: 0 5px 12px rgb(60 40 10 / .25); transition: transform var(--lt-speed) ease, box-shadow var(--lt-speed) ease; }
+  a.lt-mount:hover, a.lt-mount:focus-visible { border-color: var(--lt-mount-corner); transform: translateY(-4px) rotate(-.6deg); box-shadow: 0 12px 22px rgb(60 40 10 / .35); }
+  .lt-mount-arch { background: radial-gradient(ellipse at 40% 30%, #e6d7ae, #c3ac78); color: #4a3814; border-radius: 50% 50% 3px 3px / 34% 34% 3px 3px; box-shadow: 0 0 0 1px #6d5420, 0 0 0 4px var(--lt-mount), 0 0 0 5px var(--lt-mount-edge), 0 0 0 7px var(--lt-mount), 0 0 0 8px #c9ad66, inset 0 0 16px rgb(40 22 5 / .35); }
+  .lt-mount-detail { color: var(--lt-mount-dim); font-family: var(--lt-font-accent); font-style: italic; }
+  .lt-mount-corner { display: block; position: absolute; width: 20px; height: 20px; border: solid var(--lt-mount-corner); border-width: 2px 0 0 2px; }
+  .lt-mount-corner::after { content: ""; position: absolute; left: 3px; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--lt-mount-corner); }
+  .lt-mount-corner[data-at="tl"] { left: 4px; top: 4px; }
+  .lt-mount-corner[data-at="tr"] { right: 4px; top: 4px; rotate: 90deg; }
+  .lt-mount-corner[data-at="br"] { right: 4px; bottom: 4px; rotate: 180deg; }
+  .lt-mount-corner[data-at="bl"] { left: 4px; bottom: 4px; rotate: 270deg; }
+  .lt-series-card { border-radius: 0; box-shadow: 1px 1px 0 var(--lt-surface-2), 3px 3px 0 var(--lt-line); }
+  .lt-series-card:hover, .lt-series-card:focus-visible { box-shadow: 0 10px 24px rgb(0 0 0 / .28); }
+  .lt-series-count { background: var(--lt-leather); color: var(--lt-leather-ink); border-color: var(--lt-foil); }
+  .lt-series-bar > span { background: light-dark(#9c7a2a, #dcb85f); }
+  .lt-shelf-item { background: linear-gradient(#9a6a42 0 3px, #6b4529 3px 9px, #3b2415 9px) bottom / 100% 15px no-repeat; }
+}
+
 /* Reading Room toasts are bookplates: a ruled paper label with brass corner brackets and a fleuron. */
 :root:not([data-theme="clean"]) .lt-toast {
   --lt-brass: light-dark(#9c7a2a, #dcb85f);

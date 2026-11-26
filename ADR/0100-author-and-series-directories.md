@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-25
 Decision owner: Repository owner
+Amended by: [ADR-0101](0101-authors-by-last-name.md) (2026-11-25): authors sort and filter by last name by default. Also amended by [ADR-0102](0102-editable-lockable-author-data.md) (2026-11-25): author data can be pulled online and its fields locked, so author data is stored. Also amended by [ADR-0103](0103-series-data-and-missing-books.md) (2026-11-26): series data can be fetched and stored, edited and locked, and a matched series shows its missing books.
 
 ## Context
 

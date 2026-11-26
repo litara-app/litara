@@ -780,3 +780,59 @@ th[aria-sort] .lt-sort-icon { opacity: 1; color: var(--lt-pri); }
 .lt-coverlink:hover .lt-coverlink-name { color: var(--lt-pri); text-decoration: underline; }
 .lt-coverlink-detail { font-size: var(--lt-text-xs); color: var(--lt-dim); }
 .lt-cover-row { display: grid; grid-auto-flow: column; grid-auto-columns: 112px; gap: var(--lt-s3); overflow-x: auto; padding-bottom: var(--lt-s2); }
+
+/* Authors and series (ADR-0104): structure for both themes; the Reading Room ornament is in theme.css. */
+.lt-card-grid { display: grid; gap: var(--lt-s5) var(--lt-s4); grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.lt-card-grid[data-kind="series"] { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.lt-mount { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; padding: var(--lt-s3); border: 1px solid var(--lt-line); border-radius: var(--lt-r-lg); background: var(--lt-surface); color: var(--lt-ink); text-align: center; text-decoration: none; }
+a.lt-mount:hover { border-color: var(--lt-edge); }
+a.lt-mount:focus-visible { outline: 2px solid var(--lt-ring); outline-offset: 3px; }
+.lt-mount-arch { display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 5; border-radius: var(--lt-r); background: var(--lt-surface-2); color: var(--lt-dim); container-type: inline-size; }
+.lt-mount-arch > span { font-family: var(--lt-font-accent); font-size: 27cqw; line-height: 1; }
+.lt-mount-name { margin-top: var(--lt-s4); font-family: var(--lt-font-display); font-weight: 600; font-size: var(--lt-text-lg); line-height: 1.2; overflow-wrap: anywhere; }
+.lt-mount-detail { font-size: var(--lt-text-xs); color: var(--lt-dim); }
+.lt-mount[data-static] { width: 100%; max-width: 250px; align-self: center; }
+.lt-mount-ribbon { position: absolute; right: var(--lt-s4); top: -5px; display: flex; flex-direction: column; align-items: center; width: 50px; height: 0; overflow: hidden; background: var(--lt-ribbon-deep); color: var(--lt-ribbon-ink); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 12px), 0 100%); transition: height var(--lt-speed) ease; z-index: 2; }
+.lt-mount-ribbon strong { padding-top: 14px; font-family: var(--lt-font-display); font-size: 22px; line-height: 1.1; }
+.lt-mount-ribbon span { font-size: var(--lt-text-xs); }
+a.lt-mount:hover .lt-mount-ribbon, a.lt-mount:focus-visible .lt-mount-ribbon { height: 80px; }
+@media (hover: none) { a.lt-mount .lt-mount-ribbon { height: 80px; } }
+.lt-mount-corner { display: none; }
+
+.lt-series-card { position: relative; display: flex; flex-direction: column; min-width: 0; padding: var(--lt-s3); border: 1px solid var(--lt-line); border-radius: var(--lt-r-lg); background: var(--lt-surface); color: var(--lt-ink); text-decoration: none; }
+.lt-series-card:hover, .lt-series-card:focus-visible { z-index: 2; border-color: var(--lt-edge); }
+.lt-series-card:focus-visible { outline: 2px solid var(--lt-ring); outline-offset: 3px; }
+.lt-series-count { position: absolute; top: var(--lt-s2); right: var(--lt-s2); z-index: 20; padding: 0 var(--lt-s2); border: 1px solid var(--lt-edge); background: var(--lt-surface-2); font-family: var(--lt-font-accent); font-size: var(--lt-text-xs); }
+.lt-fan-stage { position: relative; height: 190px; border-bottom: 1px solid var(--lt-line); margin-bottom: var(--lt-s3); }
+.lt-fan-cover { position: absolute; left: 50%; bottom: 15px; width: 104px; margin-left: -52px; z-index: var(--z); transform-origin: 50% 118%; transform: translate(calc((var(--k) - var(--mid)) * 11px), calc(var(--k) * -3px)) scale(calc(1 - var(--k) * .035)); transition: transform calc(var(--lt-speed) * 2) cubic-bezier(.2, .8, .2, 1); }
+.lt-series-card:hover .lt-fan-cover, .lt-series-card:focus-visible .lt-fan-cover { transform: translateX(calc((var(--k) - var(--mid)) * 17px)) rotate(calc((var(--k) - var(--mid)) * 7deg)); }
+.lt-series-name { font-family: var(--lt-font-display); font-weight: 600; font-size: var(--lt-text-lg); line-height: 1.2; overflow-wrap: anywhere; }
+.lt-series-meta { display: flex; justify-content: space-between; gap: var(--lt-s2); font-size: var(--lt-text-sm); color: var(--lt-dim); }
+.lt-series-meta > span:last-child { flex: none; }
+.lt-series-bar { display: block; height: 5px; margin-top: var(--lt-s2); border: 1px solid var(--lt-line); background: var(--lt-surface-2); }
+.lt-series-bar > span { display: block; width: var(--p); height: 100%; background: var(--lt-pri); }
+
+/* The fan in a series page's side column stays open. */
+.lt-folio-fan { height: 250px; }
+.lt-folio-fan .lt-fan-stage { height: 100%; margin: 0; border: 0; }
+.lt-folio-fan .lt-fan-cover { bottom: 36px; width: 124px; margin-left: -62px; }
+.lt-fan-stage[data-open] .lt-fan-cover { transform: translateX(calc((var(--k) - var(--mid)) * 15px)) rotate(calc((var(--k) - var(--mid)) * 7deg)); }
+
+.lt-folio-wide { padding: 0 var(--lt-s5) var(--lt-s5); min-width: 0; }
+.lt-contents { margin: 0; padding: 0; list-style: none; }
+.lt-contents li { display: flex; align-items: baseline; gap: var(--lt-s2); padding: 3px 0; }
+.lt-contents li > i { flex: 1; min-width: var(--lt-s4); border-bottom: 2px dotted var(--lt-line); }
+.lt-contents li > span:last-child { flex: none; }
+.lt-shelf-filter { max-width: 100%; min-width: 0; overflow-x: auto; padding: 3px; }
+.lt-shelf { display: flex; align-items: stretch; overflow-x: auto; padding-top: var(--lt-s2); }
+.lt-shelf-item { flex: 0 0 144px; min-width: 0; padding: 0 11px var(--lt-s3); }
+.lt-order-grid { display: grid; gap: var(--lt-s4); grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+.lt-order-item { display: flex; flex-direction: column; gap: var(--lt-s1); min-width: 0; }
+.lt-order-no { font-family: var(--lt-font-accent); font-size: var(--lt-text-xs); letter-spacing: .1em; text-transform: uppercase; color: var(--lt-dim); }
+.lt-missing { display: grid; place-content: center; aspect-ratio: 2 / 3; padding: var(--lt-s2); border: 2px dashed var(--lt-line); border-radius: var(--lt-r); color: var(--lt-dim); font-family: var(--lt-font-accent); font-size: var(--lt-text-sm); text-align: center; }
+@media (max-width: 760px) {
+  .lt-folio-body .lt-folio-side:has(.lt-mount, .lt-folio-fan) { max-width: none; }
+  .lt-folio-wide { padding: 0 var(--lt-s3) var(--lt-s3); }
+  .lt-card-grid[data-kind="authors"] { grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); }
+}
+

@@ -32,6 +32,16 @@
   --lt-leather-dim: #cdbb94;
   --lt-foil: #dcb85f;
   --lt-logo: #228be6;
+
+  /* Cabinet cards for authors: card stock stays cream in both modes, with brass corners and a deep ribbon */
+  --lt-mount: #fdf8ea;
+  --lt-mount-2: #efe3c4;
+  --lt-mount-ink: #2a2018;
+  --lt-mount-dim: #6b5833;
+  --lt-mount-edge: #a98a3d;
+  --lt-mount-corner: #8a6a1f;
+  --lt-ribbon-deep: #8f2a24;
+  --lt-ribbon-ink: #fff6e4;
   --lt-reader-dark: #111418;
 
   /* Status inks */

@@ -1,0 +1,567 @@
+<meta charset="utf-8">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Litara Authors and Series</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=IM+Fell+English:ital@0;1&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: mockup switcher on top, then the Litara shell (leather sidebar + paper content) showing one of 4 views. */
+:root {
+  --bg:#eee2c8; --surface:#fbf6ea; --surface2:#f4ebd6; --line:#d6c7a4; --ink:#2a2018; --dim:#65553f;
+  --pri:#1f4f82; --pri-ink:#fff8e6; --ribbon:#a8322b; --leather:#3a2a20; --leather2:#271b14; --leather-ink:#f3e8cf; --leather-dim:#cdbb94;
+  --foil:#dcb85f; --brass:#9c7a2a; --edge:#85704f; --hover:#f5e9bb;
+  --wall:#1f3a30; --wall2:#142720; --wall-ink:#f0e6cc; --wall-dim:#bfb596; --wood:#6b4529; --wood2:#3b2415;
+  --display:"Fraunces","Iowan Old Style",Georgia,serif; --sans:"Source Sans 3",system-ui,"Segoe UI",sans-serif; --old:"IM Fell English",Georgia,serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#14100c; --surface:#1f1812; --surface2:#281f17; --line:#4b3c2b; --ink:#f0e4ca; --dim:#b9a98c; --pri:#8fb4e0; --pri-ink:#10192a; --ribbon:#d6685f; --brass:#dcb85f; --edge:#8f7d60; --hover:#33281a; --wall:#172b24; --wall2:#0d1a15; color-scheme:dark } }
+:root[data-theme="dark"] { --bg:#14100c; --surface:#1f1812; --surface2:#281f17; --line:#4b3c2b; --ink:#f0e4ca; --dim:#b9a98c; --pri:#8fb4e0; --pri-ink:#10192a; --ribbon:#d6685f; --brass:#dcb85f; --edge:#8f7d60; --hover:#33281a; --wall:#172b24; --wall2:#0d1a15; color-scheme:dark }
+* { box-sizing:border-box }
+html { scroll-padding-top:70px }
+body { background:var(--bg); color:var(--ink); font:15px/1.45 var(--sans) }
+button { font:inherit; color:inherit; cursor:pointer }
+a { color:inherit; text-decoration:none }
+:focus-visible { outline:2px solid var(--foil); outline-offset:3px }
+h1,h2,h3 { font-family:var(--display); margin:0; text-wrap:balance; line-height:1.15 }
+p { margin:0 }
+[hidden] { display:none !important }
+svg.i { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none }
+
+/* ---------- mockup switcher ---------- */
+.switch { position:sticky; top:env(safe-area-inset-top,0px); z-index:50; background:#101216; color:#eef0f4; display:flex; flex-wrap:wrap; gap:8px 18px; padding-block:9px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); align-items:center; font-size:13px }
+.seg { display:flex; gap:2px; background:#23272f; border-radius:7px; padding:2px; align-items:center }
+.seg button { background:none; border:0; border-radius:5px; padding:4px 11px; color:#b9c0cc }
+.seg button[aria-pressed="true"] { background:#e9ecf2; color:#101216; font-weight:700 }
+.switch .what { flex:1 1 260px; min-width:0; color:#b9c0cc }
+
+/* ---------- app shell ---------- */
+.shell { display:grid; grid-template-columns:190px minmax(0,1fr); min-height:calc(100vh - 50px) }
+.side { background:linear-gradient(90deg,var(--leather2),var(--leather) 70%); color:var(--leather-ink); padding:14px 12px; position:relative }
+.side::after { content:""; position:absolute; top:8px; bottom:8px; right:5px; border-right:2px dashed color-mix(in srgb,var(--foil) 55%,transparent) }
+.brand { font:italic 600 24px var(--display); color:var(--foil); padding:0 8px 14px }
+.side .nav { display:block; padding:7px 10px; font-size:15px; border-radius:2px }
+.side .nav[aria-current] { background:var(--ribbon); color:#fff8e6; clip-path:polygon(0 0,100% 0,93% 50%,100% 100%,0 100%) }
+.main { padding:22px max(24px,env(safe-area-inset-right,0px)) 40px 24px; min-width:0 }
+.head { display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; align-items:end; border-bottom:1px solid var(--line); padding-bottom:12px; margin-bottom:20px; position:relative }
+.head::after { content:"❦"; position:absolute; left:50%; bottom:-11px; background:var(--bg); padding:0 10px; color:var(--brass); font-size:15px }
+.head h1 { font-size:30px }
+.sub { color:var(--dim) }
+.tools { display:flex; gap:8px; flex-wrap:wrap }
+.field { border:1px solid var(--line); background:var(--surface); padding:6px 11px; border-radius:4px; color:var(--dim); font-family:var(--old); display:flex; gap:8px; align-items:center; min-width:190px }
+.btn { display:inline-flex; gap:7px; align-items:center; border:1px solid var(--line); background:var(--surface); border-radius:4px; padding:6px 12px; font-weight:600; font-size:14px }
+.btn.primary { background:var(--pri); border-color:var(--pri); color:var(--pri-ink) }
+.eyebrow { font-family:var(--old); letter-spacing:.16em; text-transform:uppercase; font-size:12px; color:var(--dim) }
+
+/* ---------- covers ---------- */
+.cover { display:block; position:relative; aspect-ratio:2/3; border-radius:2px 5px 5px 2px; background:linear-gradient(160deg,hsl(var(--h) 42% 34%),hsl(var(--h) 46% 19%)); color:#f6ead0; box-shadow:1px 2px 4px rgb(0 0 0/.4),3px 0 0 -1px #f7f0dc,4px 0 0 -1px #cdbf9c; overflow:hidden; container-type:inline-size; text-align:center }
+.cover::before { content:""; position:absolute; inset:7cqw 7cqw 7cqw 13cqw; border:1px solid rgb(226 195 120/.65); outline:1px solid rgb(226 195 120/.3); outline-offset:2px }
+.cover::after { content:""; position:absolute; inset:0 auto 0 0; width:9%; background:linear-gradient(90deg,rgb(0 0 0/.4),rgb(255 255 255/.15) 55%,rgb(0 0 0/.2)) }
+.cover b { position:absolute; left:17cqw; right:11cqw; top:17cqw; font:600 12.5cqw/1.12 var(--display) }
+.cover i { position:absolute; left:17cqw; right:11cqw; bottom:14cqw; font:normal 7.5cqw/1.2 var(--old); letter-spacing:.1em; text-transform:uppercase; opacity:.85 }
+.cover u { position:absolute; left:55%; top:61%; translate:-50% -50%; text-decoration:none; font:400 24cqw/1 var(--old); color:#e2c378 }
+
+/* ---------- portraits ---------- */
+.pic { display:block; width:100%; height:100%; object-fit:cover }
+
+/* ---------- Authors B: cabinet cards ---------- */
+.cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:26px 22px }
+.cabinet { position:relative; display:block; text-align:center; background:linear-gradient(#fdf8ea,#efe3c4); color:#2a2018; border:1px solid #b79c62; padding:11px 11px 10px; box-shadow:0 1px 0 #fff inset,0 5px 12px rgb(60 40 10/.25); transition:transform .18s,box-shadow .18s }
+.cabinet .arch { display:block; aspect-ratio:4/5; border-radius:50% 50% 3px 3px/34% 34% 3px 3px; overflow:hidden; position:relative; box-shadow:0 0 0 1px #6d5420,0 0 0 4px #fdf6e2,0 0 0 5px #a98a3d,0 0 0 7px #fdf6e2,0 0 0 8px #c9ad66 }
+.cabinet .arch::after { content:""; position:absolute; inset:0; border-radius:inherit; box-shadow:inset 0 0 16px rgb(40 22 5/.55) }
+.cabinet .corner { position:absolute; width:20px; height:20px; border:solid #8a6a1f; border-width:2px 0 0 2px }
+.cabinet .corner::after { content:""; position:absolute; left:3px; top:3px; width:5px; height:5px; border-radius:50%; background:#8a6a1f }
+.cabinet .c1{left:4px;top:4px}.cabinet .c2{right:4px;top:4px;rotate:90deg}.cabinet .c3{right:4px;bottom:4px;rotate:180deg}.cabinet .c4{left:4px;bottom:4px;rotate:270deg}
+.cabinet .nm { display:block; font:600 17px/1.2 var(--display); margin-top:16px }
+.cabinet .studio { display:block; font:italic 12.5px var(--old); color:#6b5833 }
+.ribbonmark { position:absolute; right:18px; top:-5px; width:48px; background:linear-gradient(90deg,#8a241f,#b8403a 45%,#932a25); color:#fff6e4; padding:0 2px; height:0; overflow:hidden; transition:height .24s ease; clip-path:polygon(0 0,100% 0,100% 100%,50% calc(100% - 12px),0 100%); z-index:3; box-shadow:0 3px 6px rgb(0 0 0/.4) }
+.ribbonmark strong { display:block; font:600 22px/1.1 var(--display); padding-top:14px }
+.ribbonmark span { font:13px var(--old); letter-spacing:.06em }
+.cabinet:hover,.cabinet:focus-visible,.cabinet.show { transform:translateY(-4px) rotate(-.6deg); box-shadow:0 12px 22px rgb(60 40 10/.35) }
+.cabinet:hover .ribbonmark,.cabinet:focus-visible .ribbonmark,.cabinet.show .ribbonmark { height:80px }
+.toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px }
+.toolbar .search { flex:1 1 220px; min-width:0; border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:4px; padding:7px 11px; font:inherit }
+.toolbar select { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:4px; padding:7px 9px; font:inherit }
+.letters { display:flex; flex-wrap:wrap; justify-content:center; gap:2px; margin:0 0 8px; font-family:var(--old) }
+.letters button { min-width:29px; height:30px; padding:0 6px; background:none; border:0; border-bottom:2px solid var(--brass); font-size:16px }
+.letters button:hover:not(:disabled) { background:var(--hover) }
+.letters button:disabled { color:var(--dim); border-color:var(--line); opacity:.55; cursor:default }
+.letters button[aria-pressed="true"] { background:var(--ribbon); color:#fff8e6; border-color:var(--ribbon) }
+.result { text-align:center; color:var(--dim); font-size:13.5px; margin-bottom:18px; min-height:20px }
+.empty { text-align:center; padding:36px; color:var(--dim); border:1px dashed var(--line) }
+
+/* ---------- bookrail ---------- */
+.railbox { margin-top:26px; min-width:0 }
+.railhead { display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; margin-bottom:10px }
+.railhead h2 { font-size:20px }
+.chips { display:flex; gap:6px; flex-wrap:wrap }
+.chip { border:1px solid var(--line); background:var(--surface); border-radius:99px; padding:3px 12px; font-size:13.5px }
+.chip[aria-pressed="true"] { background:var(--leather); color:var(--leather-ink); border-color:var(--foil) }
+.arrow { border-radius:50%; width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--line); background:var(--surface) }
+.rail { display:flex; gap:22px; overflow-x:auto; padding:14px 18px 0; scroll-behavior:smooth; align-items:flex-start; scrollbar-width:thin }
+.vol { flex:0 0 122px; display:flex; flex-direction:column; position:relative }
+.vol .cover { transition:transform .16s }
+.vol:hover .cover { transform:translateY(-9px) }
+.vol .ledge { height:15px; margin:0 -12px; background:linear-gradient(#9a6a42 0 3px,var(--wood) 3px 9px,var(--wood2) 9px) ; box-shadow:0 8px 10px rgb(0 0 0/.3) }
+.vol .cap { padding-top:12px; font-size:13.5px; line-height:1.3; min-height:56px }
+.vol .cap b { font-family:var(--display); font-weight:600; display:block }
+.vol .cap span { color:var(--dim) }
+
+/* ---------- shared detail layout, matching the book page folio: cream plates on parchment with brass corner brackets ---------- */
+.dbar { display:flex; align-items:center; gap:6px; padding:0 4px; border-bottom:2px solid var(--edge) }
+.dbar > [role="tablist"] { display:flex }
+.dbar .back { border:0; background:none; flex:none; margin-right:10px }
+.dbar .tab { display:inline-flex; gap:7px; align-items:center; background:none; border:0; border-bottom:3px solid transparent; margin-bottom:-2px; padding:11px 10px 9px; font-weight:600; font-size:14px; color:var(--dim); white-space:nowrap }
+.dbar .tab[aria-selected="true"] { color:var(--ink); border-color:var(--ribbon) }
+.dbar .pager { margin-left:auto; display:flex; align-items:center; gap:7px; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap }
+.folio { display:grid; grid-template-columns:292px minmax(0,1fr); gap:24px; align-items:start; padding-top:22px }
+.fmain { display:flex; flex-direction:column; gap:18px; min-width:0 }
+.plate { position:relative; background:var(--surface); border:1px solid var(--line); box-shadow:1px 1px 0 var(--surface2),2px 2px 0 var(--line); padding:14px 18px; min-width:0 }
+.plate::before,.plate::after { content:""; position:absolute; width:16px; height:16px; border:2px solid var(--brass); pointer-events:none }
+.plate::before { left:-1px; top:-1px; border-right:0; border-bottom:0 }
+.plate::after { right:-1px; bottom:-1px; border-left:0; border-top:0 }
+.ptitle { display:flex; align-items:center; gap:10px; margin:0 0 8px; font:400 13px var(--old); letter-spacing:.1em; text-transform:uppercase; color:var(--dim) }
+.ptitle::after { content:""; flex:1; height:1px; background:var(--line) }
+.fhead h1 { font:400 36px/1.05 var(--old) }
+.fhead .lead { font:italic 18px/1.45 var(--display); color:var(--dim); margin-top:6px }
+.pgrid { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:18px; align-items:start }
+.sidecol { display:flex; flex-direction:column; align-items:center; gap:14px; padding:16px }
+/* the picture block is one height on both pages, so Continue and the icon buttons never move */
+.sidecol > :first-child { height:350px; flex:none }
+.sidecol .portrait .cabinet { flex:none }
+.sidecol .cabinet { width:250px; max-width:100%; text-align:center }
+.sidecol .cabinet:hover { transform:none }
+.sidecol .btn.primary { width:100%; justify-content:center }
+.iconrow { display:flex; gap:8px }
+.iconrow .arrow { border-radius:4px; width:40px; height:34px }
+.facts { display:flex; flex-wrap:wrap; gap:6px 34px }
+.facts strong { display:block; font:600 21px var(--display); font-variant-numeric:tabular-nums }
+.facts span { font:13px var(--old); letter-spacing:.08em; color:var(--dim) }
+.bio p { max-width:66ch; font-size:16px; line-height:1.6 }
+.bio p + p { margin-top:12px }
+.bio p:first-of-type::first-letter { float:left; font:400 52px/.86 var(--old); padding:3px 8px 0 0; color:var(--ribbon) }
+.contents { list-style:none; padding:0; margin:0 }
+.contents li { display:flex; gap:8px; align-items:baseline; padding:3px 0 }
+.contents li i { flex:1; border-bottom:2px dotted var(--line); min-width:20px }
+.contents li b { font-family:var(--display); font-weight:600 }
+.editform { display:grid; gap:12px; max-width:62ch }
+.editform label { display:grid; gap:4px; font-family:var(--old); letter-spacing:.06em }
+.editform input,.editform textarea { font:15px var(--sans); color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:7px 10px; min-width:0 }
+.shelfplate { margin-top:26px }
+.shelfplate .railbox { margin-top:0 }
+.shelfplate .grid { margin-top:4px }
+
+/* ---------- author metadata, laid out like the book's Edit metadata tab (ADR-0095, ADR-0097) ---------- */
+.mfbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px }
+.mfbar p { flex:1 1 260px; min-width:0; font-size:13.5px; color:var(--dim) }
+.plate.mf { padding:0 }
+.mf .ptitle { padding:10px 18px 0; margin-bottom:2px }
+.mfrow { display:grid; grid-template-columns:130px minmax(0,1fr) auto; gap:12px; align-items:start; padding:8px 18px; border-top:1px solid var(--line) }
+.mfrow[data-locked="true"] { background:var(--surface2) }
+.mfrow > b { padding-top:6px; font-weight:600 }
+.mfval { min-width:0 }
+.mfshow { display:block; width:100%; text-align:left; background:none; border:1px solid transparent; border-radius:4px; padding:5px 8px; overflow-wrap:anywhere }
+.mfshow:hover:not(:disabled) { border-color:var(--line); background:var(--surface2) }
+.mfshow:disabled { cursor:default; color:inherit }
+.mfedit { display:grid; gap:7px }
+.mfedit :is(input,textarea) { width:100%; font:15px var(--sans); color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:7px 10px }
+.mfval small { display:block; padding:0 8px; font-size:12.5px; color:var(--dim) }
+.btn:disabled { opacity:.5; cursor:default }
+/* photo tools sit under the main portrait, like the cover tools on the book page */
+.portrait { position:relative; display:flex; flex-direction:column; align-items:center }
+.photoedit { position:absolute; top:22px; right:22px; z-index:4; opacity:0; background:var(--surface); border-radius:4px; width:34px; height:32px; display:grid; place-items:center; border:1px solid var(--brass) }
+.portrait:hover .photoedit,.photoedit:focus-visible { opacity:1 }
+@media (hover:none) { .photoedit { opacity:1 } }
+.phototools { display:grid; gap:9px; width:100% }
+.phototools .btn { justify-content:center; width:100% }
+.phototools p { font-size:13px; color:var(--dim) }
+.drop { border:1px dashed var(--edge); border-radius:4px; background:transparent; padding:14px 10px; text-align:center }
+.drop:disabled { opacity:.5; cursor:default }
+.phototools label { display:grid; gap:4px; font-size:13px; font-weight:600 }
+.phototools input { width:100%; min-width:0; font:14px var(--sans); color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:6px 9px }
+.lockline { display:flex; justify-content:space-between; align-items:center; gap:8px; border-top:1px solid var(--line); padding-top:9px; font-size:13px }
+.choices { display:grid; grid-template-columns:1fr 1fr; gap:8px }
+.choices button { background:none; border:1px solid var(--line); padding:5px; font-size:12.5px }
+.choices img { display:block; width:100%; aspect-ratio:4/5; object-fit:cover }
+/* a series book that is not in any library: its cover greyed out, always with a text label */
+.gv.absent .cover { filter:grayscale(1) contrast(.75); opacity:.5; box-shadow:none }
+.gv.absent .t { color:var(--dim) }
+.coverwrap { position:relative; display:block }
+.coverwrap .tag { position:absolute; left:6px; right:6px; top:44%; background:var(--surface); color:var(--ink); border:1px solid var(--edge); font:13px/1.25 var(--old); text-align:center; padding:5px 4px }
+.gv .link { background:none; border:0; padding:0; margin-top:3px; font-size:13px; text-decoration:underline; color:var(--pri) }
+.mftools { display:flex; align-items:center; gap:6px; padding-top:2px }
+.badge { font-size:12px; border:1px solid var(--line); border-radius:99px; padding:0 8px; white-space:nowrap }
+.badge[data-s="Edited"] { border-color:var(--pri) }
+.badge[data-s="Online"] { border-color:#2f6b3a }
+.lockbtn { width:30px; height:30px; display:grid; place-items:center; border-radius:4px; border:1px solid #a86a10; background:transparent; color:var(--ink) }
+.lockbtn[aria-pressed="true"] { border-color:#2f6b3a; background:rgb(47 107 58/.18) }
+.thumb { width:46px; height:58px; border:1px solid var(--line); overflow:hidden; display:inline-block; vertical-align:middle; margin-right:10px }
+.cands { display:grid; gap:8px }
+.cand { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; justify-content:space-between; border:1px solid var(--line); padding:9px 12px }
+.cand span { display:block; font-size:13px; color:var(--dim) }
+.diff { display:grid; grid-template-columns:22px 120px minmax(0,1fr) minmax(0,1fr); gap:10px; padding:8px 0; border-top:1px solid var(--line); align-items:start; font-size:14px }
+.diff small { display:block; font:12px var(--old); letter-spacing:.08em; color:var(--dim); text-transform:uppercase }
+.diff em { grid-column:3 / -1; font-size:12.5px; color:var(--dim) }
+
+/* ---------- Series A: fan ---------- */
+.fans { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:22px }
+.fan { background:var(--surface); border:1px solid var(--line); padding:14px 14px 12px; box-shadow:1px 1px 0 var(--surface2),3px 3px 0 var(--line); display:block; text-align:left; position:relative; transition:box-shadow .18s }
+.fan .stage { display:block; position:relative; height:190px; border-bottom:1px solid var(--line); margin-bottom:11px }
+.fan .cover { position:absolute; width:104px; left:50%; bottom:15px; margin-left:-52px; transform-origin:50% 118%; transition:transform .32s cubic-bezier(.2,.8,.2,1) }
+/* resting: a tidy stack, front volume on top */
+.fan .cover { transform:translate(calc(var(--k) * 11px - var(--mid) * 11px),calc(var(--k) * -3px)) scale(calc(1 - var(--k) * .035)) }
+/* splayed */
+.fan:hover .cover,.fan:focus-visible .cover,.fan.show .cover { transform:translateX(calc((var(--k) - var(--mid)) * 17px)) rotate(calc((var(--k) - var(--mid)) * 7deg)) }
+.fan:hover,.fan:focus-visible,.fan.show { z-index:2; box-shadow:0 10px 24px rgb(0 0 0/.28) }
+.fan h3 { font-size:17px }
+.meta { display:flex; justify-content:space-between; gap:10px; font-size:13.5px; color:var(--dim) }
+.bar { display:block; height:4px; background:var(--surface2); border:1px solid var(--line); margin-top:8px }
+.bar span { display:block; height:100%; background:var(--brass); width:var(--p) }
+.count { position:absolute; top:10px; right:10px; background:var(--leather); color:var(--leather-ink); border:1px solid var(--foil); font:13px var(--old); padding:1px 9px; z-index:20 }
+
+/* ---------- Series detail: fan plate and the volume grid ---------- */
+.sidecol .fan { background:none; border:0; box-shadow:none; padding:0; width:100% }
+.sidecol .fan .stage { height:100%; border:0; margin:0 }
+.sidecol .fan .cover { width:128px; bottom:66px; margin-left:-64px; transform:translateX(calc((var(--k) - var(--mid)) * 15px)) rotate(calc((var(--k) - var(--mid)) * 7deg)) }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:22px 20px; margin-top:24px }
+.gv { min-width:0 }
+.gv .no { font:13px var(--old); letter-spacing:.12em; color:var(--dim); text-transform:uppercase; margin-bottom:5px }
+.gv .t { font:600 14.5px/1.3 var(--display); margin-top:8px }
+.gv .s { font-size:13px; color:var(--dim) }
+.ghost { aspect-ratio:2/3; border:2px dashed var(--line); display:grid; place-content:center; text-align:center; padding:10px; color:var(--dim); font:14px/1.35 var(--old); border-radius:3px }
+
+/* ---------- Clean theme: same layouts, no ornament ---------- */
+.clean { --brass:#1971c2; --ribbon:#1971c2; --display:system-ui,"Segoe UI",sans-serif; --old:system-ui,"Segoe UI",sans-serif }
+.clean .side { background:var(--surface); color:var(--ink); border-right:1px solid var(--line) }
+.clean .side::after,.clean .head::after,.clean .cabinet .corner,.clean .plate::before,.clean .plate::after,.clean .vol .ledge { display:none }
+.clean .brand { color:var(--pri) }
+.clean .plate { box-shadow:none; border-radius:8px }
+.clean .cabinet { background:var(--surface); color:var(--ink); border-color:var(--line); border-radius:8px; box-shadow:none }
+.clean .cabinet .arch { border-radius:6px; box-shadow:none }
+.clean .cabinet .arch::after { box-shadow:none }
+.clean .cabinet .studio { color:var(--dim) }
+
+@media (max-width:1180px) { .pgrid { grid-template-columns:minmax(0,1fr) } }
+@media (max-width:860px) {
+  .shell { grid-template-columns:minmax(0,1fr) } .side { display:none }
+  .main { padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)) }
+  .folio { grid-template-columns:minmax(0,1fr) }
+  .dbar { overflow-x:auto } .dbar .pager { display:none }
+  .cards { grid-template-columns:repeat(auto-fill,minmax(135px,1fr)) }
+  .mfrow { grid-template-columns:minmax(0,1fr) auto } .mfrow > b { grid-column:1 / -1; padding-top:0 }
+  .diff { grid-template-columns:22px minmax(0,1fr) } .diff > :not(input) { grid-column:2 }
+}
+@media (prefers-reduced-motion:reduce) { * { transition:none !important; scroll-behavior:auto !important } }
+</style>
+
+<nav class="switch" aria-label="Mockup views">
+  <div class="seg" data-k="page"><button data-v="authors">Authors</button><button data-v="series">Series</button></div>
+  <div class="seg" data-k="view"><button data-v="main">Main view</button><button data-v="detail">Detail view</button></div>
+  <div class="seg"><button id="pin" aria-pressed="false">Show a hover</button><button id="cleanbtn" aria-pressed="false">Clean theme</button><button id="modebtn" aria-pressed="false">Dark</button></div>
+  <span class="what" id="what"></span>
+</nav>
+<div class="shell" id="shell">
+  <aside class="side"><div class="brand">Litara</div><span class="nav">Library</span><span class="nav" data-nav="authors">Authors</span><span class="nav" data-nav="series">Series</span><span class="nav">Shelves</span><span class="nav">Highlights</span><span class="nav">Reading stats</span></aside>
+  <main class="main" id="main"></main>
+</div>
+
+<script>
+/* ---------- invented portraits. Each becomes an <img>, the way a stored author photo would. ---------- */
+function portrait(p) {
+  const [bg1,bg2] = p.bg, s = p.skin, sh = p.shade, h = p.hair;
+  const back = {
+    long:`<path d="M52 112C44 52 74 36 101 36s58 17 49 78c-3 24 10 48 12 70-20 10-34 4-40-8l-40 2c-8 12-24 15-42 5 3-24 16-48 12-71z" fill="${h}"/>`,
+    bob:`<path d="M54 108C48 56 74 38 100 38s53 18 46 72c-2 18 6 32 3 44-12 6-24 2-28-8l-42 1c-5 10-18 13-30 6-1-14 7-28 5-45z" fill="${h}"/>`,
+    bun:`<circle cx="104" cy="40" r="22" fill="${h}"/>`,
+    curly:`<g fill="${h}">${[[66,70,20],[84,52,23],[108,50,24],[130,64,21],[142,86,17],[58,92,17],[62,112,13],[140,108,13]].map(c=>`<circle cx="${c[0]}" cy="${c[1]}" r="${c[2]}"/>`).join("")}</g>`
+  }[p.style] || "";
+  const front = {
+    long:`<path d="M62 102c0-38 18-52 40-52 24 0 38 18 37 52-10-9-16-22-18-34-12 18-36 31-59 34z" fill="${h}"/>`,
+    bob:`<path d="M62 104c-3-38 15-55 39-55s40 15 38 55c-6-10-9-20-10-30-20 5-46 3-58-5-2 14-5 25-9 35z" fill="${h}"/>`,
+    bun:`<path d="M63 100c-4-34 14-50 37-50s42 14 38 50c-6-18-13-28-20-33-12 9-34 13-46 9-5 6-8 14-9 24z" fill="${h}"/>`,
+    curly:`<path d="M63 98c0-30 15-44 37-44s38 13 37 44c-7-10-9-19-13-24-14 8-38 8-50 1-4 6-8 14-11 23z" fill="${h}"/>`,
+    short:`<path d="M61 104c-6-38 12-58 39-58 30 0 45 19 39 58-4-14-5-24-9-31-14 4-24-2-30-8-8 9-20 13-29 11-5 8-7 17-10 28z" fill="${h}"/>`,
+    swept:`<path d="M62 102c-9-36 8-60 36-60 19 0 25 6 33 10 12 8 13 28 8 50-4-16-6-26-13-34-17 10-42 3-52 8-7 5-10 15-12 26z" fill="${h}"/>`,
+    bald:`<path d="M61 112c-3-14-1-30 7-40-1 14 1 24 0 34zM139 112c3-14 1-30-7-40 1 14-1 24 0 34z" fill="${h}"/>`
+  }[p.style];
+  const beard = p.beard === "full" ? `<path d="M65 116c3 40 18 55 35 55s33-15 35-55c-7 16-13 19-20 18-5-4-25-4-30 0-7 1-13-2-20-18z" fill="${p.beardColor||h}"/><path d="M82 139q18-9 36 0-9 3-18 2t-18-2z" fill="${p.beardColor||h}"/>`
+    : p.beard === "moustache" ? `<path d="M80 140q10-10 20-4 10-6 20 4-10 2-20-1-10 3-20 1z" fill="${p.beardColor||h}"/>` : "";
+  const eye = x => `<path d="M${x-9} 108q9-7 18 0-9 6-18 0z" fill="#eee3d6"/><circle cx="${x}" cy="108" r="3.4" fill="${p.eye}"/><circle cx="${x+1.2}" cy="106.8" r="1" fill="#fff"/><path d="M${x-10} 108q10-9 20 0" stroke="#2a1a12" stroke-width="1.7" fill="none"/><path d="M${x-11} 99q10-6 21 -1" stroke="${p.brow||h}" stroke-width="${p.beard?3.4:2.5}" fill="none" stroke-linecap="round"/>`;
+  const specs = p.specs ? `<g fill="rgba(255,255,255,.07)" stroke="${p.specs}" stroke-width="2"><rect x="70" y="99" width="25" height="19" rx="${p.round?9.5:4}"/><rect x="105" y="99" width="25" height="19" rx="${p.round?9.5:4}"/><path d="M95 106q5-4 10 0M70 105l-9-3M130 105l9-3" fill="none"/></g>` : "";
+  const collar = {
+    shirt:`<path d="M80 168l20 24 20-24 10 8-18 30-12-14-12 14-18-30z" fill="#e8dfcd"/>`,
+    scarf:`<path d="M74 166q26 24 52 0l8 16q-14 15-30 18l8 50h-20l-4-48q-18-6-22-22z" fill="${p.accent}"/>`,
+    turtle:`<path d="M80 156h40l4 26q-24 14-48 0z" fill="${p.coat}"/><path d="M80 164q20 9 40 0M79 172q21 10 42 0" stroke="rgba(0,0,0,.3)" fill="none"/>`,
+    brooch:`<path d="M82 168q18 26 36 0" fill="none" stroke="#e8dfcd" stroke-width="5"/><circle cx="100" cy="191" r="6" fill="#c9a24a" stroke="#6d5420"/>`
+  }[p.collar];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 250" width="400" height="500">
+<defs><radialGradient id="b" cx=".32" cy=".26" r=".95"><stop stop-color="${bg1}"/><stop offset="1" stop-color="${bg2}"/></radialGradient>
+<linearGradient id="l" x1="0" x2="1"><stop offset=".38" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#1a0a02" stop-opacity=".5"/></linearGradient>
+<radialGradient id="f" cx=".36" cy=".32" r=".75"><stop stop-color="${s}"/><stop offset="1" stop-color="${sh}"/></radialGradient>
+<filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.6"/></filter>
+<filter id="paint" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".09" numOctaves="2" seed="${p.seed}"/><feDisplacementMap in="SourceGraphic" scale="2.4"/></filter>
+<filter id="mottle"><feTurbulence type="fractalNoise" baseFrequency=".025" numOctaves="4" seed="${p.seed+3}"/><feColorMatrix values="0 0 0 0 .1 0 0 0 0 .06 0 0 0 0 .02 0 0 0 .9 -.28"/></filter>
+<filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2"/><feColorMatrix values="0 0 0 0 .5 0 0 0 0 .4 0 0 0 0 .3 0 0 0 .55 -.14"/></filter></defs>
+<rect width="200" height="250" fill="url(#b)"/><rect width="200" height="250" filter="url(#mottle)"/>
+<g filter="url(#paint)">${back}
+<path d="M18 250c4-52 26-68 62-80h40c36 12 58 28 62 80z" fill="${p.coat}"/>
+<path d="M82 140h36v34q-18 18-36 0z" fill="${sh}"/><path d="M82 142q18 28 36 0v14q-18 20-36 0z" fill="#3a1606" opacity=".25" filter="url(#soft)"/>
+${collar}<path d="M80 178l-14 18 18 54M120 178l14 18-18 54" stroke="rgba(0,0,0,.32)" stroke-width="2" fill="none"/>
+<path d="M18 250c4-52 26-68 62-80h40c36 12 58 28 62 80z" fill="url(#l)"/>
+<ellipse cx="61" cy="114" rx="7" ry="12" fill="${sh}"/><ellipse cx="139" cy="114" rx="7" ry="12" fill="${sh}"/>
+<path d="M62 100C62 66 78 54 100 54s38 12 38 46c0 22-4 36-14 48q-12 15-24 15t-24-15C66 136 62 122 62 100z" fill="url(#f)"/>
+<path d="M62 100C62 66 78 54 100 54s38 12 38 46c0 22-4 36-14 48q-12 15-24 15t-24-15C66 136 62 122 62 100z" fill="url(#l)" opacity=".7"/>
+<g filter="url(#soft)"><ellipse cx="82" cy="107" rx="13" ry="8" fill="#5a2a12" opacity=".16"/><ellipse cx="118" cy="107" rx="13" ry="8" fill="#5a2a12" opacity=".22"/><ellipse cx="77" cy="127" rx="10" ry="7" fill="#c4513a" opacity=".2"/><ellipse cx="122" cy="127" rx="10" ry="7" fill="#c4513a" opacity=".16"/><path d="M103 106q3 18 7 24-5 6-10 4" stroke="#5a2a12" stroke-width="4" fill="none" opacity=".3"/></g>
+${eye(82)}${eye(118)}
+<path d="M94 128q-3 5 3 6 3 2 6 0 6-1 3-7" stroke="#6b3420" stroke-width="1.3" fill="none" opacity=".75"/>
+<path d="M86 145q8-5 14-2 6-3 14 2-14 4-28 0z" fill="${p.lip}"/><path d="M86 145q14 12 28 0-14 4-28 0z" fill="${p.lip}" opacity=".82"/>
+${p.age?`<g stroke="#5a2a12" fill="none" opacity=".32"><path d="M80 80q20-5 40 0M84 87q16-3 32 0M80 131q-4 8-1 16M120 131q4 8 1 16M70 112l-5 3M130 112l5 3"/></g>`:""}
+${beard}${front}${specs}</g>
+<rect width="200" height="250" filter="url(#grain)" opacity=".55"/>
+<rect width="200" height="250" fill="#8a5a1c" opacity=".1"/></svg>`;
+  return "data:image/svg+xml," + encodeURIComponent(svg);
+}
+
+const AUTHORS = [
+ ["Mara Quill",7,2,{style:"bun",hair:"#4a2a1c",skin:"#e8b996",shade:"#b57e5e",eye:"#3d5a44",lip:"#9c4a3e",coat:"#26424a",collar:"brooch",bg:["#8d7a55","#2a2216"],seed:2}],
+ ["Tobias Fenn",4,1,{style:"swept",hair:"#8c8580",brow:"#6d655e",skin:"#e6b695",shade:"#a97355",eye:"#3d4f63",lip:"#93574a",coat:"#33281f",collar:"shirt",beard:"full",beardColor:"#9a938c",specs:"#2e2418",age:true,bg:["#6f8071","#1b231d"],seed:7}],
+ ["Ines Calder",3,0,{style:"bob",hair:"#17100d",skin:"#c98f68",shade:"#8d5a3d",eye:"#2c1a10",lip:"#8e3a33",coat:"#5e2723",collar:"turtle",bg:["#a08a66","#33261a"],seed:11}],
+ ["Ambrose Hale",12,3,{style:"bald",hair:"#c9c3ba",brow:"#a8a097",skin:"#e3ae8c",shade:"#a26c50",eye:"#44505a",lip:"#8f5145",coat:"#1f2430",collar:"shirt",beard:"moustache",beardColor:"#d3cdc3",round:true,specs:"#8a6a1f",age:true,bg:["#7d5b45","#24160e"],seed:5}],
+ ["Priya Raman",5,1,{style:"long",hair:"#1c1210",skin:"#b67a52",shade:"#7c4b30",eye:"#2a160c",lip:"#8c3d36",coat:"#2f4636",collar:"scarf",accent:"#b0792e",bg:["#9b8c6c","#2d281b"],seed:9}],
+ ["Kwame Adjei",6,2,{style:"short",hair:"#120c09",skin:"#8a5436",shade:"#52301d",eye:"#1c0e06",lip:"#6e352a",coat:"#3b4152",collar:"turtle",beard:"full",beardColor:"#1c130e",bg:["#c0a679","#4a3820"],seed:14}],
+ ["Odalys Ferreira",2,1,{style:"curly",hair:"#4b2412",skin:"#d39b74",shade:"#98644a",eye:"#3a2414",lip:"#a0463c",coat:"#233a52",collar:"shirt",round:true,specs:"#3b2414",bg:["#93846a","#2b241a"],seed:21}],
+ ["Henrik Vold",9,2,{style:"short",hair:"#b98a4b",brow:"#8f6a38",skin:"#edc0a0",shade:"#b58064",eye:"#456277",lip:"#a15b4e",coat:"#2c3326",collar:"shirt",specs:"#35291a",bg:["#64707c","#1a2027"],seed:17}],
+ ["Beatrix Holloway",3,1,{style:"bob",hair:"#a9a39c",brow:"#7d756d",skin:"#ebc0a4",shade:"#b07d62",eye:"#3c4c5c",lip:"#984f47",coat:"#3a2338",collar:"brooch",specs:"#4a3418",round:true,age:true,bg:["#8c8468","#262116"],seed:25}],
+ ["Rafael Ibarra",5,1,{style:"swept",hair:"#1e130d",skin:"#c58a62",shade:"#875638",eye:"#24150b",lip:"#8a443a",coat:"#4a3526",collar:"scarf",accent:"#4d6b73",beard:"moustache",bg:["#a99066","#392a17"],seed:29}],
+ ["Yuna Sato",4,2,{style:"long",hair:"#14100f",skin:"#e6b897",shade:"#ab7a5c",eye:"#1f120a",lip:"#a14a42",coat:"#26303a",collar:"turtle",bg:["#7f8b7c","#20271f"],seed:33}],
+].map(([name,books,series,p])=>({name,books,series,src:portrait(p)}));
+AUTHORS.splice(6,0,{name:"R. T. Marlowe",books:1,series:0,src:null});
+
+const SERIES = [
+ {n:"The Lantern Coast",a:"Mara Quill",h:196,read:2,t:["Salt and Signal","The Drowned Beacon","Harbor of Glass","The Tide Ledger","A Lamp for the Deep"]},
+ {n:"Clockwork Orchard",a:"Tobias Fenn",h:96,read:2,t:["The First Graft","Winter Pruning","The Brass Blossom"]},
+ {n:"Houses of the Meridian",a:"Ambrose Hale",h:350,read:5,t:["The North Wing","A Door in June","The Long Gallery","Servants' Stair","The Meridian Room","Ash Conservatory","The Last Key"]},
+ {n:"Monsoon Archive",a:"Priya Raman",h:28,read:0,t:["The Rain Clerk","Index of Floods","The Dry Season"]},
+ {n:"Nine Rivers",a:"Kwame Adjei",h:162,read:4,t:["Source","Ferryman","The Salt Delta","Confluence"]},
+ {n:"The Ninth Surveyor",a:"Henrik Vold",h:224,read:1,t:["Baseline","Triangulation","False Summit","Magnetic North","The Blank Quarter","Datum"]},
+ {n:"Paper Saints",a:"Odalys Ferreira",h:282,read:2,t:["Gilt Edges","The Marginal Hand"]},
+ {n:"Gaslight Almanac",a:"Ambrose Hale",h:48,read:0,t:["Spring Quarter","Midsummer","Michaelmas"]},
+];
+
+const I = {
+  lock:'<path d="M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 017 0v3"/>', unlock:'<path d="M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 016.8-1.1"/>',
+  reset:'<path d="M5 12a7 7 0 107-7c-2.5 0-4.3 1.2-5.5 2.6M5 4v4h4"/>', close:'<path d="M6 6l12 12M18 6L6 18"/>', check:'<path d="M5 12l5 5 9-10"/>',
+  back:'<path d="M19 12H5M11 6l-6 6 6 6"/>', book:'<path d="M12 6c-2-2-5-2-9-1v14c4-1 7-1 9 1 2-2 5-2 9-1V5c-4-1-7-1-9 1zM12 6v14"/>',
+  edit:'<path d="M4 20l1-4L16 5l3 3L8 19zM14 7l3 3"/>', search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+  sort:'<path d="M7 4v16M3 16l4 4 4-4M14 6h7M14 11h5M14 16h3"/>', shelf:'<path d="M6 4h12v16l-6-4-6 4zM12 7v6M9 10h6"/>',
+  listen:'<path d="M4 15v-3a8 8 0 0116 0v3M4 14h4v6H4zM16 14h4v6h-4z"/>', left:'<path d="M15 5l-7 7 7 7"/>', right:'<path d="M9 5l7 7-7 7"/>'
+};
+const ic = k => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${I[k]}</svg>`;
+const btn = (k,label,cls="",attr="") => `<button class="btn ${cls}" ${attr}>${ic(k)}${label}</button>`;
+const orn = ["❦","✦","❧","✥","✢"];
+const cover = (title,author,h,k=0,style="") => `<span class="cover" style="--h:${h};${style}"><b>${title}</b><u aria-hidden="true">${orn[(h+k)%5]}</u><i>${author}</i></span>`;
+const img = a => a.src ? `<img class="pic" src="${a.src}" alt="Portrait of ${a.name}">`
+  : `<svg class="pic" viewBox="0 0 200 250" preserveAspectRatio="xMidYMid slice" role="img" aria-label="No photo for ${a.name}"><rect width="200" height="250" fill="#d9c8a0"/><text x="100" y="146" text-anchor="middle" font-family="IM Fell English,Georgia,serif" font-size="66" fill="#6b5328">${a.name.split(" ").map(w=>w[0]).slice(0,3).join("")}</text></svg>`;
+const cabinet = (a,extra="",tag="button") => `<${tag} class="cabinet" ${extra}><i class="corner c1"></i><i class="corner c2"></i><i class="corner c3"></i><i class="corner c4"></i><span class="arch">${img(a)}</span>`;
+const plural = (n,w) => `${n} ${w}${n===1?"":w==="series"?"":"s"}`;
+const seriesLine = a => a.series ? plural(a.series,"series") : "standalone";
+
+const head = (title,sub) => `<div class="head"><div><h1>${title}</h1><p class="sub">${sub}</p></div></div>`;
+
+/* ---------- search, sort and the A-Z filter apply together ---------- */
+const list = {q:"",letter:"",sort:"last",sq:"",ssort:"name"};
+const sortName = a => { if (list.sort==="first") return a.name; const w=a.name.split(" "); return [w[w.length-1],...w.slice(0,-1)].join(" "); };
+const initial = a => sortName(a)[0].toUpperCase();
+function authorResults() {
+  const q = list.q.trim().toLowerCase();
+  const searched = AUTHORS.filter(a=>a.name.toLowerCase().includes(q)).sort((a,b)=>sortName(a).localeCompare(sortName(b)));
+  const have = new Set(searched.map(initial));
+  const shown = list.letter ? searched.filter(a=>initial(a)===list.letter) : searched;
+  const by = list.sort==="last" ? "last name" : "first name";
+  return `<div class="letters" role="group" aria-label="Filter by first letter of ${by}"><button aria-pressed="${!list.letter}" data-letter="">All</button>${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(l=>`<button data-letter="${l}" aria-pressed="${list.letter===l}" ${have.has(l)||list.letter===l?"":"disabled"}>${l}</button>`).join("")}</div>
+  <p class="result" role="status">${list.letter?`${plural(shown.length,"author")} with a ${by} starting with ${list.letter}`:plural(shown.length,"author")}</p>
+  ${shown.length ? `<div class="cards">${shown.map((a,i)=>`${cabinet(a,`data-go ${i===1?"data-demo":""}`)}<span class="ribbonmark"><strong>${a.books}</strong><span>${a.books===1?"book":"books"}</span></span><span class="nm">${a.name}</span><span class="studio">${seriesLine(a)}</span></button>`).join("")}</div>` : `<div class="empty">No authors match. Choose All or clear the search.</div>`}`;
+}
+function seriesResults() {
+  const q = list.sq.trim().toLowerCase();
+  const shown = SERIES.filter(s=>(s.n+" "+s.a).toLowerCase().includes(q)).sort((a,b)=>list.ssort==="books"?b.t.length-a.t.length:a.n.localeCompare(b.n));
+  if (!shown.length) return `<div class="empty">No series match. Clear the search.</div>`;
+  return `<div class="fans">${shown.map((s,i)=>`${fan(s,`data-go ${i===0?"data-demo":""}`)}<span class="count">${s.t.length} books</span><h3>${s.n}</h3><span class="meta"><span>${s.a}</span><span>${progress(s)}</span></span><span class="bar"><span style="--p:${100*s.read/s.t.length}%"></span></span></button>`).join("")}</div>`;
+}
+const toolbar = (what,value,options,current) => `<div class="toolbar" role="group" aria-label="${what} search"><input class="search" id="q" type="search" aria-label="Search ${what}" placeholder="Search ${what}" value="${value.replace(/"/g,"&quot;")}"><select id="sort" aria-label="Sort">${options.map(([v,l])=>`<option value="${v}" ${v===current?"selected":""}>${l}</option>`).join("")}</select></div>`;
+
+/* ---------- one detail bar for both pages: Back far left, then the tabs, pager far right ---------- */
+let editing = false;
+const dbar = (backLabel,editLabel,pos) => `<div class="dbar"><button class="btn back" data-up>${ic("back")}${backLabel}</button>
+  <div role="tablist" aria-label="Page sections"><button class="tab" role="tab" aria-selected="${!editing}" data-edit="0">${ic("book")}Details</button><button class="tab" role="tab" aria-selected="${editing}" data-edit="1">${ic("edit")}${editLabel}</button></div>
+  <span class="pager"><button class="arrow" aria-label="Previous">${ic("left")}</button>${pos}<button class="arrow" aria-label="Next">${ic("right")}</button></span></div>`;
+const sideActions = label => `${btn("book",label,"primary")}<div class="iconrow"><button class="arrow" aria-label="Listen" title="Listen">${ic("listen")}</button><button class="arrow" aria-label="Add to shelf" title="Add to shelf">${ic("shelf")}</button></div>`;
+
+/* ---------- books for the featured author ---------- */
+const GROUPS = [
+ {name:"The Lantern Coast",books:SERIES[0].t.map((t,i)=>({t,no:`Book ${i+1}`,h:196,s:i<2?"Finished":i===2?"41% read":"Unread"}))},
+ {name:"The Gull Letters",books:[{t:"Return Post",no:"Book 1",h:14,s:"Finished"}]},
+ {name:"Standalone",books:[{t:"A Quiet Almanac",no:"2019",h:42,s:"Unread"}]},
+];
+const rail = () => `<section class="railbox" aria-label="Books by Mara Quill">
+ <div class="railhead"><h2>On the shelf</h2><div class="chips">${["All 7","The Lantern Coast","The Gull Letters","Standalone"].map((c,i)=>`<button class="chip" aria-pressed="${!i}" data-chip="${i?c:""}">${c}</button>`).join("")}</div>
+ <div class="tools"><button class="arrow" aria-label="Scroll left" data-scroll="-1">${ic("left")}</button><button class="arrow" aria-label="Scroll right" data-scroll="1">${ic("right")}</button></div></div>
+ <div class="rail">${GROUPS.flatMap(g=>g.books.map((b,i)=>`<a href="#" class="vol" data-group="${g.name}">${cover(b.t,"Mara Quill",b.h,i)}<span class="ledge"></span><span class="cap"><b>${b.t}</b><span>${b.no} · ${b.s}</span></span></a>`)).join("")}</div></section>`;
+const BIO = `<div class="bio"><p>Mara Quill grew up above a chandlery on a stretch of coast where the lighthouse was still kept by hand. She spent nine years drawing harbour charts before she wrote anything longer than a margin note.</p><p>Her Lantern Coast novels follow the keepers who tend the signals between five drowned parishes. She lives inland now and says she still writes with the tide tables open.</p></div>`;
+const mara = AUTHORS[0];
+
+/* ---------- series helpers ---------- */
+const fan = (s,extra="",tag="button") => {
+  const show = s.t.slice(0,5), mid = (show.length-1)/2;
+  return `<${tag} class="fan" ${extra} style="--mid:${mid}"><span class="stage">${show.map((t,k)=>cover(t,s.a,s.h+k*7,k,`--k:${k};z-index:${10-k}`)).join("")}</span>`;
+};
+const progress = s => s.read===s.t.length ? "Finished" : s.read ? `${s.read} of ${s.t.length} read` : "Not started";
+const lc = SERIES[0];
+const VOLS = [
+ {no:1,r:"I",t:lc.t[0],s:"Finished",d:"A keeper's apprentice finds a signal that no station admits to sending."},
+ {no:2,r:"II",t:lc.t[1],s:"Finished",d:"The beacon at Ruan Head has been under water for forty years. Last night it lit."},
+ {no:3,r:"III",t:lc.t[2],s:"41% read",d:"Winter closes the passes, and the only way to warn the south coast is by glass and flame."},
+ {no:4,r:"IV",missing:true},
+ {no:5,r:"V",t:lc.t[4],s:"Unread",d:"The last keeper climbs the stair with a lamp that must not go out before morning."},
+];
+
+const BIOTEXT = "Mara Quill grew up above a chandlery on a stretch of coast where the lighthouse was still kept by hand.";
+/* "base" is what the field falls back to on Reset to source. Provider results below are invented samples. */
+const FIELDS = [
+  {id:"sort",group:"Name",label:"Last name",value:"Quill",src:"Guessed",hint:"Used for sorting and the A to Z letters. Change it if the guess is wrong."},
+  {id:"intro",group:"About",label:"Introduction",value:"Chart-maker turned novelist of tides, signals and the people who keep them.",src:"Edited"},
+  {id:"bio",group:"About",label:"Biography",value:BIOTEXT,src:"Online",long:true,locked:true},
+  {id:"sdesc",group:"About this series",label:"Description",value:"Five drowned parishes, one chain of signal lamps, and the keepers who will not let it go dark.",src:"Edited",long:true},
+  {id:"scount",group:"Series facts",label:"Books in series",value:"5",src:"Online",locked:true},
+  {id:"sstatus",group:"Series facts",label:"Status",value:"Complete",src:"Online"},
+].map(f=>({...f,base:f.id==="intro"?{value:"Author of the Lantern Coast novels.",src:"Online"}:f.id==="sdesc"?{value:"A series about the keepers of a coastal signal chain.",src:"Online"}:{value:f.value,src:f.src}}));
+const FOUND = {intro:"Author of the Lantern Coast novels.",bio:"Mara Quill writes about lighthouses, tide tables and the people who tend them. Before writing she drew harbour charts."};
+const SFOUND = {sdesc:"A series about the keepers of a coastal signal chain.",scount:"6",sstatus:"Ongoing"};
+/* the sample online values for whichever page is open */
+const found = () => state.page==="series" ? SFOUND : FOUND;
+const meta = {editing:null,step:null,pick:{}};
+/* photo state: which picture, where it came from, and its lock */
+const photo = {src:"Online",locked:false,searching:false,mono:false};
+const field = id => FIELDS.find(f=>f.id===id);
+const fieldRow = f => `<div class="mfrow" data-locked="${!!f.locked}"><b>${f.label}</b><div class="mfval">${meta.editing===f.id
+  ? `<div class="mfedit">${f.long?`<textarea id="mfinput" rows="5" aria-label="${f.label}">${f.value}</textarea>`:`<input id="mfinput" aria-label="${f.label}" value="${f.value}">`}<div class="actions">${btn("check","Save","primary",`data-save="${f.id}"`)}${btn("close","Cancel","",'data-cancel')}</div></div>`
+  : `<button class="mfshow" data-editfield="${f.id}" ${f.locked?"disabled":""} aria-label="${f.locked?`${f.label} is locked`:`Edit ${f.label}`}">${f.value}</button>${f.hint?`<small>${f.hint}</small>`:""}`}</div>
+  <div class="mftools"><span class="badge" data-s="${f.src}">${f.src}</span>${f.src==="Edited"&&!f.locked?`<button class="arrow" data-reset="${f.id}" aria-label="Reset ${f.label} to source" title="Reset to source">${ic("reset")}</button>`:""}<button class="lockbtn" data-lock="${f.id}" aria-pressed="${!!f.locked}" aria-label="${f.locked?`Unlock ${f.label}; the value stays`:`Lock ${f.label} as it is`}" title="${f.locked?"Locked":"Unlocked"}">${ic(f.locked?"lock":"unlock")}</button></div></div>`;
+function lookup() {
+  if (meta.step==="results") return `<section class="plate" aria-label="Online results"><h3 class="ptitle">Online results</h3><div class="cands">${[["Open Library","Mara Quill · 6 works listed"],["Hardcover","Mara Quill · The Lantern Coast"]].map(([n,d])=>`<div class="cand"><div><b>${n}</b><span>${d}</span></div>${btn("check","Review","",`data-review="${n}"`)}</div>`).join("")}</div><div class="actions">${btn("close","Close","",'data-cancel')}</div></section>`;
+  return reviewPanel();
+}
+function reviewPanel() {
+  if (!meta.step || meta.step==="results") return "";
+  const n = Object.values(meta.pick).filter(Boolean).length;
+  return `<section class="plate" aria-label="Review online values"><h3 class="ptitle">Review values from ${meta.step}</h3>${Object.keys(found()).map(id=>{const f=field(id);return `<label class="diff"><input type="checkbox" data-pick="${id}" ${meta.pick[id]?"checked":""} ${f.locked?"disabled":""} aria-label="Use online ${f.label}"><b>${f.label}</b><div><small>Now</small>${f.value}</div><div><small>Online</small>${found()[id]}</div>${f.locked?"<em>Locked. Unlock this field before it can be replaced.</em>":f.src==="Edited"?"<em>You edited this, so Use all skips it. Tick it to replace it.</em>":""}</label>`}).join("")}
+  <div class="actions">${btn("check",`Apply ${n} selected`,"primary",`data-apply ${n?"":"disabled"}`)}${btn("book","Use all","",'data-useall')}${btn("close","Cancel","",'data-cancel')}</div></section>`;
+}
+const authorEditor = () => `<div class="plate mfbar">${btn("search","Find author online","primary",'data-find')}<p>Click a value to edit it. A locked field cannot be changed, by you or an online lookup, until it is unlocked. Change the photo under the portrait.</p></div>${lookup()}
+  ${["Name","About"].map(g=>`<section class="plate mf" aria-label="${g}"><h3 class="ptitle">${g}</h3>${FIELDS.filter(f=>f.group===g).map(fieldRow).join("")}</section>`).join("")}`;
+const SOURCE = {Online:"a result from the online search",Uploaded:"an image you uploaded",None:"nothing, so initials are shown"};
+const shownPerson = () => photo.src==="None" ? {name:mara.name,src:null} : mara;
+const photoTools = () => `<div class="phototools" data-testid="photo-tools"><p>Currently: ${SOURCE[photo.src]}.</p>
+  <button class="drop" data-photo="upload" ${photo.locked?"disabled":""}>Choose an image, or drop one here</button>
+  <label>Or use an image address<input placeholder="https://example.com/photo.jpg" ${photo.locked?"disabled":""}></label>
+  ${btn("search","Search online","",`data-photo="search" ${photo.locked?"disabled":""}`)}
+  ${photo.searching ? `<div class="choices">${["Open Library","Hardcover"].map(n=>`<button data-photo="choose" aria-label="Use the photo from ${n}"><img src="${mara.src}" alt="">${n}</button>`).join("")}</div>${btn("close","Close results","",'data-photo="closesearch"')}` : ""}
+  ${btn("reset","Remove photo","",`data-photo="remove" ${photo.locked||photo.src==="None"?"disabled":""}`)}
+  <div class="lockline"><span>${photo.locked?"Photo is locked. Unlock it to change it.":"Lock this photo"}</span><button class="lockbtn" data-photo="lock" aria-pressed="${photo.locked}" aria-label="${photo.locked?"Unlock photo":"Lock photo"}">${ic(photo.locked?"lock":"unlock")}</button></div>
+  <p>A photo you choose is stored by Litara.</p></div>`;
+const authorSide = () => `<div class="portrait">${cabinet(shownPerson(),"","div")}<span class="nm">Mara Quill</span></div>${editing?"":`<button class="photoedit" data-edit="1" aria-label="Edit author and photo" title="Edit photo">${ic("edit")}</button>`}</div>${editing ? photoTools() : sideActions("Continue reading")}`;
+function photoClick(action) {
+  if (action==="lock") { photo.locked = !photo.locked; photo.searching = false; }
+  else if (!photo.locked) {
+    if (action==="upload") photo.src = "Uploaded";
+    if (action==="search") photo.searching = true;
+    if (action==="closesearch") photo.searching = false;
+    if (action==="choose") { photo.src = "Online"; photo.searching = false; }
+    if (action==="remove") photo.src = "None";
+  }
+  const y = scrollY; render(); scrollTo(0,y);
+  const el = $(`[data-photo="${action}"]:not(:disabled)`) || $('[data-photo="lock"]'); if (el) el.focus({preventScroll:true});
+}
+
+/* ---------- series editing: found through the books already in the series, then reviewed and lockable (ADR-0103) ---------- */
+const seriesResultsPanel = () => meta.step!=="results" ? "" : `<section class="plate" aria-label="Series results"><h3 class="ptitle">Found through your books</h3><div class="cands"><div class="cand"><div><b>The Lantern Coast</b><span>3 of your 4 books point here, from Hardcover (sample result)</span></div>${btn("check","Review","",'data-review="Hardcover"')}</div></div><div class="actions">${btn("close","Close","",'data-cancel')}</div></section>`;
+const seriesEditor = () => `<div class="plate mfbar">${btn("search","Find series online","primary",'data-find')}<p>Litara looks up the books you already have in this series. Click a value to edit it. A locked field cannot be changed until it is unlocked.</p></div>${seriesResultsPanel()}${reviewPanel()}
+  ${["About this series","Series facts"].map(g=>`<section class="plate mf" aria-label="${g}"><h3 class="ptitle">${g}</h3>${FIELDS.filter(f=>f.group===g).map(fieldRow).join("")}</section>`).join("")}`;
+
+function authorClick(e) {
+  const ph = e.target.closest("[data-photo]"); if (ph) { photoClick(ph.dataset.photo); return true; }
+  const t = e.target.closest("[data-editfield],[data-save],[data-cancel],[data-reset],[data-lock],[data-find],[data-review],[data-apply],[data-useall]");
+  if (!t) return false;
+  const d = t.dataset; let focus = "";
+  if (d.editfield) { meta.editing = d.editfield; focus = "#mfinput"; }
+  else if (d.save) { const f = field(d.save), v = $("#mfinput").value.trim(); if (v && v!==f.value) { f.value = v; f.src = "Edited"; } meta.editing = null; focus = `[data-lock="${f.id}"]`; }
+  else if ("cancel" in d) { meta.editing = null; meta.step = null; focus = "[data-find]"; }
+  else if (d.reset) { Object.assign(field(d.reset), field(d.reset).base); focus = `[data-lock="${d.reset}"]`; }
+  else if (d.lock) { field(d.lock).locked = !field(d.lock).locked; meta.pick[d.lock] = false; if (meta.editing===d.lock) meta.editing = null; focus = `[data-lock="${d.lock}"]`; }
+  else if ("find" in d) { meta.step = "results"; focus = "[data-review]"; }
+  else if (d.review) { meta.step = d.review; meta.pick = {}; focus = "[data-useall]"; }
+  else if ("useall" in d) { Object.keys(found()).forEach(id=>{ const f=field(id); meta.pick[id] = !f.locked && f.src!=="Edited"; }); focus = "[data-apply]"; }
+  else if ("apply" in d) { Object.keys(found()).forEach(id=>{ const f=field(id); if (meta.pick[id] && !f.locked) { f.value = found()[id]; f.src = "Online"; } }); meta.step = null; meta.pick = {}; focus = "[data-find]"; }
+  const y = scrollY; render(); scrollTo(0,y); const el = $(focus); if (el) el.focus({preventScroll:true});
+  return true;
+}
+
+const V = {
+"authors-main": ["Authors: search on the far left, as in Library. The centred A to Z rail filters the list, and its letters follow the sort.", () =>
+  head("Authors","Everyone who wrote a book you can open.") + toolbar("authors",list.q,[["last","Sort by last name"],["first","Sort by first name"]],list.sort) + `<div id="results">${authorResults()}</div>`],
+"authors-detail": ["Author page: laid out like the book page. Edit author works like Edit metadata, with online lookup and field locks.", () =>
+  `${dbar("Authors","Edit author",`${AUTHORS.findIndex(a=>a.name==="Mara Quill")+1} / ${AUTHORS.length}`)}
+  <div class="folio"><aside class="plate sidecol" aria-label="Portrait and actions">${authorSide()}</aside>
+  <div class="fmain"><header class="plate fhead"><h1>Mara Quill</h1><p class="lead">${field("intro").value}</p></header>
+  ${editing ? authorEditor() : `<div class="pgrid"><section class="plate"><h2 class="ptitle">About the author</h2>${field("bio").value===BIOTEXT ? BIO : `<div class="bio"><p>${field("bio").value}</p></div>`}</section>
+  <section class="plate"><h2 class="ptitle">Works</h2><ul class="contents"><li><b>The Lantern Coast</b><i></i><span>5 books</span></li><li><b>The Gull Letters</b><i></i><span>1 book</span></li><li><b>Standalone</b><i></i><span>1 book</span></li></ul></section></div>`}</div></div>
+  <div class="plate shelfplate">${rail()}</div>`],
+"series-main": ["Series: the same toolbar, with stacks that fan out on hover.", () =>
+  head("Series","Every series among the books you can open.") + toolbar("series",list.sq,[["name","Name, A to Z"],["books","Most books"]],list.ssort) + `<div id="results">${seriesResults()}</div>`],
+"series-detail": ["Series page: the same plates, brackets and control positions as the author and book pages.", () =>
+  `${dbar("Series","Edit series",`2 / ${SERIES.length}`)}
+  <div class="folio"><aside class="plate sidecol" aria-label="Covers and actions">${fan({...lc,t:[lc.t[0],lc.t[1],lc.t[2],lc.t[4]]},"","div")}</div>${sideActions("Continue reading")}</aside>
+  <div class="fmain"><header class="plate fhead"><h1>The Lantern Coast</h1><p class="lead">by Mara Quill</p></header>
+  ${editing ? seriesEditor() : `<div class="pgrid"><section class="plate"><h2 class="ptitle">About this series</h2><p style="max-width:62ch">${field("sdesc").value}</p></section>
+  <section class="plate"><h2 class="ptitle">Progress</h2><div class="facts"><div><strong>4 of 5</strong><span>in your libraries</span></div><div><strong>2</strong><span>finished</span></div><div><strong>${field("sstatus").value}</strong><span>series status</span></div></div></section></div>`}</div></div>
+  <section class="plate shelfplate"><h2 class="ptitle">Reading order</h2><div class="grid">${VOLS.map((v,i)=>`<div class="gv ${v.missing?"absent":""}"><div class="no">Book ${v.no}</div>${v.missing?`<span class="coverwrap">${cover(lc.t[3],"Mara Quill",lc.h+i*7,i)}<span class="tag">Not in your libraries</span></span><div class="t">${lc.t[3]}</div><div class="s">First published 2021</div><button class="link">About this book</button>`:`${cover(v.t,"Mara Quill",lc.h+i*7,i)}<div class="t">${v.t}</div><div class="s">${v.s}</div>`}</div>`).join("")}</div></section>`],
+};
+
+const state = {page:"authors",view:"main"};
+const $ = s => document.querySelector(s);
+function render() {
+  const key = `${state.page}-${state.view}`, [what,html] = V[key];
+  $("#main").innerHTML = html(); $("#what").textContent = what;
+  document.querySelectorAll(".seg[data-k] button").forEach(b=>b.setAttribute("aria-pressed", state[b.parentElement.dataset.k]===b.dataset.v));
+  document.querySelectorAll("[data-nav]").forEach(n=>n.toggleAttribute("aria-current", n.dataset.nav===state.page));
+  applyPin();
+}
+function applyPin() { const on = $("#pin").getAttribute("aria-pressed")==="true"; document.querySelectorAll("[data-demo]").forEach(e=>e.classList.toggle("show",on)); }
+function go(change) { editing = false; meta.editing = null; meta.step = null; photo.searching = false; Object.assign(state,change); const h = `${state.page}-${state.view}`; if (location.hash.slice(1)!==h) location.hash = h; render(); window.scrollTo(0,0); }
+function fromHash() { const k = location.hash.slice(1); if (V[k]) { const [page,view] = k.split("-"); Object.assign(state,{page,view}); } render(); }
+document.addEventListener("click", e => {
+  if (authorClick(e)) return;
+  const seg = e.target.closest(".seg[data-k] button"); if (seg) return go({[seg.parentElement.dataset.k]:seg.dataset.v});
+  const toggle = e.target.closest("#pin,#cleanbtn,#modebtn");
+  if (toggle) {
+    const on = toggle.getAttribute("aria-pressed")!=="true"; toggle.setAttribute("aria-pressed",on);
+    if (toggle.id==="pin") applyPin(); else if (toggle.id==="cleanbtn") $("#shell").classList.toggle("clean",on); else document.documentElement.dataset.theme = on?"dark":"light";
+    return;
+  }
+  const letter = e.target.closest("[data-letter]");
+  if (letter) { list.letter = list.letter===letter.dataset.letter ? "" : letter.dataset.letter; refresh(); return $(`[data-letter="${list.letter}"]`).focus(); }
+  const tab = e.target.closest("[data-edit]");
+  if (tab) { editing = tab.dataset.edit==="1"; render(); return $(`[data-edit="${tab.dataset.edit}"]`).focus(); }
+  if (e.target.closest("[data-go]")) return go({view:"detail"});
+  if (e.target.closest("[data-up]")) return go({view:"main"});
+  const chip = e.target.closest("[data-chip]");
+  if (chip) { document.querySelectorAll("[data-chip]").forEach(c=>c.setAttribute("aria-pressed",c===chip)); document.querySelectorAll(".vol").forEach(v=>v.hidden = !!chip.dataset.chip && v.dataset.group!==chip.dataset.chip); return; }
+  const sc = e.target.closest("[data-scroll]"); if (sc) $(".rail").scrollBy({left:sc.dataset.scroll*430});
+  if (e.target.closest('a[href="#"]')) e.preventDefault();
+});
+function refresh() { $("#results").innerHTML = state.page==="authors" ? authorResults() : seriesResults(); applyPin(); }
+document.addEventListener("change", e => { const id = e.target.dataset && e.target.dataset.pick; if (id) { meta.pick[id] = e.target.checked; const y = scrollY; render(); scrollTo(0,y); $(`[data-pick="${id}"]`).focus({preventScroll:true}); } });
+document.addEventListener("input", e => { if (e.target.id==="q") { list[state.page==="authors"?"q":"sq"] = e.target.value; refresh(); } });
+document.addEventListener("change", e => { if (e.target.id==="sort") { if (state.page==="authors") { list.sort = e.target.value; list.letter = ""; } else list.ssort = e.target.value; refresh(); } });
+addEventListener("hashchange", () => { if (location.hash.slice(1)!==`${state.page}-${state.view}`) { editing = false; fromHash(); } });
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+$("#modebtn").setAttribute("aria-pressed",dark);
+fromHash();
+</script>

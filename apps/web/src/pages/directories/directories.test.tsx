@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Title, TitleRow } from "../../api/types";
-import { AuthorPage, AuthorsPage, SeriesPage } from "./DirectoryPages";
+import { initials } from "../../ui/people";
+import { AuthorPage, AuthorsPage, SeriesListPage, SeriesPage } from "./DirectoryPages";
 import { RelatedRows } from "./RelatedRows";
 import { groupBySeries, missingNumbers } from "./directory";
 
@@ -14,15 +15,30 @@ const row = (id: string, title: string, series: string | null, index: number | n
 const SAGA = [row("1", "First", "The Saga", 1), row("4", "Fourth", "the saga", 4), row("2", "Second", "The Saga", 2)];
 const LOOSE = [row("9", "Alone", null, null), row("5", "Bridge", "Other", 1)];
 
-const api = vi.fn(async (_m: string, _p: string, body: { filter: { field: string; value: string[] } }): Promise<unknown> => {
+const search = async (_m: string, _p: string, body: { filter: { field: string; value: string[] } }): Promise<unknown> => {
   const items = body.filter.field === "series" ? SAGA : [...SAGA, ...LOOSE];
   return { items, total: items.length, page: 0, size: 200 };
-});
-const get = vi.fn(async (_p: string): Promise<unknown> => ({ items: [{ name: "Ada Author", titles: 5, coverTitleId: "1" }], total: 1, page: 0, size: 60 }));
+};
+const api = vi.fn(search);
+let next: unknown = { titleId: "2", title: "Second", medium: "ebook", state: "reading" };
+const responses = async (p: string): Promise<unknown> => {
+  if (p.startsWith("/continue-reading")) return next;
+  if (p.startsWith("/series")) {
+    return { items: [{ name: "The Saga", titles: 3, coverTitleId: "1", authors: ["Ada Author"], finished: 1, covers: [{ titleId: "1", title: "First", medium: "ebook" }, { titleId: "2", title: "Second", medium: "audio" }] }], total: 1, page: 0, size: 60 };
+  }
+  return { items: ["Ada Author", "Bo Writer", "Cy Panel"].map((name) => ({ name, titles: 5, coverTitleId: "1", seriesCount: name === "Cy Panel" ? 0 : 2 })), total: 3, page: 0, size: 60 };
+};
+const get = vi.fn(responses);
 vi.mock("../../api/client", async (orig) => ({
   ...(await orig<object>()), api: (m: string, p: string, b: never) => api(m, p, b), get: (p: string) => get(p),
 }));
-beforeEach(() => { api.mockClear(); get.mockClear(); });
+const read = vi.fn(async (_id: string) => {});
+const listen = vi.fn(async (_id: string) => {});
+vi.mock("../useTitleActions", () => ({ useTitleActions: () => ({ read, listen, download: vi.fn() }) }));
+beforeEach(() => {
+  api.mockClear(); api.mockImplementation(search); get.mockClear(); read.mockClear(); listen.mockClear(); sessionStorage.clear();
+  next = { titleId: "2", title: "Second", medium: "ebook", state: "reading" };
+});
 afterEach(cleanup);
 
 const at = (path: string, route: string, el: React.ReactNode) => render(
@@ -38,29 +54,74 @@ test("series order, grouping and missing numbers follow ADR-0100", () => {
   expect(groups[1]!.titles.map((t) => t.title)).toEqual(["First", "Second", "Fourth"]); // one series despite the case
 });
 
-test("the authors directory links each author to their page", async () => {
-  at("/authors", "/authors", <AuthorsPage />);
-  const item = await screen.findByTestId("directory-item");
-  expect(get).toHaveBeenCalledWith("/authors?page=0&size=60");
-  expect(item.getAttribute("href")).toBe("/authors/Ada%20Author");
-  expect(item.textContent).toContain("5 books");
+test("initials stand in for a photo", () => {
+  expect(initials("R. T. Marlowe")).toBe("RTM");
+  expect(initials("  ursula k. le guin ")).toBe("UKL");
+  expect(initials("")).toBe("");
 });
 
-test("an author page asks for that author and groups the books by series", async () => {
+test("the authors directory shows a card per author with initials, books and series", async () => {
+  at("/authors", "/authors", <AuthorsPage />);
+  const items = await screen.findAllByTestId("directory-item");
+  expect(get).toHaveBeenCalledWith("/authors?page=0&size=60");
+  expect(items[0]!.getAttribute("href")).toBe("/authors/Ada%20Author");
+  expect(items[0]!.textContent).toContain("AA");
+  expect(items[0]!.textContent).toContain("5books"); // the ribbon
+  expect(items[0]!.textContent).toContain("2 series");
+  expect(items[2]!.textContent).toContain("No series");
+});
+
+test("the series directory stacks covers and shows progress", async () => {
+  at("/series", "/series", <SeriesListPage />);
+  const card = await screen.findByTestId("directory-item");
+  expect(card.getAttribute("href")).toBe("/series/The%20Saga");
+  expect(card.textContent).toContain("1 of 3 finished");
+  expect([...card.querySelectorAll("img")].map((i) => i.getAttribute("src"))).toEqual(
+    [expect.stringContaining("/titles/1/cover?medium=ebook"), expect.stringContaining("/titles/2/cover?medium=audio")]);
+});
+
+test("an author page lists works by series, shelves the books and continues the one in progress", async () => {
   at("/authors/Ada%20Author", "/authors/:name", <AuthorPage />);
   const groups = await screen.findAllByTestId("author-group");
   expect(api).toHaveBeenCalledWith("POST", "/titles/search", expect.objectContaining({ filter: { type: "rule", field: "author", operator: "is", value: ["Ada Author"] } }));
-  expect(groups.map((g) => within(g).getByRole("heading").textContent)).toEqual(["Other", "The Saga", "Other books"]);
-  expect(within(groups[1]!).getAllByTestId("book-item").map((b) => b.textContent)).toEqual(
-    [expect.stringContaining("#1 First"), expect.stringContaining("#2 Second"), expect.stringContaining("#4 Fourth")]);
+  expect(groups.map((g) => g.textContent)).toEqual(["Other1 book", "The Saga3 books", "No series1 book"]);
+  expect(screen.getByRole("img", { name: "No photo of Ada Author" })).toBeTruthy();
+  expect(screen.getAllByTestId("book-item").map((b) => b.getAttribute("href"))).toEqual(["/titles/5", "/titles/1", "/titles/2", "/titles/4", "/titles/9"]);
+
+  fireEvent.click(screen.getByRole("radio", { name: "The Saga" }));
+  expect(screen.getAllByTestId("book-item").map((b) => b.getAttribute("href"))).toEqual(["/titles/1", "/titles/2", "/titles/4"]);
+
+  await screen.findByTestId("continue-title"); // until it arrives the button is a disabled placeholder
+  fireEvent.click(screen.getByRole("button", { name: "Continue reading" }));
+  expect(get).toHaveBeenCalledWith("/continue-reading?by=author&name=Ada+Author");
+  expect(read).toHaveBeenCalledWith("2");
 });
 
-test("a series page is in reading order and names the missing books", async () => {
+test("the previous and next buttons follow the directory", async () => {
+  at("/authors/Bo%20Writer", "/authors/:name", <AuthorPage />);
+  expect((await screen.findByTestId("directory-position")).textContent).toBe("2 / 3");
+  expect(screen.getByRole("link", { name: "Previous" }).getAttribute("href")).toBe("/authors/Ada%20Author");
+  expect(screen.getByRole("link", { name: "Next" }).getAttribute("href")).toBe("/authors/Cy%20Panel");
+});
+
+test("a series page is in reading order with a place for each missing book", async () => {
+  next = { titleId: "4", title: "Fourth", medium: "audio", state: "unread" };
   at("/series/The%20Saga", "/series/:name", <SeriesPage />);
-  const books = await screen.findAllByTestId("book-item");
+  const found = await screen.findAllByTestId("book-item");
   expect(api).toHaveBeenCalledWith("POST", "/titles/search", expect.objectContaining({ sort: "series_index", filter: expect.objectContaining({ field: "series", value: ["The Saga"] }) }));
-  expect(books.map((b) => b.getAttribute("href"))).toEqual(["/titles/1", "/titles/4", "/titles/2"]); // the server's order is kept
-  expect(screen.getByTestId("missing").textContent).toContain("#3");
+  expect(found.map((b) => b.getAttribute("href"))).toEqual(["/titles/1", "/titles/4", "/titles/2"]); // the server's order is kept
+  expect(screen.getByTestId("missing-book").textContent).toContain("Book 3 is not in your libraries");
+  fireEvent.click(await screen.findByRole("button", { name: "Start listening" }));
+  expect(listen).toHaveBeenCalledWith("4");
+});
+
+test("a series with very many gaps names them instead, and a finished one offers nothing to continue", async () => {
+  next = { titleId: null, title: null, medium: null, state: null };
+  api.mockImplementation(async () => ({ items: [row("1", "First", "Long", 1), row("30", "Thirtieth", "Long", 30)], total: 2, page: 0, size: 200 }));
+  at("/series/Long", "/series/:name", <SeriesPage />);
+  expect((await screen.findByTestId("missing")).textContent).toContain("#2, #3");
+  expect(screen.queryByTestId("missing-book")).toBeNull();
+  expect(await screen.findByTestId("all-finished")).toBeTruthy();
 });
 
 test("the title page rows leave out the open title and hide when nothing else is there", async () => {
