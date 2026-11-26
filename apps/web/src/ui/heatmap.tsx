@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 /** One day of a heatmap: its local date (YYYY-MM-DD), the step 0-4 that sets its shade, and what it says on hover. */
 export interface HeatDay { date: string; level: 0 | 1 | 2 | 3 | 4; label: string }
@@ -13,6 +13,12 @@ const parse = (d: string) => { const [y, m, dd] = d.split("-").map(Number); retu
  */
 export function Heatmap({ days, steps, label, empty }: { days: HeatDay[]; steps: string[]; label: string; empty: string }) {
   const [hover, setHover] = useState<HeatDay | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const newest = days[days.length - 1]?.date;
+  // Too narrow for the whole year: open on the newest weeks. Only a new last day moves it, so a reader's own scroll stays.
+  useLayoutEffect(() => {
+    if (scroller.current) scroller.current.scrollLeft = scroller.current.scrollWidth;
+  }, [newest]);
   if (days.length === 0) return null;
   const lead = (parse(days[0]!.date).getDay() + 6) % 7; // blank cells before the first day, Monday = 0
   const months: { col: number; name: string }[] = [];
@@ -23,7 +29,7 @@ export function Heatmap({ days, steps, label, empty }: { days: HeatDay[]; steps:
   if (months.length > 1 && months[1]!.col - months[0]!.col < 3) months.shift(); // a partial first month would collide
   return (
     <figure className="lt-heat" aria-label={label}>
-      <div className="lt-heat-scroll">
+      <div className="lt-heat-scroll" ref={scroller}>
         <div className="lt-heat-months" aria-hidden="true">
           {months.map((m) => <span key={`${m.col}-${m.name}`} style={{ "--col": m.col } as CSSProperties}>{m.name}</span>)}
         </div>
