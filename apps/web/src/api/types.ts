@@ -1,3 +1,4 @@
+import type { WireFilter } from "../pages/filter/filterTree";
 // Hand-written wire types for the subset of contracts/t003 and contracts/t005
 // that the web client uses. The server's generated OpenAPI is checked against
 // the contracts by scripts/contracts/compare.py; these types are not generated.
@@ -24,11 +25,8 @@ export interface Edition {
   capabilities: Record<"read" | "download" | "resume" | "textSelection" | "textHighlight" | "pageNote" | "bookmark", Capability>;
 }
 
-export type ShelfFilter =
-  | { kind: "predicate"; field: string; operator: "equals" | "contains"; value: string }
-  | { kind: "all" | "any"; children: ShelfFilter[] }
-  | { kind: "not"; child: ShelfFilter };
-export interface ShelfData { name: string; visibility: "private" | "shared"; kind: "manual" | "smart"; filter: ShelfFilter | null }
+/** A smart shelf's filter is the library search filter tree (ADR-0107). */
+export interface ShelfData { name: string; visibility: "private" | "shared"; kind: "manual" | "smart"; filter: WireFilter | null }
 export interface Shelf {
   id: string; revision: string; ownerId: string; canEdit: boolean; deleted: boolean; data: ShelfData | null;
   visibleTitleCount: number; evaluation: "manual" | "viewer-specific"; updatedAt: string;

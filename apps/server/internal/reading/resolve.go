@@ -23,9 +23,9 @@ type target struct {
 	current func(q *sqlcgen.Queries) (int64, error)
 	// apply reapplies the candidate without comparing its base revision. A
 	// non-nil problem is a durable conflict.
-	apply func(q *sqlcgen.Queries, cand wire.T005Candidate, op uuid.UUID, base int64) (*apperr.Error, error)
+	apply func(q *sqlcgen.Queries, cand wire.PersonalCandidate, op uuid.UUID, base int64) (*apperr.Error, error)
 	// race records a new durable conflict when resolution itself loses a race.
-	race func(q *sqlcgen.Queries, cand wire.T005Candidate, op uuid.UUID, base, current int64, sp conflictSpec) (*apperr.Error, error)
+	race func(q *sqlcgen.Queries, cand wire.PersonalCandidate, op uuid.UUID, base, current int64, sp conflictSpec) (*apperr.Error, error)
 	// ed is set for edition-scoped kinds, which also honor the content-version check.
 	ed *edition
 }
@@ -42,7 +42,7 @@ func (s *Service) targetFor(ctx context.Context, a Actor, c sqlcgen.T005Conflict
 			return nil, err
 		}
 		t := &target{ed: &ed}
-		t.race = func(q *sqlcgen.Queries, cand wire.T005Candidate, op uuid.UUID, base, cur int64, sp conflictSpec) (*apperr.Error, error) {
+		t.race = func(q *sqlcgen.Queries, cand wire.PersonalCandidate, op uuid.UUID, base, cur int64, sp conflictSpec) (*apperr.Error, error) {
 			return s.record(ctx, q, a, c.ResourceKind, ed.ID, ed, op, cand, base, cur, sp)
 		}
 		if c.ResourceKind == "position" {
@@ -57,7 +57,7 @@ func (s *Service) targetFor(ctx context.Context, a Actor, c sqlcgen.T005Conflict
 				p, err := q.GetEditionPosition(ctx, sqlcgen.GetEditionPositionParams{UserID: a.UserID, EditionID: ed.ID})
 				return p.Revision, err
 			}
-			t.apply = func(q *sqlcgen.Queries, cand wire.T005Candidate, op uuid.UUID, base int64) (*apperr.Error, error) {
+			t.apply = func(q *sqlcgen.Queries, cand wire.PersonalCandidate, op uuid.UUID, base int64) (*apperr.Error, error) {
 				if cand.Position == nil {
 					return nil, errEmptyCandidate
 				}
@@ -80,7 +80,7 @@ func (s *Service) targetFor(ctx context.Context, a Actor, c sqlcgen.T005Conflict
 			cs, err := q.GetEditionCompletion(ctx, sqlcgen.GetEditionCompletionParams{UserID: a.UserID, EditionID: ed.ID})
 			return cs.Revision, err
 		}
-		t.apply = func(q *sqlcgen.Queries, cand wire.T005Candidate, op uuid.UUID, base int64) (*apperr.Error, error) {
+		t.apply = func(q *sqlcgen.Queries, cand wire.PersonalCandidate, op uuid.UUID, base int64) (*apperr.Error, error) {
 			if cand.Completion == nil {
 				return nil, errEmptyCandidate
 			}
@@ -107,10 +107,10 @@ func (s *Service) targetFor(ctx context.Context, a Actor, c sqlcgen.T005Conflict
 			}
 			return r.Revision, err
 		}
-		t.race = func(q *sqlcgen.Queries, cand wire.T005Candidate, op uuid.UUID, base, cur int64, sp conflictSpec) (*apperr.Error, error) {
+		t.race = func(q *sqlcgen.Queries, cand wire.PersonalCandidate, op uuid.UUID, base, cur int64, sp conflictSpec) (*apperr.Error, error) {
 			return s.record(ctx, q, a, "annotation", id, ed, op, cand, base, cur, sp)
 		}
-		t.apply = func(q *sqlcgen.Queries, cand wire.T005Candidate, op uuid.UUID, base int64) (*apperr.Error, error) {
+		t.apply = func(q *sqlcgen.Queries, cand wire.PersonalCandidate, op uuid.UUID, base int64) (*apperr.Error, error) {
 			cur, err := q.GetAnnotation(ctx, sqlcgen.GetAnnotationParams{UserID: a.UserID, ID: id})
 			exists := err == nil
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -142,10 +142,10 @@ func (s *Service) targetFor(ctx context.Context, a Actor, c sqlcgen.T005Conflict
 			}
 			return sh.Revision, err
 		}
-		t.race = func(q *sqlcgen.Queries, cand wire.T005Candidate, op uuid.UUID, base, cur int64, sp conflictSpec) (*apperr.Error, error) {
+		t.race = func(q *sqlcgen.Queries, cand wire.PersonalCandidate, op uuid.UUID, base, cur int64, sp conflictSpec) (*apperr.Error, error) {
 			return s.recordFor(ctx, q, a, c.ResourceKind, id, uuid.NullUUID{}, nil, op, cand, base, cur, sp)
 		}
-		t.apply = func(q *sqlcgen.Queries, cand wire.T005Candidate, op uuid.UUID, base int64) (*apperr.Error, error) {
+		t.apply = func(q *sqlcgen.Queries, cand wire.PersonalCandidate, op uuid.UUID, base int64) (*apperr.Error, error) {
 			cur, err := s.ownedShelfOrNew(ctx, q, a.UserID, id)
 			if err != nil {
 				return nil, err
@@ -172,37 +172,37 @@ func (s *Service) targetFor(ctx context.Context, a Actor, c sqlcgen.T005Conflict
 // Resolve settles one of the caller own conflicts. keep_server leaves the
 // resource untouched; use_candidate re-validates and reapplies the retained
 // candidate as a normal revisioned write. It never resurrects a tombstone.
-func (s *Service) Resolve(ctx context.Context, a Actor, conflictID uuid.UUID, r wire.T005Resolve) (wire.T005Resolved, error) {
+func (s *Service) Resolve(ctx context.Context, a Actor, conflictID uuid.UUID, r wire.ResolvePersonalConflict) (wire.ResolvedPersonalConflict, error) {
 	op, err := parseUUID("operationId", r.OperationID)
 	if err != nil {
-		return wire.T005Resolved{}, err
+		return wire.ResolvedPersonalConflict{}, err
 	}
 	base, err := parseRev(r.BaseRevision)
 	if err != nil {
-		return wire.T005Resolved{}, err
+		return wire.ResolvedPersonalConflict{}, err
 	}
 	var cv *uuid.UUID
 	if r.ContentVersion != nil {
 		v, err := parseUUID("contentVersion", *r.ContentVersion)
 		if err != nil {
-			return wire.T005Resolved{}, err
+			return wire.ResolvedPersonalConflict{}, err
 		}
 		cv = &v
 	}
 	if r.Choice != "keep_server" && r.Choice != "use_candidate" {
-		return wire.T005Resolved{}, apperr.Validation("choice must be keep_server or use_candidate.")
+		return wire.ResolvedPersonalConflict{}, apperr.Validation("choice must be keep_server or use_candidate.")
 	}
 	// Another user conflict is indistinguishable from an unknown one.
 	c0, err := s.q.GetT005Conflict(ctx, conflictID)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && c0.UserID != a.UserID) {
-		return wire.T005Resolved{}, apperr.ErrNotFound
+		return wire.ResolvedPersonalConflict{}, apperr.ErrNotFound
 	}
 	if err != nil {
-		return wire.T005Resolved{}, dbErr(err)
+		return wire.ResolvedPersonalConflict{}, dbErr(err)
 	}
 	t, err := s.targetFor(ctx, a, c0)
 	if err != nil {
-		return wire.T005Resolved{}, err
+		return wire.ResolvedPersonalConflict{}, err
 	}
 	fp := fingerprint(http.MethodPost, "/personal-conflicts/"+conflictID.String()+"/resolve", r)
 	lock := func(q *sqlcgen.Queries) error {
@@ -227,7 +227,7 @@ func (s *Service) Resolve(ctx context.Context, a Actor, conflictID uuid.UUID, r 
 		now := s.now()
 		resultRev := current
 		if r.Choice == "use_candidate" {
-			var cand wire.T005Candidate
+			var cand wire.PersonalCandidate
 			if err := json.Unmarshal(c.Candidate, &cand); err != nil {
 				return nil, nil, err
 			}
@@ -251,12 +251,12 @@ func (s *Service) Resolve(ctx context.Context, a Actor, conflictID uuid.UUID, r 
 			ResolvedRevision: &resultRev}); err != nil {
 			return nil, nil, err
 		}
-		return wire.Raw(wire.T005Resolved{ConflictID: conflictID.String(), ResourceKind: c.ResourceKind, ResourceID: c.ResourceID.String(),
+		return wire.Raw(wire.ResolvedPersonalConflict{ConflictID: conflictID.String(), ResourceKind: c.ResourceKind, ResourceID: c.ResourceID.String(),
 			Revision: strconv.FormatInt(resultRev, 10), ResolvedAt: rfc(now)}), nil, nil
 	})
 	if err != nil {
-		return wire.T005Resolved{}, err
+		return wire.ResolvedPersonalConflict{}, err
 	}
-	var out wire.T005Resolved
+	var out wire.ResolvedPersonalConflict
 	return out, json.Unmarshal(body, &out)
 }

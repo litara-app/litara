@@ -43,32 +43,32 @@ func MetadataChanges(in []wire.MetadataChange) []metadata.Change {
 
 // SaveEditionMetadata applies an edition's metadata changes together, under one revision (ADR-0095 decision 4,
 // ADR-0097). A stale revision, or a set or reset of a locked field, refuses the whole save and stores nothing.
-func (s *Service) SaveEditionMetadata(ctx context.Context, a Actor, id uuid.UUID, w wire.MetadataSave) (wire.T005MetadataReport, error) {
+func (s *Service) SaveEditionMetadata(ctx context.Context, a Actor, id uuid.UUID, w wire.MetadataSave) (wire.EditionMetadataReport, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	changes := MetadataChanges(w.Changes)
 	if d := metadata.CheckChanges(changes, validEditionField); d != nil {
-		return wire.T005MetadataReport{}, d
+		return wire.EditionMetadataReport{}, d
 	}
 	stored := map[string]json.RawMessage{}
 	for _, c := range changes {
 		if c.Action != metadata.ActionSet {
 			continue
 		}
-		raw, err := editionValue(c.Field, wire.T005MetadataWrite{Clear: c.Clear, Value: wire.T005MetadataValue{Raw: c.Value}})
+		raw, err := editionValue(c.Field, wire.EditionMetadataWrite{Clear: c.Clear, Value: wire.MetadataValue{Raw: c.Value}})
 		if err != nil {
-			return wire.T005MetadataReport{}, err
+			return wire.EditionMetadataReport{}, err
 		}
 		stored[c.Field] = raw
 	}
 	if _, err := s.EditionLibrary(ctx, id); err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	fp := fingerprint(http.MethodPatch, "/admin/editions/"+id.String()+"/metadata", w)
 	body, err := s.mutateEdition(ctx, a, id, op, base, fp, func(q *sqlcgen.Queries, ed sqlcgen.Edition) (*apperr.Error, error) {
@@ -107,9 +107,9 @@ func (s *Service) SaveEditionMetadata(ctx context.Context, a Actor, id uuid.UUID
 		return nil, s.propagate(ctx, q, ed)
 	}, s.renderReport(ctx, id))
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
-	var out wire.T005MetadataReport
+	var out wire.EditionMetadataReport
 	return out, json.Unmarshal(body, &out)
 }
 

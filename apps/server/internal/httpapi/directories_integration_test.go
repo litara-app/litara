@@ -124,7 +124,7 @@ func TestAuthorAndSeriesDirectories(t *testing.T) {
 	}
 
 	// The author and series pages use the title search; "is" matches either spelling.
-	var titles wire.T005Titles
+	var titles wire.Titles
 	resp = e.Do("POST", "/titles/search", r.userA, map[string]any{"filter": map[string]any{"type": "rule", "field": "series", "operator": "is", "value": []string{"THE SAGA"}},
 		"sort": "series_index", "order": "asc", "page": 0, "size": 50})
 	resp.JSON(t, &titles)

@@ -110,8 +110,8 @@ func RegisterAPI(mux *http.ServeMux, d APIDeps) huma.API {
 	cfg.Transformers = append(cfg.Transformers, a.stampRequestID)
 	api := humago.NewWithPrefix(mux, "/api/v1", cfg)
 	reg := api.OpenAPI().Components.Schemas
-	reg.Map()["T005Problem"] = reg.Schema(reflect.TypeFor[T005Problem](), false, "T005Problem")
-	reg.Map()["T006Problem"] = reg.Schema(reflect.TypeFor[T006Problem](), false, "T006Problem")
+	reg.Map()["ContentProblem"] = reg.Schema(reflect.TypeFor[ContentProblem](), false, "ContentProblem")
+	reg.Map()["IntegrationProblem"] = reg.Schema(reflect.TypeFor[IntegrationProblem](), false, "IntegrationProblem")
 	api.UseMiddleware(a.middleware(api))
 
 	a.registerDiscovery(api)

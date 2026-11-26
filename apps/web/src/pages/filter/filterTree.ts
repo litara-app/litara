@@ -4,7 +4,7 @@
  */
 
 export type Join = "AND" | "OR";
-export type FieldKind = "text" | "code" | "format" | "status" | "library" | "number" | "rating" | "date" | "flag";
+export type FieldKind = "text" | "format" | "status" | "library" | "number" | "rating" | "date" | "flag";
 
 export interface FieldDef { id: string; label: string; kind: FieldKind }
 
@@ -16,8 +16,9 @@ export const FIELDS: FieldDef[] = [
   { id: "author", label: "Author", kind: "text" },
   { id: "series", label: "Series", kind: "text" },
   { id: "publisher", label: "Publisher", kind: "text" },
-  { id: "language", label: "Language", kind: "code" },
+  { id: "language", label: "Language", kind: "text" },
   { id: "format", label: "Format", kind: "format" },
+  { id: "tag", label: "Tag", kind: "text" },
   { id: "status", label: "Status", kind: "status" },
   { id: "library", label: "Library", kind: "library" },
   { id: "rating", label: "Rating (stars)", kind: "rating" },
@@ -37,7 +38,6 @@ const OP_LABELS: Record<string, string> = {
 
 const OPS: Record<FieldKind, string[]> = {
   text: ["is", "is_not", "contains", "not_contains", "is_empty", "not_empty"],
-  code: ["is", "is_not", "is_empty", "not_empty"],
   format: ["is", "is_not", "is_empty", "not_empty"],
   status: ["is", "is_not"],
   library: ["is", "is_not"],
@@ -120,6 +120,20 @@ function wireRule(r: DraftRule): WireFilter | null {
   if (kind === "flag") return { ...base, value: r.value !== "false" };
   const v = (r.value ?? "").trim();
   return v ? { ...base, value: v } : null;
+}
+
+/**
+ * Can this draft be saved on a smart shelf? A search drops incomplete rules, but a shelf must not: dropping one would
+ * save a different filter from the one on screen. A shelf also needs at least one rule.
+ */
+export function isSavable(root: DraftGroup): boolean {
+  const total = countRules(root);
+  return total > 0 && countWireRules(toWire(root)) === total;
+}
+
+/** The builder holds one value per rule. A stored rule with a list of values cannot be edited here without changing it. */
+export function hasListValue(w: WireFilter): boolean {
+  return Array.isArray(w.value) || (w.rules ?? []).some(hasListValue);
 }
 
 /** The tree as the server takes it; empty groups and incomplete rules are removed. Returns null when nothing is left. */

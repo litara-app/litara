@@ -36,7 +36,7 @@ type opdsEnv struct {
 	admin, userA      string
 	userB             string
 	lib, root         string
-	credA, credB      wire.T006Credential
+	credA, credB      wire.Credential
 	pwA, pwB          string
 	epubPath, cbzPath string
 }
@@ -82,7 +82,7 @@ func newOPDSEnv(t *testing.T, opts ...apitest.Options) *opdsEnv {
 	scanTwice(t, e, admin, o.lib)
 	for _, c := range []struct {
 		tok, pw string
-		dst     *wire.T006Credential
+		dst     *wire.Credential
 	}{{o.userA, o.pwA, &o.credA}, {o.userB, o.pwB, &o.credB}} {
 		r := createCred(e, c.tok, "opds", "reader", c.pw)
 		if r.StatusCode != 201 {
@@ -276,7 +276,7 @@ func TestOPDSAuthenticationBoundaries(t *testing.T) {
 	// Wrong secret, the main account password, a bearer token and a KOReader credential are all refused.
 	kpw := secret("ko-")
 	kr := createCred(e, o.userA, "koreader", "kobo", kpw)
-	var kc wire.T006Credential
+	var kc wire.Credential
 	kr.JSON(t, &kc)
 	for name, c := range map[string][2]string{"wrong secret": {o.credA.Username, "x" + o.pwA}, "main password": {seed.UserAName, e.Password},
 		"koreader credential": {kc.Username, kpw}, "koreader md5 key": {kc.Username, integrations.KOKey(kpw)}, "other user's secret": {o.credA.Username, o.pwB}} {
@@ -333,7 +333,7 @@ func TestOPDSDevelopmentHTTPException(t *testing.T) {
 	userA := e.Login(seed.UserAName, "phone").AccessToken
 	e.Do("PUT", "/admin/integrations/settings", admin, settingsBody("0", true, false, false, 26214400, 10))
 	pw := secret("dev-")
-	var c wire.T006Credential
+	var c wire.Credential
 	createCred(e, userA, "opds", "dev", pw).JSON(t, &c)
 	r := e.Proto("GET", "/opds/v1", nil, "Authorization", basicAuth(c.Username, pw))
 	if r.StatusCode != 200 {
@@ -417,7 +417,7 @@ func TestOPDSFeedsProjectOneGrantedDataset(t *testing.T) {
 	}
 
 	// Metadata is decoded intact (escaping round-trips) and the epub's publication ID is its edition ID.
-	var eds wire.T005Editions
+	var eds wire.Editions
 	o.e.Do("GET", "/editions?libraryId="+o.lib+"&size=200", o.userA, nil).JSON(t, &eds)
 	if len(eds.Items) != 3 {
 		t.Fatalf("editions: %d", len(eds.Items))
@@ -489,7 +489,7 @@ func TestOPDSFeedsProjectOneGrantedDataset(t *testing.T) {
 	// Another account sees only its own granted library, never the first account's metadata.
 	other := o.e.Fix.Files["r4-f1"]
 	kb := createCred(o.e, o.userB, "opds", "b2", secret("b2-"))
-	var cb wire.T006Credential
+	var cb wire.Credential
 	kb.JSON(t, &cb)
 	bf := decodeAtom(t, o.get("/opds/v1/publications?size=200", cb.Username, secret("b2-")))
 	if bf.Total != 1 || len(bf.Entries) != 1 || strings.TrimPrefix(bf.Entries[0].ID, "urn:uuid:") != other.ID.String() {
@@ -649,9 +649,9 @@ func TestOPDSSearchPaginationAndFilters(t *testing.T) {
 
 func TestOPDSOriginalAcquisitionHeadRangeAndReplacement(t *testing.T) {
 	o := newOPDSEnv(t)
-	var eds wire.T005Editions
+	var eds wire.Editions
 	o.e.Do("GET", "/editions?libraryId="+o.lib+"&size=200", o.userA, nil).JSON(t, &eds)
-	var ed wire.T005Edition
+	var ed wire.Edition
 	for _, en := range decodeAtom(t, o.asA("/opds/v1/publications?q=fixture")).Entries {
 		if en.Title != trickyTitle {
 			continue
@@ -711,7 +711,7 @@ func TestOPDSOriginalAcquisitionHeadRangeAndReplacement(t *testing.T) {
 	// Rights are re-evaluated on every range retry: after revocation a range request fails.
 	// Another account (no grant on this library) cannot learn the file exists: 404, same as unknown.
 	cb := createCred(o.e, o.userB, "opds", "b", secret("bb-"))
-	var credB2 wire.T006Credential
+	var credB2 wire.Credential
 	cb.JSON(t, &credB2)
 	for _, p := range []string{path, "/opds/files/" + uuid.NewString() + "/versions/" + uuid.NewString() + "/content", "/opds/files/not-a-uuid/versions/x/content"} {
 		x := o.get(p, credB2.Username, secret("bb-"))
@@ -729,7 +729,7 @@ func TestOPDSOriginalAcquisitionHeadRangeAndReplacement(t *testing.T) {
 	}
 	// Fresh credential for the replacement checks.
 	pw := secret("fresh-")
-	var c2 wire.T006Credential
+	var c2 wire.Credential
 	createCred(o.e, o.userA, "opds", "fresh", pw).JSON(t, &c2)
 	get := func(p string, extra ...string) apitest.Response { return o.get(p, c2.Username, pw, extra...) }
 
@@ -806,7 +806,7 @@ func TestOPDSAudioOriginalsAndArtwork(t *testing.T) {
 	if hd.StatusCode != 200 || len(hd.Body) != 0 || hd.Header.Get("Content-Length") != art.Header.Get("Content-Length") {
 		t.Fatalf("artwork HEAD: %d len=%d", hd.StatusCode, len(hd.Body))
 	}
-	var eds wire.T005Editions
+	var eds wire.Editions
 	o.e.Do("GET", "/editions?libraryId="+o.lib+"&size=200", o.userA, nil).JSON(t, &eds)
 	if x := o.asA("/opds/publications/" + eds.Items[0].ID + "/artwork"); x.StatusCode != 404 {
 		t.Fatalf("ebook artwork: %d", x.StatusCode)
@@ -827,7 +827,7 @@ func TestOPDSAudioOriginalsAndArtwork(t *testing.T) {
 		t.Fatalf("image links: %d", withImage)
 	}
 	// Ungranted artwork is the same 404 as absent artwork.
-	var cb wire.T006Credential
+	var cb wire.Credential
 	createCred(o.e, o.userB, "opds", "b", secret("bart-")).JSON(t, &cb)
 	if x := o.get("/opds/publications/"+f2.ID.String()+"/artwork", cb.Username, secret("bart-")); x.StatusCode != 404 {
 		t.Fatalf("ungranted artwork: %d", x.StatusCode)

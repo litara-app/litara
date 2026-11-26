@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/deranjer/ebooker/apps/server/internal/apperr"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
@@ -15,6 +16,7 @@ import (
 const (
 	MaxFilterDepth = 3
 	MaxFilterRules = 30
+	maxShelfBytes  = 32 * 1024 // a smart shelf's stored filter is also bounded in size (ADR-0107)
 	maxListValues  = 20
 	maxValueLen    = 512
 )
@@ -24,7 +26,7 @@ type fieldKind int
 const (
 	kindText fieldKind = iota
 	kindAuthors
-	kindArray // language, format, library
+	kindArray // language, format, library, tag
 	kindStatus
 	kindNumber
 	kindDate
@@ -54,8 +56,9 @@ var filterFields = map[string]fieldSpec{
 	"author":          {kindAuthors, "b.authors", textOps},
 	"series":          {kindText, "COALESCE(b.series_name, '')", textOps},
 	"publisher":       {kindText, "COALESCE(b.publisher, '')", textOps},
-	"language":        {kindArray, "b.languages", emptyOps},
-	"format":          {kindArray, "b.formats", emptyOps},
+	"language":        {kindArray, "b.languages", textOps},
+	"format":          {kindArray, "(b.formats || b.audio_formats)", emptyOps},
+	"tag":             {kindArray, "b.tags", textOps},
 	"library":         {kindArray, "b.library_ids", listOps},
 	"status":          {kindStatus, "b.status", listOps},
 	"rating":          {kindNumber, "b.rating_halves", numOps},
@@ -151,10 +154,16 @@ func toAny(s []string) []any {
 	return out
 }
 
-func lowered(in []string) []string {
+// fold is NFC plus lower-casing (ADR-0107), so composed and decomposed forms of a text match; foldSQL does the same to
+// stored text. Special full case foldings (for example German sharp s) are not expanded.
+func fold(s string) string { return strings.ToLower(norm.NFC.String(s)) }
+
+func foldSQL(expr string) string { return "lower(normalize(" + expr + ", NFC))" }
+
+func folded(in []string) []string {
 	out := make([]string, len(in))
 	for i, v := range in {
-		out[i] = strings.ToLower(v)
+		out[i] = fold(v)
 	}
 	return out
 }
@@ -245,10 +254,10 @@ func (c *filterCompiler) textRule(n *wire.TitleFilter, spec fieldSpec, negate fu
 		if err != nil {
 			return "", err
 		}
-		p := c.arg(lowered(vals))
-		expr := "(lower(" + text + ") = ANY(" + p + "::text[]))"
+		p := c.arg(folded(vals))
+		expr := "(" + foldSQL(text) + " = ANY(" + p + "::text[]))"
 		if spec.kind == kindAuthors {
-			expr = "EXISTS (SELECT 1 FROM unnest(b.authors) AS a(name) WHERE lower(a.name) = ANY(" + p + "::text[]))"
+			expr = "EXISTS (SELECT 1 FROM unnest(b.authors) AS a(name) WHERE " + foldSQL("a.name") + " = ANY(" + p + "::text[]))"
 		}
 		if n.Operator == "is_not" {
 			return negate(expr), nil
@@ -259,7 +268,7 @@ func (c *filterCompiler) textRule(n *wire.TitleFilter, spec fieldSpec, negate fu
 		if err != nil || len(vals) != 1 {
 			return "", bad("contains takes one text value")
 		}
-		expr := "(position(lower(" + c.arg(vals[0]) + "::text) in lower(" + text + ")) > 0)"
+		expr := "(position(" + c.arg(fold(vals[0])) + "::text in " + foldSQL(text) + ") > 0)"
 		if n.Operator == "not_contains" {
 			return negate(expr), nil
 		}
@@ -288,7 +297,17 @@ func (c *filterCompiler) listRule(n *wire.TitleFilter, spec fieldSpec, negate fu
 	if err != nil {
 		return "", err
 	}
-	lv := lowered(vals)
+	if n.Operator == "contains" || n.Operator == "not_contains" {
+		if len(vals) != 1 {
+			return "", bad("contains takes one text value")
+		}
+		expr := "EXISTS (SELECT 1 FROM unnest(" + spec.col + ") AS x(v) WHERE position(" + c.arg(fold(vals[0])) + "::text in " + foldSQL("x.v::text") + ") > 0)"
+		if n.Operator == "not_contains" {
+			return negate(expr), nil
+		}
+		return expr, nil
+	}
+	lv := folded(vals)
 	switch n.Field {
 	case "status":
 		for _, v := range lv {
@@ -306,7 +325,7 @@ func (c *filterCompiler) listRule(n *wire.TitleFilter, spec fieldSpec, negate fu
 	p := c.arg(lv)
 	expr := "(" + spec.col + " = ANY(" + p + "::text[]))"
 	if spec.kind == kindArray {
-		expr = "EXISTS (SELECT 1 FROM unnest(" + spec.col + ") AS x(v) WHERE lower(x.v::text) = ANY(" + p + "::text[]))"
+		expr = "EXISTS (SELECT 1 FROM unnest(" + spec.col + ") AS x(v) WHERE " + foldSQL("x.v::text") + " = ANY(" + p + "::text[]))"
 	}
 	if n.Operator == "is_not" {
 		return negate(expr), nil

@@ -117,10 +117,10 @@ func TestKOReaderSparseLargeFileDigestIsBounded(t *testing.T) {
 
 type koEnv struct {
 	*opdsEnv
-	credA1, credA2, credB wire.T006Credential
+	credA1, credA2, credB wire.Credential
 	pwA1, pwA2, pwB       string
 	docs                  map[string]string // basename -> digest
-	editions              map[string]wire.T005Edition
+	editions              map[string]wire.Edition
 }
 
 func koCode(r apitest.Response) int {
@@ -138,10 +138,10 @@ func newKOEnv(t *testing.T) *koEnv {
 	if r := e.Do("PUT", "/admin/integrations/settings", o.admin, settingsBody("1", true, false, true, 26214400, 10)); r.StatusCode != 200 {
 		t.Fatalf("enable koreader: %d %s", r.StatusCode, r.Body)
 	}
-	k := &koEnv{opdsEnv: o, pwA1: secret("kor-a1-"), pwA2: secret("kor-a2-"), pwB: secret("kor-b-"), docs: map[string]string{}, editions: map[string]wire.T005Edition{}}
+	k := &koEnv{opdsEnv: o, pwA1: secret("kor-a1-"), pwA2: secret("kor-a2-"), pwB: secret("kor-b-"), docs: map[string]string{}, editions: map[string]wire.Edition{}}
 	for _, c := range []struct {
 		tok, pw string
-		dst     *wire.T006Credential
+		dst     *wire.Credential
 	}{{o.userA, k.pwA1, &k.credA1}, {o.userA, k.pwA2, &k.credA2}, {o.userB, k.pwB, &k.credB}} {
 		r := createCred(e, c.tok, "koreader", "kobo", c.pw)
 		if r.StatusCode != 201 {
@@ -166,7 +166,7 @@ func newKOEnv(t *testing.T) *koEnv {
 		}
 		k.docs[name] = d
 	}
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+o.lib+"&size=200", o.userA, nil).JSON(t, &eds)
 	for _, ed := range eds.Items {
 		for _, p := range []string{"vol2", "zebra", "issue1"} {
@@ -186,7 +186,7 @@ func newKOEnv(t *testing.T) *koEnv {
 	return k
 }
 
-func (k *koEnv) do(method, path string, cred wire.T006Credential, pw string, body any) apitest.Response {
+func (k *koEnv) do(method, path string, cred wire.Credential, pw string, body any) apitest.Response {
 	hdr := []string{"x-auth-user", cred.Username, "x-auth-key", integrations.KOKey(pw), "Accept", "application/vnd.koreader.v1+json"}
 	var raw []byte
 	if body != nil {
@@ -196,7 +196,7 @@ func (k *koEnv) do(method, path string, cred wire.T006Credential, pw string, bod
 	return k.e.Proto(method, path, raw, hdr...)
 }
 
-func (k *koEnv) get(doc string, cred wire.T006Credential, pw string) apitest.Response {
+func (k *koEnv) get(doc string, cred wire.Credential, pw string) apitest.Response {
 	return k.do("GET", "/1/syncs/progress/"+doc, cred, pw, nil)
 }
 
@@ -204,9 +204,9 @@ func koPut(doc, progress string, pct float64, device string) map[string]any {
 	return map[string]any{"document": doc, "progress": progress, "percentage": pct, "device": device, "device_id": device + "-id"}
 }
 
-func (k *koEnv) position(t *testing.T, edition string) wire.T006KoPosition {
+func (k *koEnv) position(t *testing.T, edition string) wire.KoPosition {
 	t.Helper()
-	var p wire.T006KoPosition
+	var p wire.KoPosition
 	r := k.e.Do("GET", "/editions/"+edition+"/koreader-position", k.userA, nil)
 	if r.StatusCode != 200 {
 		t.Fatalf("position: %d %s", r.StatusCode, r.Body)
@@ -215,9 +215,9 @@ func (k *koEnv) position(t *testing.T, edition string) wire.T006KoPosition {
 	return p
 }
 
-func (k *koEnv) conflicts(t *testing.T) []wire.T006KoConflict {
+func (k *koEnv) conflicts(t *testing.T) []wire.KoConflict {
 	t.Helper()
-	var l wire.T006KoConflictList
+	var l wire.KoConflictList
 	k.e.Do("GET", "/koreader/conflicts", k.userA, nil).JSON(t, &l)
 	return l.Items
 }
@@ -241,7 +241,7 @@ func TestKOReaderWireAuthAndEnvelopes(t *testing.T) {
 		"wrong key":         k.do("GET", "/1/users/auth", k.credA1, "x"+k.pwA1, nil),
 		"opds credential":   k.do("GET", "/1/users/auth", k.credA1, k.pwA1+"y", nil),
 		"missing headers":   e.Proto("GET", "/1/users/auth", nil),
-		"unknown user":      k.do("GET", "/1/users/auth", wire.T006Credential{Username: "kor-nobody"}, k.pwA1, nil),
+		"unknown user":      k.do("GET", "/1/users/auth", wire.Credential{Username: "kor-nobody"}, k.pwA1, nil),
 		"progress no creds": e.Proto("GET", "/1/syncs/progress/"+k.docs["vol2"], nil),
 	} {
 		if r.StatusCode != 401 || koCode(r) != 2001 {
@@ -422,7 +422,7 @@ func TestKOReaderDeviceSequence(t *testing.T) {
 	if now := k.e.Do("GET", "/editions/"+ed.ID+"/completion", k.userA, nil).Body; !bytes.Equal(now, compBefore) {
 		t.Fatalf("completion changed:\n%s\n%s", compBefore, now)
 	}
-	var hist wire.T005History
+	var hist wire.ReadingHistory
 	k.e.Do("GET", "/titles/"+ed.TitleID+"/history", k.userA, nil).JSON(t, &hist)
 	if hist.Total != 0 {
 		t.Fatalf("title history changed: %d", hist.Total)
@@ -534,7 +534,7 @@ func TestKOReaderResolveUseCandidateReapplyAndRaces(t *testing.T) {
 	cur := k.position(t, ed.ID).Revision
 	rb := map[string]any{"operationId": uuid.NewString(), "baseRevision": cur}
 	rp := k.e.Do("POST", "/koreader/conflicts/"+c.ID+"/reapply", k.userA, rb)
-	var pos wire.T006KoPosition
+	var pos wire.KoPosition
 	rp.JSON(t, &pos)
 	if rp.StatusCode != 200 || pos.Position.Value == nil || pos.Position.Value.Progress != "b-candidate" || pos.Revision == cur {
 		t.Fatalf("reapply: %d %s", rp.StatusCode, rp.Body)
@@ -545,7 +545,7 @@ func TestKOReaderResolveUseCandidateReapplyAndRaces(t *testing.T) {
 	// An unresolved candidate cannot be reapplied.
 	k.get(doc, A, k.pwA1)
 	k.do("PUT", "/1/syncs/progress", A, k.pwA1, koPut(doc, "a-late", 0.1, "A"))
-	var open wire.T006KoConflict
+	var open wire.KoConflict
 	for _, x := range k.conflicts(t) {
 		if !x.Resolved {
 			open = x
@@ -558,7 +558,7 @@ func TestKOReaderResolveUseCandidateReapplyAndRaces(t *testing.T) {
 		t.Fatalf("reapply unresolved: %d %s", r.StatusCode, r.Body)
 	}
 	// Another account sees and can act on nothing.
-	var other wire.T006KoConflictList
+	var other wire.KoConflictList
 	k.e.Do("GET", "/koreader/conflicts", k.userB, nil).JSON(t, &other)
 	if len(other.Items) != 0 {
 		t.Fatal("conflicts leaked across accounts")
@@ -602,7 +602,7 @@ func TestKOReaderAmbiguityBindingAndReplacement(t *testing.T) {
 	target := k.editions["vol2"]
 	// Binding validation: wrong digest, foreign/revoked credential, unknown file.
 	bid := uuid.NewString()
-	bind := func(cred wire.T006Credential, document string, base string, ver string) apitest.Response {
+	bind := func(cred wire.Credential, document string, base string, ver string) apitest.Response {
 		return e.Do("PUT", "/koreader/bindings/"+bid, k.userA, map[string]any{"operationId": uuid.NewString(), "baseRevision": base, "credentialId": cred.ID,
 			"document": document, "fileId": target.File.ID, "contentVersion": ver})
 	}
@@ -616,7 +616,7 @@ func TestKOReaderAmbiguityBindingAndReplacement(t *testing.T) {
 		t.Fatalf("unknown version: %d", r.StatusCode)
 	}
 	ok := bind(k.credA1, doc, "0", target.File.ContentVersion)
-	var b wire.T006DigestBinding
+	var b wire.DigestBinding
 	ok.JSON(t, &b)
 	if ok.StatusCode != 200 || b.Revision != "1" || b.Deleted {
 		t.Fatalf("bind: %d %s", ok.StatusCode, ok.Body)
@@ -631,7 +631,7 @@ func TestKOReaderAmbiguityBindingAndReplacement(t *testing.T) {
 	if r := k.do("PUT", "/1/syncs/progress", k.credA1, k.pwA1, koPut(doc, "bound", 0.5, "d")); r.StatusCode != 200 {
 		t.Fatalf("bound put: %d %s", r.StatusCode, r.Body)
 	}
-	var list wire.T006DigestBindingList
+	var list wire.DigestBindingList
 	e.Do("GET", "/koreader/bindings", k.userA, nil).JSON(t, &list)
 	if list.Total != 1 || len(list.Items) != 1 {
 		t.Fatalf("list: %+v", list)
@@ -652,7 +652,7 @@ func TestKOReaderAmbiguityBindingAndReplacement(t *testing.T) {
 	if r := k.do("PUT", "/1/syncs/progress", k.credA1, k.pwA1, koPut(doc, "after-replace", 0.9, "d")); r.StatusCode != 412 {
 		t.Fatalf("put to superseded bytes: %d", r.StatusCode)
 	}
-	var cs []wire.T006KoConflict
+	var cs []wire.KoConflict
 	for _, c := range k.conflicts(t) {
 		if c.Reason == "content_changed" && c.ContentVersion == oldVersion {
 			cs = append(cs, c)
@@ -671,7 +671,7 @@ func TestKOReaderAmbiguityBindingAndReplacement(t *testing.T) {
 	}
 	// Deleting the binding tombstones it; the tombstone cannot be revived.
 	del := e.Do("DELETE", "/koreader/bindings/"+bid, k.userA, map[string]any{"operationId": uuid.NewString(), "baseRevision": "1"})
-	var d wire.T006DigestBinding
+	var d wire.DigestBinding
 	del.JSON(t, &d)
 	if del.StatusCode != 200 || !d.Deleted || d.Revision != "2" {
 		t.Fatalf("delete: %d %s", del.StatusCode, del.Body)
@@ -709,9 +709,9 @@ func TestKOReaderFileMoveKeepsPositionAndIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+k.lib+"&size=200", k.userA, nil).JSON(t, &eds)
-	var after *wire.T005Edition
+	var after *wire.Edition
 	for i := range eds.Items {
 		if eds.Items[i].File.ID == target.File.ID {
 			after = &eds.Items[i]

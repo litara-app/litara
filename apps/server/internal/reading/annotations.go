@@ -27,20 +27,20 @@ func annotationKey(userID, id uuid.UUID) string {
 	return "annotation:" + userID.String() + ":" + id.String()
 }
 
-func annotationWire(r sqlcgen.Annotation) (wire.T005Annotation, error) {
-	out := wire.T005Annotation{ID: r.ID.String(), EditionID: r.EditionID.String(), Revision: strconv.FormatInt(r.Revision, 10),
+func annotationWire(r sqlcgen.Annotation) (wire.Annotation, error) {
+	out := wire.Annotation{ID: r.ID.String(), EditionID: r.EditionID.String(), Revision: strconv.FormatInt(r.Revision, 10),
 		Deleted: r.Deleted, UpdatedAt: rfc(r.UpdatedAt)}
 	if r.Deleted {
 		return out, nil // a tombstone exposes no content
 	}
-	var loc wire.T005Locator
+	var loc wire.Locator
 	if err := json.Unmarshal(r.Locator, &loc); err != nil {
 		return out, err
 	}
-	d := wire.T005AnnotationData{Kind: r.Kind, Text: r.Text, Quote: r.Quote,
-		Anchor: wire.T005Anchor{FileID: r.FileID.String(), ContentVersion: r.ContentVersion.String(), Locator: loc}}
+	d := wire.AnnotationData{Kind: r.Kind, Text: r.Text, Quote: r.Quote,
+		Anchor: wire.EditionAnchor{FileID: r.FileID.String(), ContentVersion: r.ContentVersion.String(), Locator: loc}}
 	if len(r.Selection) > 0 {
-		var sel wire.T005Selection
+		var sel wire.Selection
 		if err := json.Unmarshal(r.Selection, &sel); err != nil {
 			return out, err
 		}
@@ -50,20 +50,20 @@ func annotationWire(r sqlcgen.Annotation) (wire.T005Annotation, error) {
 	return out, nil
 }
 
-func (s *Service) ListAnnotations(ctx context.Context, userID, editionID uuid.UUID, includeDeleted bool, page, size int) (wire.T005Annotations, error) {
+func (s *Service) ListAnnotations(ctx context.Context, userID, editionID uuid.UUID, includeDeleted bool, page, size int) (wire.Annotations, error) {
 	if _, err := s.cat.AuthorizeEdition(ctx, userID, editionID); err != nil {
-		return wire.T005Annotations{}, err
+		return wire.Annotations{}, err
 	}
 	rows, err := s.q.ListAnnotations(ctx, sqlcgen.ListAnnotationsParams{UserID: userID, EditionID: editionID, IncludeDeleted: includeDeleted,
 		PageSize: int32(size), PageOffset: int32(page * size)})
 	if err != nil {
-		return wire.T005Annotations{}, dbErr(err)
+		return wire.Annotations{}, dbErr(err)
 	}
 	total, err := s.q.CountAnnotations(ctx, sqlcgen.CountAnnotationsParams{UserID: userID, EditionID: editionID, IncludeDeleted: includeDeleted})
 	if err != nil {
-		return wire.T005Annotations{}, dbErr(err)
+		return wire.Annotations{}, dbErr(err)
 	}
-	out := wire.T005Annotations{Items: []wire.T005Annotation{}, Total: total, Page: int64(page), Size: int64(size)}
+	out := wire.Annotations{Items: []wire.Annotation{}, Total: total, Page: int64(page), Size: int64(size)}
 	for _, r := range rows {
 		w, err := annotationWire(r)
 		if err != nil {
@@ -74,23 +74,23 @@ func (s *Service) ListAnnotations(ctx context.Context, userID, editionID uuid.UU
 	return out, nil
 }
 
-func (s *Service) GetAnnotation(ctx context.Context, userID, editionID, id uuid.UUID) (wire.T005Annotation, error) {
+func (s *Service) GetAnnotation(ctx context.Context, userID, editionID, id uuid.UUID) (wire.Annotation, error) {
 	if _, err := s.cat.AuthorizeEdition(ctx, userID, editionID); err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	r, err := s.q.GetAnnotation(ctx, sqlcgen.GetAnnotationParams{UserID: userID, ID: id})
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && r.EditionID != editionID) {
-		return wire.T005Annotation{}, apperr.ErrNotFound
+		return wire.Annotation{}, apperr.ErrNotFound
 	}
 	if err != nil {
-		return wire.T005Annotation{}, dbErr(err)
+		return wire.Annotation{}, dbErr(err)
 	}
 	return annotationWire(r)
 }
 
 // validateAnnotation checks the syntactic and capability rules that never
 // depend on stored state, so a malformed body produces 422 and no candidate.
-func validateAnnotation(ed edition, d wire.T005AnnotationData) error {
+func validateAnnotation(ed edition, d wire.AnnotationData) error {
 	if _, err := parseUUID("data.anchor.fileId", d.Anchor.FileID); err != nil {
 		return err
 	}
@@ -140,25 +140,25 @@ func validateAnnotation(ed edition, d wire.T005AnnotationData) error {
 func comicFormat(f string) bool { return f == "cbz" || f == "cbr" || f == "cb7" }
 
 // PutAnnotation creates or updates one annotation with revision and receipt semantics.
-func (s *Service) PutAnnotation(ctx context.Context, a Actor, editionID, id uuid.UUID, w wire.T005AnnotationWrite) (wire.T005Annotation, error) {
+func (s *Service) PutAnnotation(ctx context.Context, a Actor, editionID, id uuid.UUID, w wire.AnnotationWrite) (wire.Annotation, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	captured, err := parseTime("capturedAt", w.CapturedAt)
 	if err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	ed, err := s.cat.AuthorizeEdition(ctx, a.UserID, editionID)
 	if err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	if err := validateAnnotation(ed, w.Data); err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	fp := fingerprint(http.MethodPut, "/editions/"+editionID.String()+"/annotations/"+id.String(), w)
 	body, err := s.run(ctx, a, op, fp, func(q *sqlcgen.Queries) error {
@@ -187,16 +187,16 @@ func (s *Service) PutAnnotation(ctx context.Context, a Actor, editionID, id uuid
 		return wire.Raw(out), nil, nil
 	})
 	if err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
-	var out wire.T005Annotation
+	var out wire.Annotation
 	return out, json.Unmarshal(body, &out)
 }
 
 // applyAnnotation validates and applies a write under the key lock. A non-nil
 // problem is durable (a conflict was recorded). checkBase is false when a
 // conflict resolution already compared the revision itself.
-func (s *Service) applyAnnotation(ctx context.Context, q *sqlcgen.Queries, a Actor, ed edition, id uuid.UUID, w wire.T005AnnotationWrite,
+func (s *Service) applyAnnotation(ctx context.Context, q *sqlcgen.Queries, a Actor, ed edition, id uuid.UUID, w wire.AnnotationWrite,
 	op uuid.UUID, base int64, captured time.Time, exists bool, cur sqlcgen.Annotation, checkBase bool) (*apperr.Error, error) {
 	d := w.Data
 	fileID, _ := uuid.Parse(d.Anchor.FileID)
@@ -246,21 +246,21 @@ func (s *Service) applyAnnotation(ctx context.Context, q *sqlcgen.Queries, a Act
 
 // DeleteAnnotation tombstones an annotation at its current revision. Deleting
 // stays allowed when the book bytes were superseded: it does not reinterpret a locator.
-func (s *Service) DeleteAnnotation(ctx context.Context, a Actor, editionID, id uuid.UUID, w wire.T005Delete) (wire.T005Annotation, error) {
+func (s *Service) DeleteAnnotation(ctx context.Context, a Actor, editionID, id uuid.UUID, w wire.RevisionedDelete) (wire.Annotation, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	if _, err = parseTime("capturedAt", w.CapturedAt); err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	ed, err := s.cat.AuthorizeEdition(ctx, a.UserID, editionID)
 	if err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
 	fp := fingerprint(http.MethodDelete, "/editions/"+editionID.String()+"/annotations/"+id.String(), w)
 	body, err := s.run(ctx, a, op, fp, func(q *sqlcgen.Queries) error {
@@ -288,13 +288,13 @@ func (s *Service) DeleteAnnotation(ctx context.Context, a Actor, editionID, id u
 		return wire.Raw(out), nil, nil
 	})
 	if err != nil {
-		return wire.T005Annotation{}, err
+		return wire.Annotation{}, err
 	}
-	var out wire.T005Annotation
+	var out wire.Annotation
 	return out, json.Unmarshal(body, &out)
 }
 
-func (s *Service) applyAnnotationDelete(ctx context.Context, q *sqlcgen.Queries, a Actor, ed edition, id uuid.UUID, w wire.T005Delete,
+func (s *Service) applyAnnotationDelete(ctx context.Context, q *sqlcgen.Queries, a Actor, ed edition, id uuid.UUID, w wire.RevisionedDelete,
 	op uuid.UUID, base int64, cur sqlcgen.Annotation, checkBase bool) (*apperr.Error, error) {
 	if checkBase && base != cur.Revision {
 		return s.record(ctx, q, a, "annotation", id, ed, op, w, base, cur.Revision, specStale)

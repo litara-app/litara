@@ -75,9 +75,9 @@ func (s *Service) cacheDir(id uuid.UUID) string {
 	return filepath.Join(s.comics.opts.CacheDir, "comics", id.String())
 }
 
-func (s *Service) manifestWire(row sqlcgen.ComicExtraction) (wire.T005PageManifest, error) {
-	out := wire.T005PageManifest{FileID: row.FileID.String(), ContentVersion: row.ContentVersion.String(), ManifestVersion: row.ManifestVersion.String(),
-		State: row.Status, Pages: []wire.T005Page{}, Issues: []wire.T005Issue{}}
+func (s *Service) manifestWire(row sqlcgen.ComicExtraction) (wire.ComicPageManifest, error) {
+	out := wire.ComicPageManifest{FileID: row.FileID.String(), ContentVersion: row.ContentVersion.String(), ManifestVersion: row.ManifestVersion.String(),
+		State: row.Status, Pages: []wire.ComicPage{}, Issues: []wire.EditionIssue{}}
 	if err := json.Unmarshal(row.Issues, &out.Issues); err != nil {
 		return out, err
 	}
@@ -87,7 +87,7 @@ func (s *Service) manifestWire(row sqlcgen.ComicExtraction) (wire.T005PageManife
 			return out, err
 		}
 		for _, p := range pages {
-			out.Pages = append(out.Pages, wire.T005Page{Index: p.Index, EntryID: p.EntryID, MimeType: p.Mime, Width: p.Width, Height: p.Height,
+			out.Pages = append(out.Pages, wire.ComicPage{Index: p.Index, EntryID: p.EntryID, MimeType: p.Mime, Width: p.Width, Height: p.Height,
 				ContentPath: fmt.Sprintf("%s/files/%s/versions/%s/pages/%d", s.cat.Base(), row.FileID, row.ContentVersion, p.Index)})
 		}
 	}
@@ -96,27 +96,27 @@ func (s *Service) manifestWire(row sqlcgen.ComicExtraction) (wire.T005PageManife
 
 // PrepareComicPages records a user-triggered extraction request and returns the
 // current manifest state. It is idempotent per file version and profile.
-func (s *Service) PrepareComicPages(ctx context.Context, a Actor, fileID, version uuid.UUID, w wire.T005Extraction) (wire.T005PageManifest, error) {
+func (s *Service) PrepareComicPages(ctx context.Context, a Actor, fileID, version uuid.UUID, w wire.ComicExtractionRequest) (wire.ComicPageManifest, error) {
 	if s.comics == nil || s.comics.opts.CacheDir == "" {
-		return wire.T005PageManifest{}, unavailableComics()
+		return wire.ComicPageManifest{}, unavailableComics()
 	}
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005PageManifest{}, err
+		return wire.ComicPageManifest{}, err
 	}
 	if _, err = parseRev(w.BaseRevision); err != nil {
-		return wire.T005PageManifest{}, err
+		return wire.ComicPageManifest{}, err
 	}
 	bodyVersion, err := parseUUID("contentVersion", w.ContentVersion)
 	if err != nil {
-		return wire.T005PageManifest{}, err
+		return wire.ComicPageManifest{}, err
 	}
 	_, _, err = s.cat.ComicFormat(ctx, a.UserID, fileID, version) // authorize before anything else is judged
 	if err != nil {
-		return wire.T005PageManifest{}, err
+		return wire.ComicPageManifest{}, err
 	}
 	if bodyVersion != version {
-		return wire.T005PageManifest{}, apperr.Validation("contentVersion must match the content version in the path.")
+		return wire.ComicPageManifest{}, apperr.Validation("contentVersion must match the content version in the path.")
 	}
 	fp := fingerprint(http.MethodPost, "/files/"+fileID.String()+"/versions/"+version.String()+"/pages", w)
 	body, err := s.runTx(ctx, a, op, fp, func(q *sqlcgen.Queries) error {
@@ -149,9 +149,9 @@ func (s *Service) PrepareComicPages(ctx context.Context, a Actor, fileID, versio
 		return wire.Raw(m), nil, err
 	})
 	if err != nil {
-		return wire.T005PageManifest{}, err
+		return wire.ComicPageManifest{}, err
 	}
-	var out wire.T005PageManifest
+	var out wire.ComicPageManifest
 	return out, json.Unmarshal(body, &out)
 }
 
@@ -164,10 +164,10 @@ func (s *Service) enqueue(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 }
 
 // ComicManifest returns the stored manifest without starting a job.
-func (s *Service) ComicManifest(ctx context.Context, userID, fileID, version uuid.UUID) (wire.T005PageManifest, error) {
+func (s *Service) ComicManifest(ctx context.Context, userID, fileID, version uuid.UUID) (wire.ComicPageManifest, error) {
 	row, err := s.comicRow(ctx, userID, fileID, version)
 	if err != nil {
-		return wire.T005PageManifest{}, err
+		return wire.ComicPageManifest{}, err
 	}
 	return s.manifestWire(row)
 }
@@ -203,7 +203,7 @@ func (s *Service) ComicPage(ctx context.Context, userID, fileID, version uuid.UU
 	switch row.Status {
 	case "ready":
 	case "unsupported":
-		var issues []wire.T005Issue
+		var issues []wire.EditionIssue
 		_ = json.Unmarshal(row.Issues, &issues)
 		code, detail := comics.CodeUnsupported, "The archive cannot be read as comic pages."
 		if len(issues) > 0 {
@@ -253,19 +253,19 @@ func (s *Service) RunExtraction(ctx context.Context, id uuid.UUID) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-	finish := func(status string, issues []wire.T005Issue, pages []byte, bytes int64) error {
+	finish := func(status string, issues []wire.EditionIssue, pages []byte, bytes int64) error {
 		return s.q.SetExtractionResult(ctx, sqlcgen.SetExtractionResultParams{ID: id, Status: status, Pages: pages, Issues: wire.Raw(issues), CacheBytes: bytes})
 	}
 	fv, err := s.q.GetFileVersionForExtraction(ctx, sqlcgen.GetFileVersionForExtractionParams{FileID: row.FileID, ContentVersion: row.ContentVersion})
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (!fv.Current || !fv.Available || fv.SizeBytes == nil)) {
-		return finish("incomplete", []wire.T005Issue{{Code: "content_changed", Detail: "The file version is no longer current."}}, []byte("[]"), 0)
+		return finish("incomplete", []wire.EditionIssue{{Code: "content_changed", Detail: "The file version is no longer current."}}, []byte("[]"), 0)
 	}
 	if err != nil {
 		return err
 	}
 	src, err := media.Open(s.comics.opts.MediaRoot, fv.Locator, *fv.SizeBytes)
 	if err != nil {
-		return finish("incomplete", []wire.T005Issue{{Code: "file_unavailable", Detail: "The original file cannot be read."}}, []byte("[]"), 0)
+		return finish("incomplete", []wire.EditionIssue{{Code: "file_unavailable", Detail: "The original file cannot be read."}}, []byte("[]"), 0)
 	}
 	src.Close()
 	dst := s.cacheDir(id)
@@ -281,15 +281,15 @@ func (s *Service) RunExtraction(ctx context.Context, id uuid.UUID) error {
 			if ce.Code == "cache_full" {
 				status = "incomplete"
 			}
-			return finish(status, []wire.T005Issue{{Code: ce.Code, Detail: ce.Detail}}, []byte("[]"), 0)
+			return finish(status, []wire.EditionIssue{{Code: ce.Code, Detail: ce.Detail}}, []byte("[]"), 0)
 		}
-		return finish("incomplete", []wire.T005Issue{{Code: "extraction_failed", Detail: "The pages could not be extracted; request them again to retry."}}, []byte("[]"), 0)
+		return finish("incomplete", []wire.EditionIssue{{Code: "extraction_failed", Detail: "The pages could not be extracted; request them again to retry."}}, []byte("[]"), 0)
 	}
 	pages := make([]storedPage, 0, len(res.Pages))
 	for _, p := range res.Pages {
 		pages = append(pages, storedPage{Index: p.Index, EntryID: p.EntryID, Mime: p.Mime, Width: p.Width, Height: p.Height, File: p.File, Bytes: p.Bytes})
 	}
-	return finish("ready", []wire.T005Issue{}, wire.Raw(pages), res.Bytes)
+	return finish("ready", []wire.EditionIssue{}, wire.Raw(pages), res.Bytes)
 }
 
 // reserve claims cache budget for an extraction, evicting inactive entries

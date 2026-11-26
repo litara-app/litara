@@ -18,7 +18,7 @@ func mw(base string, value any, clear bool) map[string]any {
 	return map[string]any{"operationId": uuid.NewString(), "baseRevision": base, "clear": clear, "value": value}
 }
 
-func field(rep wire.T005MetadataReport, name string) *wire.T005MetadataField {
+func field(rep wire.EditionMetadataReport, name string) *wire.EditionMetadataField {
 	for i := range rep.Fields {
 		if rep.Fields[i].Field == name {
 			return &rep.Fields[i]
@@ -39,7 +39,7 @@ func TestEditionMetadataAndTitleLinking(t *testing.T) {
 	if x := e.Do("GET", "/admin/editions/"+uuid.NewString()+"/metadata", r.admin, nil); x.StatusCode != 404 {
 		t.Fatalf("unknown edition: %d", x.StatusCode)
 	}
-	var rep wire.T005MetadataReport
+	var rep wire.EditionMetadataReport
 	e.Do("GET", "/admin/editions/"+ed+"/metadata", r.admin, nil).JSON(t, &rep)
 	title := field(rep, "title")
 	if rep.Revision != "0" || title == nil || title.Source != "embedded" || string(title.Value.Raw) != `"Second Volume"` {
@@ -59,7 +59,7 @@ func TestEditionMetadataAndTitleLinking(t *testing.T) {
 	if x.StatusCode != 200 || rep.Revision != "1" || field(rep, "title").Source != "user" || string(field(rep, "title").Value.Raw) != `"Edited Title"` {
 		t.Fatalf("set title: %d %s", x.StatusCode, x.Body)
 	}
-	var ts wire.T005Titles
+	var ts wire.Titles
 	e.Do("GET", "/titles?q=edited", r.userA, nil).JSON(t, &ts)
 	if ts.Total != 1 {
 		t.Fatalf("title display did not follow the edit: %+v", ts)
@@ -126,10 +126,10 @@ func TestEditionMetadataAndTitleLinking(t *testing.T) {
 		t.Fatalf("tags: %d %s", y.StatusCode, y.Body)
 	}
 	if n := e.Do("PUT", "/shelves/"+uuid.NewString(), r.userA, r.shelfBody(uuid.NewString(), "0", "smart", "private", "p",
-		pred("tag", "equals", "space opera"))); n.StatusCode != 200 {
+		rule("tag", "is", "space opera"))); n.StatusCode != 200 {
 		t.Fatalf("smart tag: %d", n.StatusCode)
 	} else {
-		var sh wire.T005Shelf
+		var sh wire.Shelf
 		n.JSON(t, &sh)
 		if sh.VisibleTitleCount != 1 {
 			t.Fatalf("edition tags not matched: %d", sh.VisibleTitleCount)
@@ -139,9 +139,9 @@ func TestEditionMetadataAndTitleLinking(t *testing.T) {
 	// Title linking: another book of the same library.
 	epub(t, filepath.Join(r.root, "Saga", "vol3.epub"), "Third Tale", "Bob Writer", "978-0-306-40615-7")
 	scanTwice(t, e, r.admin, r.lib)
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+r.lib, r.userA, nil).JSON(t, &eds)
-	var other wire.T005Edition
+	var other wire.Edition
 	for _, x := range eds.Items {
 		if x.ID != ed {
 			other = x
@@ -164,18 +164,18 @@ func TestEditionMetadataAndTitleLinking(t *testing.T) {
 		t.Fatalf("position: %d", pos.StatusCode)
 	}
 	lk := link(r.admin, other.ID, r.ed.TitleID, "0")
-	var moved wire.T005Edition
+	var moved wire.Edition
 	lk.JSON(t, &moved)
 	if lk.StatusCode != 200 || moved.TitleID != r.ed.TitleID || moved.Revision != "1" {
 		t.Fatalf("link: %d %s", lk.StatusCode, lk.Body)
 	}
-	var td wire.T005TitleDetail
+	var td wire.TitleDetail
 	e.Do("GET", "/titles/"+r.ed.TitleID, r.userA, nil).JSON(t, &td)
 	if td.Title.EditionCount != 2 {
 		t.Fatalf("title children: %+v", td.Title)
 	}
 	// Personal state and file identity are untouched by relinking.
-	var st wire.T005PositionState
+	var st wire.ReadingPositionState
 	e.Do("GET", "/editions/"+ed+"/position", r.userA, nil).JSON(t, &st)
 	if st.Revision != "1" || st.Position.Value == nil {
 		t.Fatalf("relinking changed personal state: %+v", st)

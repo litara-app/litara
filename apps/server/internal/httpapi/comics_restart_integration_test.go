@@ -26,7 +26,7 @@ func TestInterruptedExtractionRecoversOnRestart(t *testing.T) {
 	scanTwice(t, e, c.admin, c.lib)
 	ed := c.edition(t, "CBZ")
 
-	var m wire.T005PageManifest
+	var m wire.ComicPageManifest
 	first := e.Do("POST", pagesPath(ed), c.userA, extraction(ed.File.ContentVersion))
 	first.JSON(t, &m)
 	if first.StatusCode != 202 || m.State != "processing" {
@@ -95,7 +95,7 @@ func TestInterruptedExtractionRecoversOnRestart(t *testing.T) {
 	if err := e.Reading.RunExtraction(context.Background(), id); err != nil {
 		t.Fatalf("redelivery: %v", err)
 	}
-	var after wire.T005PageManifest
+	var after wire.ComicPageManifest
 	e.Do("GET", pagesPath(ed), c.userA, nil).JSON(t, &after)
 	if after.State != "ready" || len(after.Pages) != 60 || after.ManifestVersion != manifestVersion {
 		t.Fatalf("redelivery changed the manifest: %+v", after)

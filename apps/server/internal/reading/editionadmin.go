@@ -1,13 +1,13 @@
 package reading
 
 import (
-	"regexp"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -61,19 +61,19 @@ func staleEdition(current int64) *apperr.Error {
 }
 
 // MetadataReport returns effective values with provenance and suppressed evidence.
-func (s *Service) MetadataReport(ctx context.Context, id uuid.UUID) (wire.T005MetadataReport, error) {
+func (s *Service) MetadataReport(ctx context.Context, id uuid.UUID) (wire.EditionMetadataReport, error) {
 	ed, err := s.q.GetEditionRow(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return wire.T005MetadataReport{}, apperr.ErrNotFound
+		return wire.EditionMetadataReport{}, apperr.ErrNotFound
 	}
 	if err != nil {
-		return wire.T005MetadataReport{}, dbErr(err)
+		return wire.EditionMetadataReport{}, dbErr(err)
 	}
 	return s.report(ctx, s.q, ed.ID, ed.Revision)
 }
 
-func (s *Service) report(ctx context.Context, q *sqlcgen.Queries, id uuid.UUID, revision int64) (wire.T005MetadataReport, error) {
-	out := wire.T005MetadataReport{EditionID: id.String(), Revision: strconv.FormatInt(revision, 10), Fields: []wire.T005MetadataField{}}
+func (s *Service) report(ctx context.Context, q *sqlcgen.Queries, id uuid.UUID, revision int64) (wire.EditionMetadataReport, error) {
+	out := wire.EditionMetadataReport{EditionID: id.String(), Revision: strconv.FormatInt(revision, 10), Fields: []wire.EditionMetadataField{}}
 	rows, err := q.ListEditionMetadataValues(ctx, id)
 	if err != nil {
 		return out, dbErr(err)
@@ -94,12 +94,12 @@ func (s *Service) report(ctx context.Context, q *sqlcgen.Queries, id uuid.UUID, 
 		if !ok {
 			continue
 		}
-		mf := wire.T005MetadataField{Field: f, Source: e.Source, Cleared: e.Cleared, Locked: e.Locked, Conflicts: []wire.T005MetadataEvidence{}}
+		mf := wire.EditionMetadataField{Field: f, Source: e.Source, Cleared: e.Cleared, Locked: e.Locked, Conflicts: []wire.MetadataEvidence{}}
 		if !e.Cleared {
-			mf.Value = wire.T005MetadataValue{Raw: e.Raw}
+			mf.Value = wire.MetadataValue{Raw: e.Raw}
 		}
 		for _, c := range e.Conflicts {
-			mf.Conflicts = append(mf.Conflicts, wire.T005MetadataEvidence{Source: c.Source, Value: wire.T005MetadataValue{Raw: c.Raw}})
+			mf.Conflicts = append(mf.Conflicts, wire.MetadataEvidence{Source: c.Source, Value: wire.MetadataValue{Raw: c.Raw}})
 		}
 		out.Fields = append(out.Fields, mf)
 	}
@@ -107,7 +107,7 @@ func (s *Service) report(ctx context.Context, q *sqlcgen.Queries, id uuid.UUID, 
 }
 
 // editionValue validates a protected edit and returns its stored JSON (nil for a clear).
-func editionValue(field string, w wire.T005MetadataWrite) (json.RawMessage, error) {
+func editionValue(field string, w wire.EditionMetadataWrite) (json.RawMessage, error) {
 	raw := bytes.TrimSpace(w.Value.Raw)
 	isNull := len(raw) == 0 || string(raw) == "null"
 	if w.Clear {
@@ -205,7 +205,7 @@ func (s *Service) propagate(ctx context.Context, q *sqlcgen.Queries, ed sqlcgen.
 	if err != nil {
 		return err
 	}
-	eff := map[string]wire.T005MetadataField{}
+	eff := map[string]wire.EditionMetadataField{}
 	for _, f := range rep.Fields {
 		eff[f.Field] = f
 	}
@@ -295,24 +295,24 @@ func (s *Service) renderReport(ctx context.Context, id uuid.UUID) func(q *sqlcge
 	}
 }
 
-func (s *Service) SetEditionMetadata(ctx context.Context, a Actor, id uuid.UUID, field string, w wire.T005MetadataWrite) (wire.T005MetadataReport, error) {
+func (s *Service) SetEditionMetadata(ctx context.Context, a Actor, id uuid.UUID, field string, w wire.EditionMetadataWrite) (wire.EditionMetadataReport, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	if !validEditionField(field) {
-		return wire.T005MetadataReport{}, apperr.Validation("Unknown metadata field.")
+		return wire.EditionMetadataReport{}, apperr.Validation("Unknown metadata field.")
 	}
 	raw, err := editionValue(field, w)
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	if _, err := s.EditionLibrary(ctx, id); err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	fp := fingerprint(http.MethodPut, "/admin/editions/"+id.String()+"/metadata/"+field, w)
 	body, err := s.mutateEdition(ctx, a, id, op, base, fp, func(q *sqlcgen.Queries, ed sqlcgen.Edition) (*apperr.Error, error) {
@@ -329,26 +329,26 @@ func (s *Service) SetEditionMetadata(ctx context.Context, a Actor, id uuid.UUID,
 		return nil, s.propagate(ctx, q, ed)
 	}, s.renderReport(ctx, id))
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
-	var out wire.T005MetadataReport
+	var out wire.EditionMetadataReport
 	return out, json.Unmarshal(body, &out)
 }
 
-func (s *Service) RemoveEditionMetadata(ctx context.Context, a Actor, id uuid.UUID, field string, w wire.T005MetadataRemove) (wire.T005MetadataReport, error) {
+func (s *Service) RemoveEditionMetadata(ctx context.Context, a Actor, id uuid.UUID, field string, w wire.EditionMetadataRemove) (wire.EditionMetadataReport, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	if !validEditionField(field) {
-		return wire.T005MetadataReport{}, apperr.Validation("Unknown metadata field.")
+		return wire.EditionMetadataReport{}, apperr.Validation("Unknown metadata field.")
 	}
 	if _, err := s.EditionLibrary(ctx, id); err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
 	fp := fingerprint(http.MethodDelete, "/admin/editions/"+id.String()+"/metadata/"+field, w)
 	body, err := s.mutateEdition(ctx, a, id, op, base, fp, func(q *sqlcgen.Queries, ed sqlcgen.Edition) (*apperr.Error, error) {
@@ -368,9 +368,9 @@ func (s *Service) RemoveEditionMetadata(ctx context.Context, a Actor, id uuid.UU
 		return nil, s.propagate(ctx, q, ed)
 	}, s.renderReport(ctx, id))
 	if err != nil {
-		return wire.T005MetadataReport{}, err
+		return wire.EditionMetadataReport{}, err
 	}
-	var out wire.T005MetadataReport
+	var out wire.EditionMetadataReport
 	return out, json.Unmarshal(body, &out)
 }
 
@@ -382,25 +382,25 @@ func (s *Service) closeGroupingReview(ctx context.Context, q *sqlcgen.Queries, e
 
 // LinkEditionTitle moves an edition to another title of the same library, or
 // (titleId null) separates it into a new title built from its effective metadata.
-func (s *Service) LinkEditionTitle(ctx context.Context, a Actor, id uuid.UUID, w wire.T005EditionLink) (wire.T005Edition, error) {
+func (s *Service) LinkEditionTitle(ctx context.Context, a Actor, id uuid.UUID, w wire.EditionLink) (wire.Edition, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005Edition{}, err
+		return wire.Edition{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005Edition{}, err
+		return wire.Edition{}, err
 	}
 	var target *uuid.UUID
 	if w.TitleID != nil {
 		t, err := parseUUID("titleId", *w.TitleID)
 		if err != nil {
-			return wire.T005Edition{}, err
+			return wire.Edition{}, err
 		}
 		target = &t
 	}
 	if _, err := s.EditionLibrary(ctx, id); err != nil {
-		return wire.T005Edition{}, err
+		return wire.Edition{}, err
 	}
 	fp := fingerprint(http.MethodPut, "/admin/editions/"+id.String()+"/title", w)
 	body, err := s.mutateEdition(ctx, a, id, op, base, fp, func(q *sqlcgen.Queries, ed sqlcgen.Edition) (*apperr.Error, error) {
@@ -469,23 +469,23 @@ func (s *Service) LinkEditionTitle(ctx context.Context, a Actor, id uuid.UUID, w
 		return wire.Raw(e), err
 	})
 	if err != nil {
-		return wire.T005Edition{}, err
+		return wire.Edition{}, err
 	}
-	var out wire.T005Edition
+	var out wire.Edition
 	return out, json.Unmarshal(body, &out)
 }
 
 // AutoFillEdition stores provider values for fields the edition has no value for. The caller has chosen the match
 // (ADR-0060/0087); this applies it only if the edition is still at base, and only to empty fields. Values are stored
 // as provider evidence, so they never outrank a user edit, a sidecar or the file's own tags.
-func (s *Service) AutoFillEdition(ctx context.Context, a Actor, id uuid.UUID, w wire.T005AutoFill, provider string, values map[string]json.RawMessage) (wire.T005AutoFillResult, error) {
+func (s *Service) AutoFillEdition(ctx context.Context, a Actor, id uuid.UUID, w wire.EditionAutoFill, provider string, values map[string]json.RawMessage) (wire.AutoFillResult, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005AutoFillResult{}, err
+		return wire.AutoFillResult{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005AutoFillResult{}, err
+		return wire.AutoFillResult{}, err
 	}
 	fields := make([]string, 0, len(values))
 	for f := range values {
@@ -510,7 +510,7 @@ func (s *Service) AutoFillEdition(ctx context.Context, a Actor, id uuid.UUID, w 
 			if !validEditionField(f) || f == "title" || have[f] {
 				continue
 			}
-			raw, err := editionValue(f, wire.T005MetadataWrite{Value: wire.T005MetadataValue{Raw: values[f]}})
+			raw, err := editionValue(f, wire.EditionMetadataWrite{Value: wire.MetadataValue{Raw: values[f]}})
 			if err != nil {
 				continue // a value the edition would not accept is skipped, never stored
 			}
@@ -532,11 +532,11 @@ func (s *Service) AutoFillEdition(ctx context.Context, a Actor, id uuid.UUID, w 
 		if len(filled) == 0 {
 			outcome = "nothing_to_fill"
 		}
-		return wire.Raw(wire.T005AutoFillResult{Outcome: outcome, Provider: provider, Filled: append([]string{}, filled...), Revision: strconv.FormatInt(ed.Revision, 10)}), nil
+		return wire.Raw(wire.AutoFillResult{Outcome: outcome, Provider: provider, Filled: append([]string{}, filled...), Revision: strconv.FormatInt(ed.Revision, 10)}), nil
 	})
 	if err != nil {
-		return wire.T005AutoFillResult{}, err
+		return wire.AutoFillResult{}, err
 	}
-	var out wire.T005AutoFillResult
+	var out wire.AutoFillResult
 	return out, json.Unmarshal(body, &out)
 }

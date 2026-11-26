@@ -23,25 +23,25 @@ type ComicPageIn struct {
 
 func (a *API) registerComics(api huma.API) {
 	huma.Register(api, readOp(op("getComicPages", http.MethodGet, "/files/{fileId}/versions/{contentVersion}/pages", "Page manifest for one comic file version", "comics")),
-		func(ctx context.Context, in *ComicFileIn) (*bodyOut[wire.T005PageManifest], error) {
+		func(ctx context.Context, in *ComicFileIn) (*bodyOut[wire.ComicPageManifest], error) {
 			m, err := a.Reading.ComicManifest(ctx, principal(ctx).UserID, mustUUID(in.FileID), mustUUID(in.ContentVersion))
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005PageManifest]{Body: m}, nil
+			return &bodyOut[wire.ComicPageManifest]{Body: m}, nil
 		})
 
 	prep := writeOp(op("prepareComicPages", http.MethodPost, "/files/{fileId}/versions/{contentVersion}/pages", "Request page extraction for one comic file version", "comics"))
 	prep.DefaultStatus = http.StatusAccepted
 	huma.Register(api, prep, func(ctx context.Context, in *struct {
 		ComicFileIn
-		Body wire.T005Extraction
-	}) (*bodyOut[wire.T005PageManifest], error) {
+		Body wire.ComicExtractionRequest
+	}) (*bodyOut[wire.ComicPageManifest], error) {
 		m, err := a.Reading.PrepareComicPages(ctx, a.readingActor(ctx), mustUUID(in.FileID), mustUUID(in.ContentVersion), in.Body)
 		if err != nil {
 			return nil, a.fail(ctx, err)
 		}
-		return &bodyOut[wire.T005PageManifest]{Body: m}, nil
+		return &bodyOut[wire.ComicPageManifest]{Body: m}, nil
 	})
 
 	for _, method := range []string{http.MethodGet, http.MethodHead} {

@@ -41,7 +41,7 @@ func TestEditionMetadataSaveLocksAndRevisions(t *testing.T) {
 	r := newReadingEnv(t)
 	e, ed := r.e, r.ed.ID
 	path := "/admin/editions/" + ed + "/metadata"
-	var rep wire.T005MetadataReport
+	var rep wire.EditionMetadataReport
 	e.Do("GET", path, r.admin, nil).JSON(t, &rep)
 	base := rep.Revision
 
@@ -249,7 +249,7 @@ func TestMetadataSaveAcceptsLongDescriptions(t *testing.T) {
 	r := newReadingEnv(t)
 	long := strings.Repeat("é", 8000) // characters, not bytes
 	path := "/admin/editions/" + r.ed.ID + "/metadata"
-	var rep wire.T005MetadataReport
+	var rep wire.EditionMetadataReport
 	r.e.Do("GET", path, r.admin, nil).JSON(t, &rep)
 	if resp := r.e.Do("PATCH", path, r.admin, saveBody(rep.Revision, change("description", "set", long))); resp.StatusCode != http.StatusOK {
 		t.Fatalf("edition save: %d %s", resp.StatusCode, resp.Body)

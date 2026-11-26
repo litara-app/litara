@@ -17,7 +17,7 @@ async function signIn(page: Page, user: string) {
   await expect(page.getByTestId("whoami")).toBeVisible();
 }
 const csrf = async (page: Page) => ((await (await page.request.get("/api/v1/auth/web/session")).json()) as { csrfToken: string }).csrfToken;
-const pred = (field: string, value: string) => ({ kind: "predicate", field, operator: "equals", value });
+const rule = (field: string, operator: string, value: string) => ({ type: "rule", field, operator, value });
 
 test("a shared smart shelf of unfinished books shows each viewer their own matches", async ({ page, browser, browserName }) => {
   test.skip(browserName !== "chromium", "shared server state; one browser is enough");
@@ -39,7 +39,7 @@ test("a shared smart shelf of unfinished books shows each viewer their own match
     data: {
       operationId: crypto.randomUUID(), baseRevision: "0", capturedAt: new Date().toISOString(),
       data: { name: "Unfinished here", visibility: "shared", kind: "smart",
-        filter: { kind: "all", children: [pred("finished", "false"), { kind: "any", children: [pred("title", "the browser novel"), pred("title", "the replaceable")] }] } },
+        filter: { type: "group", join: "AND", rules: [rule("status", "is_not", "finished"), { type: "group", join: "OR", rules: [rule("title", "is", "the browser novel"), rule("title", "is", "the replaceable")] }] } },
     },
   });
   expect(shelf.status(), await shelf.text()).toBe(200);
@@ -216,5 +216,42 @@ test("a shared manual shelf across two libraries shows a viewer only what their 
     await page.request.delete(`/api/v1/shelves/${sid}`, { headers: await ownerHeaders(), data: { ...stamp(), baseRevision: cur.revision } });
     await adminCtx.close();
     await viewerCtx.close();
+  }
+});
+
+// ADR-0107: a smart shelf is created and then edited with the library rule builder.
+test("a smart shelf is created and edited with the rule builder", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "shared server state; one browser is enough");
+  test.setTimeout(120_000);
+  await signIn(page, "fixture-user-a");
+  await page.goto("/shelves");
+  await page.getByRole("tab", { name: "New shelf" }).click();
+  await page.getByLabel("Shelf name").fill("Built with rules");
+  await page.getByRole("combobox", { name: "Kind" }).click();
+  await page.getByRole("option", { name: "Smart" }).click();
+
+  const create = page.getByRole("button", { name: "Create shelf" });
+  await expect(create).toBeDisabled(); // the first rule has no value yet
+  await page.getByRole("textbox", { name: "Author value" }).fill("eve tester");
+  await create.click();
+  await expect(page).toHaveURL(/\/shelves\/[0-9a-f-]{36}$/);
+  const sid = page.url().split("/").pop()!;
+  try {
+    await expect(page.getByTestId("shelf-title").filter({ hasText: "The Browser Novel" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Edit filter" }).click();
+    const value = page.getByRole("textbox", { name: "Author value" });
+    await expect(value).toHaveValue("eve tester");
+    await value.fill("");
+    await expect(page.getByRole("button", { name: "Save filter" })).toBeDisabled();
+    await value.fill("nobody at all");
+    await page.screenshot({ path: "test-results/smart-shelf-editor.png", fullPage: true });
+    await page.getByRole("button", { name: "Save filter" }).click();
+    await expect(page.getByText("No visible titles")).toBeVisible({ timeout: 15_000 });
+    const saved = (await (await page.request.get(`/api/v1/shelves/${sid}`)).json()) as { revision: string; data: { filter: unknown } };
+    expect(saved.revision).toBe("2");
+    expect(saved.data.filter).toEqual({ type: "group", join: "AND", rules: [{ type: "rule", field: "author", operator: "is", value: "nobody at all" }] });
+  } finally {
+    const cur = (await (await page.request.get(`/api/v1/shelves/${sid}`)).json()) as { revision: string };
+    await page.request.delete(`/api/v1/shelves/${sid}`, { headers: { "X-CSRF-Token": await csrf(page), Origin: ORIGIN }, data: { operationId: crypto.randomUUID(), baseRevision: cur.revision, capturedAt: new Date().toISOString() } });
   }
 });

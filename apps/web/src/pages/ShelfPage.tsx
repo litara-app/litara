@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { api, ApiError, get, op } from "../api/client";
 import type { Page as Paged, Shelf, Title as TitleT } from "../api/types";
+import { ShelfFilterCard } from "./filter/ShelfFilterCard";
 import { icons, Alert, Badge, Busy, Button, Card, ConfirmDialog, EmptyState, ErrorBox, IconButton, Page, PageHeader, Row, Stack, Text, TextLink, Tip } from "../ui";
 
 export function ShelfPage() {
@@ -49,6 +50,7 @@ export function ShelfPage() {
       <PageHeader title={data.name}
         actions={<><Badge>{data.kind}</Badge><Badge outline tone="neutral">{data.visibility}</Badge><Badge tone="neutral">{s.visibleTitleCount} visible</Badge></>} />
       {data.kind === "smart" && <Text size="sm" tone="dim">Smart shelves are evaluated for whoever is viewing, using their own library access and reading state.</Text>}
+      {s.canEdit && data.kind === "smart" && data.filter && <ShelfFilterCard shelf={s} data={data} filter={data.filter} onSaved={refresh} />}
       {stale && <Alert tone="warning" role="alert">This shelf changed elsewhere, so the action was not applied. The list below is current; try again.</Alert>}
       {!stale && <ErrorBox error={err} />}
       {titles.isPending ? <Busy /> : items.length === 0 ? <EmptyState title="No visible titles" /> : (

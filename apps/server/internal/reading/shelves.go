@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/deranjer/ebooker/apps/server/internal/apperr"
+	"github.com/deranjer/ebooker/apps/server/internal/catalog"
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
@@ -55,8 +56,8 @@ func (s *Service) visibleMembers(ctx context.Context, q *sqlcgen.Queries, viewer
 	return q.ListVisibleShelfMembers(ctx, sqlcgen.ListVisibleShelfMembersParams{ShelfID: shelf, UserID: viewer})
 }
 
-func (s *Service) shelfWire(ctx context.Context, q *sqlcgen.Queries, sh sqlcgen.Shelf, viewer uuid.UUID) (wire.T005Shelf, error) {
-	out := wire.T005Shelf{ID: sh.ID.String(), Revision: strconv.FormatInt(sh.Revision, 10), OwnerID: sh.OwnerID.String(),
+func (s *Service) shelfWire(ctx context.Context, q *sqlcgen.Queries, sh sqlcgen.Shelf, viewer uuid.UUID) (wire.Shelf, error) {
+	out := wire.Shelf{ID: sh.ID.String(), Revision: strconv.FormatInt(sh.Revision, 10), OwnerID: sh.OwnerID.String(),
 		CanEdit: sh.OwnerID == viewer && !sh.Deleted, Deleted: sh.Deleted, UpdatedAt: rfc(sh.UpdatedAt), Evaluation: "manual"}
 	if sh.Kind == "smart" {
 		out.Evaluation = "viewer-specific"
@@ -64,14 +65,14 @@ func (s *Service) shelfWire(ctx context.Context, q *sqlcgen.Queries, sh sqlcgen.
 	if sh.Deleted {
 		return out, nil
 	}
-	d := wire.T005ShelfData{Name: sh.Name, Visibility: sh.Visibility, Kind: sh.Kind}
+	d := wire.ShelfData{Name: sh.Name, Visibility: sh.Visibility, Kind: sh.Kind}
 	if len(sh.Filter) > 0 {
-		var f wire.T005Filter
+		var f wire.TitleFilter
 		if err := json.Unmarshal(sh.Filter, &f); err != nil {
 			return out, err
 		}
 		d.Filter = wire.Some(&f)
-		_, n, err := s.smartTitleIDs(ctx, viewer, f, 0, 0)
+		_, n, err := s.cat.SmartShelfTitleIDs(ctx, viewer, f, 0, 0)
 		if err != nil {
 			return out, err
 		}
@@ -87,20 +88,20 @@ func (s *Service) shelfWire(ctx context.Context, q *sqlcgen.Queries, sh sqlcgen.
 	return out, nil
 }
 
-func (s *Service) ListShelves(ctx context.Context, viewer uuid.UUID, scope string, includeDeleted bool, page, size int) (wire.T005Shelves, error) {
+func (s *Service) ListShelves(ctx context.Context, viewer uuid.UUID, scope string, includeDeleted bool, page, size int) (wire.Shelves, error) {
 	if scope != "mine" && scope != "shared" {
-		return wire.T005Shelves{}, apperr.Validation("scope must be mine or shared.")
+		return wire.Shelves{}, apperr.Validation("scope must be mine or shared.")
 	}
 	rows, err := s.q.ListShelvesPage(ctx, sqlcgen.ListShelvesPageParams{Scope: scope, UserID: viewer, IncludeDeleted: includeDeleted,
 		PageSize: int32(size), PageOffset: int32(page * size)})
 	if err != nil {
-		return wire.T005Shelves{}, dbErr(err)
+		return wire.Shelves{}, dbErr(err)
 	}
 	total, err := s.q.CountShelvesPage(ctx, sqlcgen.CountShelvesPageParams{Scope: scope, UserID: viewer, IncludeDeleted: includeDeleted})
 	if err != nil {
-		return wire.T005Shelves{}, dbErr(err)
+		return wire.Shelves{}, dbErr(err)
 	}
-	out := wire.T005Shelves{Items: []wire.T005Shelf{}, Total: total, Page: int64(page), Size: int64(size)}
+	out := wire.Shelves{Items: []wire.Shelf{}, Total: total, Page: int64(page), Size: int64(size)}
 	for _, r := range rows {
 		w, err := s.shelfWire(ctx, s.q, r, viewer)
 		if err != nil {
@@ -111,10 +112,10 @@ func (s *Service) ListShelves(ctx context.Context, viewer uuid.UUID, scope strin
 	return out, nil
 }
 
-func (s *Service) GetShelf(ctx context.Context, viewer, id uuid.UUID) (wire.T005Shelf, error) {
+func (s *Service) GetShelf(ctx context.Context, viewer, id uuid.UUID) (wire.Shelf, error) {
 	sh, err := s.readableShelf(ctx, s.q, viewer, id)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	w, err := s.shelfWire(ctx, s.q, sh, viewer)
 	return w, dbErr(err)
@@ -122,28 +123,28 @@ func (s *Service) GetShelf(ctx context.Context, viewer, id uuid.UUID) (wire.T005
 
 // ShelfTitles lists a shelf's titles as the viewer sees them: manual members in
 // stored order, smart results by title UUID, both limited to the viewer's grants.
-func (s *Service) ShelfTitles(ctx context.Context, viewer, id uuid.UUID, page, size int) (wire.T005Titles, error) {
+func (s *Service) ShelfTitles(ctx context.Context, viewer, id uuid.UUID, page, size int) (wire.Titles, error) {
 	sh, err := s.readableShelf(ctx, s.q, viewer, id)
 	if err != nil {
-		return wire.T005Titles{}, err
+		return wire.Titles{}, err
 	}
 	if sh.Deleted {
-		return wire.T005Titles{}, apperr.ErrNotFound
+		return wire.Titles{}, apperr.ErrNotFound
 	}
 	var ids []uuid.UUID
 	var total int64
 	if len(sh.Filter) > 0 {
-		var f wire.T005Filter
+		var f wire.TitleFilter
 		if err := json.Unmarshal(sh.Filter, &f); err != nil {
-			return wire.T005Titles{}, dbErr(err)
+			return wire.Titles{}, dbErr(err)
 		}
-		if ids, total, err = s.smartTitleIDs(ctx, viewer, f, size, page*size); err != nil {
-			return wire.T005Titles{}, err
+		if ids, total, err = s.cat.SmartShelfTitleIDs(ctx, viewer, f, size, page*size); err != nil {
+			return wire.Titles{}, err
 		}
 	} else {
 		all, err := s.visibleMembers(ctx, s.q, viewer, sh.ID)
 		if err != nil {
-			return wire.T005Titles{}, dbErr(err)
+			return wire.Titles{}, dbErr(err)
 		}
 		total = int64(len(all))
 		lo, hi := min(page*size, len(all)), min(page*size+size, len(all))
@@ -151,12 +152,12 @@ func (s *Service) ShelfTitles(ctx context.Context, viewer, id uuid.UUID, page, s
 	}
 	titles, err := s.cat.TitlesByIDs(ctx, viewer, ids)
 	if err != nil {
-		return wire.T005Titles{}, err
+		return wire.Titles{}, err
 	}
-	return wire.T005Titles{Items: titles, Total: total, Page: int64(page), Size: int64(size)}, nil
+	return wire.Titles{Items: titles, Total: total, Page: int64(page), Size: int64(size)}, nil
 }
 
-func validateShelfData(d wire.T005ShelfData) error {
+func validateShelfData(d wire.ShelfData) error {
 	name := strings.TrimSpace(d.Name)
 	if name == "" || utf8.RuneCountInString(d.Name) > 256 {
 		return apperr.Validation("name must be 1 to 256 characters.")
@@ -173,7 +174,7 @@ func validateShelfData(d wire.T005ShelfData) error {
 		if d.Filter.Value == nil {
 			return apperr.Validation("A smart shelf requires a filter.")
 		}
-		return ValidateFilter(*d.Filter.Value)
+		return catalog.ValidateShelfFilter(*d.Filter.Value)
 	default:
 		return apperr.Validation("kind must be manual or smart.")
 	}
@@ -181,24 +182,24 @@ func validateShelfData(d wire.T005ShelfData) error {
 }
 
 // PutShelf creates (base 0) or updates a shelf. Kind never changes.
-func (s *Service) PutShelf(ctx context.Context, a Actor, id uuid.UUID, w wire.T005ShelfWrite) (wire.T005Shelf, error) {
+func (s *Service) PutShelf(ctx context.Context, a Actor, id uuid.UUID, w wire.ShelfWrite) (wire.Shelf, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	if _, err = parseTime("capturedAt", w.CapturedAt); err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	if err := validateShelfData(w.Data); err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	// Ownership is checked before any receipt so a denied request leaves no trace.
 	if _, err := s.ownedShelfOrNew(ctx, s.q, a.UserID, id); err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	fp := fingerprint(http.MethodPut, "/shelves/"+id.String(), w)
 	body, err := s.run(ctx, a, op, fp, func(q *sqlcgen.Queries) error { return q.LockPersonalKey(ctx, shelfKey(id)) },
@@ -222,9 +223,9 @@ func (s *Service) PutShelf(ctx context.Context, a Actor, id uuid.UUID, w wire.T0
 			return wire.Raw(out), nil, nil
 		})
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
-	var out wire.T005Shelf
+	var out wire.Shelf
 	return out, json.Unmarshal(body, &out)
 }
 
@@ -247,7 +248,7 @@ func (s *Service) ownedShelfOrNew(ctx context.Context, q *sqlcgen.Queries, viewe
 	return &sh, nil
 }
 
-func (s *Service) applyShelf(ctx context.Context, q *sqlcgen.Queries, a Actor, id uuid.UUID, w wire.T005ShelfWrite, op uuid.UUID,
+func (s *Service) applyShelf(ctx context.Context, q *sqlcgen.Queries, a Actor, id uuid.UUID, w wire.ShelfWrite, op uuid.UUID,
 	base int64, cur *sqlcgen.Shelf, checkBase bool) (*apperr.Error, error) {
 	var currentRev int64
 	if cur != nil {
@@ -279,20 +280,20 @@ func (s *Service) applyShelf(ctx context.Context, q *sqlcgen.Queries, a Actor, i
 }
 
 // DeleteShelf tombstones an owned shelf; members are retained as private evidence.
-func (s *Service) DeleteShelf(ctx context.Context, a Actor, id uuid.UUID, w wire.T005Delete) (wire.T005Shelf, error) {
+func (s *Service) DeleteShelf(ctx context.Context, a Actor, id uuid.UUID, w wire.RevisionedDelete) (wire.Shelf, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	if _, err = parseTime("capturedAt", w.CapturedAt); err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	if _, err := s.ownedShelf(ctx, s.q, a.UserID, id); err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	fp := fingerprint(http.MethodDelete, "/shelves/"+id.String(), w)
 	body, err := s.run(ctx, a, op, fp, func(q *sqlcgen.Queries) error { return q.LockPersonalKey(ctx, shelfKey(id)) },
@@ -316,13 +317,13 @@ func (s *Service) DeleteShelf(ctx context.Context, a Actor, id uuid.UUID, w wire
 			return wire.Raw(out), nil, nil
 		})
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
-	var out wire.T005Shelf
+	var out wire.Shelf
 	return out, json.Unmarshal(body, &out)
 }
 
-func (s *Service) applyShelfDelete(ctx context.Context, q *sqlcgen.Queries, a Actor, cur sqlcgen.Shelf, w wire.T005Delete, op uuid.UUID,
+func (s *Service) applyShelfDelete(ctx context.Context, q *sqlcgen.Queries, a Actor, cur sqlcgen.Shelf, w wire.RevisionedDelete, op uuid.UUID,
 	base int64, checkBase bool) (*apperr.Error, error) {
 	if checkBase && base != cur.Revision {
 		return s.recordFor(ctx, q, a, "shelf", cur.ID, uuid.NullUUID{}, nil, op, w, base, cur.Revision, specStale)
@@ -334,35 +335,35 @@ func (s *Service) applyShelfDelete(ctx context.Context, q *sqlcgen.Queries, a Ac
 }
 
 // ChangeMember adds or removes one title of a manual shelf at the stated revision.
-func (s *Service) ChangeMember(ctx context.Context, a Actor, shelfID, titleID uuid.UUID, action string, w wire.T005MemberChange) (wire.T005Shelf, error) {
+func (s *Service) ChangeMember(ctx context.Context, a Actor, shelfID, titleID uuid.UUID, action string, w wire.MemberChange) (wire.Shelf, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	if _, err = parseTime("capturedAt", w.CapturedAt); err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	sh, err := s.ownedShelf(ctx, s.q, a.UserID, shelfID)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	if sh.Kind != "manual" {
-		return wire.T005Shelf{}, apperr.Validation("A smart shelf has no manual membership.")
+		return wire.Shelf{}, apperr.Validation("A smart shelf has no manual membership.")
 	}
 	if action == "add" {
 		if err := s.cat.TitleVisible(ctx, a.UserID, titleID); err != nil { // the owner needs current access
-			return wire.T005Shelf{}, err
+			return wire.Shelf{}, err
 		}
 	} else if saw, err := s.q.UserSeesTitle(ctx, sqlcgen.UserSeesTitleParams{UserID: a.UserID, TitleID: titleID}); err != nil {
-		return wire.T005Shelf{}, dbErr(err)
+		return wire.Shelf{}, dbErr(err)
 	} else if !saw {
-		return wire.T005Shelf{}, apperr.ErrNotFound // a hidden member is not addressable by its ID
+		return wire.Shelf{}, apperr.ErrNotFound // a hidden member is not addressable by its ID
 	}
-	cand := wire.T005MembershipCandidate{OperationID: w.OperationID, BaseRevision: w.BaseRevision, CapturedAt: w.CapturedAt, Action: action, TitleID: titleID.String()}
+	cand := wire.MembershipCandidate{OperationID: w.OperationID, BaseRevision: w.BaseRevision, CapturedAt: w.CapturedAt, Action: action, TitleID: titleID.String()}
 	method := http.MethodPut
 	if action == "remove" {
 		method = http.MethodDelete
@@ -389,13 +390,13 @@ func (s *Service) ChangeMember(ctx context.Context, a Actor, shelfID, titleID uu
 			return wire.Raw(out), nil, nil
 		})
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
-	var out wire.T005Shelf
+	var out wire.Shelf
 	return out, json.Unmarshal(body, &out)
 }
 
-func (s *Service) applyMember(ctx context.Context, q *sqlcgen.Queries, a Actor, cur sqlcgen.Shelf, c wire.T005MembershipCandidate, op uuid.UUID,
+func (s *Service) applyMember(ctx context.Context, q *sqlcgen.Queries, a Actor, cur sqlcgen.Shelf, c wire.MembershipCandidate, op uuid.UUID,
 	base int64, checkBase bool) (*apperr.Error, error) {
 	none := uuid.NullUUID{}
 	switch {
@@ -436,32 +437,32 @@ func (s *Service) applyMember(ctx context.Context, q *sqlcgen.Queries, a Actor, 
 
 // OrderShelfTitles reorders the owner's visible members. Hidden members keep
 // their relative slots and their IDs are never returned.
-func (s *Service) OrderShelfTitles(ctx context.Context, a Actor, shelfID uuid.UUID, w wire.T005ShelfOrder) (wire.T005Shelf, error) {
+func (s *Service) OrderShelfTitles(ctx context.Context, a Actor, shelfID uuid.UUID, w wire.ShelfOrder) (wire.Shelf, error) {
 	op, err := parseUUID("operationId", w.OperationID)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	base, err := parseRev(w.BaseRevision)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	if _, err = parseTime("capturedAt", w.CapturedAt); err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	seen := map[string]bool{}
 	for _, id := range w.VisibleTitleIDs {
 		u, err := uuid.Parse(string(id))
 		if err != nil || seen[u.String()] {
-			return wire.T005Shelf{}, apperr.Validation("visibleTitleIds must be distinct UUIDs.")
+			return wire.Shelf{}, apperr.Validation("visibleTitleIds must be distinct UUIDs.")
 		}
 		seen[u.String()] = true
 	}
 	sh, err := s.ownedShelf(ctx, s.q, a.UserID, shelfID)
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
 	if sh.Kind != "manual" {
-		return wire.T005Shelf{}, apperr.Validation("A smart shelf has no manual order.")
+		return wire.Shelf{}, apperr.Validation("A smart shelf has no manual order.")
 	}
 	fp := fingerprint(http.MethodPut, "/shelves/"+shelfID.String()+"/order", w)
 	body, err := s.run(ctx, a, op, fp, func(q *sqlcgen.Queries) error { return q.LockPersonalKey(ctx, shelfKey(shelfID)) },
@@ -485,13 +486,13 @@ func (s *Service) OrderShelfTitles(ctx context.Context, a Actor, shelfID uuid.UU
 			return wire.Raw(out), nil, nil
 		})
 	if err != nil {
-		return wire.T005Shelf{}, err
+		return wire.Shelf{}, err
 	}
-	var out wire.T005Shelf
+	var out wire.Shelf
 	return out, json.Unmarshal(body, &out)
 }
 
-func (s *Service) applyOrder(ctx context.Context, q *sqlcgen.Queries, a Actor, cur sqlcgen.Shelf, w wire.T005ShelfOrder, op uuid.UUID,
+func (s *Service) applyOrder(ctx context.Context, q *sqlcgen.Queries, a Actor, cur sqlcgen.Shelf, w wire.ShelfOrder, op uuid.UUID,
 	base int64, checkBase bool) (*apperr.Error, error) {
 	none := uuid.NullUUID{}
 	switch {

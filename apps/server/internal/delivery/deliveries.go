@@ -27,8 +27,8 @@ func nullUUID(id *uuid.UUID) uuid.NullUUID {
 
 func rfc(t time.Time) string { return t.UTC().Format(time.RFC3339Nano) }
 
-func deliveryView(d sqlcgen.Delivery) wire.T006Delivery {
-	out := wire.T006Delivery{ID: d.ID.String(), Revision: rev(d.Revision), FileID: d.FileID.String(), ContentVersion: d.ContentVersion.String(),
+func deliveryView(d sqlcgen.Delivery) wire.Delivery {
+	out := wire.Delivery{ID: d.ID.String(), Revision: rev(d.Revision), FileID: d.FileID.String(), ContentVersion: d.ContentVersion.String(),
 		RecipientID: d.RecipientID.String(), RecipientName: d.RecipientName, RecipientAddress: d.RecipientAddress, Transport: d.Transport,
 		State: d.State, Attempts: int(d.Attempts), CreatedAt: rfc(d.CreatedAt), UpdatedAt: rfc(d.UpdatedAt), Code: d.Code}
 	if d.ResendOf.Valid {
@@ -50,33 +50,33 @@ func (s *Service) configFor(ctx context.Context, q *sqlcgen.Queries, transport s
 // Create records an explicit, immutable send intent. The delivery row, its
 // operation receipt and the job are written in one transaction, so an identical
 // API retry returns the same delivery and never a second job.
-func (s *Service) Create(ctx context.Context, userID uuid.UUID, in wire.T006DeliveryCreate) (wire.T006Delivery, error) {
+func (s *Service) Create(ctx context.Context, userID uuid.UUID, in wire.DeliveryCreate) (wire.Delivery, error) {
 	op, err := parseOp(in.OperationID)
 	if err != nil {
-		return wire.T006Delivery{}, err
+		return wire.Delivery{}, err
 	}
 	fileID, e1 := uuid.Parse(in.FileID)
 	version, e2 := uuid.Parse(in.ContentVersion)
 	recipientID, e3 := uuid.Parse(in.RecipientID)
 	if e1 != nil || e2 != nil || e3 != nil || (in.Transport != "server" && in.Transport != "personal") {
-		return wire.T006Delivery{}, apperr.Validation("fileId, contentVersion, recipientId and transport must be valid")
+		return wire.Delivery{}, apperr.Validation("fileId, contentVersion, recipientId and transport must be valid")
 	}
 	recRev, err := parseRev("recipientRevision", in.RecipientRevision)
 	if err != nil {
-		return wire.T006Delivery{}, err
+		return wire.Delivery{}, err
 	}
 	trRev, err := parseRev("transportRevision", in.TransportRevision)
 	if err != nil {
-		return wire.T006Delivery{}, err
+		return wire.Delivery{}, err
 	}
 	var resendOf uuid.NullUUID
 	if in.ResendOf != nil {
 		id, err := uuid.Parse(*in.ResendOf)
 		if err != nil {
-			return wire.T006Delivery{}, apperr.Validation("resendOf must be a UUID")
+			return wire.Delivery{}, apperr.Validation("resendOf must be a UUID")
 		}
 		if !in.AcknowledgePossibleDuplicate {
-			return wire.T006Delivery{}, apperr.New(http.StatusUnprocessableEntity, "duplicate_acknowledgement_required",
+			return wire.Delivery{}, apperr.New(http.StatusUnprocessableEntity, "duplicate_acknowledgement_required",
 				"Resending may deliver a duplicate; acknowledge that explicitly.")
 		}
 		resendOf = uuid.NullUUID{UUID: id, Valid: true}
@@ -155,24 +155,24 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, in wire.T006Deli
 		return http.StatusAccepted, wire.Raw(deliveryView(d)), nil, nil
 	})
 	if err != nil {
-		return wire.T006Delivery{}, err
+		return wire.Delivery{}, err
 	}
 	_ = st
-	var out wire.T006Delivery
+	var out wire.Delivery
 	return out, json.Unmarshal(body, &out)
 }
 
 // List pages the caller's own deliveries, newest first.
-func (s *Service) List(ctx context.Context, userID uuid.UUID, page, size int) (wire.T006DeliveryList, error) {
+func (s *Service) List(ctx context.Context, userID uuid.UUID, page, size int) (wire.DeliveryList, error) {
 	rows, err := s.q.ListDeliveries(ctx, sqlcgen.ListDeliveriesParams{UserID: userID, Limit: int32(size), Offset: int32(page * size)})
 	if err != nil {
-		return wire.T006DeliveryList{}, err
+		return wire.DeliveryList{}, err
 	}
 	total, err := s.q.CountDeliveries(ctx, userID)
 	if err != nil {
-		return wire.T006DeliveryList{}, err
+		return wire.DeliveryList{}, err
 	}
-	out := wire.T006DeliveryList{Items: []wire.T006Delivery{}, Page: page, Size: size, Total: total}
+	out := wire.DeliveryList{Items: []wire.Delivery{}, Page: page, Size: size, Total: total}
 	for _, r := range rows {
 		out.Items = append(out.Items, deliveryView(r))
 	}
@@ -180,27 +180,27 @@ func (s *Service) List(ctx context.Context, userID uuid.UUID, page, size int) (w
 }
 
 // Get returns one delivery; another account's ID is 404.
-func (s *Service) Get(ctx context.Context, userID, id uuid.UUID) (wire.T006Delivery, error) {
+func (s *Service) Get(ctx context.Context, userID, id uuid.UUID) (wire.Delivery, error) {
 	d, err := s.q.GetOwnDelivery(ctx, sqlcgen.GetOwnDeliveryParams{ID: id, UserID: userID})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return wire.T006Delivery{}, apperr.ErrNotFound
+		return wire.Delivery{}, apperr.ErrNotFound
 	}
 	if err != nil {
-		return wire.T006Delivery{}, err
+		return wire.Delivery{}, err
 	}
 	return deliveryView(d), nil
 }
 
 // Cancel withdraws a request that has not started submission. It races the
 // worker's claim on the same row lock, so exactly one of them wins.
-func (s *Service) Cancel(ctx context.Context, userID, id uuid.UUID, in wire.T006Mutation) (wire.T006Delivery, error) {
+func (s *Service) Cancel(ctx context.Context, userID, id uuid.UUID, in wire.RevisionedMutation) (wire.Delivery, error) {
 	op, err := parseOp(in.OperationID)
 	if err != nil {
-		return wire.T006Delivery{}, err
+		return wire.Delivery{}, err
 	}
 	base, err := parseRev("baseRevision", in.BaseRevision)
 	if err != nil {
-		return wire.T006Delivery{}, err
+		return wire.Delivery{}, err
 	}
 	fp := receipts.Fingerprint("POST", "deliveries/"+id.String()+"/cancel", map[string]any{"b": base})
 	_, body, err := s.rc.Run(ctx, userID, op, fp, nil, func(_ pgx.Tx, q *sqlcgen.Queries) (int, []byte, *apperr.Error, error) {
@@ -226,9 +226,9 @@ func (s *Service) Cancel(ctx context.Context, userID, id uuid.UUID, in wire.T006
 		return http.StatusOK, wire.Raw(deliveryView(u)), nil, nil
 	})
 	if err != nil {
-		return wire.T006Delivery{}, err
+		return wire.Delivery{}, err
 	}
-	var out wire.T006Delivery
+	var out wire.Delivery
 	return out, json.Unmarshal(body, &out)
 }
 

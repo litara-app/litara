@@ -105,7 +105,7 @@ func TestRecordingRepairMergeSplitAndRetainedState(t *testing.T) {
 
 	// A valid merge: plan, replay, approve, execute.
 	pl := e.Do("POST", "/admin/recording-repairs", admin, merge)
-	var plan wire.T005RepairPlan
+	var plan wire.RepairPlan
 	pl.JSON(t, &plan)
 	if pl.StatusCode != 201 || plan.State != "planned" || plan.Revision != "0" || len(plan.Warnings) == 0 || plan.Kind != "merge" || len(plan.Sources) != 2 {
 		t.Fatalf("plan: %d %s", pl.StatusCode, pl.Body)
@@ -130,7 +130,7 @@ func TestRecordingRepairMergeSplitAndRetainedState(t *testing.T) {
 	}
 	exOp := map[string]any{"operationId": uuid.NewString(), "baseRevision": "1"}
 	ex := e.Do("POST", path+"/execute", admin, exOp)
-	var done wire.T005RepairPlan
+	var done wire.RepairPlan
 	ex.JSON(t, &done)
 	if ex.StatusCode != 200 || done.State != "applied" || len(done.Result) != 1 || done.Result[0].Key != "m" {
 		t.Fatalf("execute: %d %s", ex.StatusCode, ex.Body)
@@ -248,15 +248,15 @@ func TestRecordingRepairMergeSplitAndRetainedState(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 	s1 := repairPlan(uuid.NewString(), "split", []wire.Recording{ssnap}, out("head", repairFiles(ssnap)[:1]), out("tail", repairFiles(ssnap)[1:]))
 	s2 := repairPlan(uuid.NewString(), "split", []wire.Recording{ssnap}, out("x", repairFiles(ssnap)[:2]), out("y", repairFiles(ssnap)[2:]))
-	var p1, p2 wire.T005RepairPlan
+	var p1, p2 wire.RepairPlan
 	e.Do("POST", "/admin/recording-repairs", admin, s1).JSON(t, &p1)
 	e.Do("POST", "/admin/recording-repairs", admin, s2).JSON(t, &p2)
-	for _, p := range []wire.T005RepairPlan{p1, p2} {
+	for _, p := range []wire.RepairPlan{p1, p2} {
 		if x := e.Do("POST", "/admin/recording-repairs/"+p.ID+"/approve", admin, apply("0")); x.StatusCode != 200 {
 			t.Fatalf("approve split: %d %s", x.StatusCode, x.Body)
 		}
 	}
-	var d1 wire.T005RepairPlan
+	var d1 wire.RepairPlan
 	e.Do("POST", "/admin/recording-repairs/"+p1.ID+"/execute", admin, apply("1")).JSON(t, &d1)
 	if d1.State != "applied" || len(d1.Result) != 2 {
 		t.Fatalf("split: %+v", d1)
@@ -265,7 +265,7 @@ func TestRecordingRepairMergeSplitAndRetainedState(t *testing.T) {
 	if lose.StatusCode != 412 || lose.Code() != "recording_repaired" {
 		t.Fatalf("obsolete plan: %d %s", lose.StatusCode, lose.Body)
 	}
-	var stalePlan wire.T005RepairPlan
+	var stalePlan wire.RepairPlan
 	e.Do("GET", "/admin/recording-repairs/"+p2.ID, admin, nil).JSON(t, &stalePlan)
 	if stalePlan.State != "stale" {
 		t.Fatalf("plan state after a lost race: %s", stalePlan.State)
@@ -285,10 +285,10 @@ func TestRecordingRepairMergeSplitAndRetainedState(t *testing.T) {
 	if len(tailSnap.Files) >= 2 {
 		cp := e.Do("POST", "/admin/recording-repairs", admin, repairPlan(uuid.NewString(), "split", []wire.Recording{tailSnap},
 			out("c1", repairFiles(tailSnap)[:1]), out("c2", repairFiles(tailSnap)[1:])))
-		var cplan wire.T005RepairPlan
+		var cplan wire.RepairPlan
 		cp.JSON(t, &cplan)
 		cc := e.Do("POST", "/admin/recording-repairs/"+cplan.ID+"/cancel", admin, apply("0"))
-		var cancelled wire.T005RepairPlan
+		var cancelled wire.RepairPlan
 		cc.JSON(t, &cancelled)
 		if cc.StatusCode != 200 || cancelled.State != "cancelled" {
 			t.Fatalf("cancel: %d %s", cc.StatusCode, cc.Body)

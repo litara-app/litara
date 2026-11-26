@@ -33,7 +33,7 @@ func TestEditionSurvivesFileMoveAndRename(t *testing.T) {
 	scanTwice(t, e, r.admin, r.lib)
 	scanTwice(t, e, r.admin, r.lib)
 
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+r.lib, r.userA, nil).JSON(t, &eds)
 	if eds.Total != 1 || eds.Items[0].ID != r.ed.ID || eds.Items[0].File.ID != r.ed.File.ID || eds.Items[0].File.ContentVersion != v {
 		t.Fatalf("a move created or replaced an edition: %+v", eds)
@@ -46,7 +46,7 @@ func TestEditionSurvivesFileMoveAndRename(t *testing.T) {
 		t.Fatalf("bytes after the move: %d", x.StatusCode)
 	}
 	// The saved location is still current and usable; the next write continues the same revision line.
-	var st wire.T005PositionState
+	var st wire.ReadingPositionState
 	e.Do("GET", "/editions/"+r.ed.ID+"/position", r.userA, nil).JSON(t, &st)
 	if st.Revision != "1" || st.Position.Value == nil || st.Position.Value.Anchor.ContentVersion != v {
 		t.Fatalf("position after the move: %+v", st)
@@ -54,13 +54,13 @@ func TestEditionSurvivesFileMoveAndRename(t *testing.T) {
 	if x := r.putPos(t, r.userA, r.posBody(uuid.NewString(), "1", v, r.cfi("/6/10!/4/2"))); x.StatusCode != 200 {
 		t.Fatalf("write after the move: %d %s", x.StatusCode, x.Body)
 	}
-	var list wire.T005Annotations
+	var list wire.Annotations
 	e.Do("GET", "/editions/"+r.ed.ID+"/annotations", r.userA, nil).JSON(t, &list)
 	if list.Total != 1 || list.Items[0].Data.Value == nil {
 		t.Fatalf("annotations after the move: %+v", list)
 	}
 	// Only one edition ever existed for the file: a rescan must not add a second.
-	var title wire.T005Titles
+	var title wire.Titles
 	e.Do("GET", "/titles?q=second", r.userA, nil).JSON(t, &title)
 	if title.Total != 1 {
 		t.Fatalf("titles after the move: %+v", title)

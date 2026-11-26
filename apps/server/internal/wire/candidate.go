@@ -8,18 +8,18 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 )
 
-// T005Candidate is the retained attempted write; exactly one member is set.
-type T005Candidate struct {
-	Position   *T005PositionWrite
-	Completion *T005CompletionWrite
-	Annotation *T005AnnotationWrite
-	Delete     *T005Delete
-	Shelf      *T005ShelfWrite
-	Order      *T005ShelfOrder
-	Membership *T005MembershipCandidate
+// PersonalCandidate is the retained attempted write; exactly one member is set.
+type PersonalCandidate struct {
+	Position   *ReadingPositionWrite
+	Completion *ReadingCompletionWrite
+	Annotation *AnnotationWrite
+	Delete     *RevisionedDelete
+	Shelf      *ShelfWrite
+	Order      *ShelfOrder
+	Membership *MembershipCandidate
 }
 
-func (c T005Candidate) MarshalJSON() ([]byte, error) {
+func (c PersonalCandidate) MarshalJSON() ([]byte, error) {
 	switch {
 	case c.Position != nil:
 		return json.Marshal(c.Position)
@@ -40,25 +40,25 @@ func (c T005Candidate) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON picks the member by its distinguishing property.
-func (c *T005Candidate) UnmarshalJSON(b []byte) error {
+func (c *PersonalCandidate) UnmarshalJSON(b []byte) error {
 	var probe map[string]json.RawMessage
 	if err := json.Unmarshal(b, &probe); err != nil {
 		return err
 	}
-	*c = T005Candidate{}
+	*c = PersonalCandidate{}
 	has := func(k string) bool { _, ok := probe[k]; return ok }
 	switch {
 	case has("anchor"):
-		c.Position = new(T005PositionWrite)
+		c.Position = new(ReadingPositionWrite)
 		return json.Unmarshal(b, c.Position)
 	case has("event"):
-		c.Completion = new(T005CompletionWrite)
+		c.Completion = new(ReadingCompletionWrite)
 		return json.Unmarshal(b, c.Completion)
 	case has("visibleTitleIds"):
-		c.Order = new(T005ShelfOrder)
+		c.Order = new(ShelfOrder)
 		return json.Unmarshal(b, c.Order)
 	case has("titleId"):
-		c.Membership = new(T005MembershipCandidate)
+		c.Membership = new(MembershipCandidate)
 		return json.Unmarshal(b, c.Membership)
 	case has("data"):
 		var d struct {
@@ -68,21 +68,21 @@ func (c *T005Candidate) UnmarshalJSON(b []byte) error {
 			return err
 		}
 		if _, shelf := d.Data["filter"]; shelf {
-			c.Shelf = new(T005ShelfWrite)
+			c.Shelf = new(ShelfWrite)
 			return json.Unmarshal(b, c.Shelf)
 		}
-		c.Annotation = new(T005AnnotationWrite)
+		c.Annotation = new(AnnotationWrite)
 		return json.Unmarshal(b, c.Annotation)
 	}
-	c.Delete = new(T005Delete)
+	c.Delete = new(RevisionedDelete)
 	return json.Unmarshal(b, c.Delete)
 }
 
-func (T005Candidate) Schema(r huma.Registry) *huma.Schema {
+func (PersonalCandidate) Schema(r huma.Registry) *huma.Schema {
 	ref := func(v any, name string) *huma.Schema { return r.Schema(reflect.TypeOf(v), true, name) }
 	return &huma.Schema{OneOf: []*huma.Schema{
-		ref(T005PositionWrite{}, "T005PositionWrite"), ref(T005CompletionWrite{}, "T005CompletionWrite"),
-		ref(T005AnnotationWrite{}, "T005AnnotationWrite"), ref(T005Delete{}, "T005Delete"),
-		ref(T005ShelfWrite{}, "T005ShelfWrite"), ref(T005ShelfOrder{}, "T005ShelfOrder"),
-		ref(T005MembershipCandidate{}, "T005MembershipCandidate")}}
+		ref(ReadingPositionWrite{}, "ReadingPositionWrite"), ref(ReadingCompletionWrite{}, "ReadingCompletionWrite"),
+		ref(AnnotationWrite{}, "AnnotationWrite"), ref(RevisionedDelete{}, "RevisionedDelete"),
+		ref(ShelfWrite{}, "ShelfWrite"), ref(ShelfOrder{}, "ShelfOrder"),
+		ref(MembershipCandidate{}, "MembershipCandidate")}}
 }

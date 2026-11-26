@@ -26,7 +26,7 @@ func TestKOReaderManagementRequiresLibraryGrant(t *testing.T) {
 		"credentialId": A.ID, "fileId": k.editions["vol2"].File.ID, "contentVersion": k.editions["vol2"].File.ContentVersion, "document": doc}); r.StatusCode != 200 {
 		t.Fatalf("bind: %d %s", r.StatusCode, r.Body)
 	}
-	var bl wire.T006DigestBindingList
+	var bl wire.DigestBindingList
 	k.e.Do("GET", "/koreader/bindings", k.userA, nil).JSON(t, &bl)
 	if len(bl.Items) != 1 {
 		t.Fatalf("bindings before revoke: %+v", bl)
@@ -35,7 +35,7 @@ func TestKOReaderManagementRequiresLibraryGrant(t *testing.T) {
 	if r := k.e.Do("DELETE", "/admin/users/"+k.e.Fix.UserAID.String()+"/libraries/"+k.lib, k.admin, nil); r.StatusCode != 204 {
 		t.Fatalf("revoke: %d", r.StatusCode)
 	}
-	var cl wire.T006KoConflictList
+	var cl wire.KoConflictList
 	k.e.Do("GET", "/koreader/conflicts", k.userA, nil).JSON(t, &cl)
 	if len(cl.Items) != 0 || cl.Total != 0 {
 		t.Fatalf("a revoked library's candidate is still listed: %+v", cl)

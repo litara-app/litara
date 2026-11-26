@@ -132,79 +132,79 @@ func (a *API) registerKOReaderWire(mux *http.ServeMux) {
 
 func (a *API) registerKOReaderManagement(api huma.API) {
 	huma.Register(api, t006Read(op("getKoReaderPosition", http.MethodGet, "/editions/{editionId}/koreader-position", "The separate KOReader position source for an edition", "koreader")),
-		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.T006KoPosition], error) {
+		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.KoPosition], error) {
 			out, err := a.KOReader.Position(ctx, principal(ctx).UserID, mustUUID(in.EditionID))
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T006KoPosition]{Body: out}, nil
+			return &bodyOut[wire.KoPosition]{Body: out}, nil
 		})
 
 	huma.Register(api, t006Read(op("listKoReaderBindings", http.MethodGet, "/koreader/bindings", "The caller's per-credential digest bindings", "koreader")),
-		func(ctx context.Context, in *PageQuery) (*bodyOut[wire.T006DigestBindingList], error) {
+		func(ctx context.Context, in *PageQuery) (*bodyOut[wire.DigestBindingList], error) {
 			page, size := in.normalized()
 			out, err := a.KOReader.ListBindings(ctx, principal(ctx).UserID, page, size)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T006DigestBindingList]{Body: out}, nil
+			return &bodyOut[wire.DigestBindingList]{Body: out}, nil
 		})
 
 	huma.Register(api, t006Write(op("putKoReaderBinding", http.MethodPut, "/koreader/bindings/{bindingId}", "Create or retarget a digest binding", "koreader")),
 		func(ctx context.Context, in *struct {
 			BindingID string `path:"bindingId" format:"uuid"`
-			Body      wire.T006DigestBindingWrite
-		}) (*bodyOut[wire.T006DigestBinding], error) {
+			Body      wire.DigestBindingWrite
+		}) (*bodyOut[wire.DigestBinding], error) {
 			out, err := a.KOReader.PutBinding(ctx, principal(ctx).UserID, mustUUID(in.BindingID), in.Body)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T006DigestBinding]{Body: out}, nil
+			return &bodyOut[wire.DigestBinding]{Body: out}, nil
 		})
 
 	huma.Register(api, t006Write(op("deleteKoReaderBinding", http.MethodDelete, "/koreader/bindings/{bindingId}", "Delete a digest binding (tombstone)", "koreader")),
 		func(ctx context.Context, in *struct {
 			BindingID string `path:"bindingId" format:"uuid"`
-			Body      wire.T006Mutation
-		}) (*bodyOut[wire.T006DigestBinding], error) {
+			Body      wire.RevisionedMutation
+		}) (*bodyOut[wire.DigestBinding], error) {
 			out, err := a.KOReader.DeleteBinding(ctx, principal(ctx).UserID, mustUUID(in.BindingID), in.Body)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T006DigestBinding]{Body: out}, nil
+			return &bodyOut[wire.DigestBinding]{Body: out}, nil
 		})
 
 	huma.Register(api, t006Read(op("listKoReaderConflicts", http.MethodGet, "/koreader/conflicts", "The caller's retained KOReader candidates", "koreader")),
-		func(ctx context.Context, in *PageQuery) (*bodyOut[wire.T006KoConflictList], error) {
+		func(ctx context.Context, in *PageQuery) (*bodyOut[wire.KoConflictList], error) {
 			page, size := in.normalized()
 			out, err := a.KOReader.ListConflicts(ctx, principal(ctx).UserID, page, size)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T006KoConflictList]{Body: out}, nil
+			return &bodyOut[wire.KoConflictList]{Body: out}, nil
 		})
 
 	huma.Register(api, t006Write(op("resolveKoReaderConflict", http.MethodPost, "/koreader/conflicts/{conflictId}/resolve", "Keep the server position or use the retained candidate", "koreader")),
 		func(ctx context.Context, in *struct {
 			ConflictID string `path:"conflictId" format:"uuid"`
-			Body       wire.T006KoResolve
-		}) (*bodyOut[wire.T006KoPosition], error) {
+			Body       wire.KoResolve
+		}) (*bodyOut[wire.KoPosition], error) {
 			out, err := a.KOReader.Resolve(ctx, principal(ctx).UserID, mustUUID(in.ConflictID), in.Body)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T006KoPosition]{Body: out}, nil
+			return &bodyOut[wire.KoPosition]{Body: out}, nil
 		})
 
 	huma.Register(api, t006Write(op("reapplyKoReaderConflict", http.MethodPost, "/koreader/conflicts/{conflictId}/reapply", "Deliberately reapply a resolved retained place", "koreader")),
 		func(ctx context.Context, in *struct {
 			ConflictID string `path:"conflictId" format:"uuid"`
-			Body       wire.T006Mutation
-		}) (*bodyOut[wire.T006KoPosition], error) {
+			Body       wire.RevisionedMutation
+		}) (*bodyOut[wire.KoPosition], error) {
 			out, err := a.KOReader.Reapply(ctx, principal(ctx).UserID, mustUUID(in.ConflictID), in.Body)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T006KoPosition]{Body: out}, nil
+			return &bodyOut[wire.KoPosition]{Body: out}, nil
 		})
 }

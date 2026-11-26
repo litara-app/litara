@@ -45,9 +45,9 @@ func newComicEnv(t *testing.T, opts apitest.Options) *comicEnv {
 }
 
 // edition returns the single edition whose file name matches, after a scan.
-func (c *comicEnv) edition(t *testing.T, label string) wire.T005Edition {
+func (c *comicEnv) edition(t *testing.T, label string) wire.Edition {
 	t.Helper()
-	var eds wire.T005Editions
+	var eds wire.Editions
 	c.e.Do("GET", "/editions?libraryId="+c.lib+"&size=200", c.userA, nil).JSON(t, &eds)
 	for _, x := range eds.Items {
 		if x.Label == label {
@@ -55,10 +55,10 @@ func (c *comicEnv) edition(t *testing.T, label string) wire.T005Edition {
 		}
 	}
 	t.Fatalf("no edition labelled %q in %+v", label, eds)
-	return wire.T005Edition{}
+	return wire.Edition{}
 }
 
-func pagesPath(e wire.T005Edition) string {
+func pagesPath(e wire.Edition) string {
 	return "/files/" + e.File.ID + "/versions/" + e.File.ContentVersion + "/pages"
 }
 
@@ -90,10 +90,10 @@ func TestComicPagesExtractionServingAndFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	scanTwice(t, e, c.admin, c.lib)
-	byFile := func(path string) wire.T005Edition {
+	byFile := func(path string) wire.Edition {
 		t.Helper()
 		st, _ := os.Stat(path)
-		var all wire.T005Editions
+		var all wire.Editions
 		e.Do("GET", "/editions?libraryId="+c.lib+"&size=200", c.userA, nil).JSON(t, &all)
 		for _, x := range all.Items {
 			if x.File.SizeBytes != nil && *x.File.SizeBytes == st.Size() && x.File.Format == filepath.Ext(path)[1:] {
@@ -101,10 +101,10 @@ func TestComicPagesExtractionServingAndFailures(t *testing.T) {
 			}
 		}
 		t.Fatalf("no edition for %s", path)
-		return wire.T005Edition{}
+		return wire.Edition{}
 	}
 	good, evil, rar, sevenEd, brokenEd := c.edition(t, "CBZ"), c.edition(t, "CBZ"), byFile(cbr), byFile(cb7), byFile(broken)
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+c.lib, c.userA, nil).JSON(t, &eds)
 	for _, x := range eds.Items {
 		if x.File.Format != "cbz" {
@@ -142,7 +142,7 @@ func TestComicPagesExtractionServingAndFailures(t *testing.T) {
 
 	body := extraction(good.File.ContentVersion)
 	first := e.Do("POST", pagesPath(good), c.userA, body)
-	var m wire.T005PageManifest
+	var m wire.ComicPageManifest
 	first.JSON(t, &m)
 	if first.StatusCode != 202 || m.State != "processing" || len(m.Pages) != 0 {
 		t.Fatalf("prepare: %d %s", first.StatusCode, first.Body)
@@ -215,7 +215,7 @@ func TestComicPagesExtractionServingAndFailures(t *testing.T) {
 	}
 	// CBR and CB7 extract through the same bounded path (ADR-0072); a damaged RAR is explained, not guessed.
 	for _, c2 := range []struct {
-		ed     wire.T005Edition
+		ed     wire.Edition
 		pages  int
 		widths []int
 	}{{rar, 2, []int{30, 20}}, {sevenEd, 2, []int{20, 10}}} {
@@ -243,7 +243,7 @@ func TestComicPagesExtractionServingAndFailures(t *testing.T) {
 	epubPath := filepath.Join(c.root, "Hero", "book.epub")
 	epub(t, epubPath, "Not a comic", "X", "978-1-4028-9462-6")
 	scanTwice(t, e, c.admin, c.lib)
-	var all wire.T005Editions
+	var all wire.Editions
 	e.Do("GET", "/editions?libraryId="+c.lib+"&size=200", c.userA, nil).JSON(t, &all)
 	for _, x := range all.Items {
 		if x.File.Format == "epub" {
@@ -290,14 +290,14 @@ func TestComicLimitsAndCacheBudget(t *testing.T) {
 	mk("one.cbz", 2)
 	mk("two.cbz", 2)
 	scanTwice(t, e, c.admin, c.lib)
-	var eds wire.T005Editions
+	var eds wire.Editions
 	e.Do("GET", "/editions?libraryId="+c.lib+"&size=200", c.userA, nil).JSON(t, &eds)
 	if len(eds.Items) != 3 {
 		t.Fatalf("editions: %d", len(eds.Items))
 	}
 	// The three-page archive is the largest file.
-	var big wire.T005Edition
-	var small []wire.T005Edition
+	var big wire.Edition
+	var small []wire.Edition
 	for _, x := range eds.Items {
 		if big.ID == "" || *x.File.SizeBytes > *big.File.SizeBytes {
 			if big.ID != "" {
@@ -311,7 +311,7 @@ func TestComicLimitsAndCacheBudget(t *testing.T) {
 	if len(small) != 2 {
 		t.Fatalf("could not tell the archives apart (%d small)", len(small))
 	}
-	var m wire.T005PageManifest
+	var m wire.ComicPageManifest
 	e.Do("POST", pagesPath(big), c.userA, extraction(big.File.ContentVersion))
 	e.RunQueued()
 	e.Do("GET", pagesPath(big), c.userA, nil).JSON(t, &m)
@@ -320,7 +320,7 @@ func TestComicLimitsAndCacheBudget(t *testing.T) {
 	}
 
 	a, b := small[0], small[1]
-	for _, x := range []wire.T005Edition{a} {
+	for _, x := range []wire.Edition{a} {
 		e.Do("POST", pagesPath(x), c.userA, extraction(x.File.ContentVersion))
 	}
 	e.RunQueued()

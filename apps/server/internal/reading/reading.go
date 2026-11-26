@@ -216,37 +216,37 @@ func (s *Service) runTx(ctx context.Context, a Actor, op uuid.UUID, fp []byte,
 
 // ---- reads --------------------------------------------------------------
 
-func (s *Service) GetPosition(ctx context.Context, userID, editionID uuid.UUID) (wire.T005PositionState, error) {
+func (s *Service) GetPosition(ctx context.Context, userID, editionID uuid.UUID) (wire.ReadingPositionState, error) {
 	if _, err := s.cat.AuthorizeEdition(ctx, userID, editionID); err != nil {
-		return wire.T005PositionState{}, err
+		return wire.ReadingPositionState{}, err
 	}
 	return s.cat.PositionState(ctx, userID, editionID)
 }
 
-func (s *Service) GetCompletion(ctx context.Context, userID, editionID uuid.UUID) (wire.T005Completion, error) {
+func (s *Service) GetCompletion(ctx context.Context, userID, editionID uuid.UUID) (wire.ReadingCompletion, error) {
 	if _, err := s.cat.AuthorizeEdition(ctx, userID, editionID); err != nil {
-		return wire.T005Completion{}, err
+		return wire.ReadingCompletion{}, err
 	}
 	return s.cat.CompletionState(ctx, userID, editionID)
 }
 
 // History lists the caller own manual finish/unfinish events for a title's
 // editions in granted libraries, in receive order. Recording history is separate.
-func (s *Service) History(ctx context.Context, userID, titleID uuid.UUID, page, size int) (wire.T005History, error) {
+func (s *Service) History(ctx context.Context, userID, titleID uuid.UUID, page, size int) (wire.ReadingHistory, error) {
 	if err := s.cat.TitleVisible(ctx, userID, titleID); err != nil {
-		return wire.T005History{}, err
+		return wire.ReadingHistory{}, err
 	}
 	rows, err := s.q.ListEditionHistory(ctx, sqlcgen.ListEditionHistoryParams{UserID: userID, TitleID: titleID, Limit: int32(size), Offset: int32(page * size)})
 	if err != nil {
-		return wire.T005History{}, dbErr(err)
+		return wire.ReadingHistory{}, dbErr(err)
 	}
 	total, err := s.q.CountEditionHistory(ctx, sqlcgen.CountEditionHistoryParams{UserID: userID, TitleID: titleID})
 	if err != nil {
-		return wire.T005History{}, dbErr(err)
+		return wire.ReadingHistory{}, dbErr(err)
 	}
-	out := wire.T005History{Items: []wire.T005HistoryEntry{}, Total: total, Page: int64(page), Size: int64(size)}
+	out := wire.ReadingHistory{Items: []wire.ReadingHistoryEntry{}, Total: total, Page: int64(page), Size: int64(size)}
 	for _, r := range rows {
-		out.Items = append(out.Items, wire.T005HistoryEntry{ID: r.ID.String(), EditionID: r.EditionID.String(), TitleID: r.TitleID.String(),
+		out.Items = append(out.Items, wire.ReadingHistoryEntry{ID: r.ID.String(), EditionID: r.EditionID.String(), TitleID: r.TitleID.String(),
 			FileID: r.FileID.String(), ContentVersion: r.ContentVersion.String(), Event: r.Event, CapturedAt: rfc(r.CapturedAt), ReceivedAt: rfc(r.ReceivedAt)})
 	}
 	return out, nil

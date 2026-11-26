@@ -40,7 +40,7 @@ func TestShelfReorderAndRemoveRacesWithAHiddenMember(t *testing.T) {
 	epub(t, filepath.Join(root2, "Other", "other.epub"), "Fourth Folio", "Cy Scribe", "978-3-16-148410-0")
 	scanTwice(t, e, r.admin, r.lib)
 	scanTwice(t, e, r.admin, d2.Library.ID)
-	var titles wire.T005Titles
+	var titles wire.Titles
 	e.Do("GET", "/titles", r.userA, nil).JSON(t, &titles)
 	byName := map[string]string{}
 	for _, x := range titles.Items {
@@ -52,7 +52,7 @@ func TestShelfReorderAndRemoveRacesWithAHiddenMember(t *testing.T) {
 	}
 
 	sid := uuid.NewString()
-	var sh wire.T005Shelf
+	var sh wire.Shelf
 	e.Do("PUT", "/shelves/"+sid, r.userA, r.shelfBody(uuid.NewString(), "0", "manual", "private", "Races", nil)).JSON(t, &sh)
 	for i, tt := range []string{t2, t3, t4} {
 		x := e.Do("PUT", "/shelves/"+sid+"/titles/"+tt, r.userA, delBody(uuid.NewString(), string(rune('1'+i))))
@@ -108,7 +108,7 @@ func TestShelfReorderAndRemoveRacesWithAHiddenMember(t *testing.T) {
 	afterRace := sh.Revision
 
 	// Every loser keeps exactly one durable candidate; none leaks the hidden title.
-	var cs wire.T005Conflicts
+	var cs wire.PersonalConflicts
 	e.Do("GET", "/personal-conflicts?resourceId="+sid, r.userA, nil).JSON(t, &cs)
 	if len(cs.Items) != len(losers) {
 		t.Fatalf("durable conflicts: %d, want %d", len(cs.Items), len(losers))
@@ -132,7 +132,7 @@ func TestShelfReorderAndRemoveRacesWithAHiddenMember(t *testing.T) {
 	if sh.Revision != afterRace {
 		t.Fatalf("a replay spent a revision: %s -> %s", afterRace, sh.Revision)
 	}
-	var cs2 wire.T005Conflicts
+	var cs2 wire.PersonalConflicts
 	e.Do("GET", "/personal-conflicts?resourceId="+sid, r.userA, nil).JSON(t, &cs2)
 	if len(cs2.Items) != len(cs.Items) {
 		t.Fatalf("a replay duplicated a conflict: %d -> %d", len(cs.Items), len(cs2.Items))

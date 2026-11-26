@@ -24,7 +24,7 @@ func TestRescanOfAChangedFileKeepsSidecarValuesOnDisplay(t *testing.T) {
 	scanTwice(t, r.e, r.admin, r.lib)
 	scanTwice(t, r.e, r.admin, r.lib)
 
-	var ts wire.T005Titles
+	var ts wire.Titles
 	r.e.Do("GET", "/titles?libraryId="+r.lib, r.userA, nil).JSON(t, &ts)
 	if ts.Total != 1 {
 		t.Fatalf("titles: %+v", ts)

@@ -71,7 +71,7 @@ func (a *API) registerEditions(api huma.API) {
 			Rated     string `query:"rated" enum:"rated,unrated" doc:"Whether the caller has rated the title."`
 			Sort      string `query:"sort" enum:"title,author,series,series_index,publisher,published,language,status,pages,rating,editions,added" doc:"Default title."`
 			Order     string `query:"order" enum:"asc,desc" doc:"Default asc."`
-		}) (*bodyOut[wire.T009Titles], error) {
+		}) (*bodyOut[wire.TitleRows], error) {
 			q, err := literalQuery(in.Q)
 			if err != nil {
 				return nil, a.fail(ctx, err)
@@ -94,11 +94,11 @@ func (a *API) registerEditions(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T009Titles]{Body: out}, nil
+			return &bodyOut[wire.TitleRows]{Body: out}, nil
 		})
 
 	huma.Register(api, writeOp(op("searchTitles", http.MethodPost, "/titles/search", "Titles matching a filter tree of AND/OR groups", "catalog")),
-		func(ctx context.Context, in *struct{ Body wire.TitleSearchRequest }) (*bodyOut[wire.T009Titles], error) {
+		func(ctx context.Context, in *struct{ Body wire.TitleSearchRequest }) (*bodyOut[wire.TitleRows], error) {
 			b := in.Body
 			q, err := literalQuery(b.Q)
 			if err != nil {
@@ -113,29 +113,29 @@ func (a *API) registerEditions(api huma.API) {
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T009Titles]{Body: out}, nil
+			return &bodyOut[wire.TitleRows]{Body: out}, nil
 		})
 
 	huma.Register(api, readOp(op("getTitle", http.MethodGet, "/titles/{titleId}", "One title", "catalog")),
-		func(ctx context.Context, in *TitleIn) (*bodyOut[wire.T005TitleDetail], error) {
+		func(ctx context.Context, in *TitleIn) (*bodyOut[wire.TitleDetail], error) {
 			out, err := a.Catalog.Title(ctx, principal(ctx).UserID, mustUUID(in.TitleID))
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005TitleDetail]{Body: out}, nil
+			return &bodyOut[wire.TitleDetail]{Body: out}, nil
 		})
 
 	huma.Register(api, readOp(op("listTitleRecordings", http.MethodGet, "/titles/{titleId}/recordings", "Recordings of a title in granted libraries", "catalog")),
 		func(ctx context.Context, in *struct {
 			TitleIn
 			PageQuery
-		}) (*bodyOut[wire.T005RecordingLinks], error) {
+		}) (*bodyOut[wire.RecordingLinks], error) {
 			page, size := in.normalized()
 			out, err := a.Catalog.TitleRecordings(ctx, principal(ctx).UserID, mustUUID(in.TitleID), page, size)
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005RecordingLinks]{Body: out}, nil
+			return &bodyOut[wire.RecordingLinks]{Body: out}, nil
 		})
 
 	huma.Register(api, readOp(op("listEditions", http.MethodGet, "/editions", "Ebook and comic editions in granted libraries", "catalog")),
@@ -143,44 +143,44 @@ func (a *API) registerEditions(api huma.API) {
 			PageQuery
 			LibraryID string `query:"libraryId" format:"uuid"`
 			TitleID   string `query:"titleId" format:"uuid"`
-		}) (*bodyOut[wire.T005Editions], error) {
+		}) (*bodyOut[wire.Editions], error) {
 			page, size := in.normalized()
 			out, err := a.Catalog.Editions(ctx, principal(ctx).UserID, catalog.EditionListParams{
 				LibraryID: uuidPtr(in.LibraryID), TitleID: uuidPtr(in.TitleID), Page: page, Size: size})
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005Editions]{Body: out}, nil
+			return &bodyOut[wire.Editions]{Body: out}, nil
 		})
 
 	huma.Register(api, readOp(op("getEdition", http.MethodGet, "/editions/{editionId}", "One edition", "catalog")),
-		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.T005Edition], error) {
+		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.Edition], error) {
 			out, err := a.Catalog.Edition(ctx, principal(ctx).UserID, mustUUID(in.EditionID))
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005Edition]{Body: out}, nil
+			return &bodyOut[wire.Edition]{Body: out}, nil
 		})
 
 	huma.Register(api, readOp(op("getReaderSnapshot", http.MethodGet, "/editions/{editionId}/reader", "Self-contained reader snapshot", "catalog")),
-		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.T005Reader], error) {
+		func(ctx context.Context, in *EditionIn) (*bodyOut[wire.ReaderSnapshot], error) {
 			out, err := a.Catalog.Reader(ctx, principal(ctx).UserID, mustUUID(in.EditionID))
 			if err != nil {
 				return nil, a.fail(ctx, err)
 			}
-			return &bodyOut[wire.T005Reader]{Body: out}, nil
+			return &bodyOut[wire.ReaderSnapshot]{Body: out}, nil
 		})
 }
 
 // readOp declares the T005 read-route security: bearer, or the browser session cookie.
 func readOp(o huma.Operation) huma.Operation {
 	o.Security = []map[string][]string{{"browserSession": {}}, {"bearer": {}}}
-	// T005 routes document the T005Problem error body (a superset of Problem).
+	// T005 routes document the ContentProblem error body (a superset of Problem).
 	o.Errors = nil
 	o.Responses = map[string]*huma.Response{}
 	for _, code := range stdErrors {
 		o.Responses[strconv.Itoa(code)] = &huma.Response{Description: "Typed error",
-			Content: map[string]*huma.MediaType{"application/problem+json": {Schema: &huma.Schema{Ref: "#/components/schemas/T005Problem"}}}}
+			Content: map[string]*huma.MediaType{"application/problem+json": {Schema: &huma.Schema{Ref: "#/components/schemas/ContentProblem"}}}}
 	}
 	return o
 }

@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-20
 Decision owner: Repository owner
+Amended by: [ADR-0107](0107-one-filter-format-for-search-and-smart-shelves.md) (2026-11-26): smart shelves use this tree, and it gains a tag field, audio file formats, `contains` on language and NFC text matching.
 
 ## Context
 

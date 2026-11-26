@@ -6,10 +6,10 @@ package wire
 // edit or clear so other sources apply again; lock freezes the field as it is now; unlock removes only the lock and
 // keeps the value. A locked field refuses set and reset until it is unlocked.
 type MetadataChange struct {
-	Field  string            `json:"field" minLength:"1" maxLength:"64" pattern:"^[a-z_]+$"`
-	Action string            `json:"action" enum:"set,reset,lock,unlock"`
-	Clear  bool              `json:"clear,omitempty" doc:"With action set: store a deliberate clear (value must be null)."`
-	Value  T005MetadataValue `json:"value,omitempty" doc:"With action set and clear false: the new value."`
+	Field  string        `json:"field" minLength:"1" maxLength:"64" pattern:"^[a-z_]+$"`
+	Action string        `json:"action" enum:"set,reset,lock,unlock"`
+	Clear  bool          `json:"clear,omitempty" doc:"With action set: store a deliberate clear (value must be null)."`
+	Value  MetadataValue `json:"value,omitempty" doc:"With action set and clear false: the new value."`
 }
 
 // MetadataSave applies its changes together or not at all, against the revision the form was loaded from. A stale
