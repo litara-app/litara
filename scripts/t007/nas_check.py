@@ -163,7 +163,7 @@ def scan(adm, lib, n=2):
                 last = r
                 break
             time.sleep(1)
-        time.sleep(2.5)  # stabilitySecs is 1
+        time.sleep(31)  # stabilitySecs is 30
     return last
 
 
@@ -205,7 +205,7 @@ def main():
         c = json.loads((WORK / "creds.json").read_text())
         tp = stack.api("POST", "/auth/native/login", body={"username": c["admin"][0], "password": c["admin"][1], "deviceName": "nas-check"})
         adm = tp["accessToken"]
-        cfg = {"mode": "index", "rootPath": str(d), "followSymlinks": False, "stabilitySecs": 1, "writebackBackups": False, "providerOrder": []}
+        cfg = {"mode": "index", "rootPath": str(d), "followSymlinks": False, "stabilitySecs": 30, "writebackBackups": False, "providerOrder": []}
         lib = stack.api("POST", "/admin/libraries", adm, {"name": "NAS test", "config": cfg})["library"]["id"]
         stack.api("PUT", f"/admin/users/{tp['user']['id']}/libraries/{lib}", adm)
         # 2 scan and read

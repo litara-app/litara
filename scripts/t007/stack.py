@@ -182,16 +182,20 @@ def up():
     tp = api("POST", "/auth/native/login", body={"username": "t007admin", "password": admin_pw, "deviceName": "t007-setup"})
     tok = tp["accessToken"]
     reader = api("POST", "/admin/users", tok, {"username": "t007reader", "displayName": "T007 Reader", "password": user_pw, "isAdmin": False})
-    cfg = {"mode": "index", "rootPath": str(media), "followSymlinks": False, "stabilitySecs": 1, "writebackBackups": False, "providerOrder": []}
+    cfg = {"mode": "index", "rootPath": str(media), "followSymlinks": False, "stabilitySecs": 30, "writebackBackups": False, "providerOrder": []}
     lib = api("POST", "/admin/libraries", tok, {"name": "T007 Books", "config": cfg})["library"]["id"]
     api("PUT", f"/admin/users/{tp['user']['id']}/libraries/{lib}", tok)
     api("PUT", f"/admin/users/{reader['id']}/libraries/{lib}", tok)
-    time.sleep(2)  # files must be older than stabilitySecs
-    try:
-        api("POST", f"/admin/libraries/{lib}/scans", tok, {})
-    except SystemExit as e:  # a scheduled first scan may already be queued; that is as good
-        if "scan_active" not in str(e):
-            raise
+    def scan():
+        try:
+            api("POST", f"/admin/libraries/{lib}/scans", tok, {})
+        except SystemExit as e:  # a scheduled first scan may already be queued; that is as good
+            if "scan_active" not in str(e):
+                raise
+
+    scan()  # the first observation
+    time.sleep(31)  # stabilitySecs must pass between the two observations
+    scan()  # catalogs the files
     (WORK / "creds.json").write_text(json.dumps({"base": BASE, "admin": ["t007admin", admin_pw], "reader": ["t007reader", user_pw], "library": lib}))
     for _ in range(60):
         eds = api("GET", "/editions?size=50", tok)

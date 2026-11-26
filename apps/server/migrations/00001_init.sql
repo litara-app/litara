@@ -267,7 +267,7 @@ CREATE TABLE library_config (
     sentinel_sha256     text,
     scan_interval_secs  integer NOT NULL DEFAULT 900 CHECK (scan_interval_secs >= 60),
     verify_interval_secs integer NOT NULL DEFAULT 86400 CHECK (verify_interval_secs >= 3600),
-    stability_secs      integer NOT NULL DEFAULT 30 CHECK (stability_secs >= 1),
+    stability_secs      integer NOT NULL DEFAULT 30 CHECK (stability_secs >= 30),
     import_template     text,
     writeback_backups   boolean NOT NULL DEFAULT false,
     backup_root         text,

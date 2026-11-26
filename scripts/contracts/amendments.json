@@ -1,0 +1,299 @@
+{
+  "amendments": [
+    {
+      "difference": "Session: properties differ: contract-only=[] generated-only=['current']",
+      "adr": "ADR-0033",
+      "reason": "current flag so a device list can mark this session"
+    },
+    {
+      "difference": "Session: required differs: contract=['absoluteExpiresAt', 'client', 'createdAt', 'deviceName', 'id', 'idleExpiresAt', 'lastUsedAt'] generated=['absoluteExpiresAt', 'client', 'createdAt', 'current', 'deviceName', 'id', 'idleExpiresAt', 'lastUsedAt']",
+      "adr": "ADR-0033",
+      "reason": "current flag so a device list can mark this session"
+    },
+    {
+      "difference": "TokenPair.session: properties differ: contract-only=[] generated-only=['current']",
+      "adr": "ADR-0033",
+      "reason": "current flag so a device list can mark this session"
+    },
+    {
+      "difference": "TokenPair.session: required differs: contract=['absoluteExpiresAt', 'client', 'createdAt', 'deviceName', 'id', 'idleExpiresAt', 'lastUsedAt'] generated=['absoluteExpiresAt', 'client', 'createdAt', 'current', 'deviceName', 'id', 'idleExpiresAt', 'lastUsedAt']",
+      "adr": "ADR-0033",
+      "reason": "current flag so a device list can mark this session"
+    },
+    {
+      "difference": "BrowserSession.session: properties differ: contract-only=[] generated-only=['current']",
+      "adr": "ADR-0033",
+      "reason": "current flag so a device list can mark this session"
+    },
+    {
+      "difference": "BrowserSession.session: required differs: contract=['absoluteExpiresAt', 'client', 'createdAt', 'deviceName', 'id', 'idleExpiresAt', 'lastUsedAt'] generated=['absoluteExpiresAt', 'client', 'createdAt', 'current', 'deviceName', 'id', 'idleExpiresAt', 'lastUsedAt']",
+      "adr": "ADR-0033",
+      "reason": "current flag so a device list can mark this session"
+    },
+    {
+      "difference": "Sessions.items[]: properties differ: contract-only=[] generated-only=['current']",
+      "adr": "ADR-0033",
+      "reason": "current flag so a device list can mark this session"
+    },
+    {
+      "difference": "Sessions.items[]: required differs: contract=['absoluteExpiresAt', 'client', 'createdAt', 'deviceName', 'id', 'idleExpiresAt', 'lastUsedAt'] generated=['absoluteExpiresAt', 'client', 'createdAt', 'current', 'deviceName', 'id', 'idleExpiresAt', 'lastUsedAt']",
+      "adr": "ADR-0033",
+      "reason": "current flag so a device list can mark this session"
+    },
+    {
+      "difference": "CreateLibrary.config: properties differ: contract-only=[] generated-only=['autoFillTitleMatch']",
+      "adr": "ADR-0090",
+      "reason": "library switch for auto-fill from a single title and author match"
+    },
+    {
+      "difference": "CreateLibrary.config.stabilitySecs.minimum: contract=1 generated=30",
+      "adr": "ADR-0050",
+      "reason": "30 second floor enforced"
+    },
+    {
+      "difference": "LibraryDetail.config: properties differ: contract-only=[] generated-only=['autoFillTitleMatch']",
+      "adr": "ADR-0090",
+      "reason": "library switch for auto-fill from a single title and author match"
+    },
+    {
+      "difference": "LibraryDetail.config.stabilitySecs.minimum: contract=1 generated=30",
+      "adr": "ADR-0050",
+      "reason": "30 second floor enforced"
+    },
+    {
+      "difference": "LibraryConfig: properties differ: contract-only=[] generated-only=['autoFillTitleMatch']",
+      "adr": "ADR-0090",
+      "reason": "library switch for auto-fill from a single title and author match"
+    },
+    {
+      "difference": "LibraryConfig.stabilitySecs.minimum: contract=1 generated=30",
+      "adr": "ADR-0050",
+      "reason": "30 second floor enforced"
+    },
+    {
+      "difference": "MetadataReport: properties differ: contract-only=[] generated-only=['revision']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "MetadataReport.fields[]: properties differ: contract-only=[] generated-only=['locked']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "MetadataReport.fields[]: required differs: contract=['cleared', 'field', 'source'] generated=['cleared', 'field', 'locked', 'source']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "MetadataReport: required differs: contract=['fields'] generated=['fields', 'revision']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "MetadataField: properties differ: contract-only=[] generated-only=['locked']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "MetadataField: required differs: contract=['cleared', 'field', 'source'] generated=['cleared', 'field', 'locked', 'source']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "EditionMetadataField: properties differ: contract-only=[] generated-only=['locked']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "EditionMetadataField.field.enum: contract=['authors', 'description', 'isbn', 'language', 'page_count', 'published', 'publisher', 'series_index', 'series_name', 'tags', 'title'] generated=['age_rating', 'asin', 'authors', 'description', 'genres', 'goodreads_id', 'google_books_id', 'hardcover_id', 'isbn', 'language', 'moods', 'open_library_id', 'page_count', 'public_rating', 'public_rating_count', 'published', 'publisher', 'series_index', 'series_name', 'subtitle', 'tags', 'title']",
+      "adr": "ADR-0095",
+      "reason": "further editable ebook metadata fields"
+    },
+    {
+      "difference": "EditionMetadataField: required differs: contract=['cleared', 'conflicts', 'field', 'source', 'value'] generated=['cleared', 'conflicts', 'field', 'locked', 'source', 'value']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "EditionMetadataReport.fields[]: properties differ: contract-only=[] generated-only=['locked']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "EditionMetadataReport.fields[].field.enum: contract=['authors', 'description', 'isbn', 'language', 'page_count', 'published', 'publisher', 'series_index', 'series_name', 'tags', 'title'] generated=['age_rating', 'asin', 'authors', 'description', 'genres', 'goodreads_id', 'google_books_id', 'hardcover_id', 'isbn', 'language', 'moods', 'open_library_id', 'page_count', 'public_rating', 'public_rating_count', 'published', 'publisher', 'series_index', 'series_name', 'subtitle', 'tags', 'title']",
+      "adr": "ADR-0095",
+      "reason": "further editable ebook metadata fields"
+    },
+    {
+      "difference": "EditionMetadataReport.fields[]: required differs: contract=['cleared', 'conflicts', 'field', 'source', 'value'] generated=['cleared', 'conflicts', 'field', 'locked', 'source', 'value']",
+      "adr": "ADR-0097",
+      "reason": "revisioned saves with explicit field locks"
+    },
+    {
+      "difference": "operation addNotification: not in the contract (unexpected route)",
+      "adr": "ADR-0089",
+      "reason": "notification history"
+    },
+    {
+      "difference": "operation applyAuthorLookup: not in the contract (unexpected route)",
+      "adr": "ADR-0104, ADR-0106",
+      "reason": "online author and series data"
+    },
+    {
+      "difference": "operation applySeriesLookup: not in the contract (unexpected route)",
+      "adr": "ADR-0104, ADR-0106",
+      "reason": "online author and series data"
+    },
+    {
+      "difference": "operation autoFillEditionMetadata: not in the contract (unexpected route)",
+      "adr": "ADR-0090",
+      "reason": "auto-fill"
+    },
+    {
+      "difference": "operation autoFillRecordingMetadata: not in the contract (unexpected route)",
+      "adr": "ADR-0090",
+      "reason": "auto-fill"
+    },
+    {
+      "difference": "operation clearNotifications: not in the contract (unexpected route)",
+      "adr": "ADR-0089",
+      "reason": "notification history"
+    },
+    {
+      "difference": "operation exportAnnotations: not in the contract (unexpected route)",
+      "adr": "ADR-0099",
+      "reason": "annotations hub"
+    },
+    {
+      "difference": "operation getAuthorDetails: not in the contract (unexpected route)",
+      "adr": "ADR-0102, ADR-0103",
+      "reason": "editable author and series details"
+    },
+    {
+      "difference": "operation getAuthorPhoto: not in the contract (unexpected route)",
+      "adr": "ADR-0102, ADR-0103",
+      "reason": "editable author and series details"
+    },
+    {
+      "difference": "operation getContinueReading: not in the contract (unexpected route)",
+      "adr": "ADR-0100",
+      "reason": "author and series directories"
+    },
+    {
+      "difference": "operation getMissingSeriesBookCover: not in the contract (unexpected route)",
+      "adr": "ADR-0104, ADR-0106",
+      "reason": "online author and series data"
+    },
+    {
+      "difference": "operation getReadingStats: not in the contract (unexpected route)",
+      "adr": "ADR-0098",
+      "reason": "reading stats"
+    },
+    {
+      "difference": "operation getSeriesDetails: not in the contract (unexpected route)",
+      "adr": "ADR-0102, ADR-0103",
+      "reason": "editable author and series details"
+    },
+    {
+      "difference": "operation listAllAnnotations: not in the contract (unexpected route)",
+      "adr": "ADR-0099",
+      "reason": "annotations hub"
+    },
+    {
+      "difference": "operation listAnnotatedTitles: not in the contract (unexpected route)",
+      "adr": "ADR-0099",
+      "reason": "annotations hub"
+    },
+    {
+      "difference": "operation listAuthors: not in the contract (unexpected route)",
+      "adr": "ADR-0100",
+      "reason": "author and series directories"
+    },
+    {
+      "difference": "operation listMissingSeriesBooks: not in the contract (unexpected route)",
+      "adr": "ADR-0104, ADR-0106",
+      "reason": "online author and series data"
+    },
+    {
+      "difference": "operation listNotifications: not in the contract (unexpected route)",
+      "adr": "ADR-0089",
+      "reason": "notification history"
+    },
+    {
+      "difference": "operation listReadingSessions: not in the contract (unexpected route)",
+      "adr": "ADR-0092",
+      "reason": "reading sessions"
+    },
+    {
+      "difference": "operation listSeries: not in the contract (unexpected route)",
+      "adr": "ADR-0100",
+      "reason": "author and series directories"
+    },
+    {
+      "difference": "operation lookupAuthor: not in the contract (unexpected route)",
+      "adr": "ADR-0104, ADR-0106",
+      "reason": "online author and series data"
+    },
+    {
+      "difference": "operation lookupSeries: not in the contract (unexpected route)",
+      "adr": "ADR-0104, ADR-0106",
+      "reason": "online author and series data"
+    },
+    {
+      "difference": "operation markNotificationsRead: not in the contract (unexpected route)",
+      "adr": "ADR-0089",
+      "reason": "notification history"
+    },
+    {
+      "difference": "operation previewAuthorLookupPhoto: not in the contract (unexpected route)",
+      "adr": "ADR-0104, ADR-0106",
+      "reason": "online author and series data"
+    },
+    {
+      "difference": "operation putAuthorPhoto: not in the contract (unexpected route)",
+      "adr": "ADR-0102, ADR-0103",
+      "reason": "editable author and series details"
+    },
+    {
+      "difference": "operation putReadingSession: not in the contract (unexpected route)",
+      "adr": "ADR-0092",
+      "reason": "reading sessions"
+    },
+    {
+      "difference": "operation saveAuthorDetails: not in the contract (unexpected route)",
+      "adr": "ADR-0102, ADR-0103",
+      "reason": "editable author and series details"
+    },
+    {
+      "difference": "operation saveEditionMetadata: not in the contract (unexpected route)",
+      "adr": "ADR-0095, ADR-0097",
+      "reason": "one revisioned metadata save"
+    },
+    {
+      "difference": "operation saveRecordingMetadata: not in the contract (unexpected route)",
+      "adr": "ADR-0095, ADR-0097",
+      "reason": "one revisioned metadata save"
+    },
+    {
+      "difference": "operation saveSeriesDetails: not in the contract (unexpected route)",
+      "adr": "ADR-0102, ADR-0103",
+      "reason": "editable author and series details"
+    },
+    {
+      "difference": "operation searchEditionProviders: not in the contract (unexpected route)",
+      "adr": "ADR-0087",
+      "reason": "reviewed provider search"
+    },
+    {
+      "difference": "operation searchRecordingProviders: not in the contract (unexpected route)",
+      "adr": "ADR-0087",
+      "reason": "reviewed provider search"
+    },
+    {
+      "difference": "operation setAuthorPhotoFromUrl: not in the contract (unexpected route)",
+      "adr": "ADR-0102, ADR-0103",
+      "reason": "editable author and series details"
+    }
+  ]
+}

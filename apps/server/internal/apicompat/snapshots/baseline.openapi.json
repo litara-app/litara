@@ -3470,7 +3470,7 @@
           "stabilitySecs": {
             "default": 30,
             "format": "int64",
-            "minimum": 1,
+            "minimum": 30,
             "type": "integer"
           },
           "verifyIntervalSecs": {

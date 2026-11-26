@@ -51,6 +51,14 @@
     {
       "id": "request-anyOf-branch-removed PUT /shelves/{shelfId} request body application/json.data.filter.anyOf[0]",
       "reason": "Owner-accepted 2026-11-26 (ADR-0107): a smart shelf filter uses the library search format (TitleFilter) and ShelfFilter is removed. The same change also replaces data.filter in shelf and personal-conflict responses, which the checker does not report. Development stability (ADR-0082)."
+    },
+    {
+      "id": "request-minimum-tightened POST /admin/libraries request body application/json.config.stabilitySecs",
+      "reason": "Owner decision 2026-11-26: enforce the 30 s stability floor that ADR-0050 states. Pre-release; no released client sends a shorter value."
+    },
+    {
+      "id": "request-minimum-tightened PUT /admin/libraries/{libraryId}/config request body application/json.stabilitySecs",
+      "reason": "Owner decision 2026-11-26: enforce the 30 s stability floor that ADR-0050 states. Pre-release; no released client sends a shorter value."
     }
   ]
 }

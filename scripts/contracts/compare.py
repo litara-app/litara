@@ -3,8 +3,9 @@ T003 contract. Usage: python scripts/contracts/compare.py [generated.json]
 
 Without an argument the script runs `go run ./cmd/ctl openapi` in apps/server.
 Exit status is nonzero when the generated API disagrees with the contract in a
-way not listed in DEVIATIONS. DEVIATIONS are intentional, policy-compatible
-differences that are documented in handoffs/T003.md.
+way not listed in DEVIATIONS or amendments.json. DEVIATIONS are intentional,
+policy-compatible differences that are documented in handoffs/T003.md;
+amendments.json lists later API changes and the ADR behind each.
 """
 import json
 import subprocess
@@ -386,6 +387,14 @@ for name, scheme in CONTRACT['components']['securitySchemes'].items():
     if GENERATED['components'].get('securitySchemes', {}).get(name, {}).get('type') != scheme['type']:
         errors.append(f'security scheme {name} differs')
 
+# The contract files record what was agreed for each task. Later accepted decisions have changed the API since, and each
+# such difference is listed word for word in amendments.json with its ADR. Anything not listed is still an error, and so
+# is a listed difference that no longer occurs. Breaking changes are judged separately by apps/server/internal/apicompat.
+AMENDMENTS = {a['difference']: a for a in json.loads((ROOT / 'scripts' / 'contracts' / 'amendments.json').read_text(encoding='utf-8'))['amendments']}
+amended = [e for e in errors if e in AMENDMENTS]
+errors = [e for e in errors if e not in AMENDMENTS] + [
+    f'amendments.json lists a difference that no longer occurs; remove it: {d}' for d in AMENDMENTS if d not in amended]
+
 print(f'T005 pending (not yet implemented, not compared): {len(PENDING_T005)} operations {PENDING_T005}')
 print(f'T005 schemas reachable only from pending operations: {len(PENDING_T005_SCHEMAS)}')
 print(f'T006 implemented: {len(IMPLEMENTED_T006)} operations; pending (not yet compared): {len(PENDING_T006)} {PENDING_T006}')
@@ -393,6 +402,7 @@ print(f'T006 schemas reachable only from pending operations: {len(PENDING_T006_S
 print(f'compared {len(want_ops)} operations and {len(CONTRACT["components"]["schemas"])} schemas')
 for k, v in DEVIATIONS.items():
     print(f'  intentional deviation {k}: {v}')
+print(f'  {len(amended)} difference(s) from the task contracts are authorized by later ADRs (amendments.json)')
 for n in notes:
     print('  note:', n)
 if errors:

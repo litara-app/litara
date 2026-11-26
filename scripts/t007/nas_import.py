@@ -59,7 +59,7 @@ def main():
         c = json.loads((WORK / "creds.json").read_text())
         tp = stack.api("POST", "/auth/native/login", body={"username": c["admin"][0], "password": c["admin"][1], "deviceName": "nas-import"})
         adm = tp["accessToken"]
-        cfg = {"mode": "managed", "rootPath": str(d), "followSymlinks": False, "stabilitySecs": 1, "writebackBackups": False, "providerOrder": []}
+        cfg = {"mode": "managed", "rootPath": str(d), "followSymlinks": False, "stabilitySecs": 30, "writebackBackups": False, "providerOrder": []}
         lib = stack.api("POST", "/admin/libraries", adm, {"name": "NAS managed", "config": cfg})["library"]["id"]
         stack.api("PUT", f"/admin/users/{tp['user']['id']}/libraries/{lib}", adm)
         plan = stack.api("POST", f"/admin/libraries/{lib}/imports", adm, {"sourcePath": str(src)})
