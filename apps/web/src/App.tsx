@@ -14,6 +14,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { ShelfPage } from "./pages/ShelfPage";
 import { ShelvesPage } from "./pages/ShelvesPage";
 import { StatsPage } from "./pages/StatsPage";
+import { AuthorPage, AuthorsPage, SeriesListPage, SeriesPage } from "./pages/directories/DirectoryPages";
 import { AnnotationsPage } from "./pages/annotations/AnnotationsPage";
 import { TitlePage } from "./pages/TitlePage";
 import { PendingPage } from "./pending/PendingPage";
@@ -61,6 +62,10 @@ export function App() {
           <Route path="editions/:editionId" element={<EditionPage />} />
           <Route path="pending" element={<PendingPage />} />
           <Route path="shelves" element={<ShelvesPage />} />
+          <Route path="authors" element={<AuthorsPage />} />
+          <Route path="authors/:name" element={<AuthorPage />} />
+          <Route path="series" element={<SeriesListPage />} />
+          <Route path="series/:name" element={<SeriesPage />} />
           <Route path="stats" element={<StatsPage />} />
           <Route path="annotations" element={<AnnotationsPage />} />
           <Route path="shelves/:shelfId" element={<ShelfPage />} />

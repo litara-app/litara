@@ -143,6 +143,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0097](0097-metadata-field-locks.md) | Make metadata locks separate from edits | Accepted |
 | [0098](0098-reading-stats-and-heatmap.md) | Reading stats and a reading heatmap | Accepted |
 | [0099](0099-annotations-hub.md) | An annotations hub with search and export | Accepted |
+| [0100](0100-author-and-series-directories.md) | Author and series directories | Accepted |
 
 ## Workflow
 

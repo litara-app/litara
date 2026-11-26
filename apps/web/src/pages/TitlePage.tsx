@@ -19,6 +19,7 @@ import { usePersonal } from "./title/usePersonal";
 import { isReadable } from "./useTitleActions";
 import { useShelfActions } from "./useShelves";
 import { useNeighbours } from "./titleList";
+import { RelatedRows } from "./directories/RelatedRows";
 
 const TABS = ["details", "metadata", "files", "log", "highlights"];
 
@@ -129,6 +130,7 @@ export function TitlePage() {
               <TabPane value="files"><FilesTab editions={eds} recordings={recs} /></TabPane>
               <TabPane value="log"><ReadingLogTab titleId={titleId} editions={eds} recordings={recs} /></TabPane>
               <TabPane value="highlights"><HighlightsTab editions={eds} /></TabPane>
+              <RelatedRows title={t} />
             </div>
           </div>
         </div>

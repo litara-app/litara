@@ -763,3 +763,11 @@ th[aria-sort] .lt-sort-icon { opacity: 1; color: var(--lt-pri); }
 .lt-stat-tile { border: 1px solid var(--lt-line); border-radius: var(--lt-r-lg); background: var(--lt-surface); padding: var(--lt-s3) var(--lt-s4); display: flex; flex-direction: column; gap: 2px; }
 .lt-stat-value { font-family: var(--lt-font-display); font-size: var(--lt-text-2xl); line-height: 1.1; color: var(--lt-ink); font-variant-numeric: tabular-nums; }
 .lt-stat-label { font-family: var(--lt-font-accent); font-size: var(--lt-text-sm); color: var(--lt-dim); }
+
+/* Cover links (ADR-0100): directory entries and related-book rows. The caption sits under the cover, always visible. */
+.lt-coverlink { display: flex; flex-direction: column; gap: var(--lt-s1); min-width: 0; color: inherit; text-decoration: none; border-radius: var(--lt-r); }
+.lt-coverlink:focus-visible { outline: 2px solid var(--lt-pri); outline-offset: 3px; }
+.lt-coverlink-name { margin-top: var(--lt-s1); font-family: var(--lt-font-display); font-weight: 600; font-size: var(--lt-text-sm); line-height: 1.25; color: var(--lt-ink); overflow-wrap: anywhere; }
+.lt-coverlink:hover .lt-coverlink-name { color: var(--lt-pri); text-decoration: underline; }
+.lt-coverlink-detail { font-size: var(--lt-text-xs); color: var(--lt-dim); }
+.lt-cover-row { display: grid; grid-auto-flow: column; grid-auto-columns: 112px; gap: var(--lt-s3); overflow-x: auto; padding-bottom: var(--lt-s2); }

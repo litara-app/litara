@@ -8,6 +8,7 @@ import {
 } from "../../ui";
 import { isReadable } from "../useTitleActions";
 import { usePersonal } from "./usePersonal";
+import { authorPath, seriesPath } from "../directories/directory";
 
 const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" }) : "–");
 const published = (p: string | null | undefined) => {
@@ -119,8 +120,8 @@ export function DetailsTab({ detail, editions, recordings, onTab }: {
       <Stack>
         <Panel title="Details">
           <Ledger items={[
-            ["Authors", t.authors.join(", ") || "Unknown"],
-            ["Series", t.series.join(", ") || "None"],
+            ["Authors", t.authors.length ? t.authors.map((a, i) => <span key={i}>{i > 0 && ", "}<TextLink to={authorPath(a)}>{a}</TextLink></span>) : "Unknown"],
+            ["Series", t.series.length ? t.series.map((x, i) => <span key={i}>{i > 0 && ", "}<TextLink to={seriesPath(x)}>{x}</TextLink></span>) : "None"],
             ["Languages", t.languages.join(", ") || "Unknown"],
             ["Publisher", pick("publisher") ?? "–"],
             ["Published", published(pick("published"))],
