@@ -10,7 +10,7 @@ async function signIn(page: Page, user = "fixture-user-a") {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 const csrf = async (page: Page) => ((await (await page.request.get("/api/v1/auth/web/session")).json()) as { csrfToken: string }).csrfToken;
 
@@ -76,7 +76,7 @@ test("ending the session closes the open reader and its book channel", async ({ 
   const r = await page.request.post("/api/v1/auth/web/logout", { headers: { "X-CSRF-Token": await csrf(page), Origin: ORIGIN } });
   expect(r.status()).toBeLessThan(300);
   // The next server contact notices; a bookmark attempt is that contact.
-  await page.getByRole("button", { name: "Bookmark" }).click();
+  await page.getByRole("button", { name: "Bookmark", exact: true }).click();
   await expect(page).toHaveURL(/\/login/, { timeout: 20_000 });
   await expect(page.locator("iframe")).toHaveCount(0);
 });
@@ -95,7 +95,7 @@ test("a server engine profile the page does not bundle disables restore, paintin
   await page.goto(`/read/${editionId}`);
   await expect(page.getByTestId("profile-mismatch")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("profile-mismatch")).toContainText("Reload");
-  await expect(page.getByRole("button", { name: "Bookmark" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Bookmark", exact: true })).toBeDisabled();
   // Turn pages: no position may be written under a profile this page cannot vouch for.
   await page.keyboard.press("ArrowRight");
   await page.waitForTimeout(3500); // longer than the position save delay
@@ -118,15 +118,15 @@ test("the reader can finish and unfinish the book explicitly, after a confirmati
   await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
   const pos = async () => ((await (await page.request.get(`/api/v1/editions/${editionId}/position`)).json()) as { revision: string }).revision;
   const before = await pos();
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await page.getByRole("button", { name: "Mark finished…" }).click();
   expect((await completion()).finished).toBe(false); // asking is not finishing
-  await page.getByTestId("finish-confirm").click();
+  await page.getByRole("button", { name: "Mark finished", exact: true }).click(); // the confirmation, not the button that opened it
   await expect(page.getByTestId("finished-badge")).toBeVisible({ timeout: 10_000 });
   expect((await completion()).finished).toBe(true);
   expect(await pos()).toBe(before);
   await page.getByRole("button", { name: "Mark unfinished…" }).click();
-  await page.getByTestId("finish-confirm").click();
+  await page.getByRole("button", { name: "Mark unfinished", exact: true }).click(); // the confirmation, not the button that opened it
   await expect(page.getByTestId("finished-badge")).toHaveCount(0, { timeout: 10_000 });
   expect((await completion()).finished).toBe(false);
 });
@@ -152,14 +152,15 @@ test("finishing one of two editions of a work finishes only that edition and add
   // Reading to the end does not finish anything: open the first edition and go to its last chapter.
   await page.goto(`/read/${one.id}`);
   await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await page.getByRole("dialog").getByText("Chapter Three", { exact: true }).first().click();
+  await expect(page.getByRole("dialog", { name: "Contents & notes" })).toBeHidden(); // a click while it closes is swallowed
   expect(await finished(one.id)).toBe(false); // no automatic finish at the end of the book
 
   // Explicit finish from the reader menu.
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await page.getByRole("button", { name: "Mark finished…" }).click();
-  await page.getByTestId("finish-confirm").click();
+  await page.getByRole("button", { name: "Mark finished", exact: true }).click(); // the confirmation, not the button that opened it
   await expect(page.getByTestId("finished-badge")).toBeVisible({ timeout: 10_000 });
   expect(await finished(one.id)).toBe(true);
   expect(await finished(other.id)).toBe(false); // the sibling edition is untouched
@@ -170,7 +171,7 @@ test("finishing one of two editions of a work finishes only that edition and add
 
   // Leave the shared server as found.
   await page.getByRole("button", { name: "Mark unfinished…" }).click();
-  await page.getByTestId("finish-confirm").click();
+  await page.getByRole("button", { name: "Mark unfinished", exact: true }).click(); // the confirmation, not the button that opened it
   await expect(page.getByTestId("finished-badge")).toHaveCount(0, { timeout: 10_000 });
   expect(await finished(one.id)).toBe(false);
 });

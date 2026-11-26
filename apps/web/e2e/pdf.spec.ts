@@ -11,7 +11,7 @@ async function signIn(page: Page) {
   await page.getByLabel(/Username/).fill("fixture-user-a");
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 async function cropEditionId(page: Page): Promise<string> {
@@ -108,7 +108,7 @@ test("rotated cropped PDF: area highlight maps to crop-box fractions and stays o
     return b;
   };
   const at100 = await check("100%");
-  await page.getByRole("button", { name: "Aa" }).click();
+  await page.getByRole("button", { name: "Text settings" }).click();
   const slider = page.getByRole("slider", { name: "Text size" });
   await slider.focus();
   for (let i = 0; i < 3; i++) await slider.press("ArrowLeft"); // 100% -> 70%

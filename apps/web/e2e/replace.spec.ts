@@ -15,7 +15,7 @@ async function signIn(page: Page, user: string) {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 type Edition = { id: string; file: { id: string; contentVersion: string } };

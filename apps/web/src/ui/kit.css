@@ -156,7 +156,8 @@ a { color: var(--lt-pri); }
 .lt-logo { color: var(--lt-logo); flex: none; }
 .lt-icon-btn[data-mobile] { display: none; }
 @media (max-width: 760px) { .lt-icon-btn[data-mobile] { display: inline-flex; } }
-.lt-topsearch { flex: 1; max-width: 520px; }
+.lt-topsearch { flex: 1; min-width: 0; max-width: 520px; }
+.lt-pending-icon { display: none; }
 .lt-topright { margin-left: auto; display: flex; align-items: center; gap: var(--lt-s3); color: var(--lt-dim); }
 .lt-main { min-width: 0; overflow: auto; background: var(--lt-bg); }
 .lt-main-wrap { display: flex; min-width: 0; min-height: 0; }
@@ -190,6 +191,13 @@ a { color: var(--lt-pri); }
   .lt-side { display: none; }
   .lt-app[data-open] .lt-side { display: flex; position: fixed; top: var(--lt-topbar); bottom: 0; left: 0; width: var(--lt-side); }
   .lt-brand { width: auto; }
+  /* Phone top bar: the search field takes what is left, and the pending badge shows an icon and its count. Its words stay in the link's name. */
+  .lt-topbar, .lt-topright { gap: var(--lt-s2); }
+  .lt-topbar .lt-kbd { display: none; }
+  .lt-topright .lt-link { display: inline-flex; align-items: center; min-height: 28px; }
+  .lt-pending-icon { display: inline-grid; place-items: center; }
+  .lt-pending-icon svg { width: 12px; height: 12px; }
+  .lt-pending-words { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
 /* Utilities and screen-specific layout. */
@@ -711,6 +719,8 @@ th[aria-sort] .lt-sort-icon { opacity: 1; color: var(--lt-pri); }
 
 /* Notifications (ADR-0089): toasts at the bottom right, a bell in the top bar and the history list. */
 .lt-toasts { z-index: 60; }
+/* While the mini player is up, toasts stack above it instead of covering its controls. */
+:root:has(.lt-player-slot > .lt-mini) .lt-toasts { bottom: calc(104px + var(--keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px)); }
 .lt-toast { position: relative; display: flex; align-items: flex-start; gap: var(--lt-s3); width: min(360px, calc(100vw - 32px)); padding: var(--lt-s3) var(--lt-s3) var(--lt-s3) var(--lt-s4); border: 1px solid var(--lt-line); border-left-width: 4px; border-radius: 6px; background: var(--lt-surface); color: var(--lt-ink); box-shadow: 0 6px 24px rgb(0 0 0 / 0.22); }
 .lt-toast[data-type="success"] { border-left-color: var(--lt-ok); }
 .lt-toast[data-type="error"] { border-left-color: var(--lt-bad); }

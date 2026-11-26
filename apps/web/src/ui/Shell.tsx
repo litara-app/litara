@@ -208,7 +208,8 @@ export function Shell() {
           {pend.items.length > 0 && (
             <Link className="lt-link" to="/pending" data-testid="pending-badge">
               <Badge tone={attention ? "warning" : "neutral"}>
-                {attention ? `${attention} need attention` : pend.offline ? `${pend.items.length} waiting (offline)` : `${pend.items.length} sending`}
+                <span className="lt-pending-icon" aria-hidden="true">{icons.sync}</span>
+                <span>{attention || pend.items.length}<span className="lt-pending-words">{attention ? " need attention" : pend.offline ? " waiting (offline)" : " sending"}</span></span>
               </Badge>
             </Link>
           )}

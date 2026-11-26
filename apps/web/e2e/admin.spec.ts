@@ -10,7 +10,7 @@ async function signIn(page: Page, user: string) {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 
@@ -47,7 +47,7 @@ test("an administrator creates and disables a user", async ({ page }) => {
 test("library health, scan request and the review list", async ({ page }) => {
   await signIn(page, "fixture-admin");
   await page.goto("/admin/libraries");
-  await page.getByRole("link", { name: "Shelf" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Shelf", exact: true }).click(); // the sidebar lists libraries too
   await expect(page.getByText(/root healthy/)).toBeVisible();
   await page.getByRole("button", { name: "Scan now" }).click();
   await expect(page.getByTestId("scans-table").getByRole("row")).not.toHaveCount(1); // header plus a run
@@ -76,7 +76,7 @@ test("a copy-only import is previewed, decided, approved and run; write-back sta
   const info = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../test-results/e2e-info.json"), "utf8")) as { importSource: string };
   await signIn(page, "fixture-admin");
   await page.goto("/admin/libraries");
-  await page.getByRole("link", { name: "Shelf" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Shelf", exact: true }).click(); // the sidebar lists libraries too
   await page.getByLabel("Source folder on the server").fill(info.importSource);
   await page.getByRole("button", { name: "Preview import" }).click();
   const plan = page.getByTestId("import-plan");
@@ -106,7 +106,7 @@ test("a reviewed merge: plan, approve, apply", async ({ page }) => {
   await signIn(page, "fixture-admin");
   await page.goto("/admin/repairs");
   await page.getByLabel("Find an audiobook title").fill("Generated");
-  await page.getByPlaceholder("Choose title").click();
+  await page.getByRole("combobox", { name: "Title" }).click();
   await page.getByRole("option", { name: "Generated Fixture Title" }).click();
   const boxes = page.getByRole("checkbox");
   await expect(boxes.nth(1)).toBeAttached({ timeout: 10_000 });
@@ -124,6 +124,7 @@ test("a reviewed merge: plan, approve, apply", async ({ page }) => {
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByTestId("plan-state")).toHaveText("approved");
   await page.getByRole("button", { name: "Apply repair" }).click();
+  await page.getByRole("dialog", { name: "Apply this repair?" }).getByRole("button", { name: "Apply repair" }).click(); // confirmed in the app, not by a browser dialog
   await expect(page.getByTestId("plan-state")).toHaveText("applied");
   const ids = await page.getByTestId("plan-result").getByRole("row").nth(1).innerText();
   expect(ids).toMatch(/[0-9a-f]{8}-[0-9a-f-]{27}/);
@@ -167,9 +168,9 @@ test("a reviewed split: successors, an explicit candidate only where the anchore
     await signIn(page, "fixture-admin");
     await page.goto("/admin/repairs");
     await page.getByLabel("Find an audiobook title").fill("Generated");
-    await page.getByPlaceholder("Choose title").click();
+    await page.getByRole("combobox", { name: "Title" }).click();
     await page.getByRole("option", { name: "Generated Fixture Title" }).click();
-    await page.locator("label").filter({ hasText: /^Split$/ }).click();
+    await page.getByRole("radio", { name: "Split" }).click({ force: true });
     await page.getByRole("checkbox").first().click({ force: true }); // the title has one recording after the merge
     await expect(page.getByTestId("split-file").first()).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId("split-file")).toHaveCount(snap.files.length);
@@ -180,6 +181,7 @@ test("a reviewed split: successors, an explicit candidate only where the anchore
     await page.getByRole("button", { name: "Approve" }).click();
     await expect(page.getByTestId("plan-state")).toHaveText("approved");
     await page.getByRole("button", { name: "Apply repair" }).click();
+    await page.getByRole("dialog", { name: "Apply this repair?" }).getByRole("button", { name: "Apply repair" }).click(); // confirmed in the app, not by a browser dialog
     await expect(page.getByTestId("plan-state")).toHaveText("applied");
 
     // The old identity answers with an explicit repair error naming both successors.
@@ -229,7 +231,7 @@ test("a protected clear is shown as deliberately empty, survives a rescan, and c
 
   // Two scans later the clear is still in force (protected edits survive rescans).
   await page.goto("/admin/libraries");
-  await page.getByRole("link", { name: "Shelf" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Shelf", exact: true }).click(); // the sidebar lists libraries too
   for (let i = 0; i < 2; i++) {
     await page.getByRole("button", { name: "Scan now" }).click();
     await page.waitForTimeout(2500); // the e2e server runs queued scans and moves its clock on
@@ -248,7 +250,7 @@ test("a grouping review is decided in the browser: a bad decision shows the serv
   test.setTimeout(120_000);
   await signIn(page, "fixture-admin");
   await page.goto("/admin/libraries");
-  await page.getByRole("link", { name: "Shelf" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Shelf", exact: true }).click(); // the sidebar lists libraries too
   const items = page.getByTestId("review-item").filter({ hasText: "edition-title:" });
   await expect(items.first()).toBeVisible({ timeout: 15_000 });
   const before = await items.count();
@@ -259,7 +261,7 @@ test("a grouping review is decided in the browser: a bad decision shows the serv
   await page.getByRole("option", { name: "link" }).click();
   await first.getByLabel("Title ID").fill("00000000-0000-4000-8000-00000000dead");
   await first.getByRole("button", { name: "Resolve" }).click();
-  await expect(first.getByRole("alert")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("alert").filter({ hasText: "titleId must be one of the candidate titles" })).toBeVisible({ timeout: 10_000 }); // a failed action is a notification (ADR-0089)
   await expect(items).toHaveCount(before);
 
   // Keeping the works separate is accepted and the item goes away.

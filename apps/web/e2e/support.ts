@@ -13,9 +13,9 @@ export async function openTitle(page: Page, title: string) {
   const cards = page.getByTestId("title-item");
   await expect(cards.filter({ hasText: title }).first()).toBeVisible({ timeout: 15_000 });
   await expect(cards.filter({ hasNotText: title })).toHaveCount(0, { timeout: 15_000 });
-  await cards.filter({ hasText: title }).first().getByText(title, { exact: true }).click();
+  await cards.filter({ hasText: title }).first().getByRole("link").first().click(); // the cover and its caption both show the title
   await expect(page).toHaveURL(/\/titles\/[0-9a-f-]+$/);
-  await expect(page.getByRole("heading", { name: title, level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
 }
 
 /** From a title page, open its first EPUB edition and wait for the edition page. */
