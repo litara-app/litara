@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-22
 Decision owner: Repository owner
+Amended by: [ADR-0109](0109-audiobook-listening-sessions.md)
 
 ## Context
 
