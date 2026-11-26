@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** An edition with the display title/authors of the title it belongs to (the edition's own label is only its format). */
-data class BookRow(val edition: LEdition, val title: String, val authors: List<String>, val waitingToSync: Boolean = false, val downloaded: Boolean = false, val olderDownload: Boolean = false) {
+data class BookRow(val edition: LEdition, val title: String, val authors: List<String>, val waitingToSync: Boolean = false, val downloaded: Boolean = false, val olderDownload: Boolean = false, val series: List<String> = emptyList()) {
     val finished: Boolean get() = edition.completion.finished
 }
 
@@ -93,7 +93,8 @@ class LitaraBooksViewModel @Inject constructor(private val repo: LitaraRepositor
                 val saved = downloads[e.id]?.edition?.file
                 val downloaded = saved != null && saved.id == e.file.id && saved.contentVersion == e.file.contentVersion
                 BookRow(e, t?.title?.ifBlank { null } ?: e.label, t?.authors.orEmpty(),
-                    waitingToSync = e.id in stillPending, downloaded = downloaded, olderDownload = saved != null && !downloaded)
+                    waitingToSync = e.id in stillPending, downloaded = downloaded, olderDownload = saved != null && !downloaded,
+                    series = t?.series.orEmpty())
             }.sortedBy { it.title.lowercase() }
             val conflicts = repo.personalConflicts()
             _ui.update { it.copy(loading = false, offline = false, books = rows, conflicts = conflicts, error = null) }

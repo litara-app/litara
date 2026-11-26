@@ -68,7 +68,7 @@ About 6,400 lines of screens and repositories are in feature folders used mainly
 
 | Feature | Litara server today | Litara Android today |
 | --- | --- | --- |
-| Library search and filters | `/titles`, `POST /titles/search` | Plain lists only |
+| Library search and filters | `/titles`, `POST /titles/search` | Text search of the audiobook and book lists, on the phone (`claude/android-library-search`); no filters or sorting |
 | Authors, series | `/authors`, `/series` | None |
 | Title detail, rating, read status | `/titles/{id}`, `/titles/{id}/personal`, completion | Finish/unfinish only; no rating |
 | Collections, smart scopes | `/shelves` (including smart shelves) | None |

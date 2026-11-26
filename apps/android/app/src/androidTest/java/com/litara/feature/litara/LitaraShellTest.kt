@@ -3,6 +3,8 @@ package com.litara.feature.litara
 import android.content.ComponentName
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performTextInput
 import com.litara.R
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasText
@@ -79,6 +81,20 @@ class LitaraShellTest {
             val err = if (present(LitaraTags.ERROR)) "an error is shown" else "no error shown"
             throw AssertionError("tag $tag never appeared ($err)", e)
         }
+    }
+
+    @Test
+    fun searchFiltersTheAudiobookListAndClears() {
+        val recording = args.getString("litaraRecording")!!
+        waitTag(ShellTags.recording(recording))
+        compose.onNodeWithTag(ShellTags.SEARCH).performTextInput("zzzz no such book")
+        waitTag(ShellTags.NO_MATCHES)
+        assertFalse(present(ShellTags.recording(recording)))
+        compose.onNodeWithContentDescription(context.getString(R.string.litara_search_clear)).performClick()
+        waitTag(ShellTags.recording(recording))
+        compose.onNodeWithTag(ShellTags.SEARCH).performTextInput("fixture NARRATOR")
+        waitTag(ShellTags.recording(recording))
+        assertFalse(present(ShellTags.NO_MATCHES))
     }
 
     @Test

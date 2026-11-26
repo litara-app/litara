@@ -569,5 +569,9 @@
     <string name="litara_account_note">Downloads stay on this device for this account and are locked when access ends.</string>
     <string name="litara_chapters">Chapters</string>
     <string name="litara_settings">Settings</string>
+    <string name="litara_search_audiobooks">Search audiobooks</string>
+    <string name="litara_search_books">Search books</string>
+    <string name="litara_search_clear">Clear search</string>
+    <string name="litara_search_no_matches">No matches.</string>
     <string name="litara_audio_only">Audiobooks, EPUB-family books, PDF and comics are available. Reading positions sync with the server for EPUB, FB2, PDF (page level) and comics, and so do highlights, notes and bookmarks for EPUB, FB2 and comics. KEPUB, MOBI and AZW books keep them on this device only until those formats are verified against the web reader. The PDF reader has no highlights or notes yet.</string>
 </resources>

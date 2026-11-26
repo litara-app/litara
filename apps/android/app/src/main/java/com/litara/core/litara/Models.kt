@@ -109,6 +109,9 @@ data class LRecording(
 )
 
 @Serializable
+data class LSeries(val name: String, val index: Double? = null)
+
+@Serializable
 data class LRecordingSummary(
     val id: String,
     val titleId: String,
@@ -121,6 +124,7 @@ data class LRecordingSummary(
     val completion: LCompletion? = null,
     /** When this account last saved a position or changed completion; null for a recording it never touched. */
     val lastActivityAt: String? = null,
+    val series: LSeries? = null,
 )
 
 /** Playable recordings this account has started and not finished, most recently used first. */
