@@ -10,7 +10,7 @@ import { RelatedRows } from "./RelatedRows";
 import { groupBySeries, missingNumbers } from "./directory";
 
 const row = (id: string, title: string, series: string | null, index: number | null, authors = ["Ada Author"]): TitleRow => ({
-  id, title, authors, series: series ? [series] : [], languages: [], editionCount: 1, recordingCount: 0,
+  id, title, authors, series: series ? [series] : [], languages: [], editionCount: 1, recordingCount: 0, lastActivityAt: null,
   libraryIds: [], formats: ["epub"], addedAt: "", seriesIndex: index, publisher: null, published: null, pageCount: null, ratingHalves: null, status: "unread",
 });
 const SAGA = [row("1", "First", "The Saga", 1), row("4", "Fourth", "the saga", 4), row("2", "Second", "The Saga", 2)];
@@ -163,7 +163,7 @@ test("a series with very many gaps names them instead, and a finished one offers
 });
 
 test("the title page rows leave out the open title and hide when nothing else is there", async () => {
-  const t: Title = { id: "2", title: "Second", authors: ["Ada Author"], series: ["The Saga"], languages: [], editionCount: 1, recordingCount: 0 };
+  const t: Title = { id: "2", title: "Second", authors: ["Ada Author"], series: ["The Saga"], languages: [], editionCount: 1, recordingCount: 0, lastActivityAt: null };
   at("/titles/2", "/titles/:id", <RelatedRows title={t} />);
   const series = await screen.findByTestId("related-series");
   expect(within(series).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual(["/titles/1", "/titles/4"]);

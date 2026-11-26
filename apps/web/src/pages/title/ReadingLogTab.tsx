@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, get } from "../../api/client";
-import type { Edition, Page, ReadingEvent, ReadingSession, RecordingLink } from "../../api/types";
+import type { Edition, ListeningEvent, Page, ReadingEvent, ReadingSession, RecordingLink } from "../../api/types";
 import { duration, icons, Busy, Button, Card, EmptyState, ErrorBox, Heading, Row, Stack, StatusPill, Text, Timeline, when } from "../../ui";
 
 const EVENTS: Record<string, { title: string; tone: "success" | "info" | "neutral" | "warning" }> = {
   manual_finish: { title: "Marked finished", tone: "success" },
   manual_unfinish: { title: "Marked unfinished", tone: "warning" },
   auto_finish: { title: "Finished by reading to the end", tone: "success" },
+  natural_end: { title: "Finished by listening to the end", tone: "success" },
   started: { title: "Started", tone: "info" },
 };
 const label = (e: string) => EVENTS[e] ?? { title: e.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()), tone: "neutral" as const };
@@ -15,6 +16,8 @@ const label = (e: string) => EVENTS[e] ?? { title: e.replace(/_/g, " ").replace(
 export function ReadingLogTab({ titleId, editions, recordings }: { titleId: string; editions: Edition[]; recordings: RecordingLink[] }) {
   const qc = useQueryClient();
   const log = useQuery({ queryKey: ["title", titleId, "reading-history"], queryFn: () => get<Page<ReadingEvent>>(`/titles/${titleId}/reading-history?size=100`) });
+  // Ebook and audiobook completions are separate lists on the server; this tab shows one timeline (ADR-0022).
+  const listening = useQuery({ queryKey: ["title", titleId, "listening-history"], queryFn: () => get<Page<ListeningEvent>>(`/titles/${titleId}/history?size=100`) });
   const sessions = useQuery({ queryKey: ["title", titleId, "reading-sessions"], queryFn: () => get<Page<ReadingSession>>(`/titles/${titleId}/reading-sessions?size=50`) });
   const toggle = useMutation({
     mutationFn: (e: Edition) =>
@@ -25,11 +28,15 @@ export function ReadingLogTab({ titleId, editions, recordings }: { titleId: stri
     // A stale revision just refetches and shows what the server has.
     onSettled: () => { qc.invalidateQueries({ queryKey: ["title", titleId] }); qc.invalidateQueries({ queryKey: ["edition"] }); },
   });
-  const nameOf = (ev: ReadingEvent) => {
-    const e = editions.find((x) => x.id === ev.editionId);
-    if (e) return e.label || e.file.format.toUpperCase();
-    return recordings.find((r) => r.id === ev.recordingId)?.label || (ev.recordingId ? "Audiobook" : "Edition");
+  const editionName = (id: string) => {
+    const e = editions.find((x) => x.id === id);
+    return e ? e.label || e.file.format.toUpperCase() : "Edition";
   };
+  const history = [
+    ...(log.data?.items ?? []).map((ev) => ({ ...ev, name: editionName(ev.editionId) })),
+    ...(listening.data?.items ?? []).map((ev) => ({ ...ev, name: recordings.find((r) => r.id === ev.recordingId)?.label || "Audiobook" })),
+  ].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
+  const loading = log.isPending || listening.isPending;
 
   return (
     <Stack>
@@ -63,14 +70,14 @@ export function ReadingLogTab({ titleId, editions, recordings }: { titleId: stri
       )}
 
       <Heading level={2}>History</Heading>
-      <ErrorBox error={log.error} />
-      {log.isPending ? <Busy /> : log.data && log.data.items.length === 0 ? (
-        <EmptyState level={3} title="Nothing logged yet">Finishing, or marking a book finished or unfinished, appears here with the date.</EmptyState>
-      ) : log.data && (
-        <Timeline label="Reading history" items={[...log.data.items].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt)).map((ev) => ({
+      <ErrorBox error={log.error ?? listening.error} />
+      {loading ? <Busy /> : history.length > 0 ? (
+        <Timeline label="Reading history" items={history.map((ev) => ({
           key: ev.id, title: label(ev.event).title, tone: label(ev.event).tone,
-          meta: `${nameOf(ev)} · ${when(ev.capturedAt)}`,
+          meta: `${ev.name} · ${when(ev.capturedAt)}`,
         }))} />
+      ) : log.data && listening.data && (
+        <EmptyState level={3} title="Nothing logged yet">Finishing, or marking a book finished or unfinished, appears here with the date.</EmptyState>
       )}
     </Stack>
   );
