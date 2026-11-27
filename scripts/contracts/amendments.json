@@ -294,6 +294,46 @@
       "difference": "operation setAuthorPhotoFromUrl: not in the contract (unexpected route)",
       "adr": "ADR-0102, ADR-0103",
       "reason": "editable author and series details"
+    },
+    {
+      "difference": "operation deleteAudioBookmark: not in the contract (unexpected route)",
+      "adr": "ADR-0110",
+      "reason": "audiobook bookmarks"
+    },
+    {
+      "difference": "operation getAudioBookmark: not in the contract (unexpected route)",
+      "adr": "ADR-0110",
+      "reason": "audiobook bookmarks"
+    },
+    {
+      "difference": "operation listAudioBookmarkConflicts: not in the contract (unexpected route)",
+      "adr": "ADR-0110",
+      "reason": "audiobook bookmarks"
+    },
+    {
+      "difference": "operation listAudioBookmarks: not in the contract (unexpected route)",
+      "adr": "ADR-0110",
+      "reason": "audiobook bookmarks"
+    },
+    {
+      "difference": "operation listListeningSessions: not in the contract (unexpected route)",
+      "adr": "ADR-0109",
+      "reason": "audiobook listening sessions and their stats"
+    },
+    {
+      "difference": "operation putAudioBookmark: not in the contract (unexpected route)",
+      "adr": "ADR-0110",
+      "reason": "audiobook bookmarks"
+    },
+    {
+      "difference": "operation putListeningSession: not in the contract (unexpected route)",
+      "adr": "ADR-0109",
+      "reason": "audiobook listening sessions and their stats"
+    },
+    {
+      "difference": "operation resolveAudioBookmarkConflict: not in the contract (unexpected route)",
+      "adr": "ADR-0110",
+      "reason": "audiobook bookmarks"
     }
   ]
 }

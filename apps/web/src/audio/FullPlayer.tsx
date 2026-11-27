@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { Alert, Badge, Button, Cover, IconAction, MenuButton, RangeSlider, Row, ScrollRegion, Sheet, Stack, Text, TextLink, icons } from "../ui";
+import { Bookmarks } from "./Bookmarks";
 import { SLEEP_CHOICES, type SleepChoice } from "./sleep";
 import { fmt } from "./timeline";
 import type { PlayerController } from "./usePlayerController";
@@ -127,6 +128,7 @@ export function FullPlayer({ c, open, onMinimize, onClose }: { c: PlayerControll
                 </ScrollRegion>
               </section>
             )}
+            {open && <Bookmarks c={c} />}
           </section>
         </div>
       </div>

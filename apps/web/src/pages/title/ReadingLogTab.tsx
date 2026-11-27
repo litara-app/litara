@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, get } from "../../api/client";
-import type { Edition, ListeningEvent, Page, ReadingEvent, ReadingSession, RecordingLink } from "../../api/types";
+import type { Edition, ListeningEvent, ListeningSession, Page, ReadingEvent, ReadingSession, RecordingLink } from "../../api/types";
 import { duration, icons, Busy, Button, Card, EmptyState, ErrorBox, Heading, Row, Stack, StatusPill, Text, Timeline, when } from "../../ui";
 
 const EVENTS: Record<string, { title: string; tone: "success" | "info" | "neutral" | "warning" }> = {
@@ -19,6 +19,7 @@ export function ReadingLogTab({ titleId, editions, recordings }: { titleId: stri
   // Ebook and audiobook completions are separate lists on the server; this tab shows one timeline (ADR-0022).
   const listening = useQuery({ queryKey: ["title", titleId, "listening-history"], queryFn: () => get<Page<ListeningEvent>>(`/titles/${titleId}/history?size=100`) });
   const sessions = useQuery({ queryKey: ["title", titleId, "reading-sessions"], queryFn: () => get<Page<ReadingSession>>(`/titles/${titleId}/reading-sessions?size=50`) });
+  const heard = useQuery({ queryKey: ["title", titleId, "listening-sessions"], queryFn: () => get<Page<ListeningSession>>(`/titles/${titleId}/listening-sessions?size=50`) });
   const toggle = useMutation({
     mutationFn: (e: Edition) =>
       api("PUT", `/editions/${e.id}/completion`, {
@@ -37,6 +38,13 @@ export function ReadingLogTab({ titleId, editions, recordings }: { titleId: stri
     ...(listening.data?.items ?? []).map((ev) => ({ ...ev, name: recordings.find((r) => r.id === ev.recordingId)?.label || "Audiobook" })),
   ].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
   const loading = log.isPending || listening.isPending;
+  const span = (from: number | null, to: number | null) => (from !== null && to !== null ? ` · ${Math.round(from * 100)}% to ${Math.round(to * 100)}%` : "");
+  const timeline = [
+    ...(sessions.data?.items ?? []).map((s) => ({ key: s.id, at: s.startedAt, title: `Read for ${duration(s.activeSeconds * 1000)}`,
+      meta: `${editions.find((x) => x.id === s.editionId)?.label || "Edition"} · ${when(s.startedAt)}${span(s.startFraction, s.endFraction)}` })),
+    ...(heard.data?.items ?? []).map((s) => ({ key: s.id, at: s.startedAt, title: `Listened for ${duration(s.listenedSeconds * 1000)}`,
+      meta: `${recordings.find((x) => x.id === s.recordingId)?.label || "Audiobook"} · ${when(s.startedAt)}${span(s.startFraction, s.endFraction)}` })),
+  ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 
   return (
     <Stack>
@@ -58,15 +66,12 @@ export function ReadingLogTab({ titleId, editions, recordings }: { titleId: stri
       ))}
       <ErrorBox error={toggle.error} />
 
-      <Heading level={2}>Reading sessions</Heading>
-      <ErrorBox error={sessions.error} />
-      {sessions.isPending ? <Busy /> : sessions.data && sessions.data.items.length === 0 ? (
-        <EmptyState level={3} title="No reading sessions yet">Each time you read, Litara records when and for how long, and where in the book you got to.</EmptyState>
-      ) : sessions.data && (
-        <Timeline label="Reading sessions" items={sessions.data.items.map((s) => ({
-          key: s.id, title: `Read for ${duration(s.activeSeconds * 1000)}`, tone: "info" as const,
-          meta: `${editions.find((x) => x.id === s.editionId)?.label || "Edition"} · ${when(s.startedAt)}${s.startFraction !== null && s.endFraction !== null ? ` · ${Math.round(s.startFraction * 100)}% to ${Math.round(s.endFraction * 100)}%` : ""}`,
-        }))} />
+      <Heading level={2}>Reading and listening sessions</Heading>
+      <ErrorBox error={sessions.error ?? heard.error} />
+      {sessions.isPending || heard.isPending ? <Busy /> : timeline.length > 0 ? (
+        <Timeline label="Reading and listening sessions" items={timeline.map(({ key, title, meta }) => ({ key, title, meta, tone: "info" as const }))} />
+      ) : sessions.data && heard.data && (
+        <EmptyState level={3} title="No sessions yet">Each time you read or listen, Litara records when and for how long, and where in the book you got to.</EmptyState>
       )}
 
       <Heading level={2}>History</Heading>
