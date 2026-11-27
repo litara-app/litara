@@ -49,7 +49,7 @@ func (f HubFilter) params(userID uuid.UUID, page, size int) sqlcgen.ListHubAnnot
 
 func hubItem(r sqlcgen.ListHubAnnotationsRow) (wire.AnnotationHubItem, error) {
 	a, err := annotationWire(sqlcgen.Annotation{ID: r.ID, EditionID: r.EditionID, Revision: r.Revision, Kind: r.Kind, FileID: r.FileID,
-		ContentVersion: r.ContentVersion, Locator: r.Locator, Selection: r.Selection, Text: r.Text, Quote: r.Quote,
+		ContentVersion: r.ContentVersion, Locator: r.Locator, Selection: r.Selection, Text: r.Text, Quote: r.Quote, Color: r.Color,
 		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt})
 	authors := r.Authors
 	if authors == nil {

@@ -63,7 +63,7 @@ func (q *Queries) CountHubAnnotations(ctx context.Context, arg CountHubAnnotatio
 }
 
 const getAnnotation = `-- name: GetAnnotation :one
-SELECT user_id, id, edition_id, revision, kind, deleted, file_id, content_version, locator, selection, text, quote, created_at, updated_at FROM annotations WHERE user_id = $1 AND id = $2
+SELECT user_id, id, edition_id, revision, kind, deleted, file_id, content_version, locator, selection, text, quote, color, created_at, updated_at FROM annotations WHERE user_id = $1 AND id = $2
 `
 
 type GetAnnotationParams struct {
@@ -87,6 +87,7 @@ func (q *Queries) GetAnnotation(ctx context.Context, arg GetAnnotationParams) (A
 		&i.Selection,
 		&i.Text,
 		&i.Quote,
+		&i.Color,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -94,8 +95,8 @@ func (q *Queries) GetAnnotation(ctx context.Context, arg GetAnnotationParams) (A
 }
 
 const insertAnnotation = `-- name: InsertAnnotation :exec
-INSERT INTO annotations (user_id, id, edition_id, kind, file_id, content_version, locator, selection, text, quote, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+INSERT INTO annotations (user_id, id, edition_id, kind, file_id, content_version, locator, selection, text, quote, color, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
 `
 
 type InsertAnnotationParams struct {
@@ -109,6 +110,7 @@ type InsertAnnotationParams struct {
 	Selection      []byte    `json:"selection"`
 	Text           string    `json:"text"`
 	Quote          string    `json:"quote"`
+	Color          *string   `json:"color"`
 	CreatedAt      time.Time `json:"created_at"`
 }
 
@@ -124,13 +126,14 @@ func (q *Queries) InsertAnnotation(ctx context.Context, arg InsertAnnotationPara
 		arg.Selection,
 		arg.Text,
 		arg.Quote,
+		arg.Color,
 		arg.CreatedAt,
 	)
 	return err
 }
 
 const listAnnotations = `-- name: ListAnnotations :many
-SELECT user_id, id, edition_id, revision, kind, deleted, file_id, content_version, locator, selection, text, quote, created_at, updated_at FROM annotations
+SELECT user_id, id, edition_id, revision, kind, deleted, file_id, content_version, locator, selection, text, quote, color, created_at, updated_at FROM annotations
 WHERE user_id = $1 AND edition_id = $2 AND ($3::boolean OR NOT deleted)
 ORDER BY id LIMIT $5 OFFSET $4
 `
@@ -171,6 +174,7 @@ func (q *Queries) ListAnnotations(ctx context.Context, arg ListAnnotationsParams
 			&i.Selection,
 			&i.Text,
 			&i.Quote,
+			&i.Color,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -228,7 +232,7 @@ func (q *Queries) ListHubAnnotationTitles(ctx context.Context, userID uuid.UUID)
 }
 
 const listHubAnnotations = `-- name: ListHubAnnotations :many
-SELECT a.id, a.edition_id, a.revision, a.kind, a.file_id, a.content_version, a.locator, a.selection, a.text, a.quote,
+SELECT a.id, a.edition_id, a.revision, a.kind, a.file_id, a.content_version, a.locator, a.selection, a.text, a.quote, a.color,
        a.created_at, a.updated_at, t.id AS title_id, t.title AS title_name, t.authors, e.label AS edition_label, e.format
 FROM annotations a
 JOIN editions e ON e.id = a.edition_id
@@ -263,6 +267,7 @@ type ListHubAnnotationsRow struct {
 	Selection      []byte    `json:"selection"`
 	Text           string    `json:"text"`
 	Quote          string    `json:"quote"`
+	Color          *string   `json:"color"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 	TitleID        uuid.UUID `json:"title_id"`
@@ -301,6 +306,7 @@ func (q *Queries) ListHubAnnotations(ctx context.Context, arg ListHubAnnotations
 			&i.Selection,
 			&i.Text,
 			&i.Quote,
+			&i.Color,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TitleID,
@@ -345,7 +351,7 @@ func (q *Queries) TombstoneAnnotation(ctx context.Context, arg TombstoneAnnotati
 
 const updateAnnotation = `-- name: UpdateAnnotation :exec
 UPDATE annotations SET revision = revision + 1, file_id = $3, content_version = $4, locator = $5, selection = $6,
-    text = $7, quote = $8, updated_at = $9
+    text = $7, quote = $8, color = $9, updated_at = $10
 WHERE user_id = $1 AND id = $2
 `
 
@@ -358,6 +364,7 @@ type UpdateAnnotationParams struct {
 	Selection      []byte    `json:"selection"`
 	Text           string    `json:"text"`
 	Quote          string    `json:"quote"`
+	Color          *string   `json:"color"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
@@ -371,6 +378,7 @@ func (q *Queries) UpdateAnnotation(ctx context.Context, arg UpdateAnnotationPara
 		arg.Selection,
 		arg.Text,
 		arg.Quote,
+		arg.Color,
 		arg.UpdatedAt,
 	)
 	return err

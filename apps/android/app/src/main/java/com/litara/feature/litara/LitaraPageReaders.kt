@@ -140,7 +140,7 @@ class LitaraComicViewModel @Inject constructor(
             val existing = bookmarkOfCurrentPage()
             // A conflict or queued delivery is kept on the device/server; the Books tab shows pending conflicts.
             if (existing != null) a.delete(existing.id)
-            else a.create("bookmark", LLocator.ComicPage(page.index, page.entryId, m.manifestVersion), null, "", "", "yellow", null)
+            else a.create("bookmark", LLocator.ComicPage(page.index, page.entryId, m.manifestVersion), null, "", "", null, null)
             refreshBookmarkState()
         }
     }

@@ -116,6 +116,17 @@
           "anchor": {
             "$ref": "#/components/schemas/EditionAnchor"
           },
+          "color": {
+            "description": "A highlight colour name, for a highlight or a note on selected text (ADR-0094). Absent is the default look; each client picks the shade it draws.",
+            "enum": [
+              "yellow",
+              "green",
+              "blue",
+              "pink",
+              "orange"
+            ],
+            "type": "string"
+          },
           "kind": {
             "enum": [
               "highlight",

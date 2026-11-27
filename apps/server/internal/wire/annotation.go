@@ -87,6 +87,7 @@ type AnnotationData struct {
 	Selection Nullable[Selection] `json:"selection"`
 	Text      string              `json:"text" minLength:"0" maxLength:"65536"`
 	Quote     string              `json:"quote" minLength:"0" maxLength:"16384"`
+	Color     string              `json:"color,omitempty" enum:"yellow,green,blue,pink,orange" doc:"A highlight colour name, for a highlight or a note on selected text (ADR-0094). Absent is the default look; each client picks the shade it draws."`
 }
 
 type AnnotationWrite struct {

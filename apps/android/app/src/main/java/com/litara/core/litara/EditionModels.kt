@@ -1,5 +1,6 @@
 package com.litara.core.litara
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -225,9 +226,20 @@ sealed interface LSelection {
     data class PdfRectangles(val pageIndex: Int, val rectangles: List<LRectangle>, val version: Int = 1) : LSelection
 }
 
-/** [kind] is highlight, note or bookmark. [text] is the user's private text; [quote] is the selected book text (untrusted display data). */
+/**
+ * [kind] is highlight, note or bookmark. [text] is the user's private text; [quote] is the selected book text (untrusted
+ * display data). [color] is a colour name (ADR-0094); the field is left out, not sent as null, for the default look.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
-data class LAnnotationData(val kind: String, val anchor: LEditionAnchor, val selection: LSelection?, val text: String, val quote: String)
+data class LAnnotationData(
+    val kind: String,
+    val anchor: LEditionAnchor,
+    val selection: LSelection?,
+    val text: String,
+    val quote: String,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val color: String? = null,
+)
 
 /** Create (base revision "0" with a never-used client UUID) or change one annotation; revision-checked and idempotent by [operationId]. */
 @Serializable

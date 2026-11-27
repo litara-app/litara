@@ -300,13 +300,7 @@ class ReaderAnnotationRepository @Inject constructor(
         private const val TAG = "Annotations"
         const val DEFAULT_STYLE = "highlight"
 
-        /** Same hues as the web reader's default highlight (`#FACC15`) and its siblings. */
-        val COLORS: List<Pair<String, String>> = listOf(
-            "yellow" to "#FACC15",
-            "green" to "#4ADE80",
-            "blue" to "#38BDF8",
-            "pink" to "#F472B6",
-            "orange" to "#FB923C",
-        )
+        /** The five highlight colours and the shades the picker shows (ADR-0094). */
+        val COLORS: List<Pair<String, String>> = com.litara.core.litara.HighlightColors.SHADES
     }
 }

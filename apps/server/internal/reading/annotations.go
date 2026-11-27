@@ -38,6 +38,7 @@ func annotationWire(r sqlcgen.Annotation) (wire.Annotation, error) {
 		return out, err
 	}
 	d := wire.AnnotationData{Kind: r.Kind, Text: r.Text, Quote: r.Quote,
+		Color:  derefString(r.Color),
 		Anchor: wire.EditionAnchor{FileID: r.FileID.String(), ContentVersion: r.ContentVersion.String(), Locator: loc}}
 	if len(r.Selection) > 0 {
 		var sel wire.Selection
@@ -134,8 +135,19 @@ func validateAnnotation(ed edition, d wire.AnnotationData) error {
 	default:
 		return apperr.Validation("kind must be highlight, note or bookmark.")
 	}
+	if d.Color != "" {
+		if !annotationColors[d.Color] {
+			return apperr.Validation("color must be yellow, green, blue, pink or orange.")
+		}
+		if sel == nil { // bookmarks, and notes on a page rather than on selected text
+			return apperr.Validation("Only a highlight or a note on selected text has a color.")
+		}
+	}
 	return nil
 }
+
+// annotationColors are the names a highlight can be saved with (ADR-0094).
+var annotationColors = map[string]bool{"yellow": true, "green": true, "blue": true, "pink": true, "orange": true}
 
 func comicFormat(f string) bool { return f == "cbz" || f == "cbr" || f == "cb7" }
 
@@ -236,12 +248,16 @@ func (s *Service) applyAnnotation(ctx context.Context, q *sqlcgen.Queries, a Act
 		}
 	}
 	now := s.now()
+	var color *string
+	if d.Color != "" {
+		color = &d.Color
+	}
 	if !exists {
 		return nil, q.InsertAnnotation(ctx, sqlcgen.InsertAnnotationParams{UserID: a.UserID, ID: id, EditionID: ed.ID, Kind: d.Kind,
-			FileID: fileID, ContentVersion: version, Locator: loc, Selection: sel, Text: d.Text, Quote: d.Quote, CreatedAt: now})
+			FileID: fileID, ContentVersion: version, Locator: loc, Selection: sel, Text: d.Text, Quote: d.Quote, Color: color, CreatedAt: now})
 	}
 	return nil, q.UpdateAnnotation(ctx, sqlcgen.UpdateAnnotationParams{UserID: a.UserID, ID: id, FileID: fileID, ContentVersion: version,
-		Locator: loc, Selection: sel, Text: d.Text, Quote: d.Quote, UpdatedAt: now})
+		Locator: loc, Selection: sel, Text: d.Text, Quote: d.Quote, Color: color, UpdatedAt: now})
 }
 
 // DeleteAnnotation tombstones an annotation at its current revision. Deleting
@@ -303,4 +319,11 @@ func (s *Service) applyAnnotationDelete(ctx context.Context, q *sqlcgen.Queries,
 		return nil, nil // deleting a tombstone at its current revision changes nothing
 	}
 	return nil, q.TombstoneAnnotation(ctx, sqlcgen.TombstoneAnnotationParams{UserID: a.UserID, ID: id, UpdatedAt: s.now()})
+}
+
+func derefString(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }

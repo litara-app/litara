@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.litara.R
+import com.litara.core.litara.HighlightColors
 import com.litara.core.litara.EditionProgressSync
 import com.litara.core.litara.EditionReportOutcome
 import com.litara.core.litara.LLocator
@@ -196,7 +197,7 @@ class LitaraReaderViewModel @Inject constructor(
             BookAnnotation(
                 id = intId(a.id), bookId = 0,
                 cfi = (a.selection as? LSelection.FoliateRange)?.cfi ?: (a.locator as? LLocator.FoliateCfi)?.cfi,
-                text = a.quote, color = a.color, style = "highlight", note = a.text.ifEmpty { null },
+                text = a.quote, color = HighlightColors.shade(a.color) ?: HighlightColors.SHADES.first().second, style = "highlight", note = a.text.ifEmpty { null },
                 chapterTitle = a.chapterTitle, origin = "app",
             )
         }
@@ -211,7 +212,7 @@ class LitaraReaderViewModel @Inject constructor(
         val st = _ui.value
         val title = BookmarkNames.default(st.chapterTitle, st.percentage)
         viewModelScope.launch {
-            annotations?.create("bookmark", LLocator.FoliateCfi(cfi), null, "", title, "yellow", st.chapterTitle)
+            annotations?.create("bookmark", LLocator.FoliateCfi(cfi), null, "", title, null, st.chapterTitle)
             refreshAnnotationUi()
         }
     }
@@ -246,7 +247,7 @@ class LitaraReaderViewModel @Inject constructor(
             when {
                 target.annotationId != null -> idOf[target.annotationId]?.let { a.edit(it, text = note, color = color) }
                 sel != null -> a.create("highlight", LLocator.FoliateCfi(sel.cfi), LSelection.FoliateRange(sel.cfi), sel.text,
-                    note.orEmpty(), color ?: "yellow", _ui.value.chapterTitle)
+                    note.orEmpty(), color, _ui.value.chapterTitle)
             }
             refreshAnnotationUi()
         }

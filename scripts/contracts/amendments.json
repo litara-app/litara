@@ -334,6 +334,26 @@
       "difference": "operation resolveAudioBookmarkConflict: not in the contract (unexpected route)",
       "adr": "ADR-0110",
       "reason": "audiobook bookmarks"
+    },
+    {
+      "difference": "Annotation.data: properties differ: contract-only=[] generated-only=['color']",
+      "adr": "ADR-0094",
+      "reason": "highlight colour name"
+    },
+    {
+      "difference": "AnnotationData: properties differ: contract-only=[] generated-only=['color']",
+      "adr": "ADR-0094",
+      "reason": "highlight colour name"
+    },
+    {
+      "difference": "AnnotationWrite.data: properties differ: contract-only=[] generated-only=['color']",
+      "adr": "ADR-0094",
+      "reason": "highlight colour name"
+    },
+    {
+      "difference": "Annotations.items[].data: properties differ: contract-only=[] generated-only=['color']",
+      "adr": "ADR-0094",
+      "reason": "highlight colour name"
     }
   ]
 }

@@ -28,4 +28,6 @@ Not applicable until a decision. Any adapter would need terms evidence, rate lim
 
 ## Open questions
 
+On 2026-11-26 the owner set this question aside for now. It stays Proposed: nothing here is accepted or rejected, and no adapter may be built from it.
+
 Does the owner have official API access to any of these, or want a specific supported alternative (for example the Amazon Product Advertising API with their own associate account)?

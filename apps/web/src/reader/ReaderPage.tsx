@@ -4,7 +4,8 @@ import { useParams } from "react-router";
 import { get } from "../api/client";
 import type { Annotation, AnnotationData, Locator, Page as Paged, ReaderSnapshot } from "../api/types";
 import type { TimelineMark } from "../ui/feedback";
-import { icons, notify, AnchoredPanel, ReadingTimeline, SelectField, BookmarkRibbon, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, ErrorBox, IconButton, Page, RangeSlider, Row, SegmentedField, Stack, Tabs, Text, TextAreaField, TextLink, Tip } from "../ui";
+import { shadeFor, takesColor, withColor, type HighlightColor } from "../annotationColors";
+import { ColorDot, ColorSwatches, icons, notify, AnchoredPanel, ReadingTimeline, SelectField, BookmarkRibbon, Alert, Badge, Busy, Button, Card, DownloadLink, Drawer, ErrorBox, IconButton, Page, RangeSlider, Row, SegmentedField, Stack, Tabs, Text, TextAreaField, TextLink, Tip } from "../ui";
 import { ComicReader } from "./ComicReader";
 import { remoteSource } from "./fileSource";
 import { FinishControl } from "./FinishControl";
@@ -98,7 +99,7 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const [style, setStyle] = useState<ReaderStyle>(loadStyle);
   const [panel, setPanel] = useState(false);
   const [settings, setSettings] = useState(false);
-  const [noteDraft, setNoteDraft] = useState<{ id?: string; text: string; selection: Sel | null } | null>(null);
+  const [noteDraft, setNoteDraft] = useState<{ id?: string; text: string; selection: Sel | null; color?: HighlightColor; colorable?: boolean } | null>(null);
   const quiet = useQuietBar(panel || settings || !!noteDraft);
   const { toolbar, changeToolbar, barOn, reveal: revealBar } = quiet;
   const [chapters, setChapters] = useState<{ label: string; fraction: number }[]>([]);
@@ -175,8 +176,8 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
   const selData = (s: Sel): { anchor: ReturnType<typeof anchorAt>; selection: AnnotationData["selection"] } => s.pdf
     ? { anchor: anchorAt({ kind: "pdf-page", version: 1, pageIndex: s.pdf.pageIndex, x: s.pdf.rectangles[0].x, y: s.pdf.rectangles[0].y }), selection: { kind: "pdf-rectangles", version: 1, pageIndex: s.pdf.pageIndex, rectangles: s.pdf.rectangles } }
     : { anchor: anchorAt(cfiLoc(s.cfi)), selection: { kind: "foliate-range", version: 1, cfi: s.cfi } };
-  const addHighlight = (sel: Sel) => {
-    putAnnotation(crypto.randomUUID(), { kind: "highlight", ...selData(sel), text: "", quote: sel.text }, "Highlight");
+  const addHighlight = (sel: Sel, color?: HighlightColor) => {
+    putAnnotation(crypto.randomUUID(), withColor<AnnotationData>({ kind: "highlight", ...selData(sel), text: "", quote: sel.text }, color), "Highlight");
     hostRef.current?.clearSelection();
     setSelection(null);
   };
@@ -184,10 +185,11 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
     if (!noteDraft || !noteDraft.text.trim()) return;
     if (noteDraft.id) {
       const a = live.find((x) => x.id === noteDraft.id)!;
-      putAnnotation(a.id, { ...a.data!, text: noteDraft.text }, "Edit note");
+      const edited = { ...a.data!, text: noteDraft.text };
+      putAnnotation(a.id, noteDraft.colorable ? withColor<AnnotationData>(edited, noteDraft.color) : edited, "Edit note");
     } else if (noteDraft.selection) {
       const s = noteDraft.selection;
-      putAnnotation(crypto.randomUUID(), { kind: "note", ...selData(s), text: noteDraft.text, quote: s.text }, "Note");
+      putAnnotation(crypto.randomUUID(), withColor<AnnotationData>({ kind: "note", ...selData(s), text: noteDraft.text, quote: s.text }, noteDraft.color), "Note");
       hostRef.current?.clearSelection();
       setSelection(null);
     } else {
@@ -202,10 +204,11 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
       .map((a): PaintedAnnotation => {
         const s = a.data!.selection!;
         const k = a.data!.kind as "highlight" | "note";
-        return s.kind === "pdf-rectangles" ? { id: a.id, pdf: { pageIndex: s.pageIndex, rectangles: s.rectangles }, kind: k } : { id: a.id, cfi: (s as { cfi: string }).cfi, kind: k };
+        const color = shadeFor(a.data!.color, style.theme);
+        return s.kind === "pdf-rectangles" ? { id: a.id, pdf: { pageIndex: s.pageIndex, rectangles: s.rectangles }, kind: k, color } : { id: a.id, cfi: (s as { cfi: string }).cfi, kind: k, color };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [live, e.file.contentVersion],
+    [live, e.file.contentVersion, style.theme],
   );
 
   // ---- host lifecycle -----------------------------------------------------------------
@@ -391,7 +394,8 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
           return (
             <div className="lt-selpop" data-testid="selection-bar" data-below={below || undefined} data-fallback={r ? undefined : true} style={at}>
               <Button size="sm" variant="primary" onClick={() => addHighlight(selection)} icon={icons.highlight}>Highlight</Button>
-              <Button size="sm" onClick={() => setNoteDraft({ text: "", selection })} icon={icons.pencil}>Add note</Button>
+              <Button size="sm" onClick={() => setNoteDraft({ text: "", selection, colorable: true })} icon={icons.pencil}>Add note</Button>
+              <ColorSwatches verb="Highlight in" onPick={(c) => addHighlight(selection, c)} />
             </div>
           );
         })()}
@@ -423,17 +427,21 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
                   <Card key={a.id} pad="sm" data-testid="annotation-item">
                     <Stack gap="xs">
                       <Row justify="between">
-                        <Badge tone={d.kind === "highlight" ? "warning" : d.kind === "note" ? "info" : "neutral"}>{d.kind}</Badge>
+                        <Row gap="xs"><Badge tone={d.kind === "highlight" ? "warning" : d.kind === "note" ? "info" : "neutral"}>{d.kind}</Badge><ColorDot color={d.color} /></Row>
                         {!ok && <Badge outline tone="warning">older file version</Badge>}
                         {a.unsaved === "pending" && <Badge outline tone="neutral" data-testid="unsaved">not saved yet</Badge>}
                         {a.unsaved === "attention" && <TextLink to="/pending"><Badge outline tone="danger">needs attention</Badge></TextLink>}
                       </Row>
                       {d.quote && <Text size="sm" clamp={3}>“{d.quote}”</Text>}
                       {d.text && <Text size="sm" strong>{d.text}</Text>}
+                      {ok && takesColor(d) && (
+                        <ColorSwatches value={d.color ?? ""} onPick={(c) => putAnnotation(a.id, withColor<AnnotationData>(d, c), "Change colour")}
+                          onDefault={() => putAnnotation(a.id, withColor<AnnotationData>(d, undefined), "Change colour")} />
+                      )}
                       <Row>
                         <Button size="sm" disabled={!ok} icon={icons.chevRight}
                           onClick={() => { const l = d.anchor.locator; if (l.kind === "foliate-cfi") hostRef.current?.goto({ cfi: l.cfi }); else if (l.kind === "pdf-page") hostRef.current?.goto({ pageIndex: l.pageIndex, x: l.x, y: l.y }); setPanel(false); }}>Go to</Button>
-                        {d.kind === "note" && ok && <Button size="sm" onClick={() => setNoteDraft({ id: a.id, text: d.text, selection: null })} icon={icons.pencil}>Edit</Button>}
+                        {d.kind === "note" && ok && <Button size="sm" onClick={() => setNoteDraft({ id: a.id, text: d.text, selection: null, color: d.color as HighlightColor | undefined, colorable: takesColor(d) })} icon={icons.pencil}>Edit</Button>}
                         <Button size="sm" variant="danger" onClick={() => removeAnnotation(a)} icon={icons.trash}>Delete</Button>
                       </Row>
                     </Stack>
@@ -449,6 +457,9 @@ function Reader({ snapshot }: { snapshot: ReaderSnapshot }) {
         actions={<><Button onClick={() => setNoteDraft(null)} icon={icons.close}>Cancel</Button><Button variant="primary" onClick={submitNote} disabled={!noteDraft?.text.trim()} icon={icons.save}>Save note</Button></>}>
         <Stack>
           {noteDraft?.selection && <Text size="sm" tone="dim" clamp={3}>{noteDraft.selection.text ? `“${noteDraft.selection.text}”` : "Selected area"}</Text>}
+          {noteDraft?.colorable && (
+            <ColorSwatches value={noteDraft.color ?? ""} onPick={(c) => setNoteDraft((d) => d && { ...d, color: c })} onDefault={() => setNoteDraft((d) => d && { ...d, color: undefined })} />
+          )}
           <TextAreaField label="Note" rows={4} maxLength={65536} autoFocus value={noteDraft?.text ?? ""} onValue={(v) => setNoteDraft((d) => d && { ...d, text: v })} />
         </Stack>
       </Drawer>

@@ -116,7 +116,7 @@ test("bookmarks, highlights and notes persist and are listed", async ({ page }) 
     s.addRange(r);
   });
   await expect(page.getByTestId("selection-bar")).toBeVisible({ timeout: 10_000 });
-  await page.getByRole("button", { name: "Highlight" }).click();
+  await page.getByRole("button", { name: "Highlight", exact: true }).click();
   await expect(page.getByTestId("selection-bar")).toBeHidden();
   await page.waitForTimeout(700); // the clear-selection message reaches the frame asynchronously; a person cannot select faster
 
@@ -145,6 +145,15 @@ test("bookmarks, highlights and notes persist and are listed", async ({ page }) 
   const hl = list.items.find((a: { data: { kind: string } }) => a.data.kind === "highlight");
   expect(hl.data.selection.kind).toBe("foliate-range");
   expect(hl.data.anchor.locator.cfi).toMatch(/^epubcfi\(/);
+
+  // A colour chosen in the panel is saved by name and shown beside the entry (ADR-0094).
+  const highlightItem = page.getByTestId("annotation-item").filter({ hasText: "highlight" });
+  await highlightItem.getByRole("button", { name: "Colour green" }).click();
+  await expect.poll(async () => {
+    const now = await (await page.request.get(`/api/v1/editions/${editionId(page)}/annotations?includeDeleted=false`)).json();
+    return now.items.find((a: { data: { kind: string } }) => a.data.kind === "highlight")?.data.color;
+  }, { timeout: 10_000 }).toBe("green");
+  await expect(highlightItem.getByRole("img", { name: "Green highlight" })).toBeVisible();
 
   // Delete leaves a tombstone: gone from the panel, hidden by default filter.
   await page.getByTestId("annotation-item").filter({ hasText: "bookmark" }).getByRole("button", { name: "Delete" }).click();
