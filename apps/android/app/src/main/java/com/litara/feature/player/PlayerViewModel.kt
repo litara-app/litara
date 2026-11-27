@@ -71,4 +71,13 @@ class PlayerViewModel @Inject constructor(
                 .onFailure { _message.value = UiText.of(R.string.player_bookmark_err_delete) }
         }
     }
+
+    fun renameBookmark(id: String, title: String) {
+        val bookId = state.value.currentBook?.id ?: return
+        viewModelScope.launch {
+            runCatching { bookmarkRepo.rename(bookId, id, title.trim()); bookmarkRepo.list(bookId) }
+                .onSuccess { _bookmarks.value = it }
+                .onFailure { _message.value = UiText.of(R.string.player_bookmark_err_save) }
+        }
+    }
 }

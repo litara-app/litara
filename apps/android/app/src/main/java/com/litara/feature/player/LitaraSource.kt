@@ -1,6 +1,7 @@
 package com.litara.feature.player
 
 import com.litara.core.model.AudioProgress
+import com.litara.core.model.AudiobookBookmark
 import com.litara.core.model.BookCard
 import com.litara.core.model.BookDetail
 import com.litara.core.model.BookFileRef
@@ -44,6 +45,23 @@ interface LitaraSource {
 
     /** Writes the recording's thumbnail (at most 5 MiB) to [destination]; false if absent. */
     suspend fun artwork(bookId: Int, destination: File): Boolean
+
+    /** The recording is audibly playing, [percent] of the way through (ADR-0109). Called every few seconds. */
+    fun listening(bookId: Int, percent: Double) = Unit
+
+    fun listeningPaused() = Unit
+
+    fun listeningEnded() = Unit
+
+    /** This account's bookmarks on the recording, in playing order (ADR-0110). */
+    suspend fun bookmarks(bookId: Int): List<AudiobookBookmark> = emptyList()
+
+    /** Saves a bookmark at [positionSec] of the whole recording; kept on the device until it can be sent. */
+    suspend fun addBookmark(bookId: Int, positionSec: Double, title: String): AudiobookBookmark? = null
+
+    suspend fun renameBookmark(bookId: Int, bookmarkId: String, title: String) = Unit
+
+    suspend fun deleteBookmark(bookId: Int, bookmarkId: String) = Unit
 
     object None : LitaraSource {
         override fun scopeKey() = ""

@@ -14,6 +14,8 @@ import okhttp3.OkHttpClient
 interface LitaraTestDependencies {
     fun repository(): LitaraRepository
     fun backend(): LitaraBackend
+    fun player(): com.litara.feature.player.PlayerManager
+    fun audioBookmarks(): com.litara.feature.player.AudiobookBookmarkRepository
     fun session(): SessionManager
     fun castProxy(): CastProxyServer
     @CastUpstreamClient fun castUpstream(): OkHttpClient

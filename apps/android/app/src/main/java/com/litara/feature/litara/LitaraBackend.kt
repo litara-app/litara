@@ -1,5 +1,6 @@
 package com.litara.feature.litara
 
+import com.litara.core.model.AudiobookBookmark
 import com.litara.core.litara.LFile
 import com.litara.core.litara.LRecording
 import com.litara.core.litara.LRecordingSummary
@@ -44,6 +45,7 @@ class LitaraBackend @Inject constructor(
     private val repo: LitaraRepository,
     imageUrls: com.litara.core.network.ImageUrls,
     private val artwork: dagger.Lazy<com.litara.feature.player.AutoArtwork>,
+    private val activity: LitaraActivityRecorder,
 ) : LitaraSource {
     init { imageUrls.handleArtwork = { id -> if (owns(id)) artwork.get().uri(id).toString() else null } }
 
@@ -182,6 +184,63 @@ class LitaraBackend @Inject constructor(
             is ReportOutcome.NeedsChoice -> true // nothing is written until the user picks on the phone
             else -> true
         }
+    }
+
+    override fun listening(bookId: Int, percent: Double) {
+        val uuid = uuidOf(bookId) ?: return
+        activity.onPlaying(uuid, (percent / 100.0).coerceIn(0.0, 1.0))
+    }
+
+    override fun listeningPaused() = activity.onPlaybackPaused()
+
+    override fun listeningEnded() = activity.endListening()
+
+    /** The snapshot being played, which also works offline. */
+    private suspend fun playing(bookId: Int): LRecording? = uuidOf(bookId)?.let { syncFor(it)?.first }
+
+    private fun asPlayerBookmark(bookId: Int, snap: LRecording, b: com.litara.core.litara.LocalAudioBookmark): AudiobookBookmark {
+        val index = snap.files.indexOfFirst { it.id == b.data.fileId }
+        val before = if (index < 0) 0L else snap.files.take(index).sumOf { it.durationMs ?: 0L }
+        return AudiobookBookmark(b.id, bookId, before + b.data.offsetMs, title = b.data.note,
+            available = b.availableIn(snap), needsChoice = b.conflict != null)
+    }
+
+    override suspend fun bookmarks(bookId: Int): List<AudiobookBookmark> {
+        val snap = playing(bookId) ?: return emptyList()
+        val sync = repo.bookmarks(snap.id)
+        sync.refresh()
+        return sync.store.visible().map { asPlayerBookmark(bookId, snap, it) }.sortedBy { it.positionMs }
+    }
+
+    override suspend fun addBookmark(bookId: Int, positionSec: Double, title: String): AudiobookBookmark? {
+        val snap = playing(bookId) ?: return null
+        var offset = (positionSec * 1000).toLong().coerceAtLeast(0)
+        var file = snap.files.firstOrNull() ?: return null
+        for (f in snap.files) {
+            file = f
+            val length = f.durationMs ?: break
+            if (offset < length || f == snap.files.last()) break
+            offset -= length
+        }
+        val sync = repo.bookmarks(snap.id)
+        val saved = sync.create(com.litara.core.litara.LAudioBookmarkData(file.id, file.contentVersion,
+            offset.coerceAtMost(file.durationMs ?: offset), snap.layoutRevision, title.take(4096)))
+        if (saved.pending != null) activity.retryLater()
+        return asPlayerBookmark(bookId, snap, saved)
+    }
+
+    override suspend fun renameBookmark(bookId: Int, bookmarkId: String, title: String) {
+        val snap = playing(bookId) ?: return
+        val sync = repo.bookmarks(snap.id)
+        sync.rename(bookmarkId, title.take(4096))
+        if (sync.store.hasPending()) activity.retryLater()
+    }
+
+    override suspend fun deleteBookmark(bookId: Int, bookmarkId: String) {
+        val snap = playing(bookId) ?: return
+        val sync = repo.bookmarks(snap.id)
+        sync.delete(bookmarkId)
+        if (sync.store.hasPending()) activity.retryLater()
     }
 
     override suspend fun ended(bookId: Int) {

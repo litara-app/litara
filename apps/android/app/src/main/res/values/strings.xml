@@ -14,6 +14,12 @@
     <string name="bookmark">Bookmark %1$s</string>
     <string name="bookmark_this_page">Bookmark this page</string>
     <string name="bookmarks">Bookmarks</string>
+    <string name="bookmark_rename">Rename bookmark</string>
+    <string name="bookmark_name">Bookmark name</string>
+    <string name="bookmark_rename_save">Save name</string>
+    <string name="bookmark_rename_cancel">Cancel</string>
+    <string name="bookmark_unavailable">The audio changed, so this place cannot be opened.</string>
+    <string name="bookmark_needs_choice">A change was not applied. Choose in the web player.</string>
     <string name="litara">Litara</string>
     <string name="books_by">Books by %1$s</string>
     <string name="books_in">Books in %1$s</string>

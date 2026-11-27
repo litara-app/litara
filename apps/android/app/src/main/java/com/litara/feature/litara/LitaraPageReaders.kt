@@ -50,6 +50,7 @@ class LitaraComicViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repo: LitaraRepository,
     private val settings: AppSettingsStore,
+    private val activity: LitaraActivityRecorder,
 ) : ViewModel(), ComicHost {
     private val editionId: String = savedStateHandle.get<String>("editionId").orEmpty()
 
@@ -98,6 +99,7 @@ class LitaraComicViewModel @Inject constructor(
                 val page = saved?.let { loc -> m.pages.indexOfFirst { it.entryId == loc.entryId }.takeIf { it >= 0 } } ?: 0
                 _ui.update { it.copy(loading = false, title = e.label, fileId = 1, pageCount = m.pages.size, initialPage = page, currentPage = page) }
                 s.flushPending()
+                activity.onReading(editionId, (page + 1).toDouble() / m.pages.size)
                 refreshBookmarkState()
             } catch (ex: Exception) {
                 _ui.update { it.copy(loading = false, error = UiText.raw(ex.message ?: "Could not open this comic.")) }
@@ -112,6 +114,7 @@ class LitaraComicViewModel @Inject constructor(
         val m = manifest ?: return
         if (page == _ui.value.currentPage || page !in m.pages.indices) return
         _ui.update { it.copy(currentPage = page) }
+        activity.onReading(editionId, (page + 1).toDouble() / m.pages.size)
         refreshBookmarkState()
         pendingPage = page
         if (System.currentTimeMillis() - lastSent >= PROGRESS_THROTTLE_MS) flush()
@@ -156,7 +159,7 @@ class LitaraComicViewModel @Inject constructor(
         }
     }
 
-    override fun onCleared() { flush(); super.onCleared() }
+    override fun onCleared() { flush(); activity.endReading(editionId); super.onCleared() }
 }
 
 val COMIC_FORMATS = setOf("cbz", "cbr", "cb7")
@@ -172,6 +175,7 @@ class LitaraPdfViewModel @Inject constructor(
     private val repo: LitaraRepository,
     private val settingsStore: PdfReaderSettingsStore,
     @ApplicationContext private val context: Context,
+    private val activity: LitaraActivityRecorder,
 ) : ViewModel(), PdfHost {
     private val editionId: String = savedStateHandle.get<String>("editionId").orEmpty()
 
@@ -219,6 +223,7 @@ class LitaraPdfViewModel @Inject constructor(
         val clamped = pageIndex.coerceIn(0, total - 1)
         if (clamped == _ui.value.currentPage) return
         _ui.update { it.copy(currentPage = clamped) }
+        activity.onReading(editionId, (clamped + 1).toDouble() / total)
         pendingPage = clamped
         if (System.currentTimeMillis() - lastSent >= PROGRESS_THROTTLE_MS) flush()
         flushJob?.cancel()
@@ -271,6 +276,7 @@ class LitaraPdfViewModel @Inject constructor(
 
     override fun onCleared() {
         flush()
+        activity.endReading(editionId)
         _ui.value.core?.close()
         super.onCleared()
     }

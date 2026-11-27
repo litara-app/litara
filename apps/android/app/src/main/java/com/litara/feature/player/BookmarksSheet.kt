@@ -13,6 +13,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -37,7 +45,19 @@ fun BookmarksSheet(
     onJump: (AudiobookBookmark) -> Unit,
     onDelete: (AudiobookBookmark) -> Unit,
     onDismiss: () -> Unit,
+    onRename: ((AudiobookBookmark, String) -> Unit)? = null,
 ) {
+    var renaming by remember { mutableStateOf<AudiobookBookmark?>(null) }
+    renaming?.let { b ->
+        var name by remember(b.id) { mutableStateOf(b.title) }
+        AlertDialog(
+            onDismissRequest = { renaming = null },
+            title = { Text(stringResource(R.string.bookmark_rename)) },
+            text = { OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.bookmark_name)) }, singleLine = true) },
+            confirmButton = { TextButton(onClick = { onRename?.invoke(b, name); renaming = null }) { Text(stringResource(R.string.bookmark_rename_save)) } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.bookmark_rename_cancel)) } },
+        )
+    }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = 20.dp)) {
             Text(stringResource(R.string.bookmarks), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
@@ -59,7 +79,7 @@ fun BookmarksSheet(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onJump(b) }
+                            .clickable(enabled = b.available) { onJump(b) }
                             .padding(start = 20.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -70,6 +90,13 @@ fun BookmarksSheet(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            if (!b.available) Text(stringResource(R.string.bookmark_unavailable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            if (b.needsChoice) Text(stringResource(R.string.bookmark_needs_choice), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        }
+                        if (onRename != null) {
+                            IconButton(onClick = { renaming = b }) {
+                                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.bookmark_rename))
+                            }
                         }
                         IconButton(onClick = { onDelete(b) }) {
                             Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.delete_bookmark))

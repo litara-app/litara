@@ -62,6 +62,8 @@ Verified on 2026-11-26: JVM tests and debug builds for both flavors; instrumente
 
 Both Gradle runs used `-x checkSharedReader`: on this Windows checkout it fails because the web reader files have CRLF line endings (the content matches once they are ignored). Android lint crashes inside its own analysis of a build script, with or without these changes, so lint did not run.
 
+**Update 2026-11-26:** [ADR-0109](../../ADR/0109-audiobook-listening-sessions.md) and [ADR-0110](../../ADR/0110-audiobook-bookmarks.md) added server routes for listening sessions and audiobook bookmarks. Android now records Litara listening and ebook reading, keeps unsent sessions, and offers audiobook bookmarks, which closes items 3 and 7. Listening is recorded for playback driven by the phone player; playback started only from a car without the phone player was not checked.
+
 ## 3. BookOrbit-only features and what Litara's server offers
 
 About 6,400 lines of screens and repositories are in feature folders used mainly by the BookOrbit shell (`auth`, `authors`, `bookdetail`, `bookdrop`, `browse`, `collections`, `dashboard`, `library`, `main`, `notes`, `scopes`, `search`, `series`, `stats`, `you`). Parts of `browse`, `bookdetail` and `downloads` are still imported by the player and Auto (section 1). Removing the shell loses these until they are rebuilt:
