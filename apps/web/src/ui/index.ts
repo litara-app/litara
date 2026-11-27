@@ -18,3 +18,4 @@ export * from "./virtual";
 export * from "./notify";
 export * from "./heatmap";
 export * from "./people";
+export * from "./swatches";

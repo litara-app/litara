@@ -73,7 +73,7 @@ export function AnnotationsPage() {
             ? <EmptyState title="No annotations yet">Select text while reading to highlight it or add a note. Bookmarks appear here too.</EmptyState>
             : <EmptyState title="Nothing matches">Change the search or the filters.</EmptyState>)}
           {items.map((it) => (
-            <AnnotationCard key={it.annotation.id} a={it.annotation} source={it.editionLabel || it.format.toUpperCase()}
+            <AnnotationCard key={it.annotation.id} editing={editing} a={it.annotation} source={it.editionLabel || it.format.toUpperCase()}
               book={{ title: it.title, to: `/titles/${it.titleId}`, authors: it.authors }} readerTo={`/read/${it.annotation.editionId}`}
               onEdit={() => editing.edit(it.annotation)} onRemove={() => editing.remove(it.annotation)} />
           ))}

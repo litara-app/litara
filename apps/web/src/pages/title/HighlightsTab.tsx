@@ -34,7 +34,7 @@ export function HighlightsTab({ editions }: { editions: Edition[] }) {
         </EmptyState>
       ) : shown.map((a) => {
         const e = editionOf(a);
-        return <AnnotationCard key={a.id} a={a} source={e && (e.label || e.file.format.toUpperCase())} readerTo={e && `/read/${e.id}`}
+        return <AnnotationCard key={a.id} editing={editing} a={a} source={e && (e.label || e.file.format.toUpperCase())} readerTo={e && `/read/${e.id}`}
           onEdit={() => editing.edit(a)} onRemove={() => editing.remove(a)} />;
       })}
       {editing.dialogs}

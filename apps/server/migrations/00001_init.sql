@@ -603,6 +603,7 @@ CREATE TABLE annotations (
     selection       jsonb,
     text            text NOT NULL DEFAULT '',
     quote           text NOT NULL DEFAULT '',
+    color           text CHECK (color IN ('yellow', 'green', 'blue', 'pink', 'orange')),
     created_at      timestamptz NOT NULL DEFAULT now(),
     updated_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (user_id, id)

@@ -2,6 +2,7 @@ package com.litara.core.litara
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -15,8 +16,8 @@ data class PendingAnnotationOp(val operationId: String, val baseRevision: String
 
 /**
  * One annotation on this device, for exactly one file version. [revision] is the last server revision it is based on
- * ("0" = never created on the server); [synced] means the server holds this exact state. [color] and [chapterTitle] are
- * device-only display data: the wire contract has no field for them.
+ * ("0" = never created on the server); [synced] means the server holds this exact state. [chapterTitle] is device-only
+ * display data: the wire contract has no field for it.
  */
 @Serializable
 data class LocalAnnotation(
@@ -27,7 +28,10 @@ data class LocalAnnotation(
     val selection: LSelection? = null,
     val quote: String = "",
     val text: String = "",
-    val color: String = "yellow",
+    /** What earlier builds saved on the device only: a picker shade, or "yellow" for anything without a chosen colour. */
+    @SerialName("color") val deviceColor: String? = null,
+    /** The colour name the server stores (ADR-0094); null for the default look. */
+    val colorName: String? = null,
     val chapterTitle: String? = null,
     val createdAt: String,
     val updatedAt: String,
@@ -37,7 +41,19 @@ data class LocalAnnotation(
     val pending: PendingAnnotationOp? = null,
     /** Set when the server refused a write and kept it as a conflict; the user decides in the web app. */
     val conflict: String? = null,
-)
+) {
+    /** A shade an earlier build let the person pick, which the server has never been given. */
+    private val pickedBefore: String? get() = deviceColor?.takeIf { it.startsWith("#") }
+
+    /** The chosen colour's name, or null for the default look. */
+    val color: String? get() = colorName ?: HighlightColors.nameOf(pickedBefore)
+
+    /** Only a highlight, or a note on selected text, has a colour. */
+    val takesColor: Boolean get() = kind != "bookmark" && selection != null
+
+    /** What a server copy without a colour leaves on the device: an unsent earlier pick survives, anything else does not. */
+    fun unsentPick(): String? = pickedBefore.takeIf { colorName == null }
+}
 
 @Serializable
 private data class AnnotationFile(val fileId: String, val contentVersion: String, val items: List<LocalAnnotation> = emptyList())
@@ -101,20 +117,23 @@ class EditionAnnotationSync(
     private fun anchor(l: LLocator) = LEditionAnchor(fileId, contentVersion, l)
 
     /** Saves a new annotation on the device and, if allowed, delivers it. */
-    suspend fun create(kind: String, locator: LLocator, selection: LSelection?, quote: String, text: String, color: String, chapter: String?): Pair<LocalAnnotation, EditionReportOutcome> = gate.withLock {
+    suspend fun create(kind: String, locator: LLocator, selection: LSelection?, quote: String, text: String, color: String?, chapter: String?): Pair<LocalAnnotation, EditionReportOutcome> = gate.withLock {
         val n = now()
-        var a = LocalAnnotation(UUID.randomUUID().toString(), kind, locator, selection, quote, text, color, chapter, n, n)
+        var a = LocalAnnotation(UUID.randomUUID().toString(), kind, locator, selection, quote, text, chapterTitle = chapter, createdAt = n, updatedAt = n)
+        if (a.takesColor) a = a.copy(colorName = HighlightColors.nameOf(color))
         if (canSync(a)) a = a.copy(pending = PendingAnnotationOp(UUID.randomUUID().toString(), "0", false, n))
         store.put(a)
         val outcome = deliverLocked(a.id)
         store.get(a.id)!! to outcome
     }
 
-    /** Changes the private text and/or the device-only colour of [id]. */
+    /** Changes the private text and/or the colour of [id]; null leaves either as it is. */
     suspend fun edit(id: String, text: String? = null, color: String? = null): EditionReportOutcome = gate.withLock {
         val cur = store.get(id) ?: return@withLock EditionReportOutcome.Accepted
-        var a = cur.copy(text = text ?: cur.text, color = color ?: cur.color, updatedAt = now())
-        val serverChanges = text != null && text != cur.text
+        val picked = HighlightColors.nameOf(color)?.takeIf { cur.takesColor }
+        var a = cur.copy(text = text ?: cur.text, updatedAt = now())
+        if (picked != null) a = a.copy(colorName = picked, deviceColor = null)
+        val serverChanges = (text != null && text != cur.text) || (picked != null && picked != cur.colorName)
         if (serverChanges && canSync(a)) a = a.copy(synced = false, pending = a.pending ?: PendingAnnotationOp(UUID.randomUUID().toString(), a.revision, false, now()))
         store.put(a)
         if (a.pending != null) deliverLocked(id) else EditionReportOutcome.LocalOnly(engineProfile)
@@ -154,8 +173,9 @@ class EditionAnnotationSync(
                 continue
             }
             if (!policy.allows(engineProfile, d.anchor.locator, format) || (d.selection != null && !policy.allowsSelection(engineProfile, d.selection, format))) continue
-            store.put(LocalAnnotation(s.id, d.kind, d.anchor.locator, d.selection, d.quote, d.text, cur?.color ?: "yellow", cur?.chapterTitle,
-                cur?.createdAt ?: s.updatedAt, s.updatedAt, false, s.revision, true, null, null))
+            store.put(LocalAnnotation(s.id, d.kind, d.anchor.locator, d.selection, d.quote, d.text,
+                deviceColor = if (d.color == null) cur?.unsentPick() else null, colorName = d.color, chapterTitle = cur?.chapterTitle,
+                createdAt = cur?.createdAt ?: s.updatedAt, updatedAt = s.updatedAt, deleted = false, revision = s.revision, synced = true))
         }
         last
     }
@@ -166,7 +186,7 @@ class EditionAnnotationSync(
         return try {
             val r = if (p.delete) client.deleteAnnotation(editionId, id, LAnnotationDelete(p.operationId, p.baseRevision, p.capturedAt))
             else client.putAnnotation(editionId, id, LAnnotationWrite(p.operationId, p.baseRevision,
-                LAnnotationData(a.kind, anchor(a.locator), a.selection, a.text, a.quote), p.capturedAt))
+                LAnnotationData(a.kind, anchor(a.locator), a.selection, a.text, a.quote, a.color.takeIf { a.takesColor }), p.capturedAt))
             store.put(a.copy(revision = r.revision, synced = true, pending = null, conflict = null, deleted = r.deleted || a.deleted))
             EditionReportOutcome.Accepted
         } catch (e: LitaraHttpException) {

@@ -27,6 +27,7 @@ export type Annotation = {
 
 export type AnnotationData = {
   anchor: EditionAnchor;
+  color?: "yellow" | "green" | "blue" | "pink" | "orange";
   kind: "highlight" | "note" | "bookmark";
   quote: string;
   selection: (Selection) | (null);

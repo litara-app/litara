@@ -302,6 +302,11 @@ a { color: var(--lt-pri); }
 button.lt-tl-mark:hover::before, button.lt-tl-mark:focus-visible::before { outline: 2px solid var(--lt-pri); outline-offset: 2px; }
 .lt-selpop { position: absolute; z-index: 7; left: var(--x); top: var(--y); transform: translate(-50%, -100%); display: flex; gap: var(--lt-s2); padding: var(--lt-s2); background: var(--lt-surface); border: 1px solid var(--lt-edge, var(--lt-line)); box-shadow: 2px 2px 0 var(--lt-line), 0 8px 18px rgb(0 0 0 / .3); }
 .lt-selpop[data-below] { transform: translate(-50%, 0); }
+/* Fixed width: the reader keeps its centre at least half of this from either edge. The colours take their own row. */
+.lt-selpop { flex-wrap: wrap; justify-content: center; width: min(244px, calc(100% - 16px)); }
+.lt-swatches { display: inline-flex; flex-wrap: wrap; gap: 2px; align-items: center; }
+.lt-swatch { display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: var(--swatch); border: 1px solid var(--lt-line); vertical-align: middle; }
+.lt-swatches .lt-icon-btn[aria-pressed="true"] { outline: 2px solid var(--lt-ink); outline-offset: -2px; }
 .lt-selpop[data-fallback] { left: 50%; top: auto; bottom: 12px; transform: translateX(-50%); }
 .lt-reader-track { flex: 1; min-width: 60px; }
 .lt-reader-track .lt-progress [data-slot="progress-indicator"] { background: var(--lt-brass, var(--lt-pri)); }

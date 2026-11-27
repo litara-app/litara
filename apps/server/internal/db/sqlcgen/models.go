@@ -41,6 +41,7 @@ type Annotation struct {
 	Selection      []byte    `json:"selection"`
 	Text           string    `json:"text"`
 	Quote          string    `json:"quote"`
+	Color          *string   `json:"color"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

@@ -193,7 +193,7 @@ object SharedReaderProtocol {
     }
 
     private val NAMED = mapOf(
-        "yellow" to "#facc15", "green" to "#4ade80", "blue" to "#60a5fa", "red" to "#f87171",
+        "yellow" to "#facc15", "green" to "#4ade80", "blue" to "#38bdf8", "red" to "#f87171",
         "pink" to "#f472b6", "orange" to "#fb923c", "purple" to "#c084fc",
     )
 
