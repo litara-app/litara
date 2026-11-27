@@ -76,7 +76,12 @@ class LitaraServerFlowTest {
         // 1. Stream (bearer + ranged requests through ExoPlayer) from the last chapter and watch time advance.
         rule.onNodeWithTag(LitaraTags.chapter("Finale")).performClick()
         rule.onNodeWithTag(LitaraTags.PLAY).performClick()
-        rule.waitUntil(40_000) { text(LitaraTags.POSITION).startsWith("file 3") && offsetSeconds() >= 12 }
+        try {
+            rule.waitUntil(40_000) { text(LitaraTags.POSITION).startsWith("file 3") && offsetSeconds() >= 12 }
+        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            val err = if (rule.onAllNodesWithTagSafe(LitaraTags.ERROR)) text(LitaraTags.ERROR) else "(no error shown)"
+            throw AssertionError("streaming did not reach 12 s of file 3; position: '${text(LitaraTags.POSITION)}', status: '${text(LitaraTags.STATUS)}', UI error: $err", e)
+        }
         rule.onNodeWithTag(LitaraTags.PLAY).performClick() // pause -> position is reported to the server
 
         // 2. Download, then play the downloaded files to their natural end.
