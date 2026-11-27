@@ -238,6 +238,18 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel(), litara: Boolean = fa
                 item { HorizontalDivider() }
             }
 
+            if (litara) {
+                item { SectionHeader(stringResource(R.string.downloads)) }
+                item {
+                    SettingsRow(
+                        title = stringResource(R.string.settings_wifi_only),
+                        subtitle = stringResource(R.string.settings_wifi_only_litara_desc),
+                        trailing = { Switch(checked = wifiOnly, onCheckedChange = vm::setWifiOnlyDownloads) },
+                    )
+                }
+                item { HorizontalDivider() }
+            }
+
             if (!litara) {
                 item { SectionHeader(stringResource(R.string.downloads)) }
                 item {

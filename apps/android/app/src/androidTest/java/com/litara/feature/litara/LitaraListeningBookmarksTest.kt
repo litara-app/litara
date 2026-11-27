@@ -72,7 +72,25 @@ class LitaraListeningBookmarksTest {
         val handle = deps.backend().handleFor(recording!!)!!
         val player = deps.player()
         val titleId = client.snapshot(recording).titleId
-        val before = items("/titles/$titleId/listening-sessions?size=200").size
+
+        // All tests share one process. One that played this recording earlier leaves its session open, and playing
+        // again within 30 minutes rightly continues it. End it here, so this test measures a session of its own.
+        main { player.stop() }
+        Thread.sleep(1_000)
+
+        main { player.loadAndPlay(handle) }
+        await("playback starts") { player.state.value.isPlaying }
+        // An earlier test may also have left the saved position near the end.
+        main { player.seekToAbsolute(0.0) }
+        await("playback restarts from the beginning") { player.state.value.isPlaying && player.state.value.positionSec < 5 }
+        // Sessions that began before this moment belong to earlier tests, whenever they reach the server.
+        main { player.togglePlay() }
+        await("playback pauses before measuring") { !player.state.value.isPlaying }
+        main { player.stop() }
+        Thread.sleep(1_000)
+        val startedAfter = java.time.Instant.now()
+        suspend fun ownSessions() = items("/titles/$titleId/listening-sessions?size=200")
+            .filter { !java.time.Instant.parse(it["startedAt"]!!.jsonPrimitive.content).isBefore(startedAfter) }
 
         main { player.loadAndPlay(handle) }
         await("playback starts") { player.state.value.isPlaying }
@@ -80,14 +98,14 @@ class LitaraListeningBookmarksTest {
         main { player.togglePlay() }
         await("playback pauses") { !player.state.value.isPlaying }
         val deadline = System.currentTimeMillis() + 40_000
-        while (items("/titles/$titleId/listening-sessions?size=200").size <= before) {
+        while (ownSessions().isEmpty()) {
             if (System.currentTimeMillis() > deadline) {
                 val queued = File(context.filesDir, "litara-offline").walkTopDown().filter { it.parentFile?.name == "sessions" }.map { it.readText() }.toList()
                 fail("the listening session did not reach the server; queued=$queued position=${player.state.value.positionSec} book=${player.state.value.currentBook?.id} handle=$handle")
             }
             Thread.sleep(500)
         }
-        val heard = items("/titles/$titleId/listening-sessions?size=200").first()
+        val heard = ownSessions().single()
         val seconds = heard["listenedSeconds"]!!.jsonPrimitive.content.toInt()
         // The first player report can come up to five seconds after play starts.
         assertTrue("about 16 s were played, recorded $seconds", seconds in 8..20)

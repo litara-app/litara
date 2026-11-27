@@ -64,6 +64,7 @@ class LitaraShellViewModel @Inject constructor(
     private fun fail(e: Throwable) {
         android.util.Log.w("LitaraShell", "operation failed", e)
         val msg = when (e) {
+            is MeteredNetworkException -> app.getString(R.string.litara_wifi_only_blocked)
             is InsecureServerException -> app.getString(R.string.litara_err_insecure)
             is LitaraHttpException -> e.problem.code.ifEmpty { "HTTP ${e.status}" }
             is SessionEndedException -> { repo.refreshSignedIn(); app.getString(R.string.litara_err_signed_out, e.code) }
@@ -97,6 +98,8 @@ class LitaraShellViewModel @Inject constructor(
     fun open(row: LibraryRow) = openId(row.summary.id)
 
     fun openDownload(row: DownloadRow) = openId(row.id)
+
+    fun openRecording(id: String) = openId(id)
 
     private fun openId(id: String) = run {
         val view = repo.snapshot(id)
@@ -154,7 +157,11 @@ class LitaraShellViewModel @Inject constructor(
 
     fun download() = run {
         val snap = _ui.value.detail?.snapshot ?: return@run
-        repo.download(snap) { d, t -> _ui.update { it.copy(downloading = d to t) } }
+        try {
+            repo.download(snap) { d, t -> _ui.update { it.copy(downloading = d to t) } }
+        } finally {
+            _ui.update { it.copy(downloading = null) } // a stopped download must leave the button usable
+        }
         val view = repo.snapshot(snap.id)
         _ui.update { it.copy(downloading = null, detail = view, downloads = loadDownloads()) }
     }

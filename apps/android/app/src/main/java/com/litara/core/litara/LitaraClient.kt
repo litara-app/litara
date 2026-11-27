@@ -5,6 +5,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -283,6 +288,84 @@ class LitaraClient(
 
     suspend fun resolvePersonalConflict(conflictId: String, r: LResolve): LResolved =
         postJson("/personal-conflicts/$conflictId/resolve", LitaraJson.encodeToString(r))
+
+    // ---- browsing: library table, directories, shelves, ratings and stats ------------------------
+
+    /** One page of the sortable, filterable title list. */
+    suspend fun titleRows(query: TitleQuery, page: Int, size: Int = 50): LTitleRows = getJson("/titles?" + query.toQueryString(page, size))
+
+    /**
+     * Every title by an author or in a series, using the title search's "is" rule so these pages agree with the web's
+     * (ADR-0100). Capped at [maxPages] pages of [pageSize].
+     */
+    suspend fun titlesBy(field: String, name: String, pageSize: Int = 200, maxPages: Int = 5): List<LTitleRow> {
+        val all = ArrayList<LTitleRow>()
+        var page = 0
+        while (page < maxPages) {
+            val body = buildJsonObject {
+                putJsonObject("filter") {
+                    put("type", "rule")
+                    put("field", field)
+                    put("operator", "is")
+                    putJsonArray("value") { add(name) }
+                }
+                put("sort", if (field == "series") "series_index" else "title")
+                put("order", "asc")
+                put("page", page)
+                put("size", pageSize)
+            }
+            val r: LTitleRows = postJson("/titles/search", body.toString())
+            all += r.items
+            if (r.items.isEmpty() || all.size >= r.total) break
+            page++
+        }
+        return all
+    }
+
+    suspend fun title(titleId: String): LTitleDetail = getJson("/titles/$titleId")
+
+    suspend fun titleRecordings(titleId: String): LRecordingLinks = getJson("/titles/$titleId/recordings?page=0&size=200")
+
+    suspend fun authors(q: String, sort: String, letter: String?, page: Int, size: Int = 50): LDirectoryAuthors =
+        getJson("/authors?page=$page&size=$size&sort=$sort" + optional("q", q.take(200)) + optional("letter", letter))
+
+    suspend fun seriesList(q: String, sort: String, page: Int, size: Int = 50): LDirectorySeriesPage =
+        getJson("/series?page=$page&size=$size&sort=$sort" + optional("q", q.take(200)))
+
+    private fun optional(name: String, value: String?) = if (value.isNullOrBlank()) "" else "&$name=" + urlEncode(value.trim())
+
+    /** [kind] is `authors` or `series`. */
+    suspend fun directoryDetails(kind: String, name: String): LDirectoryDetails = getJson("/$kind/details?name=" + urlEncode(name))
+
+    suspend fun missingBooks(series: String): LMissingBooks = getJson("/series/missing?name=" + urlEncode(series))
+
+    /** [by] is `author` or `series`: the unfinished book used most recently, or else the first unread one. */
+    suspend fun continueReading(by: String, name: String): LContinueTarget = getJson("/continue-reading?by=$by&name=" + urlEncode(name))
+
+    suspend fun shelves(page: Int, size: Int = 50, scope: String? = null): LShelves =
+        getJson("/shelves?page=$page&size=$size" + optional("scope", scope))
+
+    suspend fun shelf(shelfId: String): LShelf = getJson("/shelves/$shelfId")
+
+    suspend fun shelfTitles(shelfId: String, page: Int, size: Int = 50): LTitles = getJson("/shelves/$shelfId/titles?page=$page&size=$size")
+
+    suspend fun putShelf(shelfId: String, w: LShelfWrite): LShelf = sendJson("PUT", "/shelves/$shelfId", LitaraJson.encodeToString(w))
+
+    suspend fun deleteShelf(shelfId: String, c: LRevisionedChange): LShelf = sendJson("DELETE", "/shelves/$shelfId", LitaraJson.encodeToString(c))
+
+    suspend fun addToShelf(shelfId: String, titleId: String, c: LRevisionedChange): LShelf =
+        sendJson("PUT", "/shelves/$shelfId/titles/$titleId", LitaraJson.encodeToString(c))
+
+    suspend fun removeFromShelf(shelfId: String, titleId: String, c: LRevisionedChange): LShelf =
+        sendJson("DELETE", "/shelves/$shelfId/titles/$titleId", LitaraJson.encodeToString(c))
+
+    suspend fun titlePersonal(titleId: String): LTitlePersonal = getJson("/titles/$titleId/personal")
+
+    suspend fun putTitlePersonal(titleId: String, w: LTitlePersonalWrite): LTitlePersonal =
+        sendJson("PUT", "/titles/$titleId/personal", LitaraJson.encodeToString(w))
+
+    suspend fun readingStats(from: String, to: String, timeZone: String): LReadingStats =
+        getJson("/stats/reading?from=$from&to=$to&timeZone=" + urlEncode(timeZone))
 
     // ---- plumbing ---------------------------------------------------------------
 

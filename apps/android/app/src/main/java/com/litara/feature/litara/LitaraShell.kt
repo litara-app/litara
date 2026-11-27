@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material.icons.outlined.MenuBook
@@ -65,6 +66,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import com.litara.R
+import com.litara.feature.litara.browse.BrowseTab
+import com.litara.feature.litara.browse.BrowseTags
+import com.litara.feature.litara.browse.browseNav
+import com.litara.feature.litara.browse.browseRoutes
+import com.litara.feature.litara.browse.openStats
 import com.litara.feature.player.MiniPlayer
 import com.litara.feature.player.PlayerScreen
 import com.litara.feature.player.PlayerViewModel
@@ -74,6 +80,7 @@ import com.litara.ui.LocalImageUrls
 /** Test tags for the Litara shell. */
 object ShellTags {
     const val TAB_LIBRARY = "shell-tab-library"
+    const val TAB_BROWSE = "shell-tab-browse"
     const val TAB_BOOKS = "shell-tab-books"
     const val TAB_DOWNLOADS = "shell-tab-downloads"
     const val TAB_ACCOUNT = "shell-tab-account"
@@ -106,26 +113,33 @@ private const val ROUTE_PDF = "pdf/{editionId}"
 private const val ROUTE_COMIC = "comic/{editionId}"
 
 /**
- * The phone app for a signed-in Litara account: Library, Books, Downloads and Account over recording detail,
- * with full-screen ebook, PDF and comic readers, the audiobook player and settings.
+ * The phone app for a signed-in Litara account: Library, Books, Browse, Downloads and Account over recording detail,
+ * with full-screen browsing pages, ebook, PDF and comic readers, the audiobook player, stats and settings.
  */
 @Composable
 fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
     val nav = rememberNavController()
     val player: PlayerViewModel = hiltViewModel()
     LaunchedEffect(Unit) { player.restoreLastBook() }
+    val read: (String, String) -> Unit = { id, format ->
+        nav.navigate(when {
+            format == "pdf" -> "pdf/$id"
+            format in COMIC_FORMATS -> "comic/$id"
+            else -> "reader/$id"
+        })
+    }
     NavHost(nav, startDestination = ROUTE_MAIN) {
+        // An audiobook chosen while browsing opens on the usual recording page, over the tab it came from.
+        browseRoutes(nav, read) { recordingId ->
+            vm.openRecording(recordingId)
+            nav.popBackStack(ROUTE_MAIN, inclusive = false)
+        }
         composable(ROUTE_MAIN) {
             ShellMain(vm, onListen = { handle ->
                 player.loadAndPlay(handle)
                 nav.navigate(ROUTE_PLAYER)
-            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onOpenSettings = { nav.navigate(ROUTE_SETTINGS) }, onReadBook = { id, format ->
-                nav.navigate(when {
-                    format == "pdf" -> "pdf/$id"
-                    format in COMIC_FORMATS -> "comic/$id"
-                    else -> "reader/$id"
-                })
-            })
+            }, onOpenPlayer = { nav.navigate(ROUTE_PLAYER) }, onOpenSettings = { nav.navigate(ROUTE_SETTINGS) }, onReadBook = read,
+                onOpenStats = { openStats(nav) }, browse = browseNav(nav))
         }
         composable(ROUTE_PDF) {
             com.litara.feature.reader.pdf.PdfReaderScreen(onBack = dropUnlessResumed { nav.popBackStack() }, vm = hiltViewModel<LitaraPdfViewModel>())
@@ -147,7 +161,9 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onOpenSettings: () -> Unit, onReadBook: (String, String) -> Unit) {
+private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenPlayer: () -> Unit, onOpenSettings: () -> Unit, onReadBook: (String, String) -> Unit,
+    onOpenStats: () -> Unit, browse: com.litara.feature.litara.browse.BrowseNav) {
+    var browseSection by rememberSaveable { mutableIntStateOf(0) }
     val ui by vm.ui.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     // Held here so a search survives opening a recording or a book and coming back.
@@ -163,6 +179,8 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
                         label = { Text(stringResource(R.string.litara_tab_library)) }, modifier = Modifier.testTag(ShellTags.TAB_LIBRARY))
                     NavigationBarItem(tab == 1, { tab = 1; vm.closeDetail() }, { Icon(Icons.Outlined.MenuBook, null) },
                         label = { Text(stringResource(R.string.litara_tab_books)) }, modifier = Modifier.testTag(ShellTags.TAB_BOOKS))
+                    NavigationBarItem(tab == 4, { tab = 4; vm.closeDetail() }, { Icon(Icons.Outlined.Explore, null) },
+                        label = { Text(stringResource(R.string.litara_tab_browse)) }, modifier = Modifier.testTag(ShellTags.TAB_BROWSE))
                     NavigationBarItem(tab == 2, { tab = 2; vm.closeDetail() }, { Icon(Icons.Outlined.Download, null) },
                         label = { Text(stringResource(R.string.litara_tab_downloads)) }, modifier = Modifier.testTag(ShellTags.TAB_DOWNLOADS))
                     NavigationBarItem(tab == 3, { tab = 3; vm.closeDetail() }, { Icon(Icons.Outlined.AccountCircle, null) },
@@ -176,11 +194,12 @@ private fun ShellMain(vm: LitaraShellViewModel, onListen: (Int) -> Unit, onOpenP
             ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(LitaraTags.ERROR).clickable { vm.clearError() }) }
             if (ui.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             when {
-                ui.detail != null -> ShellDetail(vm, ui, onListen)
+                ui.detail != null -> ShellDetail(vm, ui, onListen, backLabel = if (tab == 0) R.string.litara_back else R.string.browse_back_label)
                 tab == 0 -> ShellLibrary(vm, ui, libraryQuery) { libraryQuery = it }
                 tab == 1 -> ShellBooks(onReadBook, booksQuery, { booksQuery = it })
                 tab == 2 -> ShellDownloads(vm, ui)
-                else -> ShellAccount(vm, ui, onOpenSettings)
+                tab == 4 -> BrowseTab(browse, browseSection) { browseSection = it }
+                else -> ShellAccount(vm, ui, onOpenSettings, onOpenStats)
             }
         }
     }
@@ -365,6 +384,7 @@ private fun booksNoteText(n: BooksNote): Int = when (n) {
     BooksNote.RESOLVED -> R.string.litara_note_resolved
     BooksNote.DOWNLOAD_FAILED -> R.string.litara_book_download_failed
     BooksNote.RESOLVE_STALE -> R.string.litara_note_resolve_stale
+    BooksNote.WIFI_ONLY -> R.string.litara_wifi_only_blocked
 }
 
 private fun conflictBodyText(c: com.litara.core.litara.LPersonalConflict): Int = when {
@@ -403,21 +423,22 @@ private fun ShellDownloads(vm: LitaraShellViewModel, ui: ShellUi) {
 }
 
 @Composable
-private fun ShellAccount(vm: LitaraShellViewModel, ui: ShellUi, onOpenSettings: () -> Unit) {
+private fun ShellAccount(vm: LitaraShellViewModel, ui: ShellUi, onOpenSettings: () -> Unit, onOpenStats: () -> Unit) {
     Text(stringResource(R.string.litara_tab_account), style = MaterialTheme.typography.titleLarge)
     Text(stringResource(R.string.litara_signed_in_as, ui.account))
     Text(stringResource(R.string.litara_account_server, ui.server), style = MaterialTheme.typography.bodySmall)
     Text(stringResource(R.string.litara_account_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text(stringResource(R.string.litara_audio_only), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    OutlinedButton(onOpenStats, Modifier.testTag(BrowseTags.STATS_OPEN)) { Text(stringResource(R.string.stats_open)) }
     OutlinedButton(onOpenSettings, Modifier.testTag(ShellTags.SETTINGS)) { Text(stringResource(R.string.litara_settings)) }
     OutlinedButton({ vm.signOut() }, Modifier.testTag(ShellTags.SIGN_OUT)) { Text(stringResource(R.string.litara_sign_out)) }
 }
 
 @Composable
-private fun ShellDetail(vm: LitaraShellViewModel, ui: ShellUi, onListen: (Int) -> Unit) {
+private fun ShellDetail(vm: LitaraShellViewModel, ui: ShellUi, onListen: (Int) -> Unit, backLabel: Int) {
     val view = ui.detail!!
     val snap = view.snapshot
-    TextButton({ vm.closeDetail() }) { Text(stringResource(R.string.litara_back)) }
+    TextButton({ vm.closeDetail() }) { Text(stringResource(backLabel)) }
     Row(verticalAlignment = Alignment.Top) {
         Cover(ui.detailHandle, snap.title, 96)
         Column(Modifier.padding(start = 12.dp)) {

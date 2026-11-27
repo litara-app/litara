@@ -219,6 +219,8 @@
     <string name="server_err_certificate">The secure connection could not be verified. Check the server name, certificate expiry and certificate chain. For a private CA, install its CA certificate in Android and enable Trust user-installed certificates above.</string>
     <string name="settings_wifi_only">Wi-Fi only</string>
     <string name="settings_wifi_only_desc">Only download books over an unmetered connection</string>
+    <string name="settings_wifi_only_litara_desc">The Download button works only on an unmetered connection. Playing and reading online still use any connection.</string>
+    <string name="litara_wifi_only_blocked">Downloads are set to Wi-Fi only. Connect to Wi-Fi, or turn this off in Settings. What was already downloaded is kept.</string>
     <string name="settings_download_location">Download location</string>
     <string name="settings_folder_inaccessible">This folder isn\'t accessible anymore (permission revoked or the storage was removed). New downloads will use app storage until you pick a new folder.</string>
     <string name="settings_progress_book">Whole book</string>

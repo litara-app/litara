@@ -64,6 +64,8 @@ Both Gradle runs used `-x checkSharedReader`: on this Windows checkout it fails 
 
 **Update 2026-11-26:** [ADR-0109](../../ADR/0109-audiobook-listening-sessions.md) and [ADR-0110](../../ADR/0110-audiobook-bookmarks.md) added server routes for listening sessions and audiobook bookmarks. Android now records Litara listening and ebook reading, keeps unsent sessions, and offers audiobook bookmarks, which closes items 3 and 7. Listening is recorded for playback driven by the phone player; playback started only from a car without the phone player was not checked.
 
+**Update 2026-11-26 (browsing):** the Litara phone app now has a Browse tab (title list with search, filters and sorting; author and series pages; shelves), a title page with the private rating, a stats page under Account, and a "Wi-Fi only" setting for downloads. All of it needs a connection. Filters are combined with AND; nested AND/OR rules, smart shelf rules, shelf reordering, and editing author or series details remain web-only. Litara downloads stay in phone storage, with no location setting ([ADR-0111](../../ADR/0111-android-download-location.md)). Notes across books, a dashboard and the other rows below are unchanged. The table describes the state before these changes.
+
 ## 3. BookOrbit-only features and what Litara's server offers
 
 About 6,400 lines of screens and repositories are in feature folders used mainly by the BookOrbit shell (`auth`, `authors`, `bookdetail`, `bookdrop`, `browse`, `collections`, `dashboard`, `library`, `main`, `notes`, `scopes`, `search`, `series`, `stats`, `you`). Parts of `browse`, `bookdetail` and `downloads` are still imported by the player and Auto (section 1). Removing the shell loses these until they are rebuilt:

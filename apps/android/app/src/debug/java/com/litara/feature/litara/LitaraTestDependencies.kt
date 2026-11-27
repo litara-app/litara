@@ -17,6 +17,7 @@ interface LitaraTestDependencies {
     fun player(): com.litara.feature.player.PlayerManager
     fun audioBookmarks(): com.litara.feature.player.AudiobookBookmarkRepository
     fun session(): SessionManager
+    fun appSettings(): com.litara.core.settings.AppSettingsStore
     fun castProxy(): CastProxyServer
     @CastUpstreamClient fun castUpstream(): OkHttpClient
 }

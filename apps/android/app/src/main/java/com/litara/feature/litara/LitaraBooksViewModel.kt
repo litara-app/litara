@@ -26,7 +26,7 @@ data class BookRow(val edition: LEdition, val title: String, val authors: List<S
 }
 
 /** One short, user-visible result of the last action (a code the UI maps to text; never server prose). */
-enum class BooksNote { FINISH_QUEUED, EARLIER_DELIVERED, CONTENT_CHANGED, ACCESS_ENDED, CONFLICT_SAVED, RESOLVED, RESOLVE_STALE, DOWNLOAD_FAILED }
+enum class BooksNote { FINISH_QUEUED, EARLIER_DELIVERED, CONTENT_CHANGED, ACCESS_ENDED, CONFLICT_SAVED, RESOLVED, RESOLVE_STALE, DOWNLOAD_FAILED, WIFI_ONLY }
 
 data class BooksUi(
     val loading: Boolean = true,
@@ -125,6 +125,8 @@ class LitaraBooksViewModel @Inject constructor(private val repo: LitaraRepositor
             } catch (_: com.litara.core.litara.ContentChangedException) {
                 _ui.update { it.copy(note = BooksNote.CONTENT_CHANGED) }
                 load()
+            } catch (_: MeteredNetworkException) {
+                _ui.update { it.copy(note = BooksNote.WIFI_ONLY) }
             } catch (_: Exception) {
                 _ui.update { it.copy(note = BooksNote.DOWNLOAD_FAILED) }
             } finally {
