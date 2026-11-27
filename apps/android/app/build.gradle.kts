@@ -228,9 +228,6 @@ dependencies {
     androidTestImplementation(libs.okhttp.tls)
 }
 
-apply(from = "../shared-reader.gradle.kts")
-tasks.named("preBuild") { dependsOn("checkSharedReader") }
-
 val prepareTestFonts = tasks.register<Copy>("prepareTestFonts") {
     from(rootProject.file("../web/node_modules/@fontsource/literata/files")) { include("literata-latin-400-normal.woff2") }
     into(layout.buildDirectory.dir("generated/testFonts"))

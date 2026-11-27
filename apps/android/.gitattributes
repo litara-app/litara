@@ -1,0 +1,2 @@
+# The bundled reader copy must stay byte-identical to apps/web/public/reader (checkSharedReader).
+app/src/main/assets/reader-shared/** -text
