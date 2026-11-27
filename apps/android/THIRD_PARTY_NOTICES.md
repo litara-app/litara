@@ -56,22 +56,23 @@ automated scanner in this import. A complete transitive license report is a know
 
 | Dependency | Version | License | Flavor |
 | --- | --- | --- | --- |
-| AndroidX: core-ktx, appcompat, lifecycle (runtime, viewmodel, process, compose), activity-compose, navigation-compose, room (runtime, ktx, compiler, testing), datastore-preferences, security-crypto, documentfile, paging (runtime, compose), work-runtime-ktx, webkit, hilt-navigation-compose, hilt-work, Compose BOM (ui, graphics, material3, material-icons-extended, tooling) | see `libs.versions.toml` | Apache-2.0 | both |
+| AndroidX: core-ktx, appcompat, lifecycle (runtime, viewmodel, process, compose), activity-compose, navigation-compose, room (runtime, ktx, compiler, testing), datastore-preferences, security-crypto, documentfile, work-runtime-ktx, webkit, hilt-navigation-compose, hilt-work, Compose BOM (ui, graphics, material3, material-icons-extended, tooling) | see `libs.versions.toml` | Apache-2.0 | both |
 | Media3 (exoplayer, session, common, datasource-okhttp) | 1.5.1 | Apache-2.0 | both |
 | Media3 `media3-cast`, AndroidX `mediarouter` | 1.5.1 / 1.7.0 | Apache-2.0 | **full only** |
 | `com.google.android.gms:play-services-cast-framework` (and transitive `play-services-cast`, `-base`, `-basement`, `-tasks`, `-flags`) | 21.5.0 | **Proprietary** (Android Software Development Kit / Google Play services terms). Binary dependency; not redistributed as source; not covered by AGPL. | **full only** |
 | Dagger/Hilt | 2.53.1 | Apache-2.0 | both |
-| Retrofit (+ kotlinx-serialization converter) | 2.11.0 | Apache-2.0 | both |
 | OkHttp (+ logging-interceptor, mockwebserver, okhttp-tls) | 4.12.0 | Apache-2.0 | both (test-only for mockwebserver/tls) |
 | kotlinx.serialization, kotlinx.coroutines | 1.7.3 / 1.9.0 | Apache-2.0 | both |
 | Coil | 2.7.0 | Apache-2.0 | both |
-| AppAuth for Android | 0.11.1 | Apache-2.0 | both |
 | Gradle Play Publisher (build plugin, inert without credentials) | 3.13.0 | MIT (plugin; not shipped) | build only |
 | JUnit | 4.13.2 | EPL-1.0 | test only, not shipped |
 | MockK, Turbine, AndroidX Test/Espresso | 1.13.13 / 1.2.0 / see toml | Apache-2.0 | test only, not shipped |
 
 Keep this table synchronised when `libs.versions.toml` changes. Dependency upgrades are out of
 scope for the import.
+
+Updated 2026-11-27 at the repository owner's request: Retrofit, AppAuth and Paging are no longer dependencies and
+were removed from this table. The other rows were not re-audited.
 
 ## 5. Known gaps
 

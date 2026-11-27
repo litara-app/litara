@@ -1,5 +1,11 @@
 # Litara Android: current status
 
+**Follow-up 2026-11-27:** the PDF reader has page bookmarks and notes, and lists highlights made on the web by page;
+it does not create or draw highlights (proposed [ADR-0113](../../ADR/0113-android-pdf-highlighting.md)). "Go to page" and
+internal PDF links now scroll. Unsent listening positions are retried by the background sync job, the car's Downloaded
+list reloads after a download is added or removed, and highlights are visible on dark reader pages. Android lint and the
+shared-reader check run on a Windows checkout without being skipped.
+
 **Update 2026-11-27:** the BookOrbit client has been removed ([ADR-0112](../../ADR/0112-remove-the-bookorbit-client.md)). Litara sign-in is the only way in, and the app
 talks only to a Litara server. The player, Android Auto, Cast, offline copies, both flavors and the license and provenance files remain. The text below records the
 imported baseline as it was.

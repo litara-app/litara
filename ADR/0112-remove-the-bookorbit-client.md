@@ -39,3 +39,9 @@ Planned: both Android flavors build and their tests pass; no BookOrbit API, sign
 ## Open questions
 
 None within this record's scope.
+
+## Follow-up
+
+On 2026-11-27 the repository owner chose to update the Android third-party notices so they no longer list libraries the
+removal dropped (Retrofit, AppAuth and Paging): "Update the notices." This replaces the "notice files are unchanged"
+expectation for that dependency table only. License texts and source provenance notices stay.
