@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import com.litara.app.MainActivity
@@ -77,7 +78,13 @@ class LitaraServerFlowTest {
 
         waitTag(LitaraTags.URL)
         compose.onNodeWithTag(LitaraTags.URL).performTextInput(url!!)
-        compose.onNodeWithTag(LitaraTags.INSECURE).performClick() // explicit development opt-in for plain HTTP
+        compose.onNodeWithTag(LitaraTags.INSECURE).performScrollTo().performClick() // explicit development opt-in for plain HTTP
+        // A tap can be lost while the keyboard is still opening; fail here, not later as a refused sign-in.
+        compose.waitForIdle()
+        if (runCatching { compose.onNodeWithTag(LitaraTags.INSECURE).assertIsOn() }.isFailure) {
+            compose.onNodeWithTag(LitaraTags.INSECURE).performClick()
+        }
+        compose.onNodeWithTag(LitaraTags.INSECURE).assertIsOn()
         compose.onNodeWithTag(LitaraTags.USER).performTextInput("fixture-user-a")
         compose.onNodeWithTag(LitaraTags.PASSWORD).performTextInput(password!!)
         compose.onNodeWithTag(LitaraTags.SIGN_IN).performScrollTo().performClick()

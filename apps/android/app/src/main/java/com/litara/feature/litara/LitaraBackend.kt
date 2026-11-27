@@ -51,6 +51,9 @@ class LitaraBackend @Inject constructor(
 
     private data class Cache(val scopeDir: String, var map: IdMap, val byHandle: MutableMap<Int, String>)
 
+    /** The sign-in the cached position reporters were made with; a reporter must not outlive its client. */
+    private var syncClient: Any? = null
+
     @Volatile private var cache: Cache? = null
     private val syncs = java.util.concurrent.ConcurrentHashMap<String, Pair<LRecording, ProgressSync>>()
     private val lock = Any()
@@ -143,6 +146,7 @@ class LitaraBackend @Inject constructor(
         )
         val uris = snap.files.map { f -> repo.localFile(snap.id, f)?.let { android.net.Uri.fromFile(it).toString() } ?: repo.streamUrl(f) }
         // A rebuilt queue (chapter jump, resume) keeps the revision this device already knows; a new one reads it first.
+        forgetOtherSignInsReporters()
         val existing = syncs[uuid]?.takeIf { it.first.layoutRevision == snap.layoutRevision }
         val pair = existing?.let { snap to it.second } ?: (snap to repo.progress(snap))
         syncs[uuid] = pair
@@ -150,7 +154,17 @@ class LitaraBackend @Inject constructor(
         return LitaraPlayback(book, files, uris)
     }
 
+    /** Drops position reporters made for an earlier sign-in, which would send with that session and its revisions. */
+    private fun forgetOtherSignInsReporters() = synchronized(lock) {
+        val current: Any? = repo.clientOrNull()
+        if (current !== syncClient) {
+            syncs.clear()
+            syncClient = current
+        }
+    }
+
     private suspend fun syncFor(uuid: String): Pair<LRecording, ProgressSync>? {
+        forgetOtherSignInsReporters()
         syncs[uuid]?.let { return it }
         val snap = snapshot(uuid) ?: return null
         return (snap to repo.progress(snap)).also { syncs[uuid] = it; it.second.ensureLoaded() }
@@ -194,6 +208,10 @@ class LitaraBackend @Inject constructor(
     override fun listeningPaused() = activity.onPlaybackPaused()
 
     override fun listeningEnded() = activity.endListening()
+
+    override fun retryLater() = activity.retryLater()
+
+    override fun downloadChanges() = repo.downloadChanges
 
     /** The snapshot being played, which also works offline. */
     private suspend fun playing(bookId: Int): LRecording? = uuidOf(bookId)?.let { syncFor(it)?.first }

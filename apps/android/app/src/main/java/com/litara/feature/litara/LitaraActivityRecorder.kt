@@ -100,7 +100,10 @@ class LitaraActivityRecorder @Inject constructor(
     private fun onForeground(foreground: Boolean) {
         val edition = readingEdition
         if (!foreground) pause(reading) else if (edition != null) activity(reading, edition, readingFraction)
-        if (foreground) scope.launch { flushPending() }
+        if (foreground) scope.launch {
+            flushPending()
+            retryLater() // also picks up listening positions left unsent when the app last closed
+        }
     }
 
     private fun activity(track: Track, target: String, fraction: Double?) {
@@ -153,14 +156,25 @@ class LitaraActivityRecorder @Inject constructor(
     }
 }
 
-/** Retries waiting Litara sessions and bookmark changes when there is a network, even after the app was closed. */
+/**
+ * Retries waiting listening positions, sessions and bookmark changes when there is a network, even after the app was
+ * closed.
+ */
 @HiltWorker
 class LitaraSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val recorder: LitaraActivityRecorder,
+    private val positions: com.litara.feature.player.AudioProgressRepository,
+    private val repo: LitaraRepository,
 ) : CoroutineWorker(appContext, params) {
-    override suspend fun doWork(): Result = if (recorder.flushPending()) Result.retry() else Result.success()
+    override suspend fun doWork(): Result {
+        // Signed out: nothing can be sent. What is waiting stays with its account; sign-in and app start ask again.
+        if (repo.clientOrNull() == null) return Result.success()
+        val positionsLeft = runCatching { positions.flushPending() }.getOrDefault(true)
+        val otherLeft = recorder.flushPending()
+        return if (positionsLeft || otherLeft) Result.retry() else Result.success()
+    }
 
     companion object {
         private const val NAME = "litara-activity-sync"

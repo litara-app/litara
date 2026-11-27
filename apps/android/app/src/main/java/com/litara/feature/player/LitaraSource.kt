@@ -5,6 +5,8 @@ import com.litara.core.model.AudiobookBookmark
 import com.litara.core.model.BookCard
 import com.litara.core.model.BookDetail
 import com.litara.core.model.BookFileRef
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import java.io.File
 
 /** Everything the existing queue builder needs to play one Litara recording. */
@@ -52,6 +54,12 @@ interface LitaraSource {
     fun listeningPaused() = Unit
 
     fun listeningEnded() = Unit
+
+    /** Something could not be sent: try again in the background once there is a network. */
+    fun retryLater() = Unit
+
+    /** Emits after an offline audiobook copy is added or removed. */
+    fun downloadChanges(): Flow<Unit> = emptyFlow()
 
     /** This account's bookmarks on the recording, in playing order (ADR-0110). */
     suspend fun bookmarks(bookId: Int): List<AudiobookBookmark> = emptyList()

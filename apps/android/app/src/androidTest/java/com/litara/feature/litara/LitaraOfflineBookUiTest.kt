@@ -111,6 +111,14 @@ class LitaraOfflineBookUiTest {
             shell("cmd connectivity airplane-mode disable")
             shell("svc wifi enable")
             shell("svc data enable")
+            // The network takes a while to return, and may switch from mobile data to Wi-Fi after the first answer. The
+            // tests that run next need the server, so wait until it has answered steadily for a few seconds.
+            val deadline = System.currentTimeMillis() + 90_000
+            var steady = 0
+            while (System.currentTimeMillis() < deadline && steady < 8) {
+                steady = if (runCatching { repo.editions() }.isSuccess) steady + 1 else 0
+                delay(1_000)
+            }
         }
     }
 }

@@ -27,8 +27,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * The real service and the platform voice bridge a car uses, without opening a phone screen: search support, shelf
- * order, play-from-search at the book's saved speed, chapters across files, a refused selection, and resuming from an
- * empty queue. Needs a running seeded server: litaraUrl, litaraPassword, litaraRecording (the three-file one).
+ * order, play-from-search at the book's saved speed, chapters across files, a refused selection, resuming from an
+ * empty queue, and the Downloaded list reloading by itself. Needs a running seeded server: litaraUrl, litaraPassword, litaraRecording (the three-file one).
  */
 @UnstableApi
 @RunWith(AndroidJUnit4::class)
@@ -84,10 +84,14 @@ class AutoMediaSessionTest {
         repo.progress(snap).also { it.load() }.report(0, 500)
 
         val failure = AtomicReference<SessionError?>()
+        val changes = java.util.Collections.synchronizedList(mutableListOf<Pair<String, Int>>())
         var browser: MediaBrowser? = null
         var legacy: PlatformBrowser? = null
         try {
             val listener = object : MediaBrowser.Listener {
+                override fun onChildrenChanged(browser: MediaBrowser, parentId: String, itemCount: Int, params: androidx.media3.session.MediaLibraryService.LibraryParams?) {
+                    changes.add(parentId to itemCount)
+                }
                 override fun onError(controller: MediaController, sessionError: SessionError) { failure.set(sessionError) }
             }
             val car = main {
@@ -144,21 +148,23 @@ class AutoMediaSessionTest {
             assertFalse("clearing the queue must not finish the book", client.snapshot(recording).completion.finished)
             failure.set(null)
             main { car.play() }
-            try {
-                await("playing again from an empty queue, where it left off") {
-                    main { car.currentMediaItem?.mediaId == lastFile && car.isPlaying && car.currentPosition >= 9_000 }
-                }
-            } catch (e: AssertionError) {
-                val history = service.database().audioProgressDao().recent().map { "${it.bookId}:file=${it.currentFileId},s=${it.positionSeconds},pct=${it.percentage},at=${it.updatedAt}" }
-                val seen = main {
-                    val player = service.activeBookPlayer().current
-                    "car item=${car.currentMediaItem?.mediaId} items=${car.mediaItemCount} playing=${car.isPlaying} at=${car.currentPosition}; " +
-                        "player item=${player?.currentMediaItem?.mediaId} file at=${player?.filePositionMs()}"
-                }
-                val server = client.position(recording).position
-                throw AssertionError("${e.message}; wanted item=$lastFile handle=$handle; $seen; server=${server?.fileId} ${server?.offsetMs}; third file=${snap.files[2].id}; history=$history; error=${failure.get()?.message}", e)
+            await("playing again from an empty queue, where it left off") {
+                main { car.currentMediaItem?.mediaId == lastFile && car.isPlaying && car.currentPosition >= 9_000 }
             }
             main { car.pause() }
+
+            // The car's Downloaded list reloads by itself when an offline copy is added or removed.
+            main { car.subscribe(AutoBrowseTree.DOWNLOADS_ID, null) }.get(10, TimeUnit.SECONDS)
+            fun listed() = main { car.getChildren(AutoBrowseTree.DOWNLOADS_ID, 0, 40, null) }.get(20, TimeUnit.SECONDS)
+                .value!!.size
+            await("nothing downloaded at the start") { listed() == 0 }
+            Thread.sleep(1_000) // let the subscription's own first notification arrive
+            changes.clear()
+            repo.download(client.snapshot(recording))
+            await("the car is told about the new download") { changes.contains(AutoBrowseTree.DOWNLOADS_ID to 1) }
+            changes.clear()
+            repo.deleteDownload(recording)
+            await("the car is told the download is gone") { changes.contains(AutoBrowseTree.DOWNLOADS_ID to 0) }
         } finally {
             main { deps.player().stop() }.join()
             main { browser?.stop(); browser?.clearMediaItems(); browser?.release(); legacy?.disconnect() }

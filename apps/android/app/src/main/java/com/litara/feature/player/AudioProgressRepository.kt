@@ -23,13 +23,13 @@ class AudioProgressRepository @Inject constructor(
     suspend fun report(bookId: Int, currentFileId: Int, positionSeconds: Double, percentage: Double) {
         val entity = AudioProgressEntity(bookId, currentFileId, positionSeconds, percentage, System.currentTimeMillis(), dirty = true)
         dao.upsert(entity)
-        if (push(entity)) dao.markSynced(bookId)
+        if (push(entity)) dao.markSynced(bookId, entity.updatedAt) else litara.retryLater()
     }
 
     /** Push every dirty position to the server. Returns true if anything is still dirty afterward. */
     suspend fun flushPending(): Boolean {
         for (e in dao.dirtyEntries()) {
-            if (push(e)) dao.markSynced(e.bookId)
+            if (push(e)) dao.markSynced(e.bookId, e.updatedAt)
         }
         return dao.dirtyEntries().isNotEmpty()
     }

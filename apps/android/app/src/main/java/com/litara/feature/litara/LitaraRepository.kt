@@ -190,12 +190,19 @@ class LitaraRepository @Inject constructor(
         }.filter { snap -> snap.files.all { localFile(snap.id, it) != null } }
     }
 
+    private val downloadsChanged = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(
+        extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+
+    /** Emits after an offline audiobook copy is added or removed, so open lists (the car's) can reload. */
+    val downloadChanges: kotlinx.coroutines.flow.Flow<Unit> = downloadsChanged
+
     /** Removes the offline copy (bytes and snapshot). Positions waiting to upload stay. */
     fun deleteDownload(recordingId: String) {
         val t = token()
         offline.publish(t) {
             recDir(t, recordingId).listFiles()?.filter { it.name.endsWith(".bin") || it.name == "downloaded.json" }?.forEach { it.delete() }
         }
+        downloadsChanged.tryEmit(Unit)
     }
 
     // ---- audiobook bookmarks (ADR-0110) -------------------------------------------------------
@@ -291,6 +298,7 @@ class LitaraRepository @Inject constructor(
             val keep = snap.files.map { fileName(it) }.toSet() + setOf("downloaded.json", "pending-position.json", ProgressSync.REVISION_FILE, "LOCKED")
             rd.listFiles()?.filter { it.name !in keep && it.name.endsWith(".bin") }?.forEach { it.delete() }
         }
+        downloadsChanged.tryEmit(Unit)
         onProgress(snap.files.size, snap.files.size)
     }
 

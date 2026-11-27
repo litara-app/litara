@@ -31,6 +31,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -82,6 +85,7 @@ fun PdfReaderScreen(
     var settingsVisible by remember { mutableStateOf(false) }
     var searchVisible by remember { mutableStateOf(false) }
     var jumpVisible by remember { mutableStateOf(false) }
+    var notesVisible by remember { mutableStateOf(false) }
 
     val view = LocalView.current
     DisposableEffect(Unit) {
@@ -146,6 +150,17 @@ fun PdfReaderScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                val bookmarked = PdfMarks.bookmarkOn(ui.marks, ui.currentPage) != null
+                IconButton(onClick = vm::toggleBookmark, enabled = core != null) {
+                    Icon(
+                        if (bookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                        contentDescription = stringResource(if (bookmarked) R.string.litara_bookmark_remove else R.string.litara_bookmark_add),
+                        tint = Color.White,
+                    )
+                }
+                IconButton(onClick = { notesVisible = true }, enabled = core != null) {
+                    Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = stringResource(R.string.pdf_notes_title), tint = Color.White)
+                }
                 if (ui.hasTextLayer) {
                     IconButton(onClick = { searchVisible = !searchVisible }) {
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search), tint = Color.White)
@@ -183,6 +198,18 @@ fun PdfReaderScreen(
         }
     }
 
+    if (notesVisible) {
+        PdfNotesSheet(
+            marks = ui.marks,
+            currentPage = ui.currentPage,
+            webMarksLoaded = ui.webMarksLoaded,
+            onOpen = { page -> notesVisible = false; vm.jumpTo(page) },
+            onAdd = vm::addNote,
+            onEdit = vm::editNote,
+            onDelete = vm::deleteMark,
+            onDismiss = { notesVisible = false },
+        )
+    }
     if (settingsVisible) {
         PdfReaderSettingsSheet(
             settings = ui.settings,
@@ -194,7 +221,7 @@ fun PdfReaderScreen(
         JumpToPageDialog(
             pageCount = ui.pageCount,
             current = ui.currentPage,
-            onGo = { page -> vm.onPageChanged(page); jumpVisible = false },
+            onGo = { page -> vm.jumpTo(page); jumpVisible = false },
             onDismiss = { jumpVisible = false },
         )
     }
@@ -262,6 +289,9 @@ private fun PdfContinuous(
     }
     val active = ui.search?.active
     LaunchedEffect(active) { active?.let { listState.animateScrollToItem(it.page) } }
+    LaunchedEffect(ui.jump) {
+        ui.jump?.let { listState.scrollToItem(it.page); vm.jumpHandled(it.seq) }
+    }
 
     LazyColumn(
         state = listState,
@@ -317,6 +347,9 @@ private fun PdfPaginated(
     }
     val active = ui.search?.active
     LaunchedEffect(active, items) { active?.let { pagerState.animateScrollToPage(PdfLayout.itemForPage(items, it.page)) } }
+    LaunchedEffect(ui.jump, items) {
+        ui.jump?.let { pagerState.scrollToPage(PdfLayout.itemForPage(items, it.page)); vm.jumpHandled(it.seq) }
+    }
 
     HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { item ->
         val pages = items.getOrElse(item) { listOf(0) }
@@ -376,7 +409,7 @@ private fun JumpToPageDialog(
 
 private fun handleLink(context: Context, vm: PdfHost, link: PdfLink) {
     when (link) {
-        is PdfLink.Internal -> vm.onPageChanged(link.targetPage)
+        is PdfLink.Internal -> vm.jumpTo(link.targetPage)
         is PdfLink.External -> {
             runCatching {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.uri)).apply {

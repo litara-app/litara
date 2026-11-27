@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -22,9 +23,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -68,9 +71,18 @@ private fun SignIn(vm: LitaraSignInViewModel) {
     var trustUserCas by rememberSaveable(certificateHost) { mutableStateOf(vm.trustsUserCas(url)) }
     OutlinedTextField(url, { url = it }, label = { Text(stringResource(R.string.litara_url_label)) }, singleLine = true,
         modifier = Modifier.fillMaxWidth().testTag(LitaraTags.URL))
-    Row {
-        Checkbox(insecure, { insecure = it }, modifier = Modifier.testTag(LitaraTags.INSECURE))
-        Text(stringResource(R.string.litara_insecure), modifier = Modifier.padding(top = 12.dp))
+    // The whole row is the checkbox's touch target, so tapping the words works too.
+    Row(
+        Modifier.fillMaxWidth().toggleable(insecure, role = Role.Checkbox, onValueChange = { insecure = it }).testTag(LitaraTags.INSECURE),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(insecure, onCheckedChange = null)
+        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+            Text(stringResource(R.string.litara_insecure))
+            Text(stringResource(R.string.litara_insecure_desc), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
     if (certificateHost != null) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

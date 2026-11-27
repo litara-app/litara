@@ -73,6 +73,8 @@ class PlaybackService : MediaLibraryService() {
 
     @Inject lateinit var audioProgress: AudioProgressRepository
 
+    @Inject lateinit var litaraSource: LitaraSource
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var lastNotifiedBookId: Int? = null
 
@@ -114,6 +116,12 @@ class PlaybackService : MediaLibraryService() {
                 .map { rows -> rows.map { it.bookId to (it.percentage >= ResumeCandidates.FINISHED_PERCENT) } }
                 .distinctUntilChanged().drop(1).collect {
                 mediaSession?.let { callback.refresh(it, setOf(AutoBrowseTree.DOWNLOADS_ID, AutoBrowseTree.CONTINUE_ID)) }
+            }
+        }
+
+        serviceScope.launch {
+            litaraSource.downloadChanges().collect {
+                mediaSession?.let { callback.refresh(it, setOf(AutoBrowseTree.DOWNLOADS_ID)) }
             }
         }
 
