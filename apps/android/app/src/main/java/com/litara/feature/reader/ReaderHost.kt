@@ -3,12 +3,12 @@ package com.litara.feature.reader
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * What the shared EPUB/Foliate reader screen needs from its state holder. The BookOrbit-backed
- * [ReaderViewModel] and the Litara edition reader both implement it, so the preserved reader UI is
- * reused through one narrow seam instead of being rewritten (apps/android/ADAPTATION.md).
+ * What the EPUB/Foliate reader screen needs from its state holder. The edition reader implements it, so
+ * the preserved reader UI is reused through one narrow seam instead of being rewritten
+ * (apps/android/ADAPTATION.md).
  */
 interface ReaderHost {
-    val ui: StateFlow<ReaderViewModel.UiState>
+    val ui: StateFlow<ReaderUiState>
     fun onLoaded(toc: List<TocItem>, title: String?)
     fun onRendererGone()
     fun onRelocate(cfi: String?, fraction: Double?, chapterTitle: String?)

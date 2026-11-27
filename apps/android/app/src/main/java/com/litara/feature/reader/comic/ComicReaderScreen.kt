@@ -50,7 +50,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -64,7 +63,7 @@ private const val MAX_ZOOM = 4f
 @Composable
 fun ComicReaderScreen(
     onBack: () -> Unit,
-    vm: ComicHost = hiltViewModel<ComicReaderViewModel>(),
+    vm: ComicHost,
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val rtl by vm.rtl.collectAsStateWithLifecycle()
@@ -125,7 +124,7 @@ fun ComicReaderScreen(
 
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.ComicPages(
-    ui: ComicReaderViewModel.UiState,
+    ui: ComicUiState,
     rtl: Boolean,
     vm: ComicHost,
     onToggleChrome: () -> Unit,

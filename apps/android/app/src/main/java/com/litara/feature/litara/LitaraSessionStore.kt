@@ -17,8 +17,7 @@ data class LitaraIdentity(val serverUrl: String, val serverId: String, val user:
 
 /**
  * Protected storage for the Litara session: opaque access/refresh tokens, the pending refresh request
- * id (ADR-0033) and the identity, all in [SecureStorage] (device-encrypted). Separate keys from the
- * legacy BookOrbit session, which stays untouched.
+ * id (ADR-0033) and the identity, all in [SecureStorage] (device-encrypted).
  */
 @Singleton
 class LitaraSessionStore @Inject constructor(private val storage: SecureStorage) : CredentialStore {
@@ -49,10 +48,9 @@ class LitaraSessionStore @Inject constructor(private val storage: SecureStorage)
 
     fun saveIdentity(identity: LitaraIdentity) {
         storage.putString(KEY_IDENTITY, LitaraJson.encodeToString(identity))
-        // Read by SessionManager so the Room database and downloads are scoped to this server + account.
+        // Read by AccountDataScope so the Room database and cached files are scoped to this server + account.
         storage.putString(KEY_SCOPE, "${identity.serverId}|${identity.user.id}")
-        // Deliberately NOT claiming the legacy (unscoped) data set: with no recorded owner there is no evidence it
-        // belongs to this account, so it stays unattributed and unreadable by a Litara account (ADR-0013/0032/0043).
+        // An account never reads the unscoped data set (ADR-0013/0032/0043).
     }
 
     /** Test/support hook: forget the whole Litara identity as well (offline data on disk is untouched). */

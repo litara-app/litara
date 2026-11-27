@@ -1,5 +1,9 @@
 package com.litara.feature.litara
 
+import com.litara.feature.reader.comic.ComicUiState
+import com.litara.feature.reader.pdf.PdfSearchHit
+import com.litara.feature.reader.pdf.PdfSearchState
+import com.litara.feature.reader.pdf.PdfUiState
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -14,11 +18,9 @@ import com.litara.core.settings.AppSettingsStore
 import com.litara.core.storage.LocalRef
 import com.litara.feature.reader.comic.ComicHost
 import com.litara.feature.reader.comic.ComicPaging
-import com.litara.feature.reader.comic.ComicReaderViewModel
 import com.litara.feature.reader.pdf.PdfHost
 import com.litara.feature.reader.pdf.PdfReaderSettings
 import com.litara.feature.reader.pdf.PdfReaderSettingsStore
-import com.litara.feature.reader.pdf.PdfReaderViewModel
 import com.litara.feature.reader.pdf.PdfRenderCore
 import com.litara.ui.UiText
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -54,8 +56,8 @@ class LitaraComicViewModel @Inject constructor(
 ) : ViewModel(), ComicHost {
     private val editionId: String = savedStateHandle.get<String>("editionId").orEmpty()
 
-    private val _ui = MutableStateFlow(ComicReaderViewModel.UiState())
-    override val ui: StateFlow<ComicReaderViewModel.UiState> = _ui.asStateFlow()
+    private val _ui = MutableStateFlow(ComicUiState())
+    override val ui: StateFlow<ComicUiState> = _ui.asStateFlow()
 
     override val rtl: StateFlow<Boolean> = settings.comicRtl.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
@@ -179,8 +181,8 @@ class LitaraPdfViewModel @Inject constructor(
 ) : ViewModel(), PdfHost {
     private val editionId: String = savedStateHandle.get<String>("editionId").orEmpty()
 
-    private val _ui = MutableStateFlow(PdfReaderViewModel.UiState())
-    override val ui: StateFlow<PdfReaderViewModel.UiState> = _ui.asStateFlow()
+    private val _ui = MutableStateFlow(PdfUiState())
+    override val ui: StateFlow<PdfUiState> = _ui.asStateFlow()
 
     private var sync: EditionProgressSync? = null
     private var lastSent = 0L
@@ -252,14 +254,14 @@ class LitaraPdfViewModel @Inject constructor(
         val core = _ui.value.core ?: return
         searchJob?.cancel()
         if (query.isBlank()) { _ui.update { it.copy(search = null) }; return }
-        _ui.update { it.copy(search = PdfReaderViewModel.SearchState(query = query, running = true)) }
+        _ui.update { it.copy(search = PdfSearchState(query = query, running = true)) }
         searchJob = viewModelScope.launch {
             val hits = withContext(Dispatchers.IO) {
-                buildList<PdfReaderViewModel.SearchHit> {
-                    for (p in 0 until core.pageCount) core.searchPage(p, query).forEach { m -> m.rects.forEach { add(PdfReaderViewModel.SearchHit(p, it)) } }
+                buildList<PdfSearchHit> {
+                    for (p in 0 until core.pageCount) core.searchPage(p, query).forEach { m -> m.rects.forEach { add(PdfSearchHit(p, it)) } }
                 }
             }
-            _ui.update { it.copy(search = PdfReaderViewModel.SearchState(query, false, hits, if (hits.isEmpty()) -1 else 0)) }
+            _ui.update { it.copy(search = PdfSearchState(query, false, hits, if (hits.isEmpty()) -1 else 0)) }
         }
     }
 

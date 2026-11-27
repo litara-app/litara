@@ -3,117 +3,104 @@ package com.litara.feature.player
 import android.content.ComponentName
 import android.media.browse.MediaBrowser as PlatformBrowser
 import android.media.session.MediaController as PlatformController
-import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.MediaController
-import androidx.media3.session.MediaLibraryService.LibraryParams
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionToken
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.litara.app.LitaraApplication
-import com.litara.core.db.*
-import com.litara.core.model.*
-import com.litara.feature.downloads.DownloadedFile
-import kotlinx.coroutines.runBlocking
+import com.litara.core.auth.SecureStorage
+import com.litara.feature.litara.LitaraSessionStore
+import com.litara.feature.litara.LitaraTestDependencies
 import dagger.hilt.android.EntryPointAccessors
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
-import java.io.RandomAccessFile
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
-/** Exercises the real service and legacy voice bridge without launching a phone activity. */
+/**
+ * The real service and the platform voice bridge a car uses, without opening a phone screen: search support, shelf
+ * order, play-from-search at the book's saved speed, chapters across files, a refused selection, and resuming from an
+ * empty queue. Needs a running seeded server: litaraUrl, litaraPassword, litaraRecording (the three-file one).
+ */
 @UnstableApi
 @RunWith(AndroidJUnit4::class)
 class AutoMediaSessionTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
+    private val args = InstrumentationRegistry.getArguments()
+
     private fun <T> main(block: () -> T): T {
         val result = AtomicReference<T>()
         instrumentation.runOnMainSync { result.set(block()) }
         return result.get()
     }
-    private fun await(label: String, predicate: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 15_000
+
+    private fun await(label: String, ms: Long = 40_000, predicate: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + ms
         while (System.currentTimeMillis() < deadline) {
             if (predicate()) return
-            Thread.sleep(50)
+            Thread.sleep(100)
         }
         fail("Timed out: $label")
     }
 
-    @Test fun offlineSearchVoiceResumeChaptersAndLiveDownloads() = runBlocking {
-        val id = 900_000_001 // BookOrbit fixture ids stay below the reserved Litara handle range.
-        val otherId = id + 1
-        val dependencies = EntryPointAccessors.fromApplication(context, AutoTestDependencies::class.java)
-        val database = dependencies.database()
-        val dao = database.downloadDao()
-        val progress = database.audioProgressDao()
-        val previous = dao.get(id)
-        val otherPrevious = dao.get(otherId)
-        val previousProgress = progress.get(id)
+    @Test fun voiceSearchSavedSpeedChaptersRefusedSelectionAndResumption() = runBlocking<Unit> {
+        val url = args.getString("litaraUrl")
+        val password = args.getString("litaraPassword")
+        val recording = args.getString("litaraRecording")
+        assumeTrue("litaraUrl/litaraPassword/litaraRecording not provided; real-server car test not run",
+            url != null && password != null && recording != null)
+
+        val deps = EntryPointAccessors.fromApplication(context, LitaraTestDependencies::class.java)
+        val repo = deps.repository()
+        repo.allowProcessRestart = false
+        deps.dataScope().active = null
+        main { deps.player().stop() }.join()
+        LitaraSessionStore(SecureStorage(context)).let { runCatching { runBlocking { repo.signOut() } }; it.forgetIdentity() }
+        File(context.filesDir, "litara-offline").deleteRecursively()
+        repo.signIn(url!!, true, "fixture-user-a", password!!, "Car test")
+        deps.dataScope().active = null
+
+        val backend = deps.backend()
+        val card = backend.cards().first { it.id == backend.handleFor(recording!!) }
+        val handle = card.id
+        val title = card.title!!
+        val client = repo.clientOrNull()!!
+        val service = EntryPointAccessors.fromApplication(context, AutoTestDependencies::class.java)
+        val snap = client.snapshot(recording!!)
         val settings = AudioSettingsStore(context)
-        val oldSettings = settings.load()
-        val oldBookSpeed = settings.bookSpeed(id)
-        val files = (0..1).map { index -> writeWav(File.createTempFile("auto-session-$index", ".wav", context.cacheDir), 10) }
-        val refs = files.mapIndexed { index, file -> BookFileRef(id + 10 + index, "wav", "primary", durationSeconds = 10.0, filename = file.name) }
-        val book = BookDetail(id, 1, "Test", "", "", title = "Auto Session Fixture",
-            files = refs, audioMetadata = AudioMetadata(chapters = listOf(
-                AudiobookChapter("First", 0), AudiobookChapter("Second", 5_000), AudiobookChapter("Third", 15_000))))
-        val json = Json { encodeDefaults = true }
-        val record = DownloadEntity(id, book.title, "Test Author", "Test Narrator", true, "wav", 0, System.currentTimeMillis(),
-            null, json.encodeToString(book), json.encodeToString(refs.mapIndexed { i, ref ->
-                DownloadedFile(ref.id, Uri.fromFile(files[i]).toString(), files[i].name, "wav", 10.0)
-            }), "COMPLETE", 1f)
+        val oldBookSpeed = settings.bookSpeed(handle)
+        settings.saveBookSpeed(handle, 1.5f)
+        // A known start: earlier tests may have left the book finished and its saved position at the end.
+        if (snap.completion.finished) repo.finish(snap, "manual_unfinish", null)
+        repo.progress(snap).also { it.load() }.report(0, 500)
+
+        val failure = AtomicReference<SessionError?>()
         var browser: MediaBrowser? = null
         var legacy: PlatformBrowser? = null
-        val notifications = AtomicInteger()
-        val failure = AtomicReference<SessionError?>()
         try {
-            dao.upsert(record)
-            progress.upsert(AudioProgressEntity(id, refs[0].id, 2.0, 10.0, System.currentTimeMillis(), false))
-            settings.saveBookSpeed(id, 1.5f)
-            settings.saveProgressBarMode(ProgressBarMode.BOOK)
             val listener = object : MediaBrowser.Listener {
-                override fun onChildrenChanged(browser: MediaBrowser, parentId: String, itemCount: Int, params: LibraryParams?) {
-                    if (parentId == AutoBrowseTree.DOWNLOADS_ID) notifications.incrementAndGet()
-                }
                 override fun onError(controller: MediaController, sessionError: SessionError) { failure.set(sessionError) }
             }
-            val client = main {
+            val car = main {
                 MediaBrowser.Builder(context, SessionToken(context, ComponentName(context, PlaybackService::class.java)))
                     .setListener(listener).buildAsync()
-            }.get(15, TimeUnit.SECONDS)
-            browser = client
-            val root = main { client.getLibraryRoot(null) }.get(10, TimeUnit.SECONDS)
+            }.get(20, TimeUnit.SECONDS)
+            browser = car
+            val root = main { car.getLibraryRoot(null) }.get(10, TimeUnit.SECONDS)
             assertTrue(root.params!!.extras.getBoolean("android.media.browse.SEARCH_SUPPORTED"))
-            val shelves = main { client.getChildren(AutoBrowseTree.ROOT_ID, 0, Int.MAX_VALUE, null) }.get(10, TimeUnit.SECONDS).value!!
+            val shelves = main { car.getChildren(AutoBrowseTree.ROOT_ID, 0, Int.MAX_VALUE, null) }.get(10, TimeUnit.SECONDS).value!!
             assertEquals(AutoBrowseTree.CONTINUE_ID, shelves.first().mediaId)
-            val modes = main { client.getChildren(AutoBrowseTree.LIBRARY_ID, 0, Int.MAX_VALUE, null) }
-                .get(10, TimeUnit.SECONDS).value!!
+            val modes = main { car.getChildren(AutoBrowseTree.LIBRARY_ID, 0, Int.MAX_VALUE, null) }.get(10, TimeUnit.SECONDS).value!!
             assertEquals(listOf(AutoLibraryTree.TITLES, AutoLibraryTree.AUTHORS, AutoLibraryTree.SERIES), modes.map { it.mediaId })
-            assertTrue(main { client.getChildren(AutoLibraryTree.TITLES, 0, 40, null) }
-                .get(15, TimeUnit.SECONDS).value!!.any { it.mediaId == AutoBrowseTree.bookMediaId(id) })
-            main { client.subscribe(AutoBrowseTree.DOWNLOADS_ID, null) }.get(10, TimeUnit.SECONDS)
-            val before = notifications.get()
-            dao.upsert(record.copy(bookId = otherId, title = "Other fixture"))
-            await("download shelf refresh") { notifications.get() > before }
-            assertTrue(main { client.getChildren(AutoBrowseTree.DOWNLOADS_ID, 0, 40, null) }
-                .get(10, TimeUnit.SECONDS).value!!.any { it.mediaId == AutoBrowseTree.bookMediaId(otherId) })
-
-            val found = main { client.search("Auto Session Fixture", null) }.get(10, TimeUnit.SECONDS)
-            assertEquals(0, found.resultCode)
-            val results = main { client.getSearchResult("Auto Session Fixture", 0, 40, null) }.get(10, TimeUnit.SECONDS).value!!
-            assertTrue(results.any { it.mediaId == AutoBrowseTree.bookMediaId(id) })
 
             // Android Auto uses the platform/legacy transport path for play-from-search.
             val connected = CountDownLatch(1)
@@ -125,69 +112,57 @@ class AutoMediaSessionTest {
             }
             legacy = platform
             assertTrue(connected.await(10, TimeUnit.SECONDS))
-            main { PlatformController(context, platform.sessionToken).transportControls.playFromSearch("Auto Session Fixture", null) }
-            await("voice playback and saved speed") {
-                main { client.currentMediaItem?.mediaId == refs[0].id.toString() && client.isPlaying && client.playbackParameters.speed == 1.5f }
+            main { PlatformController(context, platform.sessionToken).transportControls.playFromSearch(title, null) }
+            await("voice playback at the saved speed") {
+                main { car.mediaItemCount > 0 && car.isPlaying && car.playbackParameters.speed == 1.5f }
             }
-            main { client.pause() }
-            assertTrue(main { client.currentPosition >= 1_900 })
-            val chapters = main { client.getChildren(AutoBrowseTree.NOW_PLAYING_CHAPTERS_ID, 0, 40, null) }.get(10, TimeUnit.SECONDS).value!!
-            assertEquals(3, chapters.size)
-            main { client.setMediaItem(MediaItem.Builder().setMediaId(AutoBrowseTree.chapterMediaId(id, 2)).build()); client.prepare() }
-            await("chapter spanning file boundaries") {
-                main { client.currentMediaItem?.mediaId == refs[1].id.toString() && client.currentPosition >= 4_900 }
+            main { car.pause() }
+            val firstFile = main { car.currentMediaItem?.mediaId }
+
+            val chapters = main { car.getChildren(AutoBrowseTree.NOW_PLAYING_CHAPTERS_ID, 0, 40, null) }.get(20, TimeUnit.SECONDS).value!!
+            assertEquals(4, chapters.size)
+            main { car.setMediaItem(MediaItem.Builder().setMediaId(AutoBrowseTree.chapterMediaId(handle, 3)).build()); car.prepare(); car.play() }
+            await("chapter across file boundaries") { main { car.currentMediaItem?.mediaId != firstFile && car.isPlaying && car.currentPosition >= 11_000 } }
+            val lastFile = main { car.currentMediaItem?.mediaId }
+            await("the new place reaches the server") {
+                runBlocking { client.position(recording).position?.let { it.fileId == snap.files[2].id && it.offsetMs >= 10_000 } == true }
             }
-            main { client.setMediaItem(MediaItem.Builder().setMediaId("book/0").build()) }
-            await("friendly selection error") { failure.get() != null }
+            main { car.pause() }
+
+            main { car.setMediaItem(MediaItem.Builder().setMediaId("book/0").build()) }
+            await("a refused selection reports an error") { failure.get() != null }
             assertTrue(failure.get()!!.message.isNotBlank())
-            await("invalid selection retains the current queue") {
-                main { dependencies.activeBookPlayer().current?.currentMediaItem?.mediaId == refs[1].id.toString() }
+            // Read the service's own player: the controller shows a requested item before the service answers.
+            await("a refused selection keeps the current queue") {
+                main { service.activeBookPlayer().current?.currentMediaItem?.mediaId == lastFile }
             }
 
-            // The previous steps deliberately seek to file 2. Persist an explicit, newest checkpoint here:
-            // the progress poller and history left by other tests must not decide the test's resume point.
-            val resumeAt = maxOf(System.currentTimeMillis(), progress.recent().maxOfOrNull { it.updatedAt }?.plus(1) ?: 0L)
-            progress.upsert(AudioProgressEntity(id, refs[1].id, 1.0, 55.0, resumeAt, false))
-            main { client.clearMediaItems() }
-            await("queue cleared before resumption") { main { client.mediaItemCount == 0 } }
+            assertFalse("unfinished before the queue is cleared", client.snapshot(recording).completion.finished)
+            main { car.clearMediaItems() }
+            await("queue cleared before resumption") { main { car.mediaItemCount == 0 } }
+            Thread.sleep(3_000) // time for a wrongly sent completion to arrive
+            assertFalse("clearing the queue must not finish the book", client.snapshot(recording).completion.finished)
             failure.set(null)
-            main { client.play() }
+            main { car.play() }
             try {
-                await("empty-queue resumption") {
-                    main {
-                        client.currentMediaItem?.mediaId == refs[1].id.toString() && client.isPlaying &&
-                            client.currentPosition in 10_900..13_500
-                    }
+                await("playing again from an empty queue, where it left off") {
+                    main { car.currentMediaItem?.mediaId == lastFile && car.isPlaying && car.currentPosition >= 9_000 }
                 }
             } catch (e: AssertionError) {
-                val candidates = progress.recent().map { "${it.bookId}:file=${it.currentFileId},pct=${it.percentage},at=${it.updatedAt}" }
-                throw AssertionError("${e.message}; history=$candidates; selected=${main { client.currentMediaItem?.mediaId }}; error=${failure.get()}", e)
+                val history = service.database().audioProgressDao().recent().map { "${it.bookId}:file=${it.currentFileId},s=${it.positionSeconds},pct=${it.percentage},at=${it.updatedAt}" }
+                val seen = main {
+                    val player = service.activeBookPlayer().current
+                    "car item=${car.currentMediaItem?.mediaId} items=${car.mediaItemCount} playing=${car.isPlaying} at=${car.currentPosition}; " +
+                        "player item=${player?.currentMediaItem?.mediaId} file at=${player?.filePositionMs()}"
+                }
+                val server = client.position(recording).position
+                throw AssertionError("${e.message}; wanted item=$lastFile handle=$handle; $seen; server=${server?.fileId} ${server?.offsetMs}; third file=${snap.files[2].id}; history=$history; error=${failure.get()?.message}", e)
             }
-            main { client.pause() }
+            main { car.pause() }
         } finally {
-            dependencies.playerManager().stop().join()
+            main { deps.player().stop() }.join()
             main { browser?.stop(); browser?.clearMediaItems(); browser?.release(); legacy?.disconnect() }
-            if (previous == null) dao.delete(id) else dao.upsert(previous)
-            if (otherPrevious == null) dao.delete(otherId) else dao.upsert(otherPrevious)
-            if (previousProgress != null) progress.upsert(previousProgress)
-            else database.openHelper.writableDatabase.execSQL("DELETE FROM audio_progress WHERE bookId = ?", arrayOf(id))
-            database.pendingReadingSessionDao().all().filter { it.fileId == refs[0].id }.forEach {
-                database.pendingReadingSessionDao().deleteIfUnchanged(it.sessionId, it.endedAt)
-            }
-            settings.saveBookSpeed(id, oldBookSpeed)
-            settings.saveProgressBarMode(oldSettings.progressBarMode)
-            files.forEach { it.delete() }
+            settings.saveBookSpeed(handle, oldBookSpeed)
         }
-    }
-
-    private fun writeWav(file: File, seconds: Int): File {
-        val length = 8_000 * 2 * seconds
-        RandomAccessFile(file, "rw").use { out ->
-            fun int(v: Int) = out.write(byteArrayOf(v.toByte(), (v shr 8).toByte(), (v shr 16).toByte(), (v shr 24).toByte()))
-            fun short(v: Int) = out.write(byteArrayOf(v.toByte(), (v shr 8).toByte()))
-            out.writeBytes("RIFF"); int(36 + length); out.writeBytes("WAVEfmt "); int(16); short(1); short(1)
-            int(8_000); int(16_000); short(2); short(16); out.writeBytes("data"); int(length); out.write(ByteArray(length))
-        }
-        return file
     }
 }

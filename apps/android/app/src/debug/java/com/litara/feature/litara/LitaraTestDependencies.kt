@@ -1,6 +1,6 @@
 package com.litara.feature.litara
 
-import com.litara.core.auth.SessionManager
+import com.litara.core.auth.AccountDataScope
 import com.litara.core.network.CastUpstreamClient
 import com.litara.feature.cast.CastProxyServer
 import dagger.hilt.EntryPoint
@@ -16,7 +16,7 @@ interface LitaraTestDependencies {
     fun backend(): LitaraBackend
     fun player(): com.litara.feature.player.PlayerManager
     fun audioBookmarks(): com.litara.feature.player.AudiobookBookmarkRepository
-    fun session(): SessionManager
+    fun dataScope(): AccountDataScope
     fun appSettings(): com.litara.core.settings.AppSettingsStore
     fun castProxy(): CastProxyServer
     @CastUpstreamClient fun castUpstream(): OkHttpClient

@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.litara.core.network.UserCaTrust
@@ -12,7 +11,6 @@ import okhttp3.OkHttpClient
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
-import com.litara.core.auth.SessionManager
 import com.litara.feature.player.DEFAULT_SKIP_BACK
 import com.litara.feature.player.DEFAULT_SKIP_FORWARD
 import dagger.Module
@@ -23,7 +21,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Media3 wiring. Remote audio streams over an HTTP data source that injects the current bearer
+ * Media3 wiring. Remote audio streams over an HTTP data source whose client adds the current bearer
  * token (read per request so it tracks token refresh); local downloads play via the file data
  * source. ExoPlayer is built per service instance (not a singleton — it owns a Looper).
  */
@@ -36,27 +34,15 @@ object PlayerModule {
     @Singleton
     fun provideMediaSourceFactory(
         @ApplicationContext context: Context,
-        session: SessionManager,
         userCaTrust: UserCaTrust,
         litara: com.litara.feature.litara.LitaraRepository,
     ): MediaSource.Factory {
         // OkHttp (not the platform HttpsURLConnection DefaultHttpDataSource uses) so streaming honours
         // the opt-in user-CA trust like every other request.
         val streamClient = userCaTrust.applyTo(OkHttpClient.Builder())
-            // For the Litara server only: current bearer per request and one refresh-then-retry on 401.
+            // For the signed-in server only: current bearer per request and one refresh-then-retry on 401.
             .addInterceptor(litara.bearerInterceptor()).authenticator(litara.refreshAuthenticator()).build()
-        // Per-request auth header so streaming survives token refresh.
-        val httpFactory = DataSource.Factory {
-            val token = session.accessToken
-            OkHttpDataSource.Factory(streamClient)
-                .apply {
-                    if (!token.isNullOrBlank()) {
-                        setDefaultRequestProperties(mapOf("Authorization" to "Bearer $token"))
-                    }
-                }
-                .createDataSource()
-        }
-        val dataSourceFactory = DefaultDataSource.Factory(context, httpFactory)
+        val dataSourceFactory = DefaultDataSource.Factory(context, OkHttpDataSource.Factory(streamClient))
         return DefaultMediaSourceFactory(dataSourceFactory)
     }
 

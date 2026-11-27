@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * The phone app for a signed-in Litara account, through the REAL launcher activity: the Litara shell
- * replaces the BookOrbit shell, lists recordings, downloads one (Downloads tab, offline copy), plays it
+ * opens on the launcher, lists recordings, downloads one (Downloads tab, offline copy), plays it
  * through the shared player (progress reaches the server), shows the offline copy in Android Auto's
  * "Downloaded" shelf, and deletes it again. Arguments: litaraUrl, litaraPassword, litaraRecording.
  */
@@ -56,12 +56,12 @@ class LitaraShellTest {
             val deps = EntryPointAccessors.fromApplication(context, LitaraTestDependencies::class.java)
             deps.repository().allowProcessRestart = false
             // Same process as the app: a scope change must not kill the test run.
-            deps.session().activeDataScope = null
+            deps.dataScope().active = null
             runCatching { runBlocking { deps.repository().signOut() } }
             LitaraSessionStore(SecureStorage(context)).forgetIdentity()
             File(context.filesDir, "litara-offline").deleteRecursively()
             runBlocking { deps.repository().signIn(url!!, true, "fixture-user-a", password!!, "Shell test") }
-            deps.session().activeDataScope = null
+            deps.dataScope().active = null
         }
     }
     private val compose = createAndroidComposeRule<MainActivity>()
@@ -107,10 +107,8 @@ class LitaraShellTest {
         compose.onNodeWithTag(ShellTags.SETTINGS).performClick()
         compose.waitUntil(10_000) { shown(text(R.string.appearance)) }
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(text(R.string.playback)))
-        // BookOrbit-only sections, and certificate trust for this plain-HTTP server, are not offered.
+        // Certificate trust is not offered for this plain-HTTP server.
         assertFalse(shown(text(R.string.settings_trust_user_cas)))
-        assertFalse(shown(text(R.string.settings_nav_bar)))
-        assertFalse(shown(text(R.string.settings_download_location)))
     }
 
     @Test
@@ -119,7 +117,7 @@ class LitaraShellTest {
         val deps = EntryPointAccessors.fromApplication(context, LitaraTestDependencies::class.java)
         val handle = deps.backend().handleFor(recording)!!
 
-        // 1. The launcher shows the Litara shell, not the BookOrbit server-setup flow.
+        // 1. The launcher shows the app for the signed-in account.
         waitTag(ShellTags.recording(recording))
         compose.onNodeWithTag(ShellTags.recording(recording)).performClick()
         waitTag(ShellTags.DETAIL_TITLE)

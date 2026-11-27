@@ -17,7 +17,6 @@ import com.litara.core.model.AudioProgress
 import com.litara.core.model.BookDetail
 import com.litara.core.model.BookFileRef
 import com.litara.feature.cast.CastSessionController
-import com.litara.feature.sessions.ReadingSessionTracker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
@@ -57,7 +56,7 @@ class PlayerManager @Inject constructor(
     private val activeBookPlayer: ActiveBookPlayer,
     private val livePrefs: LivePlaybackPrefs,
     private val restoreCandidates: RestoreCandidateFinder,
-    private val sessions: ReadingSessionTracker,
+    private val litara: LitaraSource,
 ) {
     data class UiState(
         val currentBook: BookDetail? = null,
@@ -110,13 +109,14 @@ class PlayerManager @Inject constructor(
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             // A successful resume clears any earlier error - it's no longer the reason nothing is playing.
             _state.update { it.copy(isPlaying = isPlaying, playerError = if (isPlaying) null else it.playerError) }
-            sessions.setListeningActive(isPlaying)
+            if (!isPlaying) litara.listeningPaused()
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             _state.update { it.copy(buffering = playbackState == Player.STATE_BUFFERING) }
-            // Natural end = playback reached the final file's end; a seek that LANDS there never finishes a book.
-            if (playbackState == Player.STATE_ENDED && !seekLandedAtEnd) {
+            // Natural end = playback reached the final file's end; a seek that LANDS there never finishes a book, and
+            // neither does an emptied queue, which the player also reports as ended.
+            if (playbackState == Player.STATE_ENDED && !seekLandedAtEnd && (controller?.mediaItemCount ?: 0) > 0) {
                 _state.value.currentBook?.id?.let { id -> scope.launch { audioProgress.playbackEnded(id) } }
             }
         }
@@ -447,7 +447,7 @@ class PlayerManager @Inject constructor(
     fun stop() = scope.launch {
         loadGeneration.incrementAndGet()
         report(force = true)
-        sessions.end()
+        litara.listeningEnded()
         controller?.run {
             stop()
             clearMediaItems()
@@ -489,7 +489,7 @@ class PlayerManager @Inject constructor(
         val pct = PlaybackQueue.percentageFor(files, loc.index, loc.offsetSec)
         lastReport = System.currentTimeMillis()
         audioProgress.report(book.id, files[loc.index].id, loc.offsetSec, pct)
-        if (c.isPlaying) sessions.onListening(book.id, files.first().id, pct)
+        if (c.isPlaying) litara.listening(book.id, pct)
     }
 
     /** Friendly text for a Media3 playback failure - falls back to the exception's own message

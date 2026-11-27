@@ -55,11 +55,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // OIDC redirect scheme used by the AppAuth intent-filter (see AndroidManifest).
-        // Must match the server's whitelisted mobile redirect URI (litara://oauth2-callback,
-        // OIDC_MOBILE_REDIRECT_URIS default) and the value used by OidcManager.
-        manifestPlaceholders["appAuthRedirectScheme"] = "litara"
-
         // ADR-0093: -Plitara.sharedReader=true makes ebook/PDF reading use the shared web engine in
         // assets/reader-shared instead of the legacy modified reader in assets/reader. Off by default.
         buildConfigField("boolean", "SHARED_READER", providers.gradleProperty("litara.sharedReader").orElse("false").get())
@@ -182,8 +177,6 @@ dependencies {
     ksp(libs.androidx.hilt.compiler)
 
     // Networking
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.kotlinx.serialization)
     implementation(platform(libs.okhttp.bom))
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
@@ -211,13 +204,8 @@ dependencies {
     implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.documentfile)
 
-    // Paging
-    implementation(libs.androidx.paging.runtime)
-    implementation(libs.androidx.paging.compose)
-
-    // Background work + OIDC
+    // Background work
     implementation(libs.androidx.work.runtime.ktx)
-    implementation(libs.appauth)
 
     // WebView (foliate reader host)
     implementation(libs.androidx.webkit)

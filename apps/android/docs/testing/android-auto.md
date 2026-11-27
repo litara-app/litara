@@ -17,15 +17,19 @@ Run the normal CI checks for both distributions:
 With a disposable emulator or test device connected:
 
 ```sh
+python scripts/t007/seed_stack.py up   # from the repository root; writes the arguments to .tmp/t007/seed-args.json
 ./gradlew :app:connectedFullDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=com.litara.feature.player.AutoMediaSessionTest,com.litara.feature.player.AutoArtworkProviderTest
+  -Pandroid.testInstrumentationRunnerArguments.class=com.litara.feature.player.AutoMediaSessionTest,com.litara.feature.player.AutoArtworkProviderTest \
+  -Pandroid.testInstrumentationRunnerArguments.litaraUrl=<url> \
+  -Pandroid.testInstrumentationRunnerArguments.litaraPassword=<password> \
+  -Pandroid.testInstrumentationRunnerArguments.litaraRecording=<three-file recording id>
 ```
 
-The media-session test connects to the real service without launching a phone activity. It checks
-search results, the legacy `playFromSearch` path used by Android Auto, saved speed and position,
-cross-file chapter selection, live download notifications, invalid-selection errors, and
-empty-queue resumption. Fixtures and saved settings are restored after the test. Artwork tests
-check downloaded-cover reads, write rejection, foreign-scope rejection, and provider configuration.
+The media-session test connects to the real service without launching a phone activity, against the
+seeded server (it is skipped without the arguments). It checks the platform `playFromSearch` path used
+by Android Auto, saved speed, cross-file chapter selection, invalid-selection errors, and empty-queue
+resumption, and restores the book's saved speed. Artwork tests check cached-cover reads, write
+rejection, foreign-scope rejection, and provider configuration.
 
 These tests exercise media integration, not voice recognition or a projected Android Auto UI.
 The cold service test also guards Android 15's requirement to run a foreground service before

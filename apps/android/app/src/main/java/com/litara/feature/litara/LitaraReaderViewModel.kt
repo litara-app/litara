@@ -1,5 +1,11 @@
 package com.litara.feature.litara
 
+import com.litara.feature.reader.PendingSelection
+import com.litara.feature.reader.ReaderSearchGroup
+import com.litara.feature.reader.ReaderSearchState
+import com.litara.feature.reader.ReaderUiState
+import com.litara.feature.reader.ResolvedOpen
+import com.litara.feature.reader.ToolbarTarget
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,7 +24,6 @@ import com.litara.feature.reader.InitialProgress
 import com.litara.feature.reader.ReaderHost
 import com.litara.feature.reader.ReaderSettings
 import com.litara.feature.reader.ReaderSettingsStore
-import com.litara.feature.reader.ReaderViewModel
 import com.litara.feature.reader.SearchHit
 import com.litara.feature.reader.TocItem
 import com.litara.feature.reader.ViewportRect
@@ -52,8 +57,8 @@ class LitaraReaderViewModel @Inject constructor(
 ) : ViewModel(), ReaderHost {
     private val editionId: String = savedStateHandle.get<String>("editionId").orEmpty()
 
-    private val _ui = MutableStateFlow(ReaderViewModel.UiState())
-    override val ui: StateFlow<ReaderViewModel.UiState> = _ui.asStateFlow()
+    private val _ui = MutableStateFlow(ReaderUiState())
+    override val ui: StateFlow<ReaderUiState> = _ui.asStateFlow()
 
     private var sync: EditionProgressSync? = null
     private var annotations: com.litara.core.litara.EditionAnnotationSync? = null
@@ -88,7 +93,7 @@ class LitaraReaderViewModel @Inject constructor(
                 _ui.update {
                     it.copy(
                         loadingFile = false,
-                        resolved = ReaderViewModel.ResolvedOpen(
+                        resolved = ResolvedOpen(
                             LocalRef.PlainFile(file), snap.edition.file.format, 0, InitialProgress(start?.first, start?.second),
                         ),
                     )
@@ -171,14 +176,14 @@ class LitaraReaderViewModel @Inject constructor(
 
     override fun startSearch(query: String) {
         val q = query.trim()
-        _ui.update { it.copy(search = if (q.isEmpty()) null else ReaderViewModel.SearchState(query = q, running = true)) }
+        _ui.update { it.copy(search = if (q.isEmpty()) null else ReaderSearchState(query = q, running = true)) }
     }
 
     override fun clearSearch() = _ui.update { it.copy(search = null) }
 
     override fun onSearchResults(label: String, hits: List<SearchHit>) = _ui.update { s ->
         val cur = s.search ?: return@update s
-        s.copy(search = cur.copy(groups = cur.groups + ReaderViewModel.SearchGroup(label, hits), total = cur.total + hits.size))
+        s.copy(search = cur.copy(groups = cur.groups + ReaderSearchGroup(label, hits), total = cur.total + hits.size))
     }
 
     override fun onSearchProgress(progress: Double) = _ui.update { s -> s.search?.let { s.copy(search = it.copy(progress = progress)) } ?: s }
@@ -221,7 +226,7 @@ class LitaraReaderViewModel @Inject constructor(
 
     override fun onSelection(text: String, cfi: String?, rect: ViewportRect?) {
         if (cfi == null) return
-        _ui.update { it.copy(toolbar = ReaderViewModel.ToolbarTarget(rect, selection = ReaderViewModel.PendingSelection(text, cfi))) }
+        _ui.update { it.copy(toolbar = ToolbarTarget(rect, selection = PendingSelection(text, cfi))) }
     }
 
     override fun onSelectionCleared() {
@@ -231,7 +236,7 @@ class LitaraReaderViewModel @Inject constructor(
 
     override fun onAnnotationTap(cfi: String, rect: ViewportRect?) {
         val ann = _ui.value.annotations.firstOrNull { it.cfi == cfi } ?: return
-        _ui.update { it.copy(toolbar = ReaderViewModel.ToolbarTarget(rect, annotationId = ann.id)) }
+        _ui.update { it.copy(toolbar = ToolbarTarget(rect, annotationId = ann.id)) }
     }
 
     override fun dismissToolbar() = _ui.update { it.copy(toolbar = null) }

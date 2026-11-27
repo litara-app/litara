@@ -1,5 +1,8 @@
 # Adaptation boundary: BookOrbit baseline → Litara
 
+**Update 2026-11-27:** the BookOrbit client has been removed ([ADR-0112](../../ADR/0112-remove-the-bookorbit-client.md)), so most files named below no longer exist. This file is kept as the record
+of the adaptation. See the [dependency map](../../research/android/legacy-client-map.md) for what changed.
+
 This documents where the future Litara API adapter replaces baseline code and which accepted ADRs
 require changes. **T003 status (see `../../handoffs/T003.md`):** audit L6 (section 3) is fixed and covered by a regression test, and a
 Litara client, resumable ranged downloader and account-scoped offline store exist under

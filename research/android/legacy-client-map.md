@@ -68,6 +68,18 @@ Both Gradle runs used `-x checkSharedReader`: on this Windows checkout it fails 
 
 **Update 2026-11-27 (emulator checks):** playback started only from a car-style media browser, with no phone screen opened, was recorded as a listening session (24 s for about 25 s played). Also checked on a phone-sized emulator: EPUB and PDF opening from the title page, saved author text and photo, a matched series' missing books (synthetic saved data, no provider was contacted), "Wi-Fi only" with Android itself reporting a metered network, and the audiobook bookmark screens. Not tested: a car or head unit, a physical phone, or a real mobile network.
 
+**Update 2026-11-27 (removal, [ADR-0112](../../ADR/0112-remove-the-bookorbit-client.md)):** steps 2 to 4 of section 4 are done. The decision replaced the section 6 recommendation on old files: nothing is said in release notes.
+
+- Litara sign-in is the first screen. `LitaraActivity` and the second screen only it opened are gone; its sign-in form remains.
+- `LitaraSource` is the only source for the player, Android Auto and the readers. The readers' state types are top-level.
+- `SessionManager` became `AccountDataScope`. Existing accounts keep the same database and file scope names. No account can open the unscoped data, so the record of which old server owned it was removed with it.
+- The database is at version 9 with only the listening positions in its schema. The upgrade runs no SQL: other tables in an existing file are not read or altered, and positions with old ids are never queried. Opening a version below 5 still uses the earlier destructive fallback.
+- The old background sync worker did nothing without a BookOrbit sign-in and was removed. A Litara position that could not be sent is retried when the app next looks up a resume position, as before.
+- The manifest no longer declares the AppAuth redirect, the data-sync foreground service or the notification permission, which only the old downloads requested. Retrofit, AppAuth and Paging were removed from the build.
+- `THIRD_PARTY_NOTICES.md` and the other license and provenance files were left unchanged, as ADR-0112 requires, so the notices still list the three removed libraries.
+- Not changed: the car's "Downloaded" shelf does not refresh by itself when a Litara download is added or removed (it did so only for the old downloads).
+- Features in section 3 that Litara does not have yet went with the old screens.
+
 ## 3. BookOrbit-only features and what Litara's server offers
 
 About 6,400 lines of screens and repositories are in feature folders used mainly by the BookOrbit shell (`auth`, `authors`, `bookdetail`, `bookdrop`, `browse`, `collections`, `dashboard`, `library`, `main`, `notes`, `scopes`, `search`, `series`, `stats`, `you`). Parts of `browse`, `bookdetail` and `downloads` are still imported by the player and Auto (section 1). Removing the shell loses these until they are rebuilt:

@@ -1,105 +1,84 @@
 package com.litara.feature.player
 
 import com.litara.core.db.AudioProgressEntity
-import com.litara.core.db.DownloadEntity
 import com.litara.core.model.BookCard
 import com.litara.core.model.BookFileRef
-import com.litara.core.model.BookQuery
-import com.litara.core.model.BooksPage
-import com.litara.core.network.ApiService
-import com.litara.feature.bookdetail.BookDetailRepository
-import com.litara.feature.browse.BrowseRepository
-import com.litara.feature.downloads.DownloadsRepository
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AutoCatalogTest {
-    private val api = mockk<ApiService>()
-    private val browse = mockk<BrowseRepository>()
-    private val books = mockk<BookDetailRepository>()
-    private val downloads = mockk<DownloadsRepository>()
     private val progress = mockk<AudioProgressRepository>()
-    private val downloaded = MutableStateFlow<List<DownloadEntity>>(emptyList())
-    private val catalog = AutoCatalog(api, browse, books, downloads, progress)
     private val labels = AutoBrowseTree.Labels("App", "Continue", "Downloaded", "Audiobook", { it })
+
     init {
-        every { downloads.downloads } returns downloaded
         coEvery { progress.recent() } returns emptyList()
     }
-    private fun card(id: Int, format: String = "mp3") = BookCard(id, title = "Book $id", addedAt = "",
-        files = listOf(BookFileRef(id, format, "primary")))
-    private fun download(id: Int) = DownloadEntity(id, "Book $id", "Author", "", true, "mp3", 0, 0,
-        null, "{}", "[]", "COMPLETE", 1f)
+
+    private fun card(id: Int, format: String = "mp3", title: String = "Book $id", authors: List<String> = emptyList()) =
+        BookCard(id, title = title, authors = authors, addedAt = "", files = listOf(BookFileRef(id, format, "primary")))
+
     private fun point(id: Int, percent: Double, at: Long = 1) = AudioProgressEntity(id, id, 10.0, percent, at, false)
 
-    @Test fun `catalog applies the audiobook filter before server pagination`() = runTest {
-        val query = slot<BookQuery>()
-        coEvery { api.queryBooks(capture(query)) } returns BooksPage(listOf(card(1), card(2, "epub")), total = 90)
-        val page = catalog.page(1, labels, "Dune")
-        assertEquals(listOf("book/1"), page.entries.map { it.mediaId })
-        assertEquals(90, page.total)
-        assertEquals(1, query.captured.pagination.page)
-        assertEquals("Dune", query.captured.q)
-        assertTrue(query.captured.filter.toString().contains("m4b"))
-    }
-
-    @Test fun `continue includes streaming books and deduplicates downloaded books`() = runTest {
-        downloaded.value = listOf(download(1))
-        coEvery { progress.recent() } returns listOf(point(1, 40.0))
-        coEvery { browse.scroller(any(), any(), any()) } returns listOf(card(1), card(2), card(3, "epub"))
-        assertEquals(listOf("book/1", "book/2"), catalog.continueListening(labels).map { it.mediaId })
-    }
-
-    @Test fun `offline continue keeps usable downloads`() = runTest {
-        downloaded.value = listOf(download(1))
-        coEvery { progress.recent() } returns listOf(point(1, 40.0))
-        coEvery { browse.scroller(any(), any(), any()) } coAnswers { delay(60_000); emptyList() }
-        assertEquals(listOf("book/1"), catalog.continueListening(labels).map { it.mediaId })
-    }
-
-    @Test fun `locally finished books stay out of the server shelf`() = runTest {
-        coEvery { progress.recent() } returns listOf(point(1, 100.0))
-        coEvery { browse.scroller(any(), any(), any()) } returns listOf(card(1), card(2))
-        assertEquals(listOf("book/2"), catalog.continueListening(labels).map { it.mediaId })
-    }
-
-    private fun litara(started: List<BookCard>, all: List<BookCard>) = object : LitaraSource by LitaraSource.None {
-        override fun scopeKey() = "server|user"
+    private fun catalog(
+        started: () -> List<BookCard> = { emptyList() }, all: List<BookCard> = emptyList(),
+        downloaded: List<BookCard> = emptyList(), account: String = "server|user",
+    ) = AutoCatalog(progress, object : LitaraSource by LitaraSource.None {
+        override fun scopeKey() = account
         override suspend fun cards() = all
-        override suspend fun started() = started
-    }
+        override suspend fun started() = started()
+        override suspend fun downloaded() = downloaded
+    })
 
-    @Test fun `continue lists only started Litara recordings`() = runTest {
-        coEvery { browse.scroller(any(), any(), any()) } throws java.io.IOException("No server URL configured")
-        val source = litara(started = listOf(card(2)), all = listOf(card(1), card(2), card(3)))
-        val shelf = AutoCatalog(api, browse, books, downloads, progress, source).continueListening(labels)
-        assertEquals(listOf("book/2"), shelf.map { it.mediaId })
+    private fun List<AutoBrowseTree.BrowseEntry>.ids() = map { it.mediaId }
+
+    @Test fun `continue lists only started recordings`() = runTest {
+        val shelf = catalog(started = { listOf(card(2), card(3, "epub")) }, all = listOf(card(1), card(2), card(3, "epub")))
+        assertEquals(listOf("book/2"), shelf.continueListening(labels).ids())
     }
 
     @Test fun `continue keeps a recording known only from this device's history`() = runTest {
-        coEvery { browse.scroller(any(), any(), any()) } returns emptyList()
         coEvery { progress.recent() } returns listOf(point(3, 20.0))
-        val source = litara(started = emptyList(), all = listOf(card(1), card(3)))
-        val shelf = AutoCatalog(api, browse, books, downloads, progress, source).continueListening(labels)
-        assertEquals(listOf("book/3"), shelf.map { it.mediaId })
+        assertEquals(listOf("book/3"), catalog(all = listOf(card(1), card(3))).continueListening(labels).ids())
     }
 
-    @Test fun `a Litara search with no match is empty instead of an error`() = runTest {
-        coEvery { api.queryBooks(any()) } throws java.io.IOException("No server URL configured")
-        val auto = AutoCatalog(api, browse, books, downloads, progress, litara(emptyList(), listOf(card(1))))
-        assertEquals(emptyList<String>(), auto.page(0, labels, "nothing like it").entries.map { it.mediaId })
-        assertEquals(emptyList<String>(), auto.page(1, labels).entries.map { it.mediaId })
+    @Test fun `continue puts this device's most recent first`() = runTest {
+        coEvery { progress.recent() } returns listOf(point(1, 20.0, at = 1), point(3, 20.0, at = 9))
+        val shelf = catalog(started = { listOf(card(1), card(2), card(3)) }, all = listOf(card(1), card(2), card(3)))
+        assertEquals(listOf("book/3", "book/1", "book/2"), shelf.continueListening(labels).ids())
     }
 
-    @Test fun `without a Litara account a server failure still surfaces`() = runTest {
-        coEvery { api.queryBooks(any()) } throws java.io.IOException("offline")
-        assertTrue(runCatching { catalog.page(0, labels, "Dune") }.isFailure)
+    @Test fun `offline continue keeps what this device has played`() = runTest {
+        coEvery { progress.recent() } returns listOf(point(1, 40.0))
+        val shelf = catalog(started = { throw java.io.IOException("offline") }, all = listOf(card(1), card(2)))
+        assertEquals(listOf("book/1"), shelf.continueListening(labels).ids())
+    }
+
+    @Test fun `locally finished books stay out of the shelf`() = runTest {
+        coEvery { progress.recent() } returns listOf(point(1, 100.0))
+        val shelf = catalog(started = { listOf(card(1), card(2)) }, all = listOf(card(1), card(2)))
+        assertEquals(listOf("book/2"), shelf.continueListening(labels).ids())
+    }
+
+    @Test fun `the downloaded shelf lists the offline copies`() = runTest {
+        assertEquals(listOf("book/4"), catalog(downloaded = listOf(card(4))).downloadedEntries(labels).ids())
+    }
+
+    @Test fun `search matches titles, authors and narrators without accents or case`() = runTest {
+        val book = card(1, authors = listOf("José Writer")).copy(narrators = listOf("Jane Reader"))
+        val auto = catalog(all = listOf(book, card(2, title = "Other")))
+        assertEquals(listOf("book/1"), auto.search("  JOSE writer ", labels).ids())
+        assertEquals(listOf("book/1"), auto.search("jane reader", labels).ids())
+    }
+
+    @Test fun `a search with no match is empty instead of an error`() = runTest {
+        assertEquals(emptyList<String>(), catalog(all = listOf(card(1))).search("nothing like it", labels).ids())
+    }
+
+    @Test fun `searching while signed out asks for sign in`() = runTest {
+        val failure = runCatching { catalog(account = "").search("Dune", labels) }.exceptionOrNull()
+        assertEquals(AutoFailure.SIGN_IN, (failure as AutoRequestException).failure)
     }
 }

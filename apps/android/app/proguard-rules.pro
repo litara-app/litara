@@ -7,10 +7,9 @@
 }
 -keep,includedescriptorclasses class com.litara.core.model.**$$serializer { *; }
 
-# Retrofit / OkHttp
+# OkHttp
 -keepattributes Signature, Exceptions
 -dontwarn okhttp3.**
 -dontwarn okio.**
--dontwarn retrofit2.**
 
 # Media3 / ExoPlayer keeps its own consumer rules; nothing extra required here.

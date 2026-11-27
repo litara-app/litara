@@ -12,19 +12,16 @@ import java.security.KeyStore
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Credentials are device-encrypted; the non-secret database ownership mapping is backed up. */
+/** Credentials are device-encrypted. */
 @Singleton
 class SecureStorage internal constructor(
     private val context: Context,
     private val prefsName: String,
     private val masterKeyAlias: String,
-    ownershipPrefsName: String,
 ) {
     @Inject constructor(@ApplicationContext context: Context) : this(
-        context, "litara_secure_prefs", MasterKey.DEFAULT_MASTER_KEY_ALIAS, "litara_data_ownership",
+        context, "litara_secure_prefs", MasterKey.DEFAULT_MASTER_KEY_ALIAS,
     )
-
-    private val ownership = context.getSharedPreferences(ownershipPrefsName, Context.MODE_PRIVATE)
 
     private val prefs: SharedPreferences = try {
         openAndValidate()
@@ -43,17 +40,6 @@ class SecureStorage internal constructor(
         openAndValidate() // One retry only; surface persistent storage/Keystore failures.
     }
 
-    init {
-        if (!ownership.contains(KEY_DATA_OWNER)) {
-            // Migrate while the old encrypted store is still readable. If restored legacy data
-            // has lost its mapping, quarantine it rather than assigning it to the next server.
-            val owner = prefs.getString(KEY_DATA_OWNER, null)
-                ?: prefs.getString(KEY_SERVER_URL, null)?.let(DataScope::key)
-                ?: UNKNOWN_DATA_OWNER.takeIf { context.getDatabasePath("litara.db").exists() }
-            if (owner != null) saveOwner(owner)
-        }
-    }
-
     private fun openAndValidate(): SharedPreferences {
         val masterKey = MasterKey.Builder(context, masterKeyAlias)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -67,30 +53,15 @@ class SecureStorage internal constructor(
         ).also { it.all } // Detect corrupt encrypted values as well as undecryptable keysets.
     }
 
-    private fun saveOwner(value: String?) {
-        check(ownership.edit().putString(KEY_DATA_OWNER, value).commit()) { "Cannot persist database ownership" }
-    }
-
-    fun getString(key: String): String? =
-        if (key == KEY_DATA_OWNER) ownership.getString(key, null) else prefs.getString(key, null)
+    fun getString(key: String): String? = prefs.getString(key, null)
 
     fun putString(key: String, value: String?) {
-        if (key == KEY_DATA_OWNER) saveOwner(value)
         // commit(), not apply(): sign-in/out can end in ProcessRestarter, which kills the process right after the write, and
         // an asynchronous apply() that has not reached disk is lost (T007: the app came back signed out after Litara sign-in).
-        else prefs.edit().putString(key, value).commit()
+        prefs.edit().putString(key, value).commit()
     }
 
     fun remove(key: String) {
-        if (key == KEY_DATA_OWNER) saveOwner(null) else prefs.edit().remove(key).commit()
-    }
-
-    companion object {
-        internal const val UNKNOWN_DATA_OWNER = "unknown-restored-owner"
-        const val KEY_ACCESS_TOKEN = "access_token"
-        const val KEY_SERVER_URL = "server_url"
-        const val KEY_USER = "user"
-        const val KEY_COOKIES = "auth_cookies"
-        const val KEY_DATA_OWNER = "data_owner"
+        prefs.edit().remove(key).commit()
     }
 }
