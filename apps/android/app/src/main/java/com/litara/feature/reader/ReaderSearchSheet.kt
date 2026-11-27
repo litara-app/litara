@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderSearchSheet(
-    state: ReaderViewModel.SearchState?,
+    state: ReaderSearchState?,
     onSearch: (String) -> Unit,
     onClear: () -> Unit,
     onJump: (String) -> Unit,

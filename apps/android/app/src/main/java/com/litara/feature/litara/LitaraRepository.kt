@@ -1,7 +1,6 @@
 package com.litara.feature.litara
 
 import android.content.Context
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.litara.core.litara.AccountScope
 import com.litara.core.litara.ContentChangedException
 import com.litara.core.litara.AtomicFile
@@ -73,7 +72,7 @@ class LitaraRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val store: LitaraSessionStore,
     private val userCaTrust: UserCaTrust,
-    private val session: com.litara.core.auth.SessionManager,
+    private val dataScope: com.litara.core.auth.AccountDataScope,
     private val settings: com.litara.core.settings.AppSettingsStore,
 ) {
     val offline = OfflineStore(File(context.filesDir, "litara-offline"))
@@ -110,9 +109,6 @@ class LitaraRepository @Inject constructor(
         }
     }
 
-    /** Screen to reopen after a scope change; null reopens the app's normal launcher (the Litara shell when signed in). */
-    @Volatile var restartInto: Class<*>? = null
-
     private fun scopeOf(id: LitaraIdentity) = AccountScope(id.serverId, id.user.id)
 
     /** Signs in. Only a new (server, account) pair gets its own directory; the same account finds its data again. */
@@ -139,7 +135,7 @@ class LitaraRepository @Inject constructor(
     @Volatile var allowProcessRestart: Boolean = true
 
     private fun restartOnScopeChange() {
-        if (allowProcessRestart && session.dataScopeChanged()) com.litara.core.data.ProcessRestarter.restart(context, restartInto)
+        if (allowProcessRestart && dataScope.changed()) com.litara.core.data.ProcessRestarter.restart(context)
     }
 
     /** Logout locks the account's scope immediately; data is kept, not deleted. */
@@ -325,10 +321,6 @@ class LitaraRepository @Inject constructor(
         val fresh = runBlocking { runCatching { c.refreshAfter(stale) }.getOrNull() } ?: return@Authenticator null
         response.request.newBuilder().header("Authorization", "Bearer $fresh").header("X-Litara-Retried", "1").build()
     }
-
-    /** HTTP data source for streaming inside the Litara screen. */
-    fun mediaDataSourceFactory(): OkHttpDataSource.Factory =
-        OkHttpDataSource.Factory(baseHttp().newBuilder().addInterceptor(bearerInterceptor()).authenticator(refreshAuthenticator()).build())
 
     private var covers: coil.ImageLoader? = null
 

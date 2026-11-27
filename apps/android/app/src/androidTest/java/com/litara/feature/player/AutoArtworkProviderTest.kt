@@ -1,12 +1,9 @@
 package com.litara.feature.player
 
 import android.content.ContentResolver
-import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.litara.core.db.DownloadEntity
 import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -18,23 +15,18 @@ class AutoArtworkProviderTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val dependencies get() = EntryPointAccessors.fromApplication(context, AutoArtworkProvider.Dependencies::class.java)
 
-    @Test fun downloadedCoverIsReadableThroughContentResolver() = runBlocking {
-        val database = EntryPointAccessors.fromApplication(context, AutoTestDependencies::class.java).database()
-        val dao = database.downloadDao()
+    @Test fun cachedCoverIsReadableThroughContentResolver() {
         val id = 2_000_000_001
-        val previous = dao.get(id)
-        val file = File.createTempFile("auto-art-test", ".jpg", context.cacheDir)
+        val uri = dependencies.artwork().uri(id)
+        val folder = File(context.cacheDir, "auto-artwork").apply { mkdirs() }
+        val cached = File(folder, "${uri.pathSegments[0]}-$id.jpg")
         val bytes = byteArrayOf(1, 2, 3, 4)
-        file.writeBytes(bytes)
+        cached.writeBytes(bytes)
         try {
-            dao.upsert(DownloadEntity(id, "Test", "", "", true, "mp3", 0, 0,
-                Uri.fromFile(file).toString(), "{}", "[]", "COMPLETE", 1f))
-            val uri = dependencies.artwork().uri(id)
             assertEquals(ContentResolver.SCHEME_CONTENT, uri.scheme)
             assertArrayEquals(bytes, context.contentResolver.openInputStream(uri)!!.use { it.readBytes() })
         } finally {
-            if (previous == null) dao.delete(id) else dao.upsert(previous)
-            file.delete()
+            cached.delete()
         }
     }
 

@@ -1,5 +1,9 @@
 # Litara Android: current status
 
+**Update 2026-11-27:** the BookOrbit client has been removed ([ADR-0112](../../ADR/0112-remove-the-bookorbit-client.md)). Litara sign-in is the only way in, and the app
+talks only to a Litara server. The player, Android Auto, Cast, offline copies, both flavors and the license and provenance files remain. The text below records the
+imported baseline as it was.
+
 This directory is the **imported BookOrbit Android baseline** (see [UPSTREAM.md](UPSTREAM.md)). It is
 the agreed starting point for Litara's native Android client (ADR-0005), not yet a Litara client.
 

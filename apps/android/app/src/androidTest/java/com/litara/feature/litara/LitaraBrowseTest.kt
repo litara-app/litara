@@ -54,12 +54,12 @@ class LitaraBrowseTest {
             assumeTrue("litaraUrl/litaraPassword/litaraRecording not provided; browsing test not run",
                 url != null && password != null && args.getString("litaraRecording") != null)
             deps.repository().allowProcessRestart = false
-            deps.session().activeDataScope = null
+            deps.dataScope().active = null
             runCatching { runBlocking { deps.repository().signOut() } }
             LitaraSessionStore(SecureStorage(context)).forgetIdentity()
             File(context.filesDir, "litara-offline").deleteRecursively()
             runBlocking { deps.repository().signIn(url!!, true, "fixture-user-a", password!!, "Browse test") }
-            deps.session().activeDataScope = null
+            deps.dataScope().active = null
         }
 
         override fun after() {

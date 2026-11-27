@@ -58,7 +58,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -69,7 +68,7 @@ private val PDF_BACKDROP = Color(0xFF20242A)
 @Composable
 fun PdfReaderScreen(
     onBack: () -> Unit,
-    vm: PdfHost = hiltViewModel<PdfReaderViewModel>(),
+    vm: PdfHost,
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     // ADR-0093: behind -Plitara.sharedReader the page is drawn by the shared web engine (PDF.js) instead of PdfRenderer.
@@ -204,7 +203,7 @@ fun PdfReaderScreen(
 @Composable
 private fun PdfContent(
     core: PdfRenderCore,
-    ui: PdfReaderViewModel.UiState,
+    ui: PdfUiState,
     vm: PdfHost,
     onToggleChrome: () -> Unit,
     onLink: (PdfLink) -> Unit,
@@ -237,7 +236,7 @@ private fun PdfContent(
 @Composable
 private fun PdfContinuous(
     core: PdfRenderCore,
-    ui: PdfReaderViewModel.UiState,
+    ui: PdfUiState,
     vm: PdfHost,
     widthPx: Int,
     heightPx: Int,
@@ -296,7 +295,7 @@ private fun PdfContinuous(
 @Composable
 private fun PdfPaginated(
     core: PdfRenderCore,
-    ui: PdfReaderViewModel.UiState,
+    ui: PdfUiState,
     vm: PdfHost,
     widthPx: Int,
     heightPx: Int,

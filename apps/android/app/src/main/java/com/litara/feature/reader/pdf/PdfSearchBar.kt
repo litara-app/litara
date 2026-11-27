@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 /** Search overlay for the PDF reader (Android 15+ only). */
 @Composable
 fun PdfSearchBar(
-    search: PdfReaderViewModel.SearchState?,
+    search: PdfSearchState?,
     onQuery: (String) -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,

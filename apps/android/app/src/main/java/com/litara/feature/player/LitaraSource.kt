@@ -11,10 +11,10 @@ import java.io.File
 data class LitaraPlayback(val book: BookDetail, val files: List<BookFileRef>, val uris: List<String>)
 
 /**
- * The seam between the imported player/Auto/Cast code (which keys books and files by Int) and a Litara
- * server (UUID identities, content versions, revisions). Litara recordings and files are exposed to the
- * old code as stable local HANDLES in a reserved range (>= [HANDLE_BASE]); the wire contract, downloads
- * and conflicts stay UUID-based. Defaults to [None] so classes constructed by hand (tests) are unchanged.
+ * The seam between the player/Auto/Cast code (which keys books and files by Int) and a Litara server
+ * (UUID identities, content versions, revisions). Recordings and files are exposed to that code as stable
+ * local HANDLES in a reserved range (>= [HANDLE_BASE]); the wire contract, downloads and conflicts stay
+ * UUID-based. [None] is the signed-out source for classes constructed by hand (tests).
  */
 interface LitaraSource {
     /** Identity of the signed-in Litara account (server + user), or empty. Caches must be keyed by it. */
@@ -77,7 +77,7 @@ interface LitaraSource {
     }
 
     companion object {
-        /** BookOrbit ids never reach this range, so a handle identifies its backend without a lookup. */
+        /** The lowest local handle. Saved positions below it are never read. */
         const val HANDLE_BASE = 1_000_000_000
     }
 }

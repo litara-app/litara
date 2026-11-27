@@ -12,10 +12,6 @@ import javax.inject.Singleton
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-enum class SeriesViewMode { LIST, GRID }
-
-enum class ReaderInterface { APP, SERVER_WEB }
-
 private val Context.appSettingsDataStore by preferencesDataStore("app_settings")
 
 /**
@@ -32,25 +28,6 @@ class AppSettingsStore @Inject constructor(
     private val wifiOnlyDownloadsKey = booleanPreferencesKey("wifi_only_downloads")
     private val dynamicColorKey = booleanPreferencesKey("dynamic_color")
     private val comicRtlKey = booleanPreferencesKey("comic_rtl")
-    private val seriesViewModeKey = stringPreferencesKey("series_view_mode")
-    private val navItemsKey = stringPreferencesKey("nav_items")
-    private val readerInterfaceKey = stringPreferencesKey("reader_interface")
-    private val readingFullscreenKey = booleanPreferencesKey("reading_fullscreen")
-
-    val readerInterface = context.appSettingsDataStore.data.map { prefs ->
-        prefs[readerInterfaceKey]?.let { runCatching { ReaderInterface.valueOf(it) }.getOrNull() }
-            ?: ReaderInterface.APP
-    }
-
-    val readingFullscreen = context.appSettingsDataStore.data.map { it[readingFullscreenKey] ?: true }
-
-    suspend fun setReaderInterface(value: ReaderInterface) {
-        context.appSettingsDataStore.edit { it[readerInterfaceKey] = value.name }
-    }
-
-    suspend fun setReadingFullscreen(enabled: Boolean) {
-        context.appSettingsDataStore.edit { it[readingFullscreenKey] = enabled }
-    }
 
     val themeMode = context.appSettingsDataStore.data.map { prefs ->
         prefs[themeModeKey]?.let { raw -> runCatching { ThemeMode.valueOf(raw) }.getOrNull() } ?: ThemeMode.SYSTEM
@@ -78,20 +55,5 @@ class AppSettingsStore @Inject constructor(
 
     suspend fun setWifiOnlyDownloads(enabled: Boolean) {
         context.appSettingsDataStore.edit { it[wifiOnlyDownloadsKey] = enabled }
-    }
-
-    val seriesViewMode = context.appSettingsDataStore.data.map { prefs ->
-        prefs[seriesViewModeKey]?.let { raw -> runCatching { SeriesViewMode.valueOf(raw) }.getOrNull() } ?: SeriesViewMode.LIST
-    }
-
-    /** Bottom-bar buttons as saved ids in order; null until stored (callers fall back to the default). */
-    val navItems = context.appSettingsDataStore.data.map { it[navItemsKey] }
-
-    suspend fun setNavItems(serialized: String) {
-        context.appSettingsDataStore.edit { it[navItemsKey] = serialized }
-    }
-
-    suspend fun setSeriesViewMode(mode: SeriesViewMode) {
-        context.appSettingsDataStore.edit { it[seriesViewModeKey] = mode.name }
     }
 }

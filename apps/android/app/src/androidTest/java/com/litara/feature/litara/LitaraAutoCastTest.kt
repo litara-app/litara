@@ -8,7 +8,6 @@ import androidx.media3.session.SessionToken
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.litara.core.auth.SecureStorage
-import com.litara.core.auth.SessionManager
 import com.litara.core.network.CastUpstreamClient
 import com.litara.feature.cast.CastProxyServer
 import com.litara.feature.player.AutoBrowseTree
@@ -74,11 +73,11 @@ class LitaraAutoCastTest {
         val backend = deps.backend()
         repo.allowProcessRestart = false
         // The test shares the app process: do not let a scope change restart (kill) it.
-        deps.session().activeDataScope = null
+        deps.dataScope().active = null
         LitaraSessionStore(SecureStorage(context)).let { runCatching { runBlocking { repo.signOut() } }; it.forgetIdentity() }
         File(context.filesDir, "litara-offline").deleteRecursively()
         repo.signIn(url!!, true, "fixture-user-a", password!!, "Android Auto test")
-        deps.session().activeDataScope = null
+        deps.dataScope().active = null
 
         // ---- the car's view: the same MediaLibrarySession the head unit connects to ----
         val cards = backend.cards()

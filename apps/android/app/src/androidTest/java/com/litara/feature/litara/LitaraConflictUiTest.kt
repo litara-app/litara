@@ -51,12 +51,12 @@ class LitaraConflictUiTest {
             val deps = EntryPointAccessors.fromApplication(context, LitaraTestDependencies::class.java)
             deps.repository().allowProcessRestart = false
             // Same process as the app: a scope change must not kill the test run.
-            deps.session().activeDataScope = null
+            deps.dataScope().active = null
             runCatching { runBlocking { deps.repository().signOut() } }
             LitaraSessionStore(SecureStorage(context)).forgetIdentity()
             File(context.filesDir, "litara-offline").deleteRecursively()
             runBlocking { deps.repository().signIn(url!!, true, "fixture-user-a", password!!, "Shell test") }
-            deps.session().activeDataScope = null
+            deps.dataScope().active = null
         }
     }
     private val compose = createAndroidComposeRule<MainActivity>()

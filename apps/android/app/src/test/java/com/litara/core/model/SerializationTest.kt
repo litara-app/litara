@@ -16,24 +16,6 @@ class SerializationTest {
     }
 
     @Test
-    fun `BooksPage decodes and ignores unknown fields`() {
-        val raw = """
-            {
-              "items": [
-                {"id": 1, "title": "A Book", "authors": ["Jane Doe"], "addedAt": "2024-01-01",
-                 "hasCover": true, "unknownField": 42}
-              ],
-              "total": 1, "page": 0, "size": 50, "extra": "ignored"
-            }
-        """.trimIndent()
-        val page = json.decodeFromString(BooksPage.serializer(), raw)
-        assertEquals(1, page.items.size)
-        assertEquals("A Book", page.items[0].title)
-        assertEquals(listOf("Jane Doe"), page.items[0].authors)
-        assertEquals(1, page.total)
-    }
-
-    @Test
     fun `BookDetail tolerates missing optional fields`() {
         val raw = """
             {"id": 7, "libraryId": 2, "libraryName": "Main", "status": "reading", "addedAt": "2024-01-01"}

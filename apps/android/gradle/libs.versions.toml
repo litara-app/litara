@@ -20,7 +20,6 @@ hilt = "2.58"
 hiltNavigationCompose = "1.2.0"
 
 # Networking
-retrofit = "2.11.0"
 okhttp = "4.12.0"
 kotlinxSerialization = "1.7.3"
 coroutines = "1.9.0"
@@ -38,11 +37,9 @@ securityCrypto = "1.1.0-alpha06"
 documentfile = "1.1.0"
 
 # Paging
-paging = "3.3.5"
 
 # Background work + auth + network state
 workManager = "2.10.0"
-appauth = "0.11.1"
 webkit = "1.12.1"
 
 # Test
@@ -82,8 +79,6 @@ androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version = "1
 androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version = "1.2.0" }
 
 # Networking
-retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
-retrofit-converter-kotlinx-serialization = { group = "com.squareup.retrofit2", name = "converter-kotlinx-serialization", version.ref = "retrofit" }
 okhttp-bom = { group = "com.squareup.okhttp3", name = "okhttp-bom", version.ref = "okhttp" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp" }
 okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor" }
@@ -110,12 +105,9 @@ androidx-security-crypto = { group = "androidx.security", name = "security-crypt
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 # Paging
-androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime", version.ref = "paging" }
-androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "paging" }
 
 # Background work + OIDC
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
-appauth = { group = "net.openid", name = "appauth", version.ref = "appauth" }
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 
 # Test

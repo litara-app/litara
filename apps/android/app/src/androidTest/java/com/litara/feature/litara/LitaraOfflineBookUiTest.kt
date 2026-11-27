@@ -43,12 +43,12 @@ class LitaraOfflineBookUiTest {
                     url != null && username != null && password != null)
             val repo = deps.repository()
             repo.allowProcessRestart = false
-            deps.session().activeDataScope = null
+            deps.dataScope().active = null
             runCatching { runBlocking { repo.signOut() } }
             LitaraSessionStore(SecureStorage(context)).forgetIdentity()
             File(context.filesDir, "litara-offline").deleteRecursively()
             runBlocking { repo.signIn(url!!, true, username!!, password!!, "Offline book test") }
-            deps.session().activeDataScope = null
+            deps.dataScope().active = null
         }
     }
 

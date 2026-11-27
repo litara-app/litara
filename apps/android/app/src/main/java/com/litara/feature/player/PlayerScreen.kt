@@ -346,8 +346,7 @@ fun PlayerScreen(
                 showBookmarks = false
             },
             onDelete = { vm.deleteBookmark(it.id) },
-            // Only Litara bookmarks can be renamed.
-            onRename = if ((state.currentBook?.id ?: 0) >= LitaraSource.HANDLE_BASE) { b, name -> vm.renameBookmark(b.id, name) } else null,
+            onRename = { b, name -> vm.renameBookmark(b.id, name) },
             onDismiss = { showBookmarks = false },
         )
     }

@@ -19,9 +19,6 @@ class PdfContinuousPageTest {
             val pages = listOf(page(index - 1, -600), page(index, 308))
             val current = PdfLayout.mostVisiblePage(pages, 0, 1200)!!
             assertEquals(index, current)
-            // The counter and server progress both use this same zero-based page.
-            assertEquals(index + 1, PdfProgress.pageNumber(current))
-            assertEquals((index + 1) * 10.0, PdfProgress.pageToPercentage(current, 10), 0.0001)
         }
     }
 

@@ -6,16 +6,12 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaConstants
-import com.litara.core.db.AudioProgressEntity
-import com.litara.core.db.DownloadEntity
-import com.litara.feature.downloads.isCompleteDownloadStatus
 
 /**
- * Pure browse IDs, offline shelves and bounded grouping for Android Auto. Online shelves are
- * supplied by AutoCatalog; the first three root shelves keep stable positions as playback changes.
+ * Pure browse IDs and bounded grouping for Android Auto. The shelves are supplied by AutoCatalog; the
+ * first three root shelves keep stable positions as playback changes.
  *
- * The filtering/ordering is kept pure (operating on entities) so it is unit-testable; only
- * [toMediaItem] touches the Android framework ([Uri]).
+ * Grouping is kept pure so it is unit-testable; only [toMediaItem] touches the Android framework ([Uri]).
  */
 object AutoBrowseTree {
     const val ROOT_ID = "root"
@@ -128,27 +124,6 @@ object AutoBrowseTree {
         BrowseEntry(chapterMediaId(current.bookId, r.index), r.title, PlaybackQueue.formatDurationShort(r.lengthSec), null, isPlayable = true, completion = completion)
     }
 
-    /** Completed audiobook downloads as playable items (most recently downloaded first). */
-    fun downloadedAudiobooks(downloads: List<DownloadEntity>, labels: Labels): List<BrowseEntry> =
-        downloads.filter { it.isComplete }
-            .sortedByDescending { it.downloadedAt }
-            .map { it.toBrowseEntry(labels) }
-
-    /**
-     * Downloaded audiobooks that have a saved listening position, ordered by most recently played.
-     * The intersection keeps the shelf offline-safe and metadata-complete (title/art come from the
-     * download record, not the network).
-     */
-    fun continueListening(
-        downloads: List<DownloadEntity>,
-        progress: List<AudioProgressEntity>,
-        labels: Labels,
-    ): List<BrowseEntry> {
-        val byId = downloads.filter { it.isComplete }.associateBy { it.bookId }
-        return progress.filter { it.percentage < ResumeCandidates.FINISHED_PERCENT }.sortedByDescending { it.updatedAt }
-            .mapNotNull { byId[it.bookId]?.toBrowseEntry(labels) }
-    }
-
     /** Builds the browsable root node. */
     fun rootMediaItem(labels: Labels): MediaItem = browsableItem(ROOT_ID, labels.appName, null)
 
@@ -198,14 +173,4 @@ object AutoBrowseTree {
         return MediaItem.Builder().setMediaId(id).setMediaMetadata(metadata).build()
     }
 
-    private val DownloadEntity.isComplete: Boolean
-        get() = isAudiobook && status.isCompleteDownloadStatus()
-
-    private fun DownloadEntity.toBrowseEntry(labels: Labels): BrowseEntry = BrowseEntry(
-        mediaId = bookMediaId(bookId),
-        title = title ?: labels.audiobook,
-        subtitle = narrators.ifBlank { authors }.ifBlank { null },
-        coverPath = coverLocalPath,
-        isPlayable = true,
-    )
 }

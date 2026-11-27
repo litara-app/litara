@@ -27,10 +27,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
-import com.litara.feature.downloads.DownloadsRepository
-import com.litara.feature.downloads.isCompleteDownloadStatus
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -74,7 +71,6 @@ class PlaybackService : MediaLibraryService() {
     @Inject
     lateinit var playerManager: PlayerManager
 
-    @Inject lateinit var downloads: DownloadsRepository
     @Inject lateinit var audioProgress: AudioProgressRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -114,10 +110,9 @@ class PlaybackService : MediaLibraryService() {
         }
 
         serviceScope.launch {
-            combine(
-                downloads.downloads.map { rows -> rows.filter { it.isAudiobook && it.status.isCompleteDownloadStatus() } },
-                audioProgress.observeRecent().map { rows -> rows.map { it.bookId to (it.percentage >= ResumeCandidates.FINISHED_PERCENT) } },
-            ) { books, history -> books to history }.distinctUntilChanged().drop(1).collect {
+            audioProgress.observeRecent()
+                .map { rows -> rows.map { it.bookId to (it.percentage >= ResumeCandidates.FINISHED_PERCENT) } }
+                .distinctUntilChanged().drop(1).collect {
                 mediaSession?.let { callback.refresh(it, setOf(AutoBrowseTree.DOWNLOADS_ID, AutoBrowseTree.CONTINUE_ID)) }
             }
         }

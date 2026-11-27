@@ -104,30 +104,6 @@ data class BookDetail(
 )
 
 @Serializable
-data class BookRecommendation(
-    val id: Int,
-    val title: String? = null,
-    val hasCover: Boolean = false,
-    val authors: List<String> = emptyList(),
-    val seriesIndex: Double? = null,
-    val isAudiobook: Boolean? = null,
-)
-
-/** `GET /books/search` returns this lean cross-library shape (not a full BookCard). */
-@Serializable
-data class SearchResult(
-    val id: Int,
-    val title: String? = null,
-    val seriesName: String? = null,
-    val authors: List<String> = emptyList(),
-    val libraryId: Int,
-    val libraryName: String,
-    val formats: List<String> = emptyList(),
-)
-
-// --- Progress payloads ---
-
-@Serializable
 data class AudioProgress(
     val currentFileId: Int,
     val positionSeconds: Double,
@@ -135,37 +111,8 @@ data class AudioProgress(
     val updatedAt: String? = null,
 )
 
-@Serializable
-data class SaveAudioProgress(
-    val currentFileId: Int,
-    val positionSeconds: Double,
-    val percentage: Double,
-)
-
-/** Server stores a richer shape; the app only reads the CFI + percentage the reader needs. */
-@Serializable
-data class FileProgress(
-    val cfi: String? = null,
-    val percentage: Double = 0.0,
-    val pageNumber: Int? = null,
-    val updatedAt: String? = null,
-)
-
-@Serializable
-data class SaveFileProgress(
-    val cfi: String? = null,
-    val percentage: Double,
-    val pageNumber: Int? = null,
-)
-
 /** `GET /cbz/files/{fileId}/pages`. */
 @Serializable
 data class ComicPages(val pageCount: Int = 0)
 
 // --- Mutation request bodies ---
-
-@Serializable
-data class SetReadStatusRequest(val status: String)
-
-@Serializable
-data class SetRatingRequest(val bookIds: List<Int>, val rating: Int?)

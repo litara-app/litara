@@ -153,7 +153,7 @@ fun LitaraShell(vm: LitaraShellViewModel = hiltViewModel()) {
         composable(ROUTE_SETTINGS) {
             Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                 TextButton(dropUnlessResumed { nav.popBackStack() }) { Text(stringResource(R.string.back)) }
-                SettingsScreen(litara = true)
+                SettingsScreen()
             }
         }
         composable(ROUTE_PLAYER) { PlayerScreen(onBack = dropUnlessResumed { nav.popBackStack() }) }

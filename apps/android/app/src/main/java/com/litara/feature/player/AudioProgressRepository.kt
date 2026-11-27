@@ -4,18 +4,7 @@ import android.util.Log
 import com.litara.core.db.AudioProgressDao
 import com.litara.core.db.AudioProgressEntity
 import com.litara.core.model.AudioProgress
-import com.litara.core.model.AudiobookPlaybackState
-import com.litara.core.model.PutAudiobookPlaybackState
-import com.litara.core.model.SaveAudioProgress
-import com.litara.core.network.ApiService
-import com.litara.core.network.AudiobookAssetResolver
-import com.litara.core.network.AudiobookAssetResolver.Sources
-import com.litara.core.sync.SyncScheduler
-import kotlinx.serialization.json.Json
-import retrofit2.HttpException
 import java.time.Instant
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,26 +12,18 @@ import javax.inject.Singleton
 data class ResumePoint(val progress: AudioProgress, val lastActivityMillis: Long)
 
 /**
- * Offline-first audiobook position store keyed by book id, backed by Room (local-first write +
- * dirty flag + flush). Syncs through `/audiobooks/{id}/playback-state` on server 3.0+ (shared with
- * the web player) and the legacy `/books/{id}/audio-progress` on older servers.
+ * Offline-first listening position store keyed by the recording's local handle, backed by Room (local write first,
+ * dirty flag, then flush through [LitaraSource]).
  */
 @Singleton
 class AudioProgressRepository @Inject constructor(
     private val dao: AudioProgressDao,
-    private val api: ApiService,
-    private val assets: AudiobookAssetResolver,
-    private val json: Json,
-    private val syncScheduler: SyncScheduler,
-    private val litara: LitaraSource = LitaraSource.None,
+    private val litara: LitaraSource,
 ) {
-    /** Last playback-state revision seen per book - the PUT's optimistic-concurrency base. */
-    private val revisions = ConcurrentHashMap<Int, Int>()
-
     suspend fun report(bookId: Int, currentFileId: Int, positionSeconds: Double, percentage: Double) {
         val entity = AudioProgressEntity(bookId, currentFileId, positionSeconds, percentage, System.currentTimeMillis(), dirty = true)
         dao.upsert(entity)
-        if (push(entity)) dao.markSynced(bookId) else syncScheduler.schedule()
+        if (push(entity)) dao.markSynced(bookId)
     }
 
     /** Push every dirty position to the server. Returns true if anything is still dirty afterward. */
@@ -53,7 +34,7 @@ class AudioProgressRepository @Inject constructor(
         return dao.dirtyEntries().isNotEmpty()
     }
 
-    /** Playback reached the end of the final file (not a seek there): completes this Litara recording only. */
+    /** Playback reached the end of the final file (not a seek there): completes this recording only. */
     suspend fun playbackEnded(bookId: Int) {
         if (litara.owns(bookId)) runCatching { litara.ended(bookId) }
     }
@@ -64,9 +45,9 @@ class AudioProgressRepository @Inject constructor(
     fun observeRecent() = dao.observeRecent()
 
     /**
-     * Resume position: retries any pending local write first, then picks whichever of local/server
-     * is actually newer by timestamp (true last-write-wins, matching the server's own merge logic),
-     * falling back to local if the server is unreachable and to server if there's no local row.
+     * Resume position: retries any pending local write first. The server's canonical revision wins, never a device
+     * clock; a local write that conflicted was preserved server-side for the phone UI to ask about, and a car or
+     * background resume just follows canonical. This device's position is the fallback when there is no answer.
      */
     suspend fun resolveResume(bookId: Int): AudioProgress? = resumePoint(bookId)?.progress
 
@@ -81,107 +62,17 @@ class AudioProgressRepository @Inject constructor(
      */
     suspend fun resumePoint(bookId: Int, flush: Boolean = true): ResumePoint? {
         if (flush) runCatching { flushPending() }
-        if (litara.owns(bookId)) {
-            // Litara: the server's canonical revision wins, never a device clock. A local write that conflicted was
-            // preserved server-side for the phone UI to ask about; a car/background resume just follows canonical.
-            val canonical = runCatching { litara.serverPosition(bookId) }.getOrNull()
-            val mine = dao.get(bookId)
-            return when {
-                canonical != null -> ResumePoint(canonical, epochMillis(canonical.updatedAt.orEmpty()) ?: 0L)
-                mine != null -> ResumePoint(mine.toAudioProgress(), mine.updatedAt)
-                else -> null
-            }
-        }
-        if (bookId >= LitaraSource.HANDLE_BASE) return dao.get(bookId)?.let { ResumePoint(it.toAudioProgress(), it.updatedAt) }
-        val local = dao.get(bookId)
-        val server = runCatching { serverProgress(bookId) }.getOrNull()
-        val serverMillis = server?.updatedAt?.let(::epochMillis)
-        return when {
-            local == null -> server?.let { ResumePoint(it, serverMillis ?: 0L) }
-            server == null -> ResumePoint(local.toAudioProgress(), local.updatedAt)
-            serverMillis != null && serverMillis > local.updatedAt -> ResumePoint(server, serverMillis)
-            else -> ResumePoint(local.toAudioProgress(), local.updatedAt)
-        }
+        val canonical = if (litara.owns(bookId)) runCatching { litara.serverPosition(bookId) }.getOrNull() else null
+        return canonical?.let { ResumePoint(it, epochMillis(it.updatedAt.orEmpty()) ?: 0L) } ?: localResumePoint(bookId)
     }
 
     /**
-     * True when [e] no longer needs sending: saved, or permanently unsendable (unmappable file,
-     * rejected position) or superseded by a newer server write - retrying those would keep the
-     * row dirty forever. False on transient failures, to retry later.
+     * True when [e] no longer needs sending: the server's answer was definitive. False keeps the row dirty, also
+     * when its account is locked or signed out.
      */
     private suspend fun push(e: AudioProgressEntity): Boolean = runCatching {
-        if (litara.owns(e.bookId)) return@runCatching litara.push(e.bookId, e.currentFileId, e.positionSeconds)
-        // A Litara handle whose account is locked or signed out must NEVER reach the old API: keep the row dirty.
-        if (e.bookId >= LitaraSource.HANDLE_BASE) return@runCatching false
-        when (val sources = assets.forBook(e.bookId)) {
-            Sources.Legacy -> {
-                api.saveAudioProgress(e.bookId, SaveAudioProgress(e.currentFileId, e.positionSeconds, e.percentage))
-                true
-            }
-            is Sources.Assets -> putPlaybackState(e, sources, retriesLeft = 1)
-        }
+        litara.owns(e.bookId) && litara.push(e.bookId, e.currentFileId, e.positionSeconds)
     }.onFailure { Log.w(TAG, "progress sync failed bookId=${e.bookId}: ${it.message}") }.getOrDefault(false)
-
-    private suspend fun putPlaybackState(e: AudioProgressEntity, sources: Sources.Assets, retriesLeft: Int): Boolean {
-        val assetId = sources.assetIds[e.currentFileId] ?: run {
-            Log.w(TAG, "no manifest asset for bookId=${e.bookId} fileId=${e.currentFileId}; dropping position")
-            return true
-        }
-        val maxMs = sources.assetDurationsMs[assetId] ?: Long.MAX_VALUE
-        val body = PutAudiobookPlaybackState(
-            assetId = assetId,
-            positionMs = (e.positionSeconds * 1000).toLong().coerceIn(0, maxMs),
-            capturedAt = Instant.ofEpochMilli(e.updatedAt).toString(),
-            operationId = UUID.randomUUID().toString(),
-            baseRevision = revisions[e.bookId] ?: 0,
-            manifestRevision = sources.manifestRevision,
-        )
-        try {
-            revisions[e.bookId] = api.putPlaybackState(e.bookId, body).revision
-            return true
-        } catch (ex: HttpException) {
-            when (ex.code()) {
-                // Stale base revision (another device/web wrote, or first write this session):
-                // re-read, and only overwrite if our position is the newer one.
-                409 -> {
-                    val server = fetchPlaybackState(e.bookId)
-                    revisions[e.bookId] = server?.revision ?: 0
-                    val serverMillis = server?.capturedAt?.let(::epochMillis)
-                    if (serverMillis != null && serverMillis >= e.updatedAt) return true
-                }
-                // Manifest changed (files added/removed): re-map and retry.
-                412 -> {
-                    val refreshed = assets.forBook(e.bookId, refresh = true)
-                    if (refreshed !is Sources.Assets) return false
-                    return retriesLeft > 0 && putPlaybackState(e, refreshed, retriesLeft - 1)
-                }
-                400, 404 -> {
-                    Log.w(TAG, "server rejected position bookId=${e.bookId} (HTTP ${ex.code()}); dropping it")
-                    return true
-                }
-                else -> throw ex
-            }
-            return retriesLeft > 0 && putPlaybackState(e, sources, retriesLeft - 1)
-        }
-    }
-
-    private suspend fun serverProgress(bookId: Int): AudioProgress? =
-        when (val sources = assets.forBook(bookId)) {
-            Sources.Legacy -> api.getAudioProgress(bookId)
-            is Sources.Assets -> {
-                val state = fetchPlaybackState(bookId)
-                state?.revision?.let { revisions[bookId] = it }
-                val fileId = state?.let { sources.fileIdFor(it.assetId) }
-                if (state == null || fileId == null) null
-                else AudioProgress(fileId, state.positionMs / 1000.0, state.percentage, updatedAt = state.capturedAt)
-            }
-        }
-
-    private suspend fun fetchPlaybackState(bookId: Int): AudiobookPlaybackState? {
-        val text = api.getPlaybackState(bookId).use { it.string() }.trim()
-        if (text.isEmpty() || text == "null") return null
-        return json.decodeFromString(AudiobookPlaybackState.serializer(), text)
-    }
 
     private fun epochMillis(iso: String): Long? = runCatching { Instant.parse(iso).toEpochMilli() }.getOrNull()
 

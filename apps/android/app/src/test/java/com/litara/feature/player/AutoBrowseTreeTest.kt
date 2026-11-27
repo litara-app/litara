@@ -1,8 +1,5 @@
 package com.litara.feature.player
 
-import com.litara.core.db.AudioProgressEntity
-import com.litara.core.db.DownloadEntity
-import com.litara.feature.downloads.DownloadStatus
 import com.litara.feature.player.AutoBrowseTree.CompletionStatus
 import com.litara.feature.player.AutoBrowseTree.CurrentBookInfo
 import org.junit.Assert.assertEquals
@@ -10,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The Android Auto browse tree's offline filtering/ordering (no Android framework involved). */
+/** The Android Auto browse tree's IDs and grouping (no Android framework involved). */
 class AutoBrowseTreeTest {
 
     /** Deliberately not the English defaults: if any title were still hard-coded, the tests below would catch it. */
@@ -22,34 +19,6 @@ class AutoBrowseTreeTest {
         chaptersOf = { "Chapters* $it" },
     )
 
-    private fun download(
-        id: Int,
-        title: String = "Book $id",
-        isAudiobook: Boolean = true,
-        status: DownloadStatus = DownloadStatus.COMPLETE,
-        narrators: String = "Narrator $id",
-        authors: String = "Author $id",
-        cover: String? = "/covers/$id.jpg",
-        downloadedAt: Long = id.toLong(),
-    ) = DownloadEntity(
-        bookId = id,
-        title = title,
-        authors = authors,
-        narrators = narrators,
-        isAudiobook = isAudiobook,
-        format = "mp3",
-        sizeBytes = 0,
-        downloadedAt = downloadedAt,
-        coverLocalPath = cover,
-        bookJson = "{}",
-        filesJson = "[]",
-        status = status.name,
-        progress = 1f,
-    )
-
-    private fun progress(bookId: Int, updatedAt: Long) =
-        AudioProgressEntity(bookId, currentFileId = bookId, positionSeconds = 1.0, percentage = 1.0, updatedAt = updatedAt, dirty = false)
-
     @Test
     fun `bookMediaId round-trips through parseBookId`() {
         assertEquals(42, AutoBrowseTree.parseBookId(AutoBrowseTree.bookMediaId(42)))
@@ -58,60 +27,11 @@ class AutoBrowseTreeTest {
     }
 
     @Test
-    fun `downloadedAudiobooks keeps only complete audiobooks, newest first`() {
-        val items = AutoBrowseTree.downloadedAudiobooks(
-            listOf(
-                download(1, downloadedAt = 100),
-                download(2, downloadedAt = 300),
-                download(3, isAudiobook = false), // ebook — excluded
-                download(4, status = DownloadStatus.DOWNLOADING), // in-flight — excluded
-            ),
-            labels,
-        )
-        assertEquals(listOf("book/2", "book/1"), items.map { it.mediaId })
-        assertTrue(items.all { it.isPlayable })
-    }
-
-    @Test
-    fun `book entry uses narrators as subtitle and the local cover`() {
-        val entry = AutoBrowseTree.downloadedAudiobooks(listOf(download(7, narrators = "Jane Doe")), labels).single()
-        assertEquals("Jane Doe", entry.subtitle)
-        assertEquals("/covers/7.jpg", entry.coverPath)
-    }
-
-    @Test
-    fun `book entry falls back to authors when no narrator`() {
-        val entry = AutoBrowseTree.downloadedAudiobooks(listOf(download(7, narrators = "", authors = "A. Writer")), labels).single()
-        assertEquals("A. Writer", entry.subtitle)
-    }
-
-    @Test
-    fun `continueListening lists downloaded in-progress books by most recent play`() {
-        val downloads = listOf(download(1), download(2), download(3))
-        val progress = listOf(
-            progress(bookId = 1, updatedAt = 100),
-            progress(bookId = 3, updatedAt = 500),
-            progress(bookId = 99, updatedAt = 900), // not downloaded — excluded
-        )
-        val items = AutoBrowseTree.continueListening(downloads, progress, labels)
-        assertEquals(listOf("book/3", "book/1"), items.map { it.mediaId })
-    }
-
-    @Test
-    fun `root has continue and downloads shelves`() {
+    fun `root has continue, downloads and library shelves`() {
         assertEquals(
             listOf(AutoBrowseTree.CONTINUE_ID, AutoBrowseTree.DOWNLOADS_ID, AutoBrowseTree.LIBRARY_ID),
             AutoBrowseTree.rootChildren(null, labels).map { it.mediaId },
         )
-    }
-
-    @Test
-    fun `continueListening excludes finished downloads`() {
-        val items = AutoBrowseTree.continueListening(
-            listOf(download(1), download(2)),
-            listOf(progress(1, 200).copy(percentage = 99.5), progress(2, 100)), labels,
-        )
-        assertEquals(listOf("book/2"), items.map { it.mediaId })
     }
 
     private val ranges = listOf(ChapterRange(0, "One", 0.0, 60.0), ChapterRange(1, "Two", 60.0, 150.0), ChapterRange(2, "Three", 150.0, 200.0))
@@ -149,12 +69,6 @@ class AutoBrowseTreeTest {
         val shelves = AutoBrowseTree.rootChildren(null, labels)
         assertEquals(listOf("Continue*", "Downloaded*", ""), shelves.map { it.title })
         assertEquals("App*", AutoBrowseTree.rootMediaItem(labels).mediaMetadata.title.toString())
-    }
-
-    @Test
-    fun `an untitled download falls back to the audiobook label`() {
-        val entry = AutoBrowseTree.downloadedAudiobooks(listOf(download(9).copy(title = null)), labels).single()
-        assertEquals("Audiobook*", entry.title)
     }
 
     @Test fun `large download shelves stay bounded without losing books`() {

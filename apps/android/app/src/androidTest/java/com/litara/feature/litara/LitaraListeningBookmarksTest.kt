@@ -56,11 +56,11 @@ class LitaraListeningBookmarksTest {
         val deps = EntryPointAccessors.fromApplication(context, LitaraTestDependencies::class.java)
         val repo = deps.repository()
         repo.allowProcessRestart = false
-        deps.session().activeDataScope = null
+        deps.dataScope().active = null
         LitaraSessionStore(SecureStorage(context)).let { runCatching { runBlocking { repo.signOut() } }; it.forgetIdentity() }
         File(context.filesDir, "litara-offline").deleteRecursively()
         repo.signIn(url!!, true, "fixture-user-a", password!!, "Listening test")
-        deps.session().activeDataScope = null
+        deps.dataScope().active = null
         val client = repo.clientOrNull()!!
 
         suspend fun items(path: String): List<JsonObject> {

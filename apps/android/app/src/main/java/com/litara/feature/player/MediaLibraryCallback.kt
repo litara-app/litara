@@ -6,7 +6,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
-import com.litara.core.auth.SessionManager
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants
@@ -18,7 +17,6 @@ import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
-import com.litara.feature.downloads.DownloadsRepository
 import com.litara.feature.cast.CastProxyServer
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.ListenableFuture
@@ -30,7 +28,6 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -38,8 +35,8 @@ import javax.inject.Singleton
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Serves the Android Auto browse tree and turns a tapped book into a playable queue. The tree is the
- * offline catalog ([AutoBrowseTree]); resolution reuses the same [PlayerRepository] + resume logic
+ * Serves the Android Auto browse tree and turns a tapped book into a playable queue. The shelves come
+ * from [AutoCatalog] and [AutoLibraryRepository]; resolution reuses the same [PlayerRepository] + resume logic
  * the in-app player uses, then hands the active book to [PlayerManager] so progress sync covers
  * car-initiated playback too.
  */
@@ -47,7 +44,6 @@ import java.util.concurrent.ConcurrentHashMap
 @Singleton
 class MediaLibraryCallback @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val downloads: DownloadsRepository,
     private val playbackResolver: AutoPlaybackResolver,
     private val playerManager: PlayerManager,
     private val castProxyServer: CastProxyServer,
@@ -55,8 +51,7 @@ class MediaLibraryCallback @Inject constructor(
     private val autoCatalog: AutoCatalog,
     private val autoLibrary: AutoLibraryRepository,
     private val search: AutoSearch,
-    private val sessionManager: SessionManager,
-    private val litara: LitaraSource = LitaraSource.None,
+    private val litara: LitaraSource,
 ) : MediaLibrarySession.Callback {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -320,8 +315,6 @@ class MediaLibraryCallback @Inject constructor(
             MediaItemsWithStartPosition(resolved.data.mediaItems, resolved.index, resolved.positionMs)
         }
 
-    private suspend fun catalog() = downloads.downloads.first()
-
     private fun mediaItem(entry: AutoBrowseTree.BrowseEntry): MediaItem {
         val id = AutoBrowseTree.parseBookId(entry.mediaId) ?: AutoBrowseTree.parseChapterId(entry.mediaId)?.first
         return AutoBrowseTree.toMediaItem(entry, id?.let { artwork.uri(it) })
@@ -345,10 +338,10 @@ class MediaLibraryCallback @Inject constructor(
             .setSuggested(params?.isSuggested ?: false).build()
     }
 
-    private fun dataScope() = "${sessionManager.serverUrl}|${sessionManager.currentUser?.id}|${litara.scopeKey()}"
+    private fun dataScope() = litara.scopeKey()
 
     private fun error(error: Throwable): SessionError {
-        val reason = if (sessionManager.accessToken == null && litara.scopeKey().isEmpty() && error is java.io.IOException) AutoFailure.SIGN_IN else AutoFailure.from(error)
+        val reason = if (litara.scopeKey().isEmpty() && error is java.io.IOException) AutoFailure.SIGN_IN else AutoFailure.from(error)
         val (code, message) = when (reason) {
             AutoFailure.SIGN_IN -> SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED to R.string.auto_err_sign_in
             AutoFailure.NETWORK -> SessionError.ERROR_IO to R.string.auto_err_network

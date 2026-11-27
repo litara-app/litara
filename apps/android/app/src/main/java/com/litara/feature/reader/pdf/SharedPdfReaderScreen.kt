@@ -41,7 +41,7 @@ import com.litara.feature.reader.SharedEvent
  * and hides the back/page bar with a tap in the middle. Text search and the native text layer are not available here.
  */
 @Composable
-fun SharedPdfReaderScreen(ui: PdfReaderViewModel.UiState, vm: PdfHost, onBack: () -> Unit) {
+fun SharedPdfReaderScreen(ui: PdfUiState, vm: PdfHost, onBack: () -> Unit) {
     val controller = remember { ReaderController() }
     val context = LocalContext.current
     var ready by remember { mutableStateOf(false) }

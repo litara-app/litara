@@ -47,7 +47,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -55,7 +54,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ReaderScreen(
     onBack: () -> Unit,
-    vm: ReaderHost = hiltViewModel<ReaderViewModel>(),
+    vm: ReaderHost,
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val controller = remember { ReaderController() }

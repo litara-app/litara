@@ -78,7 +78,7 @@ fun HighlightToolbar(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ReaderAnnotationRepository.COLORS.forEach { (name, hex) ->
+            com.litara.core.litara.HighlightColors.SHADES.forEach { (name, hex) ->
                 val selected = currentColor != null && currentColor.equals(hex, ignoreCase = true) || currentColor == name
                 Box(
                     modifier = Modifier
