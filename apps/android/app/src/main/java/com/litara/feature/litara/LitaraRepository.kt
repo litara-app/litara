@@ -28,6 +28,7 @@ import com.litara.core.litara.TransientException
 import com.litara.core.network.UserCaTrust
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.ListSerializer
@@ -44,6 +45,9 @@ import javax.inject.Singleton
 
 /** Why a Litara URL was refused before any request was made. */
 class InsecureServerException : IOException("Plain HTTP needs the explicit development opt-in")
+
+/** "Wi-Fi only" is on and the connection is metered. What was already fetched stays, so a later try resumes. */
+class MeteredNetworkException : IOException("Downloads are set to Wi-Fi only")
 
 /** A list that may come from the device cache rather than the server. */
 data class RecordingList(val items: List<LRecordingSummary>, val fromCache: Boolean)
@@ -70,6 +74,7 @@ class LitaraRepository @Inject constructor(
     private val store: LitaraSessionStore,
     private val userCaTrust: UserCaTrust,
     private val session: com.litara.core.auth.SessionManager,
+    private val settings: com.litara.core.settings.AppSettingsStore,
 ) {
     val offline = OfflineStore(File(context.filesDir, "litara-offline"))
 
@@ -140,6 +145,7 @@ class LitaraRepository @Inject constructor(
     /** Logout locks the account's scope immediately; data is kept, not deleted. */
     suspend fun signOut() {
         offline.lock()
+        forgetImages()
         val c = client
         client = null
         runCatching { c?.logout() }
@@ -245,6 +251,22 @@ class LitaraRepository @Inject constructor(
 
     // ---- downloads ------------------------------------------------------------------------------
 
+    /** Whether the active connection costs by use. Tests replace it; an emulator's network is always unmetered. */
+    @Volatile var meteredNetwork: () -> Boolean = {
+        context.getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered ?: false
+    }
+
+    /**
+     * The check an explicit download makes before and during its transfer. Opening a book to read it and streaming
+     * audio are not downloads and are not limited by the setting.
+     */
+    private suspend fun downloadGate(): () -> Unit {
+        val wifiOnly = settings.wifiOnlyDownloads.first()
+        val gate = { if (wifiOnly && meteredNetwork()) throw MeteredNetworkException() }
+        gate()
+        return gate
+    }
+
     private fun fileName(f: LFile) = "${f.id}-${f.contentVersion}.bin"
 
     fun localFile(recordingId: String, f: LFile): File? =
@@ -260,7 +282,7 @@ class LitaraRepository @Inject constructor(
         val t = token()
         val c = requireClient()
         val rd = recDir(t, snap.id)
-        val dl = RangeDownloader(c)
+        val dl = RangeDownloader(c, downloadGate())
         snap.files.forEachIndexed { i, f ->
             onProgress(i, snap.files.size)
             dl.download(f, File(rd, fileName(f)))
@@ -307,6 +329,28 @@ class LitaraRepository @Inject constructor(
     /** HTTP data source for streaming inside the Litara screen. */
     fun mediaDataSourceFactory(): OkHttpDataSource.Factory =
         OkHttpDataSource.Factory(baseHttp().newBuilder().addInterceptor(bearerInterceptor()).authenticator(refreshAuthenticator()).build())
+
+    private var covers: coil.ImageLoader? = null
+
+    /**
+     * Loads covers and author photos for the browsing screens with this account's sign-in. Nothing is kept on disk, so
+     * one account's private images are never read back for another (ADR-0032).
+     */
+    @Synchronized
+    fun coverLoader(): coil.ImageLoader = covers ?: coil.ImageLoader.Builder(context)
+        .okHttpClient { baseHttp().newBuilder().addInterceptor(bearerInterceptor()).authenticator(refreshAuthenticator()).build() }
+        .diskCache(null)
+        .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+        .respectCacheHeaders(false)
+        .crossfade(true)
+        .build().also { covers = it }
+
+    /** The next account starts with no cached images and its own certificate trust. */
+    @Synchronized
+    private fun forgetImages() {
+        covers?.memoryCache?.clear()
+        covers = null
+    }
 
     /** The current client, for the Android Auto/Cast adapter. Null when signed out. */
     fun clientOrNull(): LitaraClient? = client
@@ -462,6 +506,7 @@ class LitaraRepository @Inject constructor(
     suspend fun downloadBook(row: BookRow) = bookFiles.withLock {
         val t = token()
         val c = requireClient()
+        val gate = downloadGate()
         val snap = c.readerSnapshot(row.edition.id)
         val file = snap.edition.file
         if (file.id != row.edition.file.id || file.contentVersion != row.edition.file.contentVersion) {
@@ -469,7 +514,7 @@ class LitaraRepository @Inject constructor(
         }
         check(bookDownloadable(snap.edition)) { "This book cannot be downloaded." }
         val directory = edDir(t, snap.edition.id)
-        fetchEditionFile(c, snap, directory)
+        fetchEditionFile(c, snap, directory, gate)
         offline.publish(t) {
             AtomicFile.write(File(directory, "downloaded.json"), LitaraJson.encodeToString(SavedBook(snap, row.title, row.authors)))
             setBookLocked(directory, false)
@@ -498,12 +543,12 @@ class LitaraRepository @Inject constructor(
         fetchEditionFile(requireClient(), snap, edDir(t, snap.edition.id)).also { offline.publish(t) { } }
     }
 
-    private suspend fun fetchEditionFile(c: LitaraClient, snap: LReaderSnapshot, directory: File): File {
+    private suspend fun fetchEditionFile(c: LitaraClient, snap: LReaderSnapshot, directory: File, gate: () -> Unit = {}): File {
         val f = snap.edition.file
         val path = f.contentPath ?: throw IllegalStateException("This edition has no readable content.")
         val dest = bookFile(directory, f)
         val file = LFile(f.id, f.contentVersion, 0, dest.name, f.mimeType, f.sizeBytes, null, f.availability == "available", path)
-        RangeDownloader(c).download(file, dest)
+        RangeDownloader(c, gate).download(file, dest)
         return dest
     }
 

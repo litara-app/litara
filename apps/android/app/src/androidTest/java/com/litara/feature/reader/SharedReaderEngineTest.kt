@@ -33,7 +33,10 @@ class SharedReaderEngineTest {
     private val controller = ReaderController()
     private lateinit var scenario: ActivityScenario<ComponentActivity>
 
-    private fun asset(name: String): File = File(context.cacheDir, name).also { out ->
+    // Not the cache directory: Android empties app caches when storage runs low, even while the reader has the file open.
+    private val books = File(context.filesDir, "reader-engine-test")
+
+    private fun asset(name: String): File = File(books.apply { mkdirs() }, name).also { out ->
         instrumentation.context.assets.open(name).use { i -> out.outputStream().use { i.copyTo(it) } }
     }
 
@@ -45,7 +48,10 @@ class SharedReaderEngineTest {
         }
     }
 
-    @After fun stop() = scenario.close()
+    @After fun stop() {
+        scenario.close()
+        books.deleteRecursively()
+    }
 
     // Events are kept in arrival order; an await takes the first unconsumed match, so earlier events (the frame reports the first
     // position before it says "loaded") are not lost to a later wait.
@@ -72,6 +78,27 @@ class SharedReaderEngineTest {
         throw AssertionError("timed out waiting for ${T::class.simpleName}; saw ${log.size} events, last: ${log.takeLast(8).map { it.toString().take(110) }}")
     }
 
+    /**
+     * The position the reader comes to rest on. While it lays a page out it can report positions on the way, and reports
+     * from the view being left can still arrive, so the first report after an action is not its result. Waits for a
+     * report that satisfies [match], then for the events to stop, and returns the last position.
+     */
+    private fun settled(match: (SharedEvent.Relocate) -> Boolean = { true }): SharedEvent.Relocate {
+        await<SharedEvent.Relocate> { it.cfi != null && it.fraction != null && match(it) }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
+        var count = log.size
+        var quietSince = System.nanoTime()
+        while (System.nanoTime() - quietSince < TimeUnit.MILLISECONDS.toNanos(700)) {
+            if (System.nanoTime() > deadline) throw AssertionError("the position never came to rest")
+            Thread.sleep(50)
+            if (log.size != count) { count = log.size; quietSince = System.nanoTime() }
+        }
+        log.filterIsInstance<SharedEvent.Failure>().firstOrNull()?.let { throw AssertionError("engine error ${it.code}: ${it.detail}") }
+        val last = log.filterIsInstance<SharedEvent.Relocate>().last { it.cfi != null && it.fraction != null }
+        fresh()
+        return last
+    }
+
     private fun js(script: String): String {
         val out = LinkedBlockingQueue<String>()
         controller.evaluateForTest(script) { out.add(it) }
@@ -92,12 +119,12 @@ class SharedReaderEngineTest {
         open(epub, "epub")
         val loaded = await<SharedEvent.Loaded>()
         assertEquals("foliate", loaded.engine)
-        val first = await<SharedEvent.Relocate> { it.cfi != null && it.fraction != null }
+        val first = settled()
         assertTrue(first.cfi!!.startsWith("epubcfi("))
 
         // Page turn moves forward.
         controller.next()
-        val second = await<SharedEvent.Relocate> { it.cfi != null && it.fraction != null && it.cfi != first.cfi }
+        val second = settled { it.cfi != first.cfi }
         assertTrue("fraction advances", second.fraction!! > first.fraction!!)
 
         // A position saved by the LEGACY Android engine (see scripts/android/reader-locators/saved-locators.json) opens at its chapter.
@@ -105,7 +132,8 @@ class SharedReaderEngineTest {
         Thread.sleep(800) // the paginator ignores a jump while a page-turn animation is still settling
         fresh()
         controller.goTo(legacyPosition)
-        val chapter4 = await<SharedEvent.Relocate> { it.cfi != null && it.cfi!!.contains("/6/8!") }
+        val chapter4 = settled { it.cfi!!.contains("/6/8!") }
+        assertTrue("rests in chapter 4: ${chapter4.cfi}", chapter4.cfi!!.contains("/6/8!"))
         assertNotNull(chapter4.tocLabel ?: "no label is fine")
 
         // Position saving + restore: reopen on the cfi the engine itself reported.
@@ -113,14 +141,16 @@ class SharedReaderEngineTest {
         fresh()
         open(epub, "epub", cfi = saved)
         await<SharedEvent.Loaded>()
-        val restored = await<SharedEvent.Relocate> { it.cfi != null && it.fraction != null }
+        val restored = settled()
+        assertTrue("restored to chapter 4: ${restored.cfi}", restored.cfi!!.contains("/6/8!"))
         assertEquals(chapter4.fraction!!, restored.fraction!!, 0.01)
 
         // Bookmark path: Kotlin keeps the CFI and calls goTo with it.
         Thread.sleep(800)
         fresh()
         controller.goTo(first.cfi!!)
-        val back = await<SharedEvent.Relocate> { it.cfi != null && Math.abs(it.fraction!! - first.fraction!!) < 0.01 }
+        val back = settled { Math.abs(it.fraction!! - first.fraction!!) < 0.01 }
+        assertEquals(first.fraction!!, back.fraction!!, 0.01)
         assertTrue(back.fraction!! < chapter4.fraction!!)
 
         // A highlight recorded by the legacy engine resolves in the shared engine and is painted.

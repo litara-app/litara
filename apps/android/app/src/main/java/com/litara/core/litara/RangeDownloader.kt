@@ -21,7 +21,11 @@ class IntegrityException(message: String) : Exception(message)
  * a full body is NEVER appended to partial content. A changed version (412/404) leaves the previous
  * complete download alone so the user must explicitly re-download.
  */
-class RangeDownloader(private val client: LitaraClient) {
+class RangeDownloader(
+    private val client: LitaraClient,
+    /** Called before each request and about once a megabyte; throwing stops the transfer and keeps the partial file. */
+    private val checkAllowed: () -> Unit = {},
+) {
 
     /** Downloads [file] to [dest]; [partial] and its `.etag` sidecar survive interruptions. Returns bytes written to dest. */
     suspend fun download(file: LFile, dest: File, partial: File = File(dest.path + ".part")): Long {
@@ -31,6 +35,7 @@ class RangeDownloader(private val client: LitaraClient) {
         if (dest.exists() && dest.length() == expected) return expected // already complete
 
         while (true) {
+            checkAllowed()
             val have = if (partial.exists()) partial.length() else 0L
             val etag = etagFile.takeIf { it.exists() }?.readText()
             if (have > expected) { reset(partial, etagFile); continue }
@@ -68,6 +73,8 @@ class RangeDownloader(private val client: LitaraClient) {
         return expected
     }
 
+    private companion object { const val CHECK_EVERY_BYTES = 1024 * 1024 }
+
     private fun reset(partial: File, etag: File) { partial.delete(); etag.delete() }
 
     private suspend fun append(partial: File, r: okhttp3.Response, truncate: Boolean) = withContext(Dispatchers.IO) {
@@ -78,10 +85,13 @@ class RangeDownloader(private val client: LitaraClient) {
                 raf.seek(raf.length())
                 val buf = ByteArray(64 * 1024)
                 body.byteStream().use { input ->
+                    var sinceCheck = 0
                     while (true) {
                         val n = input.read(buf)
                         if (n < 0) break
                         raf.write(buf, 0, n)
+                        sinceCheck += n
+                        if (sinceCheck >= CHECK_EVERY_BYTES) { sinceCheck = 0; checkAllowed() }
                     }
                 }
             }
