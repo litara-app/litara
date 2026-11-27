@@ -14,7 +14,7 @@ async function signIn(page: Page, user: string) {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 async function violations(page: Page) {
@@ -28,6 +28,7 @@ test("an app credential's password is shown once, works only for OPDS, and stops
   await signIn(page, "fixture-user-a");
   await page.getByTestId("account-menu").click();
   await page.getByRole("menuitem", { name: "Settings" }).click();
+  await page.getByRole("link", { name: "App credentials" }).click();
   await page.getByLabel(/^Name/).fill("Browser test reader");
   await page.getByRole("button", { name: "Create credential" }).click();
   const box = page.getByTestId("one-time-secret");
@@ -71,7 +72,7 @@ test("a person sends a file to a saved recipient through the server mail transpo
   await page.getByRole("combobox", { name: "Recipient" }).click();
   await page.getByRole("option", { name: /Browser Reader/ }).click();
   await page.getByRole("combobox", { name: "Send through" }).click();
-  await expect(page.getByRole("option", { name: "My own mail account" })).toHaveAttribute("data-combobox-disabled", "true");
+  await expect(page.getByRole("option", { name: "My own mail account" })).toHaveAttribute("aria-disabled", "true");
   await page.getByRole("option", { name: "Server mail" }).click();
   await expect(send).toBeEnabled();
   await send.click();
@@ -124,7 +125,7 @@ test("a retained KOReader position is decided by its owner and stays separate fr
 test("administrators manage services and the server mail transport; others cannot", async ({ page }) => {
   await signIn(page, "fixture-admin");
   await page.getByRole("link", { name: "Administration" }).click();
-  await page.getByRole("tab", { name: "Integrations" }).click();
+  await page.getByRole("link", { name: "Integrations", exact: true }).click();
   const form = page.getByRole("form", { name: "Integration settings" });
   await expect(form.getByLabel("Email delivery")).toBeChecked();
   await form.getByLabel(/Emails per person/).fill("42");
@@ -151,13 +152,13 @@ for (const viewport of [{ name: "desktop", width: 1280, height: 800 }, { name: "
   test.describe(`${viewport.name} accessibility`, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });
     for (const [label, path, user] of [
-      ["app credentials", "/settings", "fixture-user-a"], ["email settings", "/settings/email", "fixture-user-a"],
+      ["app credentials", "/settings/credentials", "fixture-user-a"], ["email settings", "/settings/email", "fixture-user-a"],
       ["KOReader settings", "/settings/koreader", "fixture-user-a"], ["admin integrations", "/admin/integrations", "fixture-admin"],
     ] as const) {
       test(`${label} has no violations and no horizontal scroll`, async ({ page }) => {
         await signIn(page, user);
         await page.goto(path);
-        await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
+        await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
         await page.waitForLoadState("networkidle");
         expect(await violations(page)).toEqual([]);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

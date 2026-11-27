@@ -8,13 +8,13 @@ async function signIn(page: Page) {
   await page.getByLabel(/Username/).fill("fixture-user-a");
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 async function openBook(page: Page) {
   await openTitle(page, "The Browser Novel");
   await openEpubEdition(page);
-  await page.getByRole("link", { name: "Read" }).click();
+  await page.getByRole("link", { name: "Read", exact: true }).click();
   await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
 }
 
@@ -60,12 +60,14 @@ test("opens an EPUB, shows its text and contents, and navigates", async ({ page 
   await signIn(page);
   await openBook(page);
   // Earlier runs (other browsers share the database) may have saved a position, so go to chapter one explicitly.
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await page.getByRole("dialog").getByText("Chapter One", { exact: true }).first().click();
+  await expect(page.getByRole("dialog", { name: "Contents & notes" })).toBeHidden(); // a click while it closes is swallowed
   await expect.poll(async () => (await sectionFrame(page)?.locator("body").innerText().catch(() => "")) ?? "", { timeout: 20_000 }).toContain("Chapter One");
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await expect(page.getByRole("dialog").getByText("Chapter Three", { exact: true })).toBeVisible();
   await page.getByRole("dialog").getByText("Chapter Three", { exact: true }).first().click();
+  await expect(page.getByRole("dialog", { name: "Contents & notes" })).toBeHidden(); // a click while it closes is swallowed
   await expect.poll(() => percent(page), { timeout: 15_000 }).toBeGreaterThan(50);
   await expect.poll(async () => (await sectionFrame(page)?.locator("body").innerText().catch(() => "")) ?? "").toContain("Chapter Three");
   await page.getByRole("button", { name: "Next page" }).click();
@@ -76,8 +78,9 @@ test("saves the position and resumes after a reload", async ({ page }) => {
   await openBook(page);
   const saved = async () => (await (await page.request.get(`/api/v1/editions/${editionId(page)}/position`)).json());
   const first = (await saved()).position?.anchor.locator.cfi;
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await page.getByRole("dialog").getByText("Chapter Two", { exact: true }).first().click();
+  await expect(page.getByRole("dialog", { name: "Contents & notes" })).toBeHidden(); // a click while it closes is swallowed
   // Chapter two of three starts at about a third of the book, whatever place was open before.
   await expect.poll(() => percent(page), { timeout: 15_000 }).toBeLessThan(60);
   await expect.poll(() => percent(page), { timeout: 15_000 }).toBeGreaterThan(20);
@@ -129,8 +132,9 @@ test("bookmarks, highlights and notes persist and are listed", async ({ page }) 
   await page.getByRole("button", { name: "Add note" }).click();
   await page.getByRole("textbox", { name: "Note" }).fill("Remember this fox");
   await page.getByRole("button", { name: "Save note" }).click();
+  await expect(page.getByRole("dialog", { name: "New note" })).toBeHidden(); // a click while it closes is swallowed
 
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await page.getByRole("tab", { name: /Notes/ }).click();
   await expect(page.getByTestId("annotation-item")).toHaveCount(3, { timeout: 10_000 });
   await expect(page.getByText("Remember this fox")).toBeVisible();
@@ -161,8 +165,9 @@ test("a stale position write is caught and the reader chooses", async ({ page })
   });
   expect(put.status()).toBe(200);
 
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await page.getByRole("dialog").getByText("Chapter Three", { exact: true }).first().click();
+  await expect(page.getByRole("dialog", { name: "Contents & notes" })).toBeHidden(); // a click while it closes is swallowed
   await expect(page.getByText("Your reading position changed elsewhere")).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Keep my place" }).click();
   await expect(page.getByText("Your reading position changed elsewhere")).toBeHidden({ timeout: 10_000 });
@@ -188,8 +193,9 @@ test("a saved place resumes at the same text after the font size and window shap
   await page.setViewportSize({ width: 1280, height: 800 });
   await signIn(page);
   await openBook(page);
-  await page.getByRole("button", { name: "Contents & notes" }).click();
+  await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
   await page.getByRole("dialog").getByText("Chapter Two", { exact: true }).first().click();
+  await expect(page.getByRole("dialog", { name: "Contents & notes" })).toBeHidden(); // a click while it closes is swallowed
   await expect.poll(async () => (await sectionFrame(page)?.locator("body").innerText().catch(() => "")) ?? "", { timeout: 20_000 }).toContain("Chapter Two");
   await page.getByRole("button", { name: "Next page" }).click();
   await page.getByRole("button", { name: "Next page" }).click();
@@ -212,7 +218,7 @@ test("a saved place resumes at the same text after the font size and window shap
   expect(firstBefore).toBeGreaterThan(1); // we really are past the start of the chapter
 
   // A different text size and a narrower, taller window.
-  await page.getByRole("button", { name: "Aa" }).click();
+  await page.getByRole("button", { name: "Text settings" }).click();
   const slider = page.getByRole("slider", { name: "Text size" });
   await slider.focus();
   for (let i = 0; i < 5; i++) await slider.press("ArrowRight");
@@ -224,7 +230,7 @@ test("a saved place resumes at the same text after the font size and window shap
   await expect.poll(async () => (await visibleParagraphs()).includes(firstBefore), { timeout: 15_000, message: `paragraph ${firstBefore} should be on screen again after reflow (saved ${savedCfi})` }).toBe(true);
 
   // Put the reader back as other specs expect it.
-  await page.getByRole("button", { name: "Aa" }).click();
+  await page.getByRole("button", { name: "Text settings" }).click();
   const slider2 = page.getByRole("slider", { name: "Text size" });
   await slider2.focus();
   for (let i = 0; i < 5; i++) await slider2.press("ArrowLeft");
@@ -250,8 +256,11 @@ for (const [title, label, chapter] of [["Corpus FB2", "FB2", "1"], ["corpus-mobi
       const f = await frameWith(page, `of chapter ${chapter}`);
       const vp = page.viewportSize()!;
       const out: number[] = [];
-      for (let n = 1; n <= 90; n++) {
-        const box = await f.locator("p", { hasText: new RegExp(`^Paragraph ${n} of chapter ${chapter}`) }).first().boundingBox().catch(() => null);
+      // The fixtures have about 200 paragraphs, and how far three page turns reach depends on the browser.
+      for (let n = 1; n <= 220; n++) {
+        const paragraph = f.locator("p", { hasText: new RegExp(`^Paragraph ${n} of chapter ${chapter}`) }).first();
+        if (!(await paragraph.count())) continue; // asking a missing one for its box would wait for it
+        const box = await paragraph.boundingBox().catch(() => null);
         if (box && box.x >= 0 && box.x + box.width <= vp.width + 1 && box.y >= 0 && box.y + box.height <= vp.height + 1) out.push(n);
       }
       return out;
@@ -261,6 +270,16 @@ for (const [title, label, chapter] of [["Corpus FB2", "FB2", "1"], ["corpus-mobi
       await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
       await expect.poll(async () => (await visible()).length, { timeout: 20_000 }).toBeGreaterThan(0);
     };
+    // Every browser shares one database, so an earlier one may have left the saved place far into the book. Go back to
+    // the first chapter explicitly before turning pages.
+    if (first) {
+      await page.goto(`/read/${ed.id}`);
+      await expect(page.getByTestId("progress")).toHaveText(/\d+%/, { timeout: 30_000 });
+      await page.getByRole("button", { name: "Contents & notes", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: new RegExp(`^(Chapter )?${chapter}$`) }).first().click();
+      await expect(page.getByRole("dialog", { name: "Contents & notes" })).toBeHidden();
+      await expect(page.getByTestId("save-status")).toHaveText("position saved", { timeout: 15_000 });
+    }
     await open();
     for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next page" }).click();
     await page.waitForTimeout(1200);
@@ -274,7 +293,7 @@ for (const [title, label, chapter] of [["Corpus FB2", "FB2", "1"], ["corpus-mobi
     expect(await visible(), `${label}: paragraph ${lead} is on screen after a reload`).toContain(lead);
 
     // A larger text size re-flows the book; the same text stays on screen, then survives a reload too.
-    await page.getByRole("button", { name: "Aa" }).click();
+    await page.getByRole("button", { name: "Text settings" }).click();
     const slider = page.getByRole("slider", { name: "Text size" });
     await slider.focus();
     for (let i = 0; i < 4; i++) await slider.press("ArrowRight");
@@ -285,7 +304,7 @@ for (const [title, label, chapter] of [["Corpus FB2", "FB2", "1"], ["corpus-mobi
     await open();
     expect(await visible(), `${label}: paragraph ${lead} is on screen after reflow and reload`).toContain(lead);
 
-    await page.getByRole("button", { name: "Aa" }).click();
+    await page.getByRole("button", { name: "Text settings" }).click();
     const slider2 = page.getByRole("slider", { name: "Text size" });
     await slider2.focus();
     for (let i = 0; i < 4; i++) await slider2.press("ArrowLeft");

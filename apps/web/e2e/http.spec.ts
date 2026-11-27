@@ -46,7 +46,7 @@ test("a range request for a book or a recording returns bytes, never HTML", asyn
   await page.getByLabel(/Username/).fill("fixture-user-a");
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 
   // An ebook file through the content endpoint.
   const titles = (await (await page.request.get("/api/v1/titles?size=200")).json()).items as { id: string; title: string }[];

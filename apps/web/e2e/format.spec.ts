@@ -13,7 +13,7 @@ async function signIn(page: Page) {
   await page.getByLabel(/Username/).fill("fixture-user-a");
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 type Result = { fixture: string; kind: string; format: string; outcome: string; detail: string };
@@ -53,7 +53,8 @@ const results: Result[] = [];
 async function settle(page: Page): Promise<string> {
   let quiet = 0;
   for (let i = 0; i < 80; i++) {
-    if (await page.getByRole("alert").filter({ hasNotText: "Limited support" }).count() || await page.getByTestId("comic-unsupported").count() || await page.getByText("cannot be opened in the browser yet").count()) return "explicit-error";
+    // The notification area is an empty live region on every page, so only an alert that says something counts.
+    if (await page.getByRole("alert").filter({ hasText: /\S/ }).filter({ hasNotText: "Limited support" }).count() || await page.getByTestId("comic-unsupported").count() || await page.getByText("cannot be opened in the browser yet").count() || await page.getByText("Damaged file", { exact: true }).count()) return "explicit-error";
     const progress = (await page.getByTestId("progress").allInnerTexts()).join("").trim();
     if (progress || await page.getByTestId("comic-progress").count()) return "rendered";
     const loading = await page.getByLabel("Loading").count();
@@ -85,7 +86,7 @@ test("every ebook, comic and damaged fixture reaches an explicit state", async (
       const comic = await page.getByTestId("comic-page").count();
       detail = /quick brown fox|Chapter|Corpus/i.test(text) ? "text drawn" : pdf.some((w) => w > 0) ? "PDF canvas drawn" : comic ? "page image shown" : "chrome only (no content detected)";
     } else if (state.startsWith("explicit")) {
-      detail = ((await page.getByRole("alert").filter({ hasNotText: "Limited support" }).first().innerText().catch(() => "")) || (await page.locator("main, body").first().innerText().catch(() => ""))).replace(/\s+/g, " ").slice(0, 140);
+      detail = ((await page.getByRole("alert").filter({ hasText: /\S/ }).filter({ hasNotText: "Limited support" }).first().innerText({ timeout: 2_000 }).catch(() => "")) || (await page.locator("main, body").first().innerText().catch(() => ""))).replace(/\s+/g, " ").slice(0, 140);
     }
     console.log("FIXTURE", f.label, state, detail.slice(0, 60));
     results.push({ fixture: f.label, kind: "ebook", format: v.format, outcome: state, detail });

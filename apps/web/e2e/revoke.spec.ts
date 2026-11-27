@@ -12,7 +12,7 @@ async function signIn(page: Page, user: string) {
   await page.getByLabel(/Username/).fill(user);
   await page.getByLabel(/Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByTestId("whoami")).toBeVisible();
+  await expect(page.getByTestId("whoami")).toBeAttached(); // the account name is hidden at phone width
 }
 
 test("revoking library access clears the open reader and keeps unsent changes", async ({ page, browser, browserName }) => {
@@ -36,7 +36,7 @@ test("revoking library access clears the open reader and keeps unsent changes", 
     expect((await grant("DELETE")).status()).toBeLessThan(300);
     // The page refetches when it becomes visible again; that is when the server's 403 reaches it.
     await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    await page.getByRole("button", { name: "Contents & notes" }).click({ timeout: 2000 }).catch(() => undefined);
+    await page.getByRole("button", { name: "Contents & notes", exact: true }).click({ timeout: 2000 }).catch(() => undefined);
     await expect(page.getByRole("heading", { name: "Access to this library was removed" })).toBeVisible({ timeout: 15_000 });
     await expect(page.locator("iframe")).toHaveCount(0); // the reader frame and its book bytes are gone
     await expect(page.getByTestId("progress")).toHaveCount(0);
