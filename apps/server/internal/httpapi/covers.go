@@ -10,6 +10,7 @@ import (
 
 	"github.com/deranjer/ebooker/apps/server/internal/apperr"
 	"github.com/deranjer/ebooker/apps/server/internal/covers"
+	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
 
@@ -141,7 +142,7 @@ func (a *API) registerCovers(api huma.API) {
 		return coverSlotOut(m), nil
 	})
 
-	search := adminOp(readOp(op("searchTitleCovers", http.MethodGet, "/titles/{titleId}/cover-search", "Search Open Library and iTunes for covers of a title", "covers")))
+	search := adminOp(readOp(op("searchTitleCovers", http.MethodGet, "/titles/{titleId}/cover-search", "Search Open Library, iTunes and the enabled metadata sources for covers of a title", "covers")))
 	search.Security = secured
 	huma.Register(api, search, func(ctx context.Context, in *coverMedium) (*bodyOut[wire.CoverSearchResults], error) {
 		id, err := visible(ctx, in.TitleID)
@@ -159,7 +160,11 @@ func (a *API) registerCovers(api huma.API) {
 		if len(t.Title.Authors) > 0 {
 			author = string(t.Title.Authors[0])
 		}
-		res, err := a.Covers.Search(ctx, t.Title.Title, author, in.Medium)
+		sources, err := a.providerCoverSources(ctx, id, t.Title.Title, author)
+		if err != nil {
+			return nil, a.fail(ctx, err)
+		}
+		res, err := a.Covers.Search(ctx, t.Title.Title, author, in.Medium, sources...)
 		if err != nil {
 			return nil, a.fail(ctx, err)
 		}
@@ -210,6 +215,33 @@ func (a *API) registerCovers(api huma.API) {
 		}
 		return &bodyOut[wire.CoverSettings]{Body: wire.CoverSettings{SearchEnabled: on}}, nil
 	})
+}
+
+// coverProviderNames are the names shown beside a provider's covers.
+var coverProviderNames = map[string]string{metadata.ProviderGoodreads: "Goodreads"}
+
+// providerCoverSources adds the metadata providers that offer covers and that a library holding the title has enabled
+// (ADR-0115). Nothing is sent to a provider no such library lists.
+func (a *API) providerCoverSources(ctx context.Context, titleID uuid.UUID, title, author string) ([]covers.Source, error) {
+	providers, err := a.Enricher.TitleCoverProviders(ctx, principal(ctx).UserID, titleID)
+	if err != nil {
+		return nil, apperr.ErrUnavailable
+	}
+	var out []covers.Source
+	for _, p := range providers {
+		out = append(out, func(ctx context.Context) ([]covers.Result, error) {
+			hits, err := p.Covers(ctx, title, author)
+			if err != nil {
+				return nil, err
+			}
+			var found []covers.Result
+			for _, h := range hits {
+				found = append(found, covers.Result{Provider: coverProviderNames[p.Name()], Title: h.Title, Author: h.Author, ImageURL: h.ImageURL, ThumbURL: h.ImageURL})
+			}
+			return found, nil
+		})
+	}
+	return out, nil
 }
 
 func coverSlotOut(m covers.Meta) *bodyOut[wire.CoverSlot] {

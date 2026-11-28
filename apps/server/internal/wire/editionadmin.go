@@ -96,7 +96,7 @@ type ProviderSearch struct {
 	// Fresh skips the short-lived search cache and refreshes it.
 	Fresh bool `json:"fresh,omitempty"`
 	// Providers limits the search to some of the library's enabled providers. Empty searches all of them.
-	Providers []string `json:"providers,omitempty" maxItems:"4" uniqueItems:"true" items.enum:"open_library,google_books,audnexus,hardcover" doc:"Search only these providers, which must also be enabled for the library. Omit to search every enabled provider."`
+	Providers []string `json:"providers,omitempty" maxItems:"5" uniqueItems:"true" items.enum:"open_library,google_books,audnexus,hardcover,goodreads" doc:"Search only these providers, which must also be enabled for the library. Omit to search every enabled provider."`
 }
 
 // ProviderCandidate is one result to review; Consistent never authorizes an automatic change.
@@ -108,7 +108,7 @@ type ProviderCandidate struct {
 }
 
 type ProviderResult struct {
-	Provider string `json:"provider" enum:"open_library,google_books,audnexus,hardcover"`
+	Provider string `json:"provider" enum:"open_library,google_books,audnexus,hardcover,goodreads"`
 	// Status is unconfigured when the library lists a provider the operator has not set up (for example Hardcover without a token).
 	Status string `json:"status" enum:"ok,no_match,unavailable,unconfigured"`
 	// Cached is true when the candidates came from the short-lived search cache.
@@ -145,7 +145,7 @@ type EditionAutoFill struct {
 // none was an exact, consistent identifier match), no_match, or disabled (the library has no provider enabled).
 type AutoFillResult struct {
 	Outcome  string   `json:"outcome" enum:"filled,proposed,nothing_to_fill,needs_review,no_match,disabled"`
-	Provider string   `json:"provider,omitempty" enum:"open_library,google_books,audnexus,hardcover"`
+	Provider string   `json:"provider,omitempty" enum:"open_library,google_books,audnexus,hardcover,goodreads"`
 	Filled   []string `json:"filled" maxItems:"11"`
 	// Rule is how the match was accepted: identifier (ADR-0060) or title_author (ADR-0090, a per-library setting).
 	Rule string `json:"rule,omitempty" enum:"identifier,title_author"`

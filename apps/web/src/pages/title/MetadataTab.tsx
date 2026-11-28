@@ -37,7 +37,7 @@ export function MetadataTab({ title, editions, recordings = [] }: { title?: Titl
   );
 }
 
-const PROVIDER_NAMES: Record<string, string> = { open_library: "Open Library", google_books: "Google Books", audnexus: "Audnexus", hardcover: "Hardcover" };
+const PROVIDER_NAMES: Record<string, string> = { open_library: "Open Library", google_books: "Google Books", audnexus: "Audnexus", hardcover: "Hardcover", goodreads: "Goodreads" };
 
 /** A change to one field from this tab, and what the notification says once it is saved (locking says nothing: the icon shows it). */
 type Change = FieldChange & { note?: string };

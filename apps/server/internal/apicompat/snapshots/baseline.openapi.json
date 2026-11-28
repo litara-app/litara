@@ -836,7 +836,8 @@
               "open_library",
               "google_books",
               "audnexus",
-              "hardcover"
+              "hardcover",
+              "goodreads"
             ],
             "type": "string"
           },
@@ -5692,7 +5693,8 @@
               "open_library",
               "google_books",
               "audnexus",
-              "hardcover"
+              "hardcover",
+              "goodreads"
             ],
             "type": "string"
           },
@@ -5725,7 +5727,7 @@
             "items": {
               "type": "string"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "type": [
               "array",
               "null"
@@ -34379,7 +34381,7 @@
             "csrf": []
           }
         ],
-        "summary": "Search Open Library and iTunes for covers of a title",
+        "summary": "Search Open Library, iTunes and the enabled metadata sources for covers of a title",
         "tags": [
           "covers"
         ]

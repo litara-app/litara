@@ -54,9 +54,13 @@ func (s *Searcher) getJSON(ctx context.Context, u string, out any) error {
 	return json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(out)
 }
 
-// Search returns up to about twenty candidates for a medium ("ebook" or "audio"). A provider that fails is skipped so one
-// outage does not hide the other's results; the error is returned only when every provider failed.
-func (s *Searcher) Search(ctx context.Context, title, author, medium string) ([]Result, error) {
+// Source is a further cover search, such as a metadata provider the title's library has enabled (ADR-0115).
+type Source func(ctx context.Context) ([]Result, error)
+
+// Search returns up to about twenty candidates for a medium ("ebook" or "audio"), then those of the further sources. A
+// provider that fails is skipped so one outage does not hide the others' results; the error is returned only when every
+// provider failed.
+func (s *Searcher) Search(ctx context.Context, title, author, medium string, more ...Source) ([]Result, error) {
 	title, author = strings.TrimSpace(title), strings.TrimSpace(author)
 	if title == "" {
 		return nil, fmt.Errorf("a title is needed to search")
@@ -73,7 +77,14 @@ func (s *Searcher) Search(ctx context.Context, title, author, medium string) ([]
 	} else {
 		failures++
 	}
-	if failures == 2 {
+	for _, source := range more {
+		if r, err := source(ctx); err == nil {
+			out = append(out, r...)
+		} else {
+			failures++
+		}
+	}
+	if failures == 2+len(more) {
 		return nil, fmt.Errorf("the cover sites could not be reached")
 	}
 	return out, nil

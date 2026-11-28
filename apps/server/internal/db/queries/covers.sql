@@ -17,6 +17,15 @@ SELECT search_enabled FROM cover_settings WHERE singleton;
 -- name: SetCoverSearchEnabled :one
 UPDATE cover_settings SET search_enabled = $1, updated_at = now() WHERE singleton RETURNING search_enabled;
 
+-- name: ListUserTitleLibraryIDs :many
+-- The libraries the user is granted that hold an edition or recording of the title.
+SELECT x.library_id FROM (
+    SELECT e.library_id FROM editions e WHERE e.title_id = sqlc.arg(title_id)
+    UNION
+    SELECT r.library_id FROM active_recordings r WHERE r.title_id = sqlc.arg(title_id)
+) x JOIN user_library_grants g ON g.library_id = x.library_id AND g.user_id = sqlc.arg(user_id)
+ORDER BY x.library_id;
+
 -- name: ListTitleEbookFiles :many
 -- The current files of a title's ebook editions, oldest first, for extracting a cover.
 SELECT e.format, fv.locator, fv.size_bytes

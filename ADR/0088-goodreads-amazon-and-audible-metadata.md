@@ -12,6 +12,10 @@ On 2026-11-21 the owner selected Goodreads, Amazon and Audible when asked which 
 
 Proposal, not approval: do not add scraping adapters. Use Audnexus for Audible-derived data, Hardcover (ADR-0087) for community series, edition and rating data, and Open Library and Google Books for bibliographic data. Revisit if the owner holds access to an official API or licence (for example an Amazon associate account).
 
+## Goodreads answered by ADR-0115
+
+Later on 2026-11-27 the owner chose to add Goodreads through the GraphQL method. [ADR-0115](0115-goodreads-through-its-graphql-endpoint.md) records that decision and replaces what this record proposes or says is unavailable about Goodreads. Amazon and Audible are unchanged and this record stays Proposed for them.
+
 ## Goodreads scraping, checked 2026-11-27
 
 The owner asked on 2026-11-27 to check Goodreads scraping and "see if that looks good to us". This is evidence for

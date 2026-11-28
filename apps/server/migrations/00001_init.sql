@@ -445,7 +445,7 @@ CREATE TABLE associations (
 -- One row per (recording, provider) so external lookups are not repeated (ADR-0049/0060).
 CREATE TABLE provider_lookups (
     recording_id uuid NOT NULL REFERENCES recordings (id) ON DELETE CASCADE,
-    provider     text NOT NULL CHECK (provider IN ('open_library', 'google_books', 'audnexus')),
+    provider     text NOT NULL CHECK (provider IN ('open_library', 'google_books', 'audnexus', 'hardcover', 'goodreads')),
     outcome      text NOT NULL CHECK (outcome IN ('applied', 'no_match', 'needs_review', 'error', 'skipped')),
     detail       text,
     looked_up_at timestamptz NOT NULL DEFAULT now(),

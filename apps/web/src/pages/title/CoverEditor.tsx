@@ -77,7 +77,7 @@ function SearchDialog({ open, onClose, title, medium, enabled, busy, onChoose, o
   });
   return (
     <Drawer open={open} onClose={onClose} title="Search online for a cover" size="lg"
-      description="Litara sends only the title and author to Open Library and iTunes. Your browser never contacts those sites."
+      description="Litara sends only the title and author to Open Library and iTunes, and the title to Goodreads if this library uses it. The server makes these requests, not your browser."
       actions={<Button icon={icons.close} onClick={onClose}>Close</Button>}>
       {!enabled ? (
         <Stack gap="sm">

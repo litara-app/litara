@@ -196,3 +196,24 @@ func TestProviderFailureIsRecordedAndRetried(t *testing.T) {
 	}
 	_ = wire.LibraryConfig{}
 }
+
+// Every provider a library can enable must be able to record its lookup; the table once refused Hardcover.
+func TestEveryProviderLookupCanBeRecorded(t *testing.T) {
+	e := newEnv(t)
+	e.audio("B/1.mp3", 440, "album", "The Book", "artist", "An Author")
+	e.settle()
+	names := []string{"open_library", "google_books", "audnexus", "hardcover", "goodreads"}
+	e.enableProviders(names...)
+	providers := map[string]metadata.Provider{}
+	for _, name := range names {
+		providers[name] = &fakeProvider{name: name}
+	}
+	en := &metadata.Enricher{Service: metadata.New(e.pool), Providers: providers}
+	if err := en.EnrichLibrary(context.Background(), e.lib); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := e.pool.QueryRow(context.Background(), `SELECT count(*) FROM provider_lookups WHERE outcome = 'no_match'`).Scan(&n); err != nil || n != len(names) {
+		t.Fatalf("recorded %d of %d lookups: %v", n, len(names), err)
+	}
+}
