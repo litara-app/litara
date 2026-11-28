@@ -15,6 +15,7 @@ import (
 )
 
 type readingEnv struct {
+	t                   *testing.T
 	e                   *apitest.Env
 	admin, userA, userB string
 	lib, root           string

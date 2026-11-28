@@ -43,7 +43,7 @@ func (q *Queries) CountEditionsPage(ctx context.Context, arg CountEditionsPagePa
 }
 
 const countTitleChildren = `-- name: CountTitleChildren :one
-SELECT ((SELECT count(*) FROM editions e WHERE e.title_id = $1) + (SELECT count(*) FROM active_recordings r WHERE r.title_id = $1))::bigint
+SELECT count(*)::bigint FROM title_holdings h WHERE h.title_id = $1
 `
 
 func (q *Queries) CountTitleChildren(ctx context.Context, titleID uuid.UUID) (int64, error) {
@@ -156,9 +156,16 @@ const getTitleForUser = `-- name: GetTitleForUser :many
 SELECT t.id, t.title, t.authors, t.series_name,
        (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id)::bigint AS edition_count,
        (SELECT count(*) FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)::bigint AS recording_count,
-       COALESCE((SELECT array_agg(DISTINCT e.language) FILTER (WHERE e.language IS NOT NULL)
-                 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
-                 WHERE e.title_id = t.id), '{}')::text[] AS languages
+       COALESCE((SELECT array_agg(DISTINCT x.v) FROM (
+                   SELECT e.language AS v FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1
+                   WHERE e.title_id = t.id
+                   UNION ALL SELECT p.language FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = $1
+                   WHERE p.title_id = t.id AND p.removed_at IS NULL) x WHERE x.v IS NOT NULL), '{}')::text[] AS languages,
+       (SELECT count(*) FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = $1 WHERE p.title_id = t.id AND p.removed_at IS NULL)::bigint AS copy_count,
+       -- The title's own details; a paper-only title has no edition or recording to read them from (ADR-0116).
+       COALESCE(effective_title_field(t.id, 'publisher') #>> '{}', '')::text AS publisher,
+       COALESCE(effective_title_field(t.id, 'published') #>> '{}', '')::text AS published,
+       COALESCE(effective_title_field(t.id, 'description') #>> '{}', '')::text AS description
 FROM titles t WHERE t.id = $2
 `
 
@@ -175,6 +182,10 @@ type GetTitleForUserRow struct {
 	EditionCount   int64     `json:"edition_count"`
 	RecordingCount int64     `json:"recording_count"`
 	Languages      []string  `json:"languages"`
+	CopyCount      int64     `json:"copy_count"`
+	Publisher      string    `json:"publisher"`
+	Published      string    `json:"published"`
+	Description    string    `json:"description"`
 }
 
 func (q *Queries) GetTitleForUser(ctx context.Context, arg GetTitleForUserParams) ([]GetTitleForUserRow, error) {
@@ -194,6 +205,10 @@ func (q *Queries) GetTitleForUser(ctx context.Context, arg GetTitleForUserParams
 			&i.EditionCount,
 			&i.RecordingCount,
 			&i.Languages,
+			&i.CopyCount,
+			&i.Publisher,
+			&i.Published,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -441,8 +456,9 @@ func (q *Queries) ListFileEditions(ctx context.Context, arg ListFileEditionsPara
 const listLibraryTitlesByKeyAny = `-- name: ListLibraryTitlesByKeyAny :many
 SELECT t.id, t.identifier FROM titles t
 WHERE t.group_key = $2 AND (
-  EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id AND r.library_id = $1)
-  OR EXISTS (SELECT 1 FROM editions e WHERE e.title_id = t.id AND e.library_id = $1))
+  EXISTS (SELECT 1 FROM title_holdings h WHERE h.title_id = t.id AND h.library_id = $1)
+  -- A paper title in any library is offered for review, so a scan never leaves its ebook unconnected unnoticed (ADR-0116).
+  OR EXISTS (SELECT 1 FROM physical_copies p WHERE p.title_id = t.id AND p.removed_at IS NULL))
 GROUP BY t.id, t.identifier
 `
 
@@ -711,8 +727,7 @@ func (q *Queries) TitleExists(ctx context.Context, id uuid.UUID) (bool, error) {
 }
 
 const titleHeldInLibrary = `-- name: TitleHeldInLibrary :one
-SELECT (EXISTS (SELECT 1 FROM editions e WHERE e.title_id = $1 AND e.library_id = $2)
-     OR EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = $1 AND r.library_id = $2))::boolean
+SELECT EXISTS (SELECT 1 FROM title_holdings h WHERE h.title_id = $1 AND h.library_id = $2)
 `
 
 type TitleHeldInLibraryParams struct {
@@ -722,9 +737,9 @@ type TitleHeldInLibraryParams struct {
 
 func (q *Queries) TitleHeldInLibrary(ctx context.Context, arg TitleHeldInLibraryParams) (bool, error) {
 	row := q.db.QueryRow(ctx, titleHeldInLibrary, arg.TitleID, arg.LibraryID)
-	var column_1 bool
-	err := row.Scan(&column_1)
-	return column_1, err
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const upsertEditionMetadataValue = `-- name: UpsertEditionMetadataValue :exec

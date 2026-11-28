@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/google/uuid"
@@ -64,6 +65,10 @@ func (s *Service) Image(ctx context.Context, titleID uuid.UUID, medium string) (
 	if xerr != nil && !errors.Is(xerr, ErrNoCover) {
 		return nil, uuid.Nil, apperr.ErrUnavailable
 	}
+	if errors.Is(xerr, errNoFiles) {
+		// Nothing is remembered: a title with only paper copies (ADR-0116) may be given a file later.
+		return nil, uuid.Nil, apperr.ErrNotFound
+	}
 	src := "extracted"
 	if xerr != nil {
 		src, img = "none", nil
@@ -84,12 +89,18 @@ func (s *Service) store(ctx context.Context, titleID uuid.UUID, medium, source s
 	return Meta{Source: r.Source, Version: r.Version}, nil
 }
 
+// errNoFiles means the title has no file of this medium to look in.
+var errNoFiles = fmt.Errorf("%w: no files", ErrNoCover)
+
 // extract reads a cover out of the title's own files; it changes nothing on disk.
 func (s *Service) extract(ctx context.Context, titleID uuid.UUID, medium string) ([]byte, error) {
 	if medium == Audio {
 		rows, err := s.q.ListTitleRecordingCovers(ctx, titleID)
 		if err != nil {
 			return nil, err
+		}
+		if len(rows) == 0 {
+			return nil, errNoFiles
 		}
 		for _, r := range rows {
 			if r.CoverLocator == nil {
@@ -110,6 +121,9 @@ func (s *Service) extract(ctx context.Context, titleID uuid.UUID, medium string)
 	files, err := s.q.ListTitleEbookFiles(ctx, titleID)
 	if err != nil {
 		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, errNoFiles
 	}
 	for _, fl := range files {
 		size := int64(0)

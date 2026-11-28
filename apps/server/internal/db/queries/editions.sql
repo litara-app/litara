@@ -9,8 +9,9 @@ ORDER BY o.rel_path;
 -- name: ListLibraryTitlesByKeyAny :many
 SELECT t.id, t.identifier FROM titles t
 WHERE t.group_key = $2 AND (
-  EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id AND r.library_id = $1)
-  OR EXISTS (SELECT 1 FROM editions e WHERE e.title_id = t.id AND e.library_id = $1))
+  EXISTS (SELECT 1 FROM title_holdings h WHERE h.title_id = t.id AND h.library_id = $1)
+  -- A paper title in any library is offered for review, so a scan never leaves its ebook unconnected unnoticed (ADR-0116).
+  OR EXISTS (SELECT 1 FROM physical_copies p WHERE p.title_id = t.id AND p.removed_at IS NULL))
 GROUP BY t.id, t.identifier;
 
 -- name: InsertEditionTitle :exec
@@ -98,9 +99,16 @@ SELECT EXISTS (SELECT 1 FROM titles WHERE id = $1);
 SELECT t.id, t.title, t.authors, t.series_name,
        (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id) WHERE e.title_id = t.id)::bigint AS edition_count,
        (SELECT count(*) FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = sqlc.arg(user_id) WHERE r.title_id = t.id)::bigint AS recording_count,
-       COALESCE((SELECT array_agg(DISTINCT e.language) FILTER (WHERE e.language IS NOT NULL)
-                 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
-                 WHERE e.title_id = t.id), '{}')::text[] AS languages
+       COALESCE((SELECT array_agg(DISTINCT x.v) FROM (
+                   SELECT e.language AS v FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
+                   WHERE e.title_id = t.id
+                   UNION ALL SELECT p.language FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = sqlc.arg(user_id)
+                   WHERE p.title_id = t.id AND p.removed_at IS NULL) x WHERE x.v IS NOT NULL), '{}')::text[] AS languages,
+       (SELECT count(*) FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = sqlc.arg(user_id) WHERE p.title_id = t.id AND p.removed_at IS NULL)::bigint AS copy_count,
+       -- The title's own details; a paper-only title has no edition or recording to read them from (ADR-0116).
+       COALESCE(effective_title_field(t.id, 'publisher') #>> '{}', '')::text AS publisher,
+       COALESCE(effective_title_field(t.id, 'published') #>> '{}', '')::text AS published,
+       COALESCE(effective_title_field(t.id, 'description') #>> '{}', '')::text AS description
 FROM titles t WHERE t.id = sqlc.arg(id);
 
 -- name: LockEdition :one
@@ -132,11 +140,10 @@ UPDATE edition_metadata_values SET locked = sqlc.arg(locked), updated_at = now()
 WHERE edition_id = sqlc.arg(edition_id) AND field = sqlc.arg(field) AND source = 'user' AND locked <> sqlc.arg(locked);
 
 -- name: CountTitleChildren :one
-SELECT ((SELECT count(*) FROM editions e WHERE e.title_id = $1) + (SELECT count(*) FROM active_recordings r WHERE r.title_id = $1))::bigint;
+SELECT count(*)::bigint FROM title_holdings h WHERE h.title_id = $1;
 
 -- name: TitleHeldInLibrary :one
-SELECT (EXISTS (SELECT 1 FROM editions e WHERE e.title_id = sqlc.arg(title_id) AND e.library_id = sqlc.arg(library_id))
-     OR EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = sqlc.arg(title_id) AND r.library_id = sqlc.arg(library_id)))::boolean;
+SELECT EXISTS (SELECT 1 FROM title_holdings h WHERE h.title_id = sqlc.arg(title_id) AND h.library_id = sqlc.arg(library_id));
 
 -- name: GetEditionFileName :one
 SELECT fv.filename FROM editions e JOIN file_versions fv ON fv.file_id = e.file_id AND fv.current WHERE e.id = $1;

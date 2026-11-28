@@ -189,47 +189,7 @@ func applyQ(ctx context.Context, q *sqlcgen.Queries, recordingID uuid.UUID) erro
 		if err != nil {
 			return err
 		}
-		title, err := q.GetTitleRow(ctx, rec.TitleID)
-		if err != nil {
-			return err
-		}
-		tv, err := q.ListMetadataValues(ctx, sqlcgen.ListMetadataValuesParams{SubjectKind: "title", SubjectID: rec.TitleID})
-		if err != nil {
-			return err
-		}
-		eff := Resolve(fromRows(tv))
-		name, authors, sname, sidx := title.Title, title.Authors, title.SeriesName, title.SeriesIndex
-		if e, ok := eff[FieldTitle]; ok && !e.Cleared {
-			var v string
-			if json.Unmarshal(e.Raw, &v) == nil && strings.TrimSpace(v) != "" {
-				name = v
-			}
-		}
-		if e, ok := eff[FieldAuthors]; ok {
-			authors = []string{}
-			if !e.Cleared {
-				_ = json.Unmarshal(e.Raw, &authors)
-			}
-		}
-		if e, ok := eff[FieldSeriesName]; ok {
-			sname = nil
-			if !e.Cleared {
-				var v string
-				if json.Unmarshal(e.Raw, &v) == nil {
-					sname = &v
-				}
-			}
-		}
-		if e, ok := eff[FieldSeriesIndex]; ok {
-			sidx = nil
-			if !e.Cleared {
-				var v float64
-				if json.Unmarshal(e.Raw, &v) == nil {
-					sidx = &v
-				}
-			}
-		}
-		if err := q.UpdateTitleFields(ctx, sqlcgen.UpdateTitleFieldsParams{ID: title.ID, Title: name, Authors: authors, SeriesName: sname, SeriesIndex: sidx}); err != nil {
+		if err := applyTitleQ(ctx, q, rec.TitleID); err != nil {
 			return err
 		}
 		rv, err := q.ListMetadataValues(ctx, sqlcgen.ListMetadataValuesParams{SubjectKind: "recording", SubjectID: rec.ID})
@@ -245,6 +205,51 @@ func applyQ(ctx context.Context, q *sqlcgen.Queries, recordingID uuid.UUID) erro
 		}
 		return nil
 	}
+}
+
+// applyTitleQ writes the title's resolved name, authors and series onto the title row.
+func applyTitleQ(ctx context.Context, q *sqlcgen.Queries, titleID uuid.UUID) error {
+	title, err := q.GetTitleRow(ctx, titleID)
+	if err != nil {
+		return err
+	}
+	tv, err := q.ListMetadataValues(ctx, sqlcgen.ListMetadataValuesParams{SubjectKind: "title", SubjectID: titleID})
+	if err != nil {
+		return err
+	}
+	eff := Resolve(fromRows(tv))
+	name, authors, sname, sidx := title.Title, title.Authors, title.SeriesName, title.SeriesIndex
+	if e, ok := eff[FieldTitle]; ok && !e.Cleared {
+		var v string
+		if json.Unmarshal(e.Raw, &v) == nil && strings.TrimSpace(v) != "" {
+			name = v
+		}
+	}
+	if e, ok := eff[FieldAuthors]; ok {
+		authors = []string{}
+		if !e.Cleared {
+			_ = json.Unmarshal(e.Raw, &authors)
+		}
+	}
+	if e, ok := eff[FieldSeriesName]; ok {
+		sname = nil
+		if !e.Cleared {
+			var v string
+			if json.Unmarshal(e.Raw, &v) == nil {
+				sname = &v
+			}
+		}
+	}
+	if e, ok := eff[FieldSeriesIndex]; ok {
+		sidx = nil
+		if !e.Cleared {
+			var v float64
+			if json.Unmarshal(e.Raw, &v) == nil {
+				sidx = &v
+			}
+		}
+	}
+	return q.UpdateTitleFields(ctx, sqlcgen.UpdateTitleFieldsParams{ID: title.ID, Title: name, Authors: authors, SeriesName: sname, SeriesIndex: sidx})
 }
 
 // EffectiveForTitle resolves a title's stored values (user edits, sidecar, embedded, provider) by precedence.

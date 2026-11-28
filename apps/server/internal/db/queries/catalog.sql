@@ -90,7 +90,8 @@ ORDER BY h.seq LIMIT $3 OFFSET $4;
 SELECT count(*) FROM completion_history WHERE user_id = $1 AND title_id = $2;
 
 -- name: TitleLibraryIDs :many
-SELECT DISTINCT library_id FROM active_recordings WHERE title_id = $1;
+-- Every library that holds the title, so a title with no recording has an empty listening history, not none (ADR-0116).
+SELECT DISTINCT library_id FROM title_holdings WHERE title_id = $1;
 
 -- name: SeedUpsertTitle :one
 INSERT INTO titles (id, title, authors, series_name, series_index, seed_key)

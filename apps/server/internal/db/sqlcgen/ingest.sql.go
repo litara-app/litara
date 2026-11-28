@@ -130,8 +130,10 @@ func (q *Queries) DeleteCandidatesNotIn(ctx context.Context, arg DeleteCandidate
 
 const deleteTitleIfUnused = `-- name: DeleteTitleIfUnused :exec
 DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id)
+  AND NOT EXISTS (SELECT 1 FROM physical_copies p WHERE p.title_id = t.id)
 `
 
+// A removed paper copy still holds its title, so that readers keep their history (ADR-0116).
 func (q *Queries) DeleteTitleIfUnused(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteTitleIfUnused, id)
 	return err
@@ -614,8 +616,10 @@ func (q *Queries) ListLibraryRecordings(ctx context.Context, libraryID uuid.UUID
 }
 
 const listLibraryTitlesByKey = `-- name: ListLibraryTitlesByKey :many
-SELECT DISTINCT t.id, t.identifier FROM titles t JOIN active_recordings r ON r.title_id = t.id
-WHERE r.library_id = $1 AND t.group_key = $2
+SELECT t.id, t.identifier FROM titles t
+WHERE t.group_key = $2 AND (
+  EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id AND r.library_id = $1)
+  OR EXISTS (SELECT 1 FROM physical_copies p WHERE p.title_id = t.id AND p.removed_at IS NULL))
 `
 
 type ListLibraryTitlesByKeyParams struct {
@@ -628,6 +632,7 @@ type ListLibraryTitlesByKeyRow struct {
 	Identifier *string   `json:"identifier"`
 }
 
+// Titles with a recording in this library, and paper titles in any library, which are offered for review (ADR-0116).
 func (q *Queries) ListLibraryTitlesByKey(ctx context.Context, arg ListLibraryTitlesByKeyParams) ([]ListLibraryTitlesByKeyRow, error) {
 	rows, err := q.db.Query(ctx, listLibraryTitlesByKey, arg.LibraryID, arg.GroupKey)
 	if err != nil {

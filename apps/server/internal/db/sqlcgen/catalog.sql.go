@@ -694,9 +694,10 @@ func (q *Queries) SetLayoutRevision(ctx context.Context, arg SetLayoutRevisionPa
 }
 
 const titleLibraryIDs = `-- name: TitleLibraryIDs :many
-SELECT DISTINCT library_id FROM active_recordings WHERE title_id = $1
+SELECT DISTINCT library_id FROM title_holdings WHERE title_id = $1
 `
 
+// Every library that holds the title, so a title with no recording has an empty listening history, not none (ADR-0116).
 func (q *Queries) TitleLibraryIDs(ctx context.Context, titleID uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, titleLibraryIDs, titleID)
 	if err != nil {

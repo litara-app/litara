@@ -745,6 +745,62 @@ CREATE INDEX integration_credentials_user_idx ON integration_credentials (user_i
 -- advertised link names absent bytes. Grants are joined by the queries.
 -- Effective descriptive value of an edition or a title (ADR-0047 order: user, sidecar, embedded, provider). A protected
 -- clear is a user row with a null value, so it wins and yields null. Used by feeds that list many books at once.
+-- ADR-0116: physical (paper) copies, beside ebook editions and recordings. A copy is never an edition and library scans
+-- never touch it. Removing a copy keeps the row, so each reader's history stays.
+CREATE TABLE physical_copies (
+    id          uuid PRIMARY KEY,
+    title_id    uuid NOT NULL REFERENCES titles (id),
+    library_id  uuid NOT NULL REFERENCES libraries (id),
+    revision    bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
+    binding     text CHECK (binding IN ('hardcover', 'paperback', 'other')),
+    isbn        text,
+    language    text,
+    page_count  integer CHECK (page_count BETWEEN 1 AND 100000),
+    location    text,
+    note        text,
+    acquired_on date,
+    removed_at  timestamptz,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX physical_copies_title_idx ON physical_copies (title_id);
+CREATE INDEX physical_copies_library_idx ON physical_copies (library_id);
+
+-- One account's reading of one paper copy. Revisions start at 0 (absent row). A page is never required.
+CREATE TABLE paper_reading_state (
+    user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    copy_id    uuid NOT NULL REFERENCES physical_copies (id),
+    revision   bigint NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    status     text NOT NULL DEFAULT 'not_started' CHECK (status IN ('not_started', 'reading', 'finished')),
+    page       integer CHECK (page BETWEEN 1 AND 100000),
+    changed_at timestamptz,
+    PRIMARY KEY (user_id, copy_id)
+);
+
+-- "unfinished" takes back the finish before it; "started" after a finish is reading the book again.
+CREATE TABLE paper_history (
+    seq          bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    title_id     uuid NOT NULL REFERENCES titles (id),
+    copy_id      uuid NOT NULL REFERENCES physical_copies (id),
+    event        text NOT NULL CHECK (event IN ('started', 'finished', 'unfinished')),
+    operation_id uuid NOT NULL,
+    captured_at  timestamptz NOT NULL,
+    received_at  timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (user_id, operation_id)
+);
+CREATE INDEX paper_history_title_idx ON paper_history (user_id, title_id, seq);
+
+-- What makes a title visible: an ebook edition, a recording or a paper copy that has not been removed, each in one
+-- library (ADR-0116). A title shows to an account that is granted one of these libraries.
+CREATE VIEW title_holdings AS
+    SELECT title_id, library_id, created_at FROM editions
+    UNION ALL
+    SELECT title_id, library_id, created_at FROM recordings WHERE tombstoned_at IS NULL
+    UNION ALL
+    SELECT title_id, library_id, created_at FROM physical_copies WHERE removed_at IS NULL;
+
 CREATE FUNCTION effective_edition_field(ed uuid, f text) RETURNS jsonb LANGUAGE sql STABLE AS $$
     SELECT value FROM edition_metadata_values WHERE edition_id = ed AND field = f
     ORDER BY CASE source WHEN 'user' THEN 0 WHEN 'sidecar' THEN 1 WHEN 'embedded' THEN 2 ELSE 3 END LIMIT 1
@@ -950,32 +1006,38 @@ CREATE FUNCTION title_rows(p_user uuid) RETURNS TABLE (
     id uuid, title text, authors text[], series_name text, series_index double precision,
     edition_count bigint, recording_count bigint, languages text[], formats text[], library_ids uuid[],
     added_at timestamptz, publisher text, published text, page_count int, rating_halves smallint, status text,
-    has_description boolean, tags text[], audio_formats text[]
+    has_description boolean, tags text[], audio_formats text[], copy_count bigint
 ) LANGUAGE sql STABLE AS $$
   SELECT t.id, t.title, t.authors, t.series_name, t.series_index,
     (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id)::bigint AS edition_count,
     (SELECT count(*) FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user WHERE r.title_id = t.id)::bigint AS recording_count,
-    COALESCE((SELECT array_agg(DISTINCT e.language) FILTER (WHERE e.language IS NOT NULL)
-              FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id), '{}')::text[] AS languages,
+    COALESCE((SELECT array_agg(DISTINCT x.v) FROM (
+        SELECT e.language AS v FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id
+        UNION ALL SELECT p.language FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = p_user
+          WHERE p.title_id = t.id AND p.removed_at IS NULL) x WHERE x.v IS NOT NULL), '{}')::text[] AS languages,
     (COALESCE((SELECT array_agg(DISTINCT e.format ORDER BY e.format) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id), '{}')::text[]
-      || CASE WHEN EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user WHERE r.title_id = t.id) THEN ARRAY['audio']::text[] ELSE '{}'::text[] END)::text[] AS formats,
-    COALESCE((SELECT array_agg(DISTINCT x.library_id ORDER BY x.library_id) FROM (
-        SELECT e.library_id FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id
-        UNION SELECT r.library_id FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user WHERE r.title_id = t.id) x), '{}')::uuid[] AS library_ids,
-    (SELECT min(x.created_at) FROM (
-        SELECT e.created_at FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id
-        UNION ALL SELECT r.created_at FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user WHERE r.title_id = t.id) x)::timestamptz AS added_at,
+      || CASE WHEN EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user WHERE r.title_id = t.id) THEN ARRAY['audio']::text[] ELSE '{}'::text[] END
+      || CASE WHEN EXISTS (SELECT 1 FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = p_user WHERE p.title_id = t.id AND p.removed_at IS NULL) THEN ARRAY['paper']::text[] ELSE '{}'::text[] END)::text[] AS formats,
+    COALESCE((SELECT array_agg(DISTINCT h.library_id ORDER BY h.library_id) FROM title_holdings h
+        JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = p_user WHERE h.title_id = t.id), '{}')::uuid[] AS library_ids,
+    (SELECT min(h.created_at) FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = p_user
+        WHERE h.title_id = t.id)::timestamptz AS added_at,
     COALESCE((SELECT s.v FROM (SELECT NULLIF(effective_edition_field(e.id, 'publisher') #>> '{}', '') AS v, e.created_at FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id) s WHERE s.v IS NOT NULL ORDER BY s.created_at LIMIT 1),
              NULLIF(effective_title_field(t.id, 'publisher') #>> '{}', ''))::text AS publisher,
     COALESCE((SELECT s.v FROM (SELECT NULLIF(effective_edition_field(e.id, 'published') #>> '{}', '') AS v, e.created_at FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id) s WHERE s.v IS NOT NULL ORDER BY s.created_at LIMIT 1),
              NULLIF(effective_title_field(t.id, 'published') #>> '{}', ''))::text AS published,
-    (SELECT s.v FROM (SELECT (effective_edition_field(e.id, 'page_count') #>> '{}')::int AS v, e.created_at FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id) s WHERE s.v IS NOT NULL ORDER BY s.created_at LIMIT 1)::int AS page_count,
+    -- An ebook edition's page count first, else a paper copy's.
+    COALESCE((SELECT s.v FROM (SELECT (effective_edition_field(e.id, 'page_count') #>> '{}')::int AS v, e.created_at FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = p_user WHERE e.title_id = t.id) s WHERE s.v IS NOT NULL ORDER BY s.created_at LIMIT 1),
+             (SELECT p.page_count FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = p_user WHERE p.title_id = t.id AND p.removed_at IS NULL AND p.page_count IS NOT NULL ORDER BY p.created_at, p.id LIMIT 1))::int AS page_count,
     (SELECT p.rating_halves FROM title_personal p WHERE p.user_id = p_user AND p.title_id = t.id)::smallint AS rating_halves,
     CASE
       WHEN EXISTS (SELECT 1 FROM edition_completion_state c JOIN editions e ON e.id = c.edition_id WHERE c.user_id = p_user AND e.title_id = t.id AND c.finished)
-        OR EXISTS (SELECT 1 FROM completion_state c JOIN recordings r ON r.id = c.recording_id WHERE c.user_id = p_user AND r.title_id = t.id AND c.finished) THEN 'finished'
+        OR EXISTS (SELECT 1 FROM completion_state c JOIN recordings r ON r.id = c.recording_id WHERE c.user_id = p_user AND r.title_id = t.id AND c.finished)
+        -- A finished paper copy counts even after the copy is removed; "reading" only while the copy is there to change.
+        OR EXISTS (SELECT 1 FROM paper_reading_state s JOIN physical_copies p ON p.id = s.copy_id WHERE s.user_id = p_user AND p.title_id = t.id AND s.status = 'finished') THEN 'finished'
       WHEN EXISTS (SELECT 1 FROM edition_position_state s JOIN editions e ON e.id = s.edition_id WHERE s.user_id = p_user AND e.title_id = t.id AND s.captured_at IS NOT NULL)
-        OR EXISTS (SELECT 1 FROM position_state s JOIN recordings r ON r.id = s.recording_id WHERE s.user_id = p_user AND r.title_id = t.id AND s.captured_at IS NOT NULL) THEN 'reading'
+        OR EXISTS (SELECT 1 FROM position_state s JOIN recordings r ON r.id = s.recording_id WHERE s.user_id = p_user AND r.title_id = t.id AND s.captured_at IS NOT NULL)
+        OR EXISTS (SELECT 1 FROM paper_reading_state s JOIN physical_copies p ON p.id = s.copy_id WHERE s.user_id = p_user AND p.title_id = t.id AND p.removed_at IS NULL AND s.status = 'reading') THEN 'reading'
       ELSE 'unread' END::text AS status
     ,
     COALESCE(NULLIF(effective_title_field(t.id, 'description') #>> '{}', '') IS NOT NULL
@@ -995,7 +1057,8 @@ CREATE FUNCTION title_rows(p_user uuid) RETURNS TABLE (
         JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = p_user
         JOIN recording_files rf ON rf.recording_id = r.id
         JOIN file_versions fv ON fv.file_id = rf.file_id AND fv.current
-        WHERE r.title_id = t.id), '{}')::text[] AS audio_formats
+        WHERE r.title_id = t.id), '{}')::text[] AS audio_formats,
+    (SELECT count(*) FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = p_user WHERE p.title_id = t.id AND p.removed_at IS NULL)::bigint AS copy_count
   FROM titles t
 $$;
 
@@ -1303,6 +1366,10 @@ DROP FUNCTION IF EXISTS guess_last_name(text);
 DROP TABLE IF EXISTS cover_settings;
 DROP TABLE IF EXISTS title_covers;
 DROP FUNCTION IF EXISTS title_rows(uuid);
+DROP VIEW IF EXISTS title_holdings;
+DROP TABLE IF EXISTS paper_history;
+DROP TABLE IF EXISTS paper_reading_state;
+DROP TABLE IF EXISTS physical_copies;
 DROP TABLE libraries;
 DROP TABLE users;
 DROP TABLE server_identity;

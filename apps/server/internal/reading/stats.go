@@ -48,8 +48,19 @@ func (s *Service) Stats(ctx context.Context, userID uuid.UUID, from, to, timeZon
 	if err != nil {
 		return wire.ReadingStats{}, dbErr(err)
 	}
+	paper, err := s.q.ListPaperFinishesForStats(ctx, sqlcgen.ListPaperFinishesForStatsParams{
+		UserID: userID, FromTime: start, ToTime: end.AddDate(0, 0, 1)})
+	if err != nil {
+		return wire.ReadingStats{}, dbErr(err)
+	}
 	today := s.now().In(loc)
-	return summarize(rows, heard, loc, start, end, time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc), timeZone), nil
+	out := summarize(rows, heard, loc, start, end, time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc), timeZone)
+	finished := map[uuid.UUID]bool{}
+	for _, p := range paper {
+		finished[p.TitleID] = true
+	}
+	out.PaperBooksFinished = int64(len(finished))
+	return out, nil
 }
 
 // dayIndex is the number of calendar days from a to b, both local midnights; it is exact across DST changes.

@@ -16,6 +16,7 @@ import (
 
 	"github.com/deranjer/ebooker/apps/server/internal/db/sqlcgen"
 	"github.com/deranjer/ebooker/apps/server/internal/inspect"
+	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 )
 
 // member is one audio file considered for a recording.
@@ -246,15 +247,7 @@ func hasDigit(s string) bool {
 	return false
 }
 
-func normText(s string) string {
-	var b strings.Builder
-	for _, r := range strings.ToLower(s) {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
+func normText(s string) string { return metadata.NormText(s) }
 
 // GroupOutcome summarizes a grouping pass.
 type GroupOutcome struct {
