@@ -14,10 +14,18 @@ import (
 
 const derivedTitleDates = `-- name: DerivedTitleDates :one
 SELECT
-  COALESCE((SELECT MIN(s.captured_at) FROM edition_position_state s JOIN editions e ON e.id = s.edition_id
-    WHERE s.user_id = $1 AND e.title_id = $2 AND s.captured_at IS NOT NULL), 'epoch'::timestamptz)::timestamptz AS started_at,
-  COALESCE((SELECT MAX(c.changed_at) FROM edition_completion_state c JOIN editions e ON e.id = c.edition_id
-    WHERE c.user_id = $1 AND e.title_id = $2 AND c.finished), 'epoch'::timestamptz)::timestamptz AS finished_at
+  COALESCE(LEAST(
+    (SELECT MIN(s.captured_at) FROM edition_position_state s JOIN editions e ON e.id = s.edition_id
+      WHERE s.user_id = $1 AND e.title_id = $2 AND s.captured_at IS NOT NULL),
+    (SELECT MIN(h.captured_at) FROM paper_history h WHERE h.user_id = $1 AND h.title_id = $2 AND h.event = 'started')),
+    'epoch'::timestamptz)::timestamptz AS started_at,
+  COALESCE(GREATEST(
+    (SELECT MAX(c.changed_at) FROM edition_completion_state c JOIN editions e ON e.id = c.edition_id
+      WHERE c.user_id = $1 AND e.title_id = $2 AND c.finished),
+    (SELECT MAX(h.captured_at) FROM paper_history h WHERE h.user_id = $1 AND h.title_id = $2 AND h.event = 'finished'
+      AND COALESCE((SELECT n.event FROM paper_history n WHERE n.user_id = h.user_id AND n.copy_id = h.copy_id AND n.seq > h.seq
+                    ORDER BY n.seq LIMIT 1), '') <> 'unfinished')),
+    'epoch'::timestamptz)::timestamptz AS finished_at
 `
 
 type DerivedTitleDatesParams struct {
@@ -31,6 +39,7 @@ type DerivedTitleDatesRow struct {
 }
 
 // Absent dates come back as the Unix epoch (a sentinel the caller treats as "none").
+// Ebook reading and paper reading (ADR-0116). A paper finish that was taken back leaves no date.
 func (q *Queries) DerivedTitleDates(ctx context.Context, arg DerivedTitleDatesParams) (DerivedTitleDatesRow, error) {
 	row := q.db.QueryRow(ctx, derivedTitleDates, arg.UserID, arg.TitleID)
 	var i DerivedTitleDatesRow

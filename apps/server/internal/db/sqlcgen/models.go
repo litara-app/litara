@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ActiveRecording struct {
@@ -600,6 +601,44 @@ type OperationReceipt struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+type PaperHistory struct {
+	Seq         *int64    `json:"seq"`
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
+	TitleID     uuid.UUID `json:"title_id"`
+	CopyID      uuid.UUID `json:"copy_id"`
+	Event       string    `json:"event"`
+	OperationID uuid.UUID `json:"operation_id"`
+	CapturedAt  time.Time `json:"captured_at"`
+	ReceivedAt  time.Time `json:"received_at"`
+}
+
+type PaperReadingState struct {
+	UserID    uuid.UUID  `json:"user_id"`
+	CopyID    uuid.UUID  `json:"copy_id"`
+	Revision  int64      `json:"revision"`
+	Status    string     `json:"status"`
+	Page      *int32     `json:"page"`
+	ChangedAt *time.Time `json:"changed_at"`
+}
+
+type PhysicalCopy struct {
+	ID         uuid.UUID   `json:"id"`
+	TitleID    uuid.UUID   `json:"title_id"`
+	LibraryID  uuid.UUID   `json:"library_id"`
+	Revision   int64       `json:"revision"`
+	Binding    *string     `json:"binding"`
+	Isbn       *string     `json:"isbn"`
+	Language   *string     `json:"language"`
+	PageCount  *int32      `json:"page_count"`
+	Location   *string     `json:"location"`
+	Note       *string     `json:"note"`
+	AcquiredOn pgtype.Date `json:"acquired_on"`
+	RemovedAt  *time.Time  `json:"removed_at"`
+	CreatedAt  time.Time   `json:"created_at"`
+	UpdatedAt  time.Time   `json:"updated_at"`
+}
+
 type PositionEvidence struct {
 	UserID         uuid.UUID `json:"user_id"`
 	RecordingID    uuid.UUID `json:"recording_id"`
@@ -856,6 +895,12 @@ type TitleCover struct {
 	Version   uuid.UUID     `json:"version"`
 	UpdatedBy uuid.NullUUID `json:"updated_by"`
 	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+type TitleHolding struct {
+	TitleID   uuid.UUID `json:"title_id"`
+	LibraryID uuid.UUID `json:"library_id"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type TitlePersonal struct {

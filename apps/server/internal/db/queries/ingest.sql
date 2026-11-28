@@ -157,8 +157,11 @@ INSERT INTO titles (id, title, authors, group_key, identifier) VALUES ($1, $2, $
 INSERT INTO recordings (id, title_id, library_id, narrators, group_key, link_state) VALUES ($1, $2, $3, '{}', $4, $5);
 
 -- name: ListLibraryTitlesByKey :many
-SELECT DISTINCT t.id, t.identifier FROM titles t JOIN active_recordings r ON r.title_id = t.id
-WHERE r.library_id = $1 AND t.group_key = $2;
+-- Titles with a recording in this library, and paper titles in any library, which are offered for review (ADR-0116).
+SELECT t.id, t.identifier FROM titles t
+WHERE t.group_key = $2 AND (
+  EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id AND r.library_id = $1)
+  OR EXISTS (SELECT 1 FROM physical_copies p WHERE p.title_id = t.id AND p.removed_at IS NULL));
 
 -- name: BumpRecordingLayout :exec
 UPDATE recordings SET layout_revision = gen_random_uuid() WHERE id = $1;
@@ -194,7 +197,9 @@ UPDATE recordings SET title_id = $2, link_state = 'confirmed' WHERE id = $1;
 UPDATE recordings SET link_state = 'confirmed' WHERE id = $1;
 
 -- name: DeleteTitleIfUnused :exec
-DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id);
+-- A removed paper copy still holds its title, so that readers keep their history (ADR-0116).
+DELETE FROM titles t WHERE t.id = $1 AND NOT EXISTS (SELECT 1 FROM active_recordings r WHERE r.title_id = t.id)
+  AND NOT EXISTS (SELECT 1 FROM physical_copies p WHERE p.title_id = t.id);
 
 -- name: SetAssociationState :exec
 UPDATE associations SET state = $3, detail = $4, recording_id = $5, edition_id = NULL WHERE library_id = $1 AND rel_path = $2;

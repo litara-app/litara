@@ -14,8 +14,7 @@ import (
 const countAuthorLetters = `-- name: CountAuthorLetters :many
 WITH visible AS (
   SELECT t.id, t.title, t.authors, t.series_name FROM titles t
-  WHERE EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = t.id)
-     OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = t.id)
+  WHERE EXISTS (SELECT 1 FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = $1 WHERE h.title_id = t.id)
 ), names AS (
   SELECT v.id, v.title, v.series_name, a.name FROM visible v CROSS JOIN LATERAL unnest(v.authors) AS a(name)
   WHERE btrim(a.name) <> '' AND ($2::text = '' OR position(lower($2::text) in lower(a.name)) > 0)
@@ -71,8 +70,7 @@ const countSeries = `-- name: CountSeries :one
 SELECT count(DISTINCT lower(t.series_name))::bigint FROM titles t
 WHERE t.series_name IS NOT NULL AND btrim(t.series_name) <> ''
   AND ($1::text = '' OR position(lower($1::text) in lower(t.series_name)) > 0)
-  AND (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $2 WHERE e.title_id = t.id)
-    OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $2 WHERE r.title_id = t.id))
+  AND (EXISTS (SELECT 1 FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = $2 WHERE h.title_id = t.id))
 `
 
 type CountSeriesParams struct {
@@ -91,8 +89,7 @@ const listAuthors = `-- name: ListAuthors :many
 
 WITH visible AS (
   SELECT t.id, t.title, t.authors, t.series_name FROM titles t
-  WHERE EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $4 WHERE e.title_id = t.id)
-     OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $4 WHERE r.title_id = t.id)
+  WHERE EXISTS (SELECT 1 FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = $4 WHERE h.title_id = t.id)
 ), names AS (
   SELECT v.id, v.title, v.series_name, a.name FROM visible v CROSS JOIN LATERAL unnest(v.authors) AS a(name)
   WHERE btrim(a.name) <> '' AND ($5::text = '' OR position(lower($5::text) in lower(a.name)) > 0)
@@ -134,7 +131,7 @@ type ListAuthorsRow struct {
 }
 
 // Author and series directories (ADR-0100). An author or a series is a name, matched ignoring case; both lists cover
-// only titles with an edition or an active recording in a library the user is granted.
+// only titles held (ebook, recording or paper copy, ADR-0116) in a library the user is granted.
 func (q *Queries) ListAuthors(ctx context.Context, arg ListAuthorsParams) ([]ListAuthorsRow, error) {
 	rows, err := q.db.Query(ctx, listAuthors,
 		arg.Letter,
@@ -172,14 +169,15 @@ func (q *Queries) ListAuthors(ctx context.Context, arg ListAuthorsParams) ([]Lis
 const listSeries = `-- name: ListSeries :many
 WITH visible AS (
   SELECT t.id, t.title, t.authors, t.series_name, t.series_index,
-    EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $4 WHERE e.title_id = t.id) AS has_ebook,
+    (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $4 WHERE e.title_id = t.id)
+      OR NOT EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $4 WHERE r.title_id = t.id)) AS has_ebook,
     (EXISTS (SELECT 1 FROM edition_completion_state c JOIN editions e ON e.id = c.edition_id WHERE c.user_id = $4 AND e.title_id = t.id AND c.finished)
-      OR EXISTS (SELECT 1 FROM completion_state c JOIN recordings r ON r.id = c.recording_id WHERE c.user_id = $4 AND r.title_id = t.id AND c.finished)) AS finished
+      OR EXISTS (SELECT 1 FROM completion_state c JOIN recordings r ON r.id = c.recording_id WHERE c.user_id = $4 AND r.title_id = t.id AND c.finished)
+      OR EXISTS (SELECT 1 FROM paper_reading_state s JOIN physical_copies p ON p.id = s.copy_id WHERE s.user_id = $4 AND p.title_id = t.id AND s.status = 'finished')) AS finished
   FROM titles t
   WHERE t.series_name IS NOT NULL AND btrim(t.series_name) <> ''
     AND ($5::text = '' OR position(lower($5::text) in lower(t.series_name)) > 0)
-    AND (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $4 WHERE e.title_id = t.id)
-      OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $4 WHERE r.title_id = t.id))
+    AND (EXISTS (SELECT 1 FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = $4 WHERE h.title_id = t.id))
 )
 SELECT (mode() WITHIN GROUP (ORDER BY v.series_name))::text AS name, count(*)::bigint AS titles,
        ((array_agg(v.id ORDER BY v.series_index NULLS LAST, lower(v.title), v.id))[1])::uuid AS cover_title_id,

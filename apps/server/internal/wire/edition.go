@@ -61,21 +61,22 @@ type Editions struct {
 }
 
 type Title struct {
-	ID             string   `json:"id" format:"uuid"`
-	Title          string   `json:"title" maxLength:"2048"`
-	Authors        []Str512 `json:"authors" maxItems:"100"`
-	Series         []Str512 `json:"series" maxItems:"100"`
-	Languages      []Str128 `json:"languages" maxItems:"100"`
-	EditionCount   int64    `json:"editionCount" minimum:"0" maximum:"9007199254740991"`
-	RecordingCount int64    `json:"recordingCount" minimum:"0" maximum:"9007199254740991"`
-	LastActivityAt *string  `json:"lastActivityAt" format:"date-time" nullable:"true"`
+	ID                string   `json:"id" format:"uuid"`
+	Title             string   `json:"title" maxLength:"2048"`
+	Authors           []Str512 `json:"authors" maxItems:"100"`
+	Series            []Str512 `json:"series" maxItems:"100"`
+	Languages         []Str128 `json:"languages" maxItems:"100"`
+	EditionCount      int64    `json:"editionCount" minimum:"0" maximum:"9007199254740991"`
+	RecordingCount    int64    `json:"recordingCount" minimum:"0" maximum:"9007199254740991"`
+	PhysicalCopyCount int64    `json:"physicalCopyCount" minimum:"0" maximum:"9007199254740991" doc:"Paper copies in granted libraries (ADR-0116)."`
+	LastActivityAt    *string  `json:"lastActivityAt" format:"date-time" nullable:"true"`
 }
 
 // TitleRow is one row of the library table: the title plus what the table shows and sorts by.
 type TitleRow struct {
 	Title
 	LibraryIDs   []string `json:"libraryIds" maxItems:"200" doc:"Granted libraries that hold the title." items:"format:uuid"`
-	Formats      []string `json:"formats" maxItems:"32" doc:"Ebook formats such as epub or pdf, and audio when there is a recording."`
+	Formats      []string `json:"formats" maxItems:"32" doc:"Ebook formats such as epub or pdf, audio when there is a recording and paper when there is a paper copy."`
 	AddedAt      string   `json:"addedAt" format:"date-time" doc:"When the title first appeared in a granted library."`
 	SeriesIndex  *float64 `json:"seriesIndex" minimum:"0" nullable:"true"`
 	Publisher    *string  `json:"publisher" maxLength:"512" nullable:"true"`
@@ -103,6 +104,10 @@ type TitleDetail struct {
 	Title          Title  `json:"title"`
 	EditionsPath   string `json:"editionsPath" maxLength:"1024"`
 	RecordingsPath string `json:"recordingsPath" maxLength:"1024"`
+	// The title's own details, as opposed to an edition's or a recording's (ADR-0116).
+	Publisher   *string `json:"publisher" maxLength:"512" nullable:"true"`
+	Published   *string `json:"published" maxLength:"32" nullable:"true"`
+	Description *string `json:"description" maxLength:"8000" nullable:"true"`
 }
 
 type RecordingLink struct {
@@ -143,7 +148,7 @@ type TitleFilter struct {
 	Type     string        `json:"type" enum:"group,rule"`
 	Join     string        `json:"join,omitempty" enum:"AND,OR" doc:"For a group: how its rules combine."`
 	Rules    []TitleFilter `json:"rules,omitempty" maxItems:"30" doc:"For a group: its rules and nested groups."`
-	Field    string        `json:"field,omitempty" enum:"title,author,series,publisher,language,format,tag,status,library,rating,published,added,pages,series_index,has_ebook,has_audio,has_description" doc:"For a rule: what to test."`
+	Field    string        `json:"field,omitempty" enum:"title,author,series,publisher,language,format,tag,status,library,rating,published,added,pages,series_index,has_ebook,has_audio,has_description,has_physical" doc:"For a rule: what to test."`
 	Operator string        `json:"operator,omitempty" enum:"is,is_not,contains,not_contains,is_empty,not_empty,gt,gte,lt,lte,between,before,after" doc:"For a rule; which operators a field accepts is checked by the server."`
 	Value    any           `json:"value,omitempty" doc:"A string, a number, a boolean or a list of up to 20 strings, by field and operator."`
 	ValueTo  any           `json:"valueTo,omitempty" doc:"The upper end for between."`

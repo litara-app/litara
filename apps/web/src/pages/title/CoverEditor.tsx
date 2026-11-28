@@ -12,8 +12,9 @@ const SOURCE_TEXT: Record<CoverSlot["source"], string> = {
 
 export type Medium = "ebook" | "audio";
 
-/** The cover kinds a title has. */
-export const coverMediums = (title: Title): Medium[] => [...(title.editionCount > 0 ? (["ebook"] as const) : []), ...(title.recordingCount > 0 ? (["audio"] as const) : [])];
+/** The cover kinds a title has. Paper uses the book-shaped ebook cover (ADR-0116). */
+export const coverMediums = (title: Title): Medium[] => [...(title.editionCount > 0 || (title.recordingCount === 0 && title.physicalCopyCount > 0) ? (["ebook"] as const) : []),
+  ...(title.recordingCount > 0 ? (["audio"] as const) : [])];
 
 /**
  * Replace a title's cover (ADR-0086): upload, enter an address, search online, or regenerate from the file. It has no

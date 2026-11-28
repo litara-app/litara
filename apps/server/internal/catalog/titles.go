@@ -36,7 +36,7 @@ type TitleListParams struct {
 // SortKeys are the columns the library list can be ordered by.
 var SortKeys = []string{"title", "author", "series", "series_index", "publisher", "published", "language", "status", "pages", "rating", "editions", "added"}
 
-func titleWire(id uuid.UUID, title string, authors []string, series *string, languages []string, editions, recordings int64) wire.Title {
+func titleWire(id uuid.UUID, title string, authors []string, series *string, languages []string, editions, recordings, copies int64) wire.Title {
 	auth := make([]wire.Str512, 0, len(authors))
 	for _, a := range authors {
 		auth = append(auth, wire.Str512(a))
@@ -51,7 +51,7 @@ func titleWire(id uuid.UUID, title string, authors []string, series *string, lan
 	}
 	// lastActivityAt becomes non-null when per-user edition state exists.
 	return wire.Title{ID: id.String(), Title: title, Authors: auth, Series: ser, Languages: langs,
-		EditionCount: editions, RecordingCount: recordings}
+		EditionCount: editions, RecordingCount: recordings, PhysicalCopyCount: copies}
 }
 
 func optStr(s string) *string {
@@ -61,7 +61,7 @@ func optStr(s string) *string {
 	return &s
 }
 
-// Titles lists titles that hold at least one edition or recording in a library
+// Titles lists titles that hold at least one edition, recording or paper copy (ADR-0116) in a library
 // the caller can read, with the columns the library table shows, filtered and ordered as asked. Counts, formats
 // and libraries include only granted libraries. The single-value filters and the filter tree (ADR-0085) share one
 // compiler, so they cannot disagree.
@@ -84,7 +84,7 @@ func (s *Service) Titles(ctx context.Context, userID uuid.UUID, p TitleListParam
 	}
 	for _, r := range rows {
 		row := wire.TitleRow{
-			Title:       titleWire(r.id, r.title, r.authors, r.seriesName, r.languages, r.editionCount, r.recordingCount),
+			Title:       titleWire(r.id, r.title, r.authors, r.seriesName, r.languages, r.editionCount, r.recordingCount, r.copyCount),
 			LibraryIDs:  make([]string, 0, len(r.libraryIDs)),
 			Formats:     append([]string{}, r.formats...),
 			AddedAt:     r.addedAt.UTC().Format(time.RFC3339),
@@ -153,6 +153,7 @@ type titleRow struct {
 	pageCount                    int32
 	ratingHalves                 int16
 	status                       string
+	copyCount                    int64
 }
 
 // queryTitles runs the one list query. Every value is a bound parameter; only the compiled tree's shape, built from the
@@ -164,7 +165,7 @@ func (s *Service) queryTitles(ctx context.Context, userID uuid.UUID, p TitleList
 	if err != nil {
 		return nil, 0, err
 	}
-	where := []string{"b.edition_count + b.recording_count > 0", cond}
+	where := []string{"b.edition_count + b.recording_count + b.copy_count > 0", cond}
 	if p.Q != nil {
 		where = append(where, "position(lower("+c.arg(*p.Q)+"::text) in lower(b.title || chr(10) || array_to_string(b.authors, chr(10)) || chr(10) || COALESCE(b.series_name, ''))) > 0")
 	}
@@ -199,7 +200,7 @@ func (s *Service) queryTitles(ctx context.Context, userID uuid.UUID, p TitleList
 )
 SELECT k.id, k.title, k.authors, k.series_name, k.series_index, k.edition_count, k.recording_count, k.languages, k.formats, k.library_ids,
        COALESCE(k.added_at, 'epoch'::timestamptz)::timestamptz, COALESCE(k.publisher, '')::text, COALESCE(k.published, '')::text,
-       COALESCE(k.page_count, 0)::int, COALESCE(k.rating_halves, 0)::smallint, k.status, count(*) OVER ()::bigint
+       COALESCE(k.page_count, 0)::int, COALESCE(k.rating_halves, 0)::smallint, k.status, k.copy_count, count(*) OVER ()::bigint
 FROM keyed k
 ORDER BY k.sort_text ` + dir + ` NULLS LAST, k.sort_num ` + dir + ` NULLS LAST, k.sort_ts ` + dir + ` NULLS LAST, lower(k.title), k.id
 LIMIT ` + c.arg(limit) + ` OFFSET ` + c.arg(offset)
@@ -213,7 +214,7 @@ LIMIT ` + c.arg(limit) + ` OFFSET ` + c.arg(offset)
 	for rs.Next() {
 		var r titleRow
 		if err := rs.Scan(&r.id, &r.title, &r.authors, &r.seriesName, &r.seriesIndex, &r.editionCount, &r.recordingCount, &r.languages, &r.formats,
-			&r.libraryIDs, &r.addedAt, &r.publisher, &r.published, &r.pageCount, &r.ratingHalves, &r.status, &total); err != nil {
+			&r.libraryIDs, &r.addedAt, &r.publisher, &r.published, &r.pageCount, &r.ratingHalves, &r.status, &r.copyCount, &total); err != nil {
 			return nil, 0, unavailable(err)
 		}
 		out = append(out, r)
@@ -238,12 +239,15 @@ func (s *Service) Title(ctx context.Context, userID, id uuid.UUID) (wire.TitleDe
 	if err != nil {
 		return wire.TitleDetail{}, unavailable(err)
 	}
-	if len(rows) == 0 || rows[0].EditionCount+rows[0].RecordingCount == 0 {
+	if len(rows) == 0 || rows[0].EditionCount+rows[0].RecordingCount+rows[0].CopyCount == 0 {
 		return wire.TitleDetail{}, apperr.ErrAccessDenied
 	}
 	r := rows[0]
 	return wire.TitleDetail{
-		Title:          titleWire(r.ID, r.Title, r.Authors, r.SeriesName, r.Languages, r.EditionCount, r.RecordingCount),
+		Publisher:      optStr(r.Publisher),
+		Published:      optStr(r.Published),
+		Description:    optStr(r.Description),
+		Title:          titleWire(r.ID, r.Title, r.Authors, r.SeriesName, r.Languages, r.EditionCount, r.RecordingCount, r.CopyCount),
 		EditionsPath:   fmt.Sprintf("%s/editions?titleId=%s", s.apiBase, id),
 		RecordingsPath: fmt.Sprintf("%s/titles/%s/recordings", s.apiBase, id)}, nil
 }
@@ -282,8 +286,8 @@ func (s *Service) TitlesByIDs(ctx context.Context, userID uuid.UUID, ids []uuid.
 	}
 	byID := make(map[uuid.UUID]wire.Title, len(rows))
 	for _, r := range rows {
-		if r.EditionCount+r.RecordingCount > 0 {
-			byID[r.ID] = titleWire(r.ID, r.Title, r.Authors, r.SeriesName, r.Languages, r.EditionCount, r.RecordingCount)
+		if r.EditionCount+r.RecordingCount+r.CopyCount > 0 {
+			byID[r.ID] = titleWire(r.ID, r.Title, r.Authors, r.SeriesName, r.Languages, r.EditionCount, r.RecordingCount, r.CopyCount)
 		}
 	}
 	out := make([]wire.Title, 0, len(ids))

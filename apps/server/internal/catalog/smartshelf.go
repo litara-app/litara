@@ -57,7 +57,7 @@ func (s *Service) SmartShelfTitleIDs(ctx context.Context, viewer uuid.UUID, f wi
 	if err != nil {
 		return nil, 0, err
 	}
-	from := " FROM title_rows($1) b WHERE b.edition_count + b.recording_count > 0 AND " + cond
+	from := " FROM title_rows($1) b WHERE b.edition_count + b.recording_count + b.copy_count > 0 AND " + cond
 	var total int64
 	if err := s.pool.QueryRow(ctx, "SELECT count(*)"+from, c.args...).Scan(&total); err != nil {
 		return nil, 0, unavailable(err)

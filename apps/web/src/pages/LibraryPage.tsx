@@ -15,6 +15,9 @@ import { useShelfActions } from "./useShelves";
 import { fetchListPage, LIST_SIZE, listKey, rememberList, type ListContext } from "./titleList";
 import { FilterBuilder } from "./filter/FilterBuilder";
 import { countWireRules, parseParam, stringifyParam, type WireFilter } from "./filter/filterTree";
+import { useAuth } from "../auth/session";
+import { coverMedium } from "./directories/directory";
+import { AddPaperBook } from "./paper/AddPaperBook";
 
 const SIZE = LIST_SIZE;
 type TitleList = { shelves: Shelf[]; add: (shelf: Shelf, title: string) => void };
@@ -24,6 +27,7 @@ function counts(t: TitleT) {
     <Row gap="xs">
       {t.editionCount > 0 && <Badge>{t.editionCount} ebook{t.editionCount > 1 ? "s" : ""}</Badge>}
       {t.recordingCount > 0 && <Badge tone="audio">{t.recordingCount} audio</Badge>}
+      {t.physicalCopyCount > 0 && <Badge tone="neutral">{t.physicalCopyCount} paper</Badge>}
     </Row>
   );
 }
@@ -40,7 +44,7 @@ function Inspector({ t, list }: { t: TitleT; list: TitleList }) {
   return (
     <Card framed data-testid="inspector">
       <Stack>
-        <div className="lt-inspector-cover"><Cover title={t.title || "(untitled)"} author={t.authors[0]} titleId={t.id} medium={t.editionCount > 0 ? "ebook" : "audio"} /></div>
+        <div className="lt-inspector-cover"><Cover title={t.title || "(untitled)"} author={t.authors[0]} titleId={t.id} medium={coverMedium(t)} /></div>
         <Heading level={2} serif>{t.title || "(untitled)"}</Heading>
         <KeyValue items={[
           ["Authors", t.authors.join(", ") || "Unknown author"],
@@ -64,7 +68,7 @@ function LibraryTile({ t, list }: { t: TitleT; list: TitleList }) {
   const menu = [
     ...(t.editionCount > 0 ? [{ value: "read", label: "Read" }] : []),
     ...(t.recordingCount > 0 ? [{ value: "listen", label: "Listen" }] : []),
-    { value: "download", label: "Download" },
+    ...(t.editionCount > 0 || t.recordingCount > 0 ? [{ value: "download", label: "Download" }] : []),
     ...list.shelves.slice(0, 8).map((s) => ({ value: `shelf:${s.id}`, label: `Add to ${s.data!.name}` })),
   ];
   const onMenu = (v: string) => {
@@ -74,8 +78,8 @@ function LibraryTile({ t, list }: { t: TitleT; list: TitleList }) {
     else { const s = list.shelves.find((x) => `shelf:${x.id}` === v); if (s) list.add(s, t.id); }
   };
   return (
-    <CoverTile testId="title-item" titleId={t.id} medium={t.editionCount > 0 ? "ebook" : "audio"} to={`/titles/${t.id}`} title={t.title || "(untitled)"} author={t.authors.join(", ") || "Unknown author"}
-      ebook={formatLabel((eds.data?.items ?? []).map((e) => e.file.format)) ?? (t.editionCount > 0 ? "EBOOK" : null)} audio={t.recordingCount > 0 ? "AUDIO" : null}
+    <CoverTile testId="title-item" titleId={t.id} medium={coverMedium(t)} to={`/titles/${t.id}`} title={t.title || "(untitled)"} author={t.authors.join(", ") || "Unknown author"}
+      ebook={formatLabel((eds.data?.items ?? []).map((e) => e.file.format)) ?? (t.editionCount > 0 ? "EBOOK" : null)} audio={t.recordingCount > 0 ? "AUDIO" : null} paper={t.physicalCopyCount > 0}
       menu={menu} onMenu={onMenu} menuLabel={`More actions for ${t.title || "this title"}`} />
   );
 }
@@ -113,14 +117,14 @@ function cell(id: string, t: TitleRow, list: TitleList) {
     case "title":
       return (
         <Row>
-          <span className="lt-thumb"><Cover tiny title={t.title || "(untitled)"} author={t.authors[0]} titleId={t.id} medium={t.editionCount > 0 ? "ebook" : "audio"} /></span>
+          <span className="lt-thumb"><Cover tiny title={t.title || "(untitled)"} author={t.authors[0]} titleId={t.id} medium={coverMedium(t)} /></span>
           <TextLink to={`/titles/${t.id}`}>{t.title || "(untitled)"}</TextLink>
         </Row>
       );
     case "author": return t.authors.join(", ") || <Text as="span" tone="dim">Unknown</Text>;
     case "series": return t.series.join(", ") || <Text as="span" tone="dim">None</Text>;
     case "series_index": return t.seriesIndex ?? "";
-    case "formats": return <Row gap="xs">{t.formats.map((f) => <Badge key={f}>{f}</Badge>)}</Row>;
+    case "formats": return <Row gap="xs">{t.formats.map((f) => <Badge key={f} tone={f === "paper" ? "neutral" : undefined}>{f}</Badge>)}</Row>;
     case "language": return t.languages.join(", ");
     case "publisher": return t.publisher ?? "";
     case "published": return t.published ?? "";
@@ -136,6 +140,8 @@ function cell(id: string, t: TitleRow, list: TitleList) {
 
 export function LibraryPage() {
   const [params, setParams] = useSearchParams();
+  const { user } = useAuth();
+  const [addingPaper, setAddingPaper] = useState(false);
   const q = params.get("q") ?? "";
   const libraryId = params.get("libraryId") ?? "";
   const mediaKind = params.get("mediaKind") ?? "";
@@ -223,7 +229,8 @@ export function LibraryPage() {
 
   return (
     <Page>
-      <PageHeader title="Library" />
+      <PageHeader title="Library" actions={user?.isAdmin ? <Button icon={icons.plus} onClick={() => setAddingPaper(true)}>Add paper book</Button> : undefined} />
+      {addingPaper && <AddPaperBook libraryId={libraryId || undefined} onClose={() => setAddingPaper(false)} />}
       <Toolbar aria-label="Library filters">
         <Grow><SearchField label="Search" placeholder="Title, author or series" value={text} onValue={setText} /></Grow>
         <SelectField label="Library" clearable placeholder="All libraries" emptyText="No libraries yet" value={libraryId || null}

@@ -34,6 +34,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.litara.R
+import com.litara.core.litara.usesAudioCover
 import com.litara.core.litara.ChangedElsewhereException
 import com.litara.core.litara.LShelf
 import com.litara.core.litara.LTitleSummary
@@ -225,8 +226,9 @@ fun ShelfScreen(nav: BrowseNav, vm: ShelfViewModel = hiltViewModel()) {
             }
             items(titles.items, key = { it.id }) { t ->
                 EntryRow(
-                    t.title, listOf(t.authors.joinToString(", ")), { nav.title(t.id) }, Modifier.testTag(BrowseTags.title(t.id)),
-                    leading = { BookCover(vm.coverUrl(t.id, audio = t.editionCount == 0L), vm.covers, null) },
+                    t.title, listOf(t.authors.joinToString(", "), if (t.physicalCopyCount > 0) stringResource(R.string.browse_on_paper) else ""),
+                    { nav.title(t.id) }, Modifier.testTag(BrowseTags.title(t.id)),
+                    leading = { BookCover(vm.coverUrl(t.id, audio = usesAudioCover(t.editionCount, t.recordingCount)), vm.covers, null) },
                     trailing = {
                         if (manualEdit) TextButton({ vm.remove(t.id) }, Modifier.testTag(BrowseTags.removeFromShelf(t.id)), enabled = !ui.busy) {
                             Text(stringResource(R.string.shelf_remove_title))

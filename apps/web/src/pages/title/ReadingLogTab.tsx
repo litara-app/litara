@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, get } from "../../api/client";
-import type { Edition, ListeningEvent, ListeningSession, Page, ReadingEvent, ReadingSession, RecordingLink } from "../../api/types";
+import type { Edition, ListeningEvent, PaperEvent, ListeningSession, Page, ReadingEvent, ReadingSession, RecordingLink } from "../../api/types";
 import { duration, icons, Busy, Button, Card, EmptyState, ErrorBox, Heading, Row, Stack, StatusPill, Text, Timeline, when } from "../../ui";
 
 const EVENTS: Record<string, { title: string; tone: "success" | "info" | "neutral" | "warning" }> = {
@@ -18,6 +18,8 @@ export function ReadingLogTab({ titleId, editions, recordings }: { titleId: stri
   const log = useQuery({ queryKey: ["title", titleId, "reading-history"], queryFn: () => get<Page<ReadingEvent>>(`/titles/${titleId}/reading-history?size=100`) });
   // Ebook and audiobook completions are separate lists on the server; this tab shows one timeline (ADR-0022).
   const listening = useQuery({ queryKey: ["title", titleId, "listening-history"], queryFn: () => get<Page<ListeningEvent>>(`/titles/${titleId}/history?size=100`) });
+  // Paper reading is its own list too (ADR-0116).
+  const paper = useQuery({ queryKey: ["title", titleId, "paper-history"], queryFn: () => get<Page<PaperEvent>>(`/titles/${titleId}/paper-history?size=100`) });
   const sessions = useQuery({ queryKey: ["title", titleId, "reading-sessions"], queryFn: () => get<Page<ReadingSession>>(`/titles/${titleId}/reading-sessions?size=50`) });
   const heard = useQuery({ queryKey: ["title", titleId, "listening-sessions"], queryFn: () => get<Page<ListeningSession>>(`/titles/${titleId}/listening-sessions?size=50`) });
   const toggle = useMutation({
@@ -36,8 +38,9 @@ export function ReadingLogTab({ titleId, editions, recordings }: { titleId: stri
   const history = [
     ...(log.data?.items ?? []).map((ev) => ({ ...ev, name: editionName(ev.editionId) })),
     ...(listening.data?.items ?? []).map((ev) => ({ ...ev, name: recordings.find((r) => r.id === ev.recordingId)?.label || "Audiobook" })),
+    ...(paper.data?.items ?? []).map((ev) => ({ ...ev, event: ev.event === "finished" ? "manual_finish" : ev.event === "unfinished" ? "manual_unfinish" : ev.event, name: "Paper copy" })),
   ].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
-  const loading = log.isPending || listening.isPending;
+  const loading = log.isPending || listening.isPending || paper.isPending;
   const span = (from: number | null, to: number | null) => (from !== null && to !== null ? ` · ${Math.round(from * 100)}% to ${Math.round(to * 100)}%` : "");
   const timeline = [
     ...(sessions.data?.items ?? []).map((s) => ({ key: s.id, at: s.startedAt, title: `Read for ${duration(s.activeSeconds * 1000)}`,
@@ -75,13 +78,13 @@ export function ReadingLogTab({ titleId, editions, recordings }: { titleId: stri
       )}
 
       <Heading level={2}>History</Heading>
-      <ErrorBox error={log.error ?? listening.error} />
+      <ErrorBox error={log.error ?? listening.error ?? paper.error} />
       {loading ? <Busy /> : history.length > 0 ? (
         <Timeline label="Reading history" items={history.map((ev) => ({
           key: ev.id, title: label(ev.event).title, tone: label(ev.event).tone,
           meta: `${ev.name} · ${when(ev.capturedAt)}`,
         }))} />
-      ) : log.data && listening.data && (
+      ) : log.data && listening.data && paper.data && (
         <EmptyState level={3} title="Nothing logged yet">Finishing, or marking a book finished or unfinished, appears here with the date.</EmptyState>
       )}
     </Stack>

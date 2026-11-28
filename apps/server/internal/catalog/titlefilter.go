@@ -68,6 +68,7 @@ var filterFields = map[string]fieldSpec{
 	"added":           {kindDate, "b.added_at", dateOps},
 	"has_ebook":       {kindFlag, "(b.edition_count > 0)", flagOps},
 	"has_audio":       {kindFlag, "(b.recording_count > 0)", flagOps},
+	"has_physical":    {kindFlag, "(b.copy_count > 0)", flagOps},
 	"has_description": {kindFlag, "b.has_description", flagOps},
 }
 

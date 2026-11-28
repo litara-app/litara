@@ -42,4 +42,6 @@ type ReadingStats struct {
 	ListeningSeconds  int64         `json:"listeningSeconds" minimum:"0"`
 	ListeningSessions int64         `json:"listeningSessions" minimum:"0"`
 	ListenedBooks     int64         `json:"listenedBooks" minimum:"0" doc:"Distinct titles listened to in the range."`
+	// PaperBooksFinished is counted on its own (ADR-0116): paper reading adds no time, pages or reading days.
+	PaperBooksFinished int64 `json:"paperBooksFinished" minimum:"0" doc:"Distinct titles whose paper copy was marked finished in the range."`
 }

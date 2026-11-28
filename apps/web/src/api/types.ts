@@ -102,6 +102,16 @@ export type DeviceSession = Wire<S.Session>;
 /** GET /stats/reading (ADR-0098): the caller's own ebook reading by local day, with totals and streaks. */
 export type ReadingStats = Wire<S.ReadingStats>;
 
+/* Physical books (ADR-0116). */
+export type PhysicalCopy = Wire<S.PhysicalCopy>;
+export type CopyDetails = Wire<S.CopyDetails>;
+export type NewPaperTitle = Wire<S.NewPaperTitle>;
+export type PaperLookupResults = Wire<S.PaperLookupResults>;
+export type PaperTitleMatch = Wire<S.PaperTitleMatch>;
+export type PaperReading = Wire<S.PaperReading>;
+export type PaperEvent = Wire<S.PaperHistoryEntry>;
+export type CopyLocations = Wire<S.CopyLocations>;
+
 /** One live annotation with its book, from the annotations hub (ADR-0099). */
 export type AnnotationHubItem = Wire<S.AnnotationHubItem>;
 /** A book with live annotations, for the hub's book filter. */

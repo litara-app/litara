@@ -79,6 +79,7 @@ func (s *Service) Series(ctx context.Context, userID uuid.UUID, q, order string,
 	return out, nil
 }
 
+// A paper-only title is never offered here: there is nothing to open (ADR-0116).
 // continueSQL picks what to continue among an author's or a series' visible, unfinished titles (ADR-0104): the one in
 // progress that was used most recently, otherwise the first unread one in the order the page lists them.
 const continueSQL = `WITH mine AS (

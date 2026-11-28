@@ -42,6 +42,42 @@
         ],
         "type": "object"
       },
+      "AddPhysicalCopy": {
+        "additionalProperties": false,
+        "properties": {
+          "copy": {
+            "$ref": "#/components/schemas/CopyDetails"
+          },
+          "libraryId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "newTitle": {
+            "$ref": "#/components/schemas/NewPaperTitle"
+          },
+          "operationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "separateFromMatches": {
+            "description": "With newTitle: add it as a separate book although the catalogue has possible matches. Without it, possible matches refuse the request with title_match.",
+            "type": "boolean"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "operationId",
+          "libraryId",
+          "copy"
+        ],
+        "type": "object"
+      },
       "Anchor": {
         "additionalProperties": false,
         "properties": {
@@ -1431,6 +1467,89 @@
           "title",
           "medium",
           "state"
+        ],
+        "type": "object"
+      },
+      "CopyDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "acquiredOn": {
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "binding": {
+            "enum": [
+              "hardcover",
+              "paperback",
+              "other"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isbn": {
+            "description": "ISBN-10 or ISBN-13; hyphens and spaces are removed.",
+            "maxLength": 32,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "maxLength": 35,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "description": "Where the copy is kept, in the owner's words.",
+            "maxLength": 200,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "description": "Everyone who can see the copy sees it.",
+            "maxLength": 2000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pageCount": {
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "CopyLocations": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
         ],
         "type": "object"
       },
@@ -4396,6 +4515,68 @@
         ],
         "type": "object"
       },
+      "NewPaperTitle": {
+        "additionalProperties": false,
+        "properties": {
+          "authors": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 0,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "description": {
+            "maxLength": 8000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "published": {
+            "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publisher": {
+            "maxLength": 512,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "series": {
+            "maxLength": 512,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seriesIndex": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "title": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
       "Notification": {
         "additionalProperties": false,
         "properties": {
@@ -4584,6 +4765,282 @@
         ],
         "type": "object"
       },
+      "PaperHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PaperHistoryEntry"
+            },
+            "maxItems": 200,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "page": {
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size": {
+            "format": "int64",
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "PaperHistoryEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "capturedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "copyId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "event": {
+            "enum": [
+              "started",
+              "finished",
+              "unfinished"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "titleId",
+          "copyId",
+          "event",
+          "capturedAt",
+          "receivedAt"
+        ],
+        "type": "object"
+      },
+      "PaperLookup": {
+        "additionalProperties": false,
+        "properties": {
+          "authors": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 0,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "fresh": {
+            "type": "boolean"
+          },
+          "isbn": {
+            "maxLength": 32,
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 2048,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PaperLookupResults": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "description": "The library has at least one metadata provider turned on.",
+            "type": "boolean"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/PaperTitleMatch"
+            },
+            "maxItems": 40,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderResult"
+            },
+            "maxItems": 8,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "results",
+          "matches"
+        ],
+        "type": "object"
+      },
+      "PaperReading": {
+        "additionalProperties": false,
+        "properties": {
+          "changedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "copyId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "page": {
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "revision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not_started",
+              "reading",
+              "finished"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "copyId",
+          "revision",
+          "status",
+          "page",
+          "changedAt"
+        ],
+        "type": "object"
+      },
+      "PaperReadingWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "baseRevision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "capturedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "operationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "page": {
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "not_started",
+              "reading",
+              "finished"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "status",
+          "capturedAt"
+        ],
+        "type": "object"
+      },
+      "PaperTitleMatch": {
+        "additionalProperties": false,
+        "properties": {
+          "authors": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 0,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "sameIsbn": {
+            "description": "An ebook or paper copy of it has this ISBN. Otherwise the name and first author match.",
+            "type": "boolean"
+          },
+          "series": {
+            "maxLength": 512,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "titleId",
+          "title",
+          "authors",
+          "series",
+          "sameIsbn"
+        ],
+        "type": "object"
+      },
       "PersonalConflict": {
         "additionalProperties": false,
         "properties": {
@@ -4719,6 +5176,137 @@
           "total",
           "page",
           "size"
+        ],
+        "type": "object"
+      },
+      "PhysicalCopies": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PhysicalCopy"
+            },
+            "maxItems": 200,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "page": {
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size": {
+            "format": "int64",
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "PhysicalCopy": {
+        "additionalProperties": false,
+        "properties": {
+          "acquiredOn": {
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "addedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "binding": {
+            "enum": [
+              "hardcover",
+              "paperback",
+              "other"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isbn": {
+            "description": "ISBN-10 or ISBN-13; hyphens and spaces are removed.",
+            "maxLength": 32,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "maxLength": 35,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "libraryId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "location": {
+            "description": "Where the copy is kept, in the owner's words.",
+            "maxLength": 200,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "description": "Everyone who can see the copy sees it.",
+            "maxLength": 2000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pageCount": {
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "revision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "titleId",
+          "libraryId",
+          "revision",
+          "addedAt"
         ],
         "type": "object"
       },
@@ -5726,6 +6314,12 @@
             "minimum": 0,
             "type": "integer"
           },
+          "paperBooksFinished": {
+            "description": "Distinct titles whose paper copy was marked finished in the range.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "readingDaySeconds": {
             "format": "int64",
             "minimum": 1,
@@ -5764,7 +6358,8 @@
           "activity",
           "listeningSeconds",
           "listeningSessions",
-          "listenedBooks"
+          "listenedBooks",
+          "paperBooksFinished"
         ],
         "type": "object"
       },
@@ -6364,6 +6959,24 @@
         "required": [
           "refreshToken",
           "requestId"
+        ],
+        "type": "object"
+      },
+      "RemovePhysicalCopy": {
+        "additionalProperties": false,
+        "properties": {
+          "baseRevision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "operationId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision"
         ],
         "type": "object"
       },
@@ -7674,6 +8287,13 @@
               "null"
             ]
           },
+          "physicalCopyCount": {
+            "description": "Paper copies in granted libraries (ADR-0116).",
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
           "recordingCount": {
             "format": "int64",
             "maximum": 9007199254740991,
@@ -7705,6 +8325,7 @@
           "languages",
           "editionCount",
           "recordingCount",
+          "physicalCopyCount",
           "lastActivityAt"
         ],
         "type": "object"
@@ -7732,9 +8353,30 @@
       "TitleDetail": {
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "maxLength": 8000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "editionsPath": {
             "maxLength": 1024,
             "type": "string"
+          },
+          "published": {
+            "maxLength": 32,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publisher": {
+            "maxLength": 512,
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "recordingsPath": {
             "maxLength": 1024,
@@ -7747,7 +8389,10 @@
         "required": [
           "title",
           "editionsPath",
-          "recordingsPath"
+          "recordingsPath",
+          "publisher",
+          "published",
+          "description"
         ],
         "type": "object"
       },
@@ -7773,7 +8418,8 @@
               "series_index",
               "has_ebook",
               "has_audio",
-              "has_description"
+              "has_description",
+              "has_physical"
             ],
             "type": "string"
           },
@@ -7975,7 +8621,7 @@
             "type": "integer"
           },
           "formats": {
-            "description": "Ebook formats such as epub or pdf, and audio when there is a recording.",
+            "description": "Ebook formats such as epub or pdf, audio when there is a recording and paper when there is a paper copy.",
             "items": {
               "type": "string"
             },
@@ -8027,6 +8673,13 @@
               "integer",
               "null"
             ]
+          },
+          "physicalCopyCount": {
+            "description": "Paper copies in granted libraries (ADR-0116).",
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
           },
           "published": {
             "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$",
@@ -8109,6 +8762,7 @@
           "languages",
           "editionCount",
           "recordingCount",
+          "physicalCopyCount",
           "lastActivityAt"
         ],
         "type": "object"
@@ -8328,6 +8982,38 @@
         "required": [
           "available",
           "revision"
+        ],
+        "type": "object"
+      },
+      "UpdatePhysicalCopy": {
+        "additionalProperties": false,
+        "properties": {
+          "baseRevision": {
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "type": "string"
+          },
+          "copy": {
+            "$ref": "#/components/schemas/CopyDetails"
+          },
+          "libraryId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "operationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "titleId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "baseRevision",
+          "titleId",
+          "libraryId",
+          "copy"
         ],
         "type": "object"
       },
@@ -12093,6 +12779,147 @@
         ]
       }
     },
+    "/admin/libraries/{libraryId}/physical-lookup": {
+      "post": {
+        "operationId": "lookUpPaperBook",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "libraryId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperLookup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperLookupResults"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Look a paper book up with the library's metadata providers and in your catalogue",
+        "tags": [
+          "physical-books"
+        ]
+      }
+    },
     "/admin/libraries/{libraryId}/reviews": {
       "get": {
         "operationId": "listReviews",
@@ -12656,6 +13483,548 @@
         "summary": "Request a scan (or a verification pass)",
         "tags": [
           "ingest"
+        ]
+      }
+    },
+    "/admin/physical-copies": {
+      "post": {
+        "operationId": "addPhysicalCopy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddPhysicalCopy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhysicalCopy"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a paper copy, of a book in the catalogue or a new one",
+        "tags": [
+          "physical-books"
+        ]
+      }
+    },
+    "/admin/physical-copies/{copyId}": {
+      "put": {
+        "operationId": "updatePhysicalCopy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "copyId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePhysicalCopy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhysicalCopy"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change a paper copy, or move it to another book or library",
+        "tags": [
+          "physical-books"
+        ]
+      }
+    },
+    "/admin/physical-copies/{copyId}/remove": {
+      "post": {
+        "operationId": "removePhysicalCopy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "copyId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemovePhysicalCopy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhysicalCopy"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a paper copy; readers keep their history",
+        "tags": [
+          "physical-books"
+        ]
+      }
+    },
+    "/admin/physical-copy-locations": {
+      "get": {
+        "operationId": "listCopyLocations",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "libraryId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyLocations"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Locations already used for paper copies",
+        "tags": [
+          "physical-books"
         ]
       }
     },
@@ -14518,6 +15887,275 @@
         "summary": "Plan a Litara JSON sidecar export for review",
         "tags": [
           "ingest"
+        ]
+      }
+    },
+    "/admin/titles/{titleId}/metadata": {
+      "get": {
+        "operationId": "getPaperTitleMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "titleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The details of a book that has only paper copies",
+        "tags": [
+          "physical-books"
+        ]
+      },
+      "patch": {
+        "operationId": "savePaperTitleMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "titleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Save the details of a book that has only paper copies",
+        "tags": [
+          "physical-books"
         ]
       }
     },
@@ -25662,6 +27300,275 @@
         ]
       }
     },
+    "/physical-copies/{copyId}/reading": {
+      "get": {
+        "operationId": "getPaperReading",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "copyId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperReading"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Your own reading of a paper copy",
+        "tags": [
+          "physical-books"
+        ]
+      },
+      "put": {
+        "operationId": "setPaperReading",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "copyId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperReadingWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperReading"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": [],
+            "csrf": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set your reading status and page for a paper copy",
+        "tags": [
+          "physical-books"
+        ]
+      }
+    },
     "/recordings": {
       "get": {
         "operationId": "listRecordings",
@@ -33205,6 +35112,161 @@
         ]
       }
     },
+    "/titles/{titleId}/paper-history": {
+      "get": {
+        "operationId": "listPaperHistory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "titleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Cap at 200",
+            "explode": false,
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "default": 50,
+              "description": "Cap at 200",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaperHistory"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Your own paper reading history for a title",
+        "tags": [
+          "physical-books"
+        ]
+      }
+    },
     "/titles/{titleId}/personal": {
       "get": {
         "operationId": "getTitlePersonal",
@@ -33471,6 +35533,161 @@
         "summary": "Set the caller private rating, review and reading-date overrides",
         "tags": [
           "titles"
+        ]
+      }
+    },
+    "/titles/{titleId}/physical-copies": {
+      "get": {
+        "operationId": "listTitleCopies",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "titleId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Cap at 200",
+            "explode": false,
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "default": 50,
+              "description": "Cap at 200",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhysicalCopies"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "412": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentProblem"
+                }
+              }
+            },
+            "description": "Typed error"
+          }
+        },
+        "security": [
+          {
+            "browserSession": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Paper copies of a title in your libraries",
+        "tags": [
+          "physical-books"
         ]
       }
     },

@@ -27,7 +27,15 @@ data class LTitleRow(
     val status: String = "unread",
     val editionCount: Long = 0,
     val recordingCount: Long = 0,
+    /** Paper copies in the account's libraries (ADR-0116); 0 from a server without physical books. */
+    val physicalCopyCount: Long = 0,
 )
+
+/** Paper uses the book-shaped ebook cover; the audiobook cover is only for a title with a recording and no ebook (ADR-0116). */
+fun usesAudioCover(editionCount: Long, recordingCount: Long): Boolean = editionCount == 0L && recordingCount > 0
+
+/** The ebook formats of a title row, without the markers for audio and paper. */
+fun LTitleRow.ebookFormats(): List<String> = formats.filter { it != "audio" && it != "paper" }
 
 @Serializable
 data class LTitleRows(val items: List<LTitleRow>, val total: Long, val page: Long, val size: Long)

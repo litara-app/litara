@@ -7,8 +7,7 @@ SELECT n.name::text AS name, lower(n.name)::text AS name_key
 FROM titles t
 CROSS JOIN LATERAL unnest(CASE WHEN sqlc.arg(kind)::text = 'author' THEN t.authors ELSE ARRAY[t.series_name] END) AS n(name)
 WHERE lower(n.name) = lower(sqlc.arg(name)::text) AND btrim(n.name) <> ''
-  AND (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id) WHERE e.title_id = t.id)
-    OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = sqlc.arg(user_id) WHERE r.title_id = t.id))
+  AND (EXISTS (SELECT 1 FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = sqlc.arg(user_id) WHERE h.title_id = t.id))
 GROUP BY n.name
 ORDER BY count(*) DESC, n.name
 LIMIT 1;

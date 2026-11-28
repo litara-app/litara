@@ -4,10 +4,7 @@
 -- The providers enabled in any library the user is granted that holds a title of this author or series (ADR-0104).
 SELECT DISTINCT p.provider::text AS provider
 FROM titles t
-CROSS JOIN LATERAL (
-  SELECT e.library_id FROM editions e WHERE e.title_id = t.id
-  UNION SELECT r.library_id FROM active_recordings r WHERE r.title_id = t.id
-) held
+CROSS JOIN LATERAL (SELECT DISTINCT h.library_id FROM title_holdings h WHERE h.title_id = t.id) held
 JOIN user_library_grants g ON g.library_id = held.library_id AND g.user_id = sqlc.arg(user_id)
 JOIN library_config lc ON lc.library_id = held.library_id
 CROSS JOIN LATERAL unnest(lc.provider_order) AS p(provider)
@@ -20,14 +17,17 @@ ORDER BY 1;
 SELECT t.title, t.authors, COALESCE(isbn.value, '')::text AS isbn
 FROM titles t
 LEFT JOIN LATERAL (
-  SELECT NULLIF(effective_edition_field(e.id, 'isbn') #>> '{}', '') AS value
-  FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
-  WHERE e.title_id = t.id
-  ORDER BY 1 NULLS LAST LIMIT 1
+  SELECT x.value FROM (
+    SELECT NULLIF(effective_edition_field(e.id, 'isbn') #>> '{}', '') AS value
+    FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
+    WHERE e.title_id = t.id
+    UNION ALL
+    SELECT p.isbn FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = sqlc.arg(user_id)
+    WHERE p.title_id = t.id AND p.removed_at IS NULL
+  ) x ORDER BY x.value NULLS LAST LIMIT 1
 ) isbn ON true
 WHERE lower(t.series_name) = sqlc.arg(name_key)::text
-  AND (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id) WHERE e.title_id = t.id)
-    OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = sqlc.arg(user_id) WHERE r.title_id = t.id))
+  AND (EXISTS (SELECT 1 FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = sqlc.arg(user_id) WHERE h.title_id = t.id))
 ORDER BY (isbn.value IS NULL), t.series_index NULLS LAST, lower(t.title), t.id
 LIMIT 4;
 
@@ -39,8 +39,7 @@ FROM titles t
 WHERE (lower(t.series_name) = sqlc.arg(name_key)::text
     OR EXISTS (SELECT 1 FROM unnest(t.authors) AS a(name)
                WHERE regexp_replace(lower(a.name), '[^[:alnum:]]', '', 'g') = ANY (sqlc.arg(author_keys)::text[])))
-  AND (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id) WHERE e.title_id = t.id)
-    OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = sqlc.arg(user_id) WHERE r.title_id = t.id));
+  AND (EXISTS (SELECT 1 FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = sqlc.arg(user_id) WHERE h.title_id = t.id));
 
 -- name: GetSeriesMatch :one
 SELECT provider, provider_ref, provider_name, url FROM series_matches WHERE name_key = $1;

@@ -31,8 +31,7 @@ WHERE CASE WHEN sqlc.arg(scope)::text = 'mine'
 -- name: ListVisibleShelfMembers :many
 SELECT m.title_id FROM shelf_titles m
 WHERE m.shelf_id = sqlc.arg(shelf_id)
-  AND (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id) WHERE e.title_id = m.title_id)
-    OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = sqlc.arg(user_id) WHERE r.title_id = m.title_id))
+  AND (EXISTS (SELECT 1 FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = sqlc.arg(user_id) WHERE h.title_id = m.title_id))
 ORDER BY m.position, m.title_id;
 
 -- name: ListShelfMemberRows :many
@@ -52,14 +51,16 @@ DELETE FROM shelf_titles WHERE shelf_id = $1 AND title_id = $2;
 UPDATE shelf_titles SET position = $3 WHERE shelf_id = $1 AND title_id = $2;
 
 -- name: UserSeesTitle :one
-SELECT (EXISTS (SELECT 1 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = $1 WHERE e.title_id = $2)
-     OR EXISTS (SELECT 1 FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = $1 WHERE r.title_id = $2))::boolean;
+SELECT EXISTS (SELECT 1 FROM title_holdings h JOIN user_library_grants g ON g.library_id = h.library_id AND g.user_id = $1 WHERE h.title_id = $2);
 
 -- name: ListTitlesByIDs :many
 SELECT t.id, t.title, t.authors, t.series_name,
        (SELECT count(*) FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id) WHERE e.title_id = t.id)::bigint AS edition_count,
        (SELECT count(*) FROM active_recordings r JOIN user_library_grants g ON g.library_id = r.library_id AND g.user_id = sqlc.arg(user_id) WHERE r.title_id = t.id)::bigint AS recording_count,
-       COALESCE((SELECT array_agg(DISTINCT e.language) FILTER (WHERE e.language IS NOT NULL)
-                 FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
-                 WHERE e.title_id = t.id), '{}')::text[] AS languages
+       COALESCE((SELECT array_agg(DISTINCT x.v) FROM (
+                   SELECT e.language AS v FROM editions e JOIN user_library_grants g ON g.library_id = e.library_id AND g.user_id = sqlc.arg(user_id)
+                   WHERE e.title_id = t.id
+                   UNION ALL SELECT p.language FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = sqlc.arg(user_id)
+                   WHERE p.title_id = t.id AND p.removed_at IS NULL) x WHERE x.v IS NOT NULL), '{}')::text[] AS languages,
+       (SELECT count(*) FROM physical_copies p JOIN user_library_grants g ON g.library_id = p.library_id AND g.user_id = sqlc.arg(user_id) WHERE p.title_id = t.id AND p.removed_at IS NULL)::bigint AS copy_count
 FROM titles t WHERE t.id = ANY(sqlc.arg(ids)::uuid[]);

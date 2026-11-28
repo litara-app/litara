@@ -82,6 +82,7 @@ export function StatsPage() {
             <Tile value={streak(s.longestStreak)} label="Longest streak" />
             <Tile value={String(s.books)} label={s.books === 1 ? "Book read" : "Books read"} />
             <Tile value={String(s.listenedBooks)} label={s.listenedBooks === 1 ? "Book listened to" : "Books listened to"} />
+            <Tile value={String(s.paperBooksFinished)} label={s.paperBooksFinished === 1 ? "Paper book finished" : "Paper books finished"} />
             <Tile value={String(s.sessions + s.listeningSessions)} label="Sessions" />
           </div>
           <Card framed>

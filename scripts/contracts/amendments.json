@@ -354,6 +354,151 @@
       "difference": "Annotations.items[].data: properties differ: contract-only=[] generated-only=['color']",
       "adr": "ADR-0094",
       "reason": "highlight colour name"
+    },
+    {
+      "difference": "Shelf.data.filter.field.enum: contract=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title'] generated=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'has_physical', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title']",
+      "adr": "ADR-0116",
+      "reason": "owned-on-paper filter field"
+    },
+    {
+      "difference": "ShelfData.filter.field.enum: contract=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title'] generated=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'has_physical', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title']",
+      "adr": "ADR-0116",
+      "reason": "owned-on-paper filter field"
+    },
+    {
+      "difference": "ShelfWrite.data.filter.field.enum: contract=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title'] generated=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'has_physical', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title']",
+      "adr": "ADR-0116",
+      "reason": "owned-on-paper filter field"
+    },
+    {
+      "difference": "Shelves.items[].data.filter.field.enum: contract=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title'] generated=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'has_physical', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title']",
+      "adr": "ADR-0116",
+      "reason": "owned-on-paper filter field"
+    },
+    {
+      "difference": "Title: properties differ: contract-only=[] generated-only=['physicalCopyCount']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "Title: required differs: contract=['authors', 'editionCount', 'id', 'languages', 'lastActivityAt', 'recordingCount', 'series', 'title'] generated=['authors', 'editionCount', 'id', 'languages', 'lastActivityAt', 'physicalCopyCount', 'recordingCount', 'series', 'title']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "TitleDetail.title: properties differ: contract-only=[] generated-only=['physicalCopyCount']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "TitleDetail.title: required differs: contract=['authors', 'editionCount', 'id', 'languages', 'lastActivityAt', 'recordingCount', 'series', 'title'] generated=['authors', 'editionCount', 'id', 'languages', 'lastActivityAt', 'physicalCopyCount', 'recordingCount', 'series', 'title']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "Titles.items[]: properties differ: contract-only=[] generated-only=['physicalCopyCount']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "Titles.items[]: required differs: contract=['authors', 'editionCount', 'id', 'languages', 'lastActivityAt', 'recordingCount', 'series', 'title'] generated=['authors', 'editionCount', 'id', 'languages', 'lastActivityAt', 'physicalCopyCount', 'recordingCount', 'series', 'title']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "TitleRow: properties differ: contract-only=[] generated-only=['physicalCopyCount']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "TitleRow: required differs: contract=['addedAt', 'authors', 'editionCount', 'formats', 'id', 'languages', 'lastActivityAt', 'libraryIds', 'pageCount', 'published', 'publisher', 'ratingHalves', 'recordingCount', 'series', 'seriesIndex', 'status', 'title'] generated=['addedAt', 'authors', 'editionCount', 'formats', 'id', 'languages', 'lastActivityAt', 'libraryIds', 'pageCount', 'physicalCopyCount', 'published', 'publisher', 'ratingHalves', 'recordingCount', 'series', 'seriesIndex', 'status', 'title']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "TitleRows.items[]: properties differ: contract-only=[] generated-only=['physicalCopyCount']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "TitleRows.items[]: required differs: contract=['addedAt', 'authors', 'editionCount', 'formats', 'id', 'languages', 'lastActivityAt', 'libraryIds', 'pageCount', 'published', 'publisher', 'ratingHalves', 'recordingCount', 'series', 'seriesIndex', 'status', 'title'] generated=['addedAt', 'authors', 'editionCount', 'formats', 'id', 'languages', 'lastActivityAt', 'libraryIds', 'pageCount', 'physicalCopyCount', 'published', 'publisher', 'ratingHalves', 'recordingCount', 'series', 'seriesIndex', 'status', 'title']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "TitleFilter.field.enum: contract=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title'] generated=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'has_physical', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title']",
+      "adr": "ADR-0116",
+      "reason": "owned-on-paper filter field"
+    },
+    {
+      "difference": "TitleSearchRequest.filter.field.enum: contract=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title'] generated=['added', 'author', 'format', 'has_audio', 'has_description', 'has_ebook', 'has_physical', 'language', 'library', 'pages', 'published', 'publisher', 'rating', 'series', 'series_index', 'status', 'tag', 'title']",
+      "adr": "ADR-0116",
+      "reason": "owned-on-paper filter field"
+    },
+    {
+      "difference": "operation addPhysicalCopy: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation getPaperReading: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation getPaperTitleMetadata: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation listCopyLocations: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation listPaperHistory: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation listTitleCopies: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation lookUpPaperBook: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation removePhysicalCopy: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation savePaperTitleMetadata: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation setPaperReading: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "operation updatePhysicalCopy: not in the contract (unexpected route)",
+      "adr": "ADR-0116",
+      "reason": "physical copies and paper reading"
+    },
+    {
+      "difference": "TitleDetail: properties differ: contract-only=[] generated-only=['description', 'published', 'publisher']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "TitleDetail: required differs: contract=['editionsPath', 'recordingsPath', 'title'] generated=['description', 'editionsPath', 'published', 'publisher', 'recordingsPath', 'title']",
+      "adr": "ADR-0116",
+      "reason": "paper copy count on titles"
     }
   ]
 }

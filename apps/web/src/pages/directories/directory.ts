@@ -63,8 +63,9 @@ export function groupBySeries(rows: TitleRow[]): { series: string | null; titles
 export const authorPath = (name: string) => `/authors/${encodeURIComponent(name)}`;
 export const seriesPath = (name: string) => `/series/${encodeURIComponent(name)}`;
 
-/** The cover medium to show for a title: its ebook cover when it has an ebook, else the audiobook's. */
-export const coverMedium = (t: { editionCount: number }) => (t.editionCount > 0 ? "ebook" : "audio") as "ebook" | "audio";
+/** The cover medium to show for a title. Paper uses the book-shaped ebook cover (ADR-0116). */
+export const coverMedium = (t: { editionCount: number; recordingCount: number }) => (t.editionCount === 0 && t.recordingCount > 0 ? "audio" : "ebook") as "ebook" | "audio";
 
 /** A short line under a book cover: its formats. */
-export const formatsLine = (t: TitleRow) => [formatLabel(t.formats.filter((f) => f !== "audio")), t.recordingCount > 0 ? "Audiobook" : null].filter(Boolean).join(" · ");
+export const formatsLine = (t: TitleRow) => [formatLabel(t.formats.filter((f) => f !== "audio" && f !== "paper")), t.recordingCount > 0 ? "Audiobook" : null,
+  t.physicalCopyCount > 0 ? "Paper" : null].filter(Boolean).join(" · ");

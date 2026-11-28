@@ -13,8 +13,8 @@ export function formatLabel(formats: string[]): string | null {
 }
 
 /** The cover and nothing else: the format tags sit on its top right corner, ebook above audiobook. */
-export function BookCover({ title, author, ebook, audio, children, editTo, titleId, medium }: {
-  title: string; author?: string; ebook?: string | null; audio?: string | null; children?: React.ReactNode; titleId?: string; medium?: "ebook" | "audio";
+export function BookCover({ title, author, ebook, audio, paper, children, editTo, titleId, medium }: {
+  title: string; author?: string; ebook?: string | null; audio?: string | null; paper?: boolean; children?: React.ReactNode; titleId?: string; medium?: "ebook" | "audio";
   /** Where the hover edit control goes (the metadata tab). Left out when the viewer cannot edit. */
   editTo?: string;
 }) {
@@ -22,10 +22,11 @@ export function BookCover({ title, author, ebook, audio, children, editTo, title
     <div className="lt-bookcover">
       <Cover title={title} author={author} titleId={titleId} medium={medium} />
       {editTo && <span className="lt-cover-edit"><IconAction label="Edit metadata and cover" icon={icons.pencil} to={editTo} /></span>}
-      {(ebook || audio) && (
+      {(ebook || audio || paper) && (
         <div className="lt-fmt">
           {ebook && <span className="lt-fmt-tag" title="Ebook format">{ebook}</span>}
           {audio && <span className="lt-fmt-tag" data-audio title="Audiobook format">{audio}</span>}
+          {paper && <span className="lt-fmt-tag" data-paper title="Owned on paper">PAPER</span>}
         </div>
       )}
       {children}
@@ -37,14 +38,14 @@ export function BookCover({ title, author, ebook, audio, children, editTo, title
  * A cover in a grid. Hovering or focusing it shows the title and author on a translucent plate and reveals a
  * three-dot menu; clicking the cover opens the title. The menu is a sibling of the link, not inside it.
  */
-export function CoverTile({ to, title, author, ebook, audio, menu, onMenu, menuLabel, testId, titleId, medium }: {
-  to: string; title: string; author: string; ebook?: string | null; audio?: string | null; titleId?: string; medium?: "ebook" | "audio";
+export function CoverTile({ to, title, author, ebook, audio, paper, menu, onMenu, menuLabel, testId, titleId, medium }: {
+  to: string; title: string; author: string; ebook?: string | null; audio?: string | null; paper?: boolean; titleId?: string; medium?: "ebook" | "audio";
   menu: MenuEntry[]; onMenu: (v: string) => void; menuLabel: string; testId?: string;
 }) {
   return (
     <div className="lt-tile" data-testid={testId}>
       <Link to={to} className="lt-tile-link">
-        <BookCover title={title} author={author} ebook={ebook} audio={audio} titleId={titleId} medium={medium}>
+        <BookCover title={title} author={author} ebook={ebook} audio={audio} paper={paper} titleId={titleId} medium={medium}>
           <span className="lt-tile-plate">
             <span className="lt-tile-title">{title}</span>
             <span className="lt-tile-author">{author}</span>

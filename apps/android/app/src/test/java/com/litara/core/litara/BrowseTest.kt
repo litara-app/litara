@@ -30,6 +30,18 @@ import java.io.File
 import java.time.LocalDate
 
 class BrowseTest {
+    @Test fun aPaperOnlyTitleUsesTheBookCoverAndNamesNoEbookFormat() {
+        val row = LitaraJson.decodeFromString(LTitleRow.serializer(),
+            """{"id":"t","title":"Paper Walls","formats":["paper"],"physicalCopyCount":2,"editionCount":0,"recordingCount":0}""")
+        assertEquals(2L, row.physicalCopyCount)
+        assertEquals(emptyList<String>(), row.ebookFormats())
+        assertFalse(usesAudioCover(row.editionCount, row.recordingCount))
+        assertTrue(usesAudioCover(0, 1))
+        assertFalse(usesAudioCover(1, 1))
+        // A server without physical books sends no count.
+        assertEquals(0L, LitaraJson.decodeFromString(LTitleRow.serializer(), """{"id":"t","title":"x"}""").physicalCopyCount)
+    }
+
     @get:Rule val tmp = TemporaryFolder()
     private lateinit var server: MockWebServer
     private lateinit var client: LitaraClient

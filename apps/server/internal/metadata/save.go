@@ -197,6 +197,12 @@ func (s *Service) Save(ctx context.Context, userID, recordingID, op uuid.UUID, b
 	if err != nil {
 		return nil, apperr.ErrUnavailable
 	}
+	return s.saveRows(ctx, userID, op, base, changes, fp, render, rec, func(q *sqlcgen.Queries) error { return applyQ(ctx, q, rec.ID) })
+}
+
+// saveRows is the transaction of a save. rec names the rows the fields live in; apply writes the result onto them.
+func (s *Service) saveRows(ctx context.Context, userID, op uuid.UUID, base int64, changes []Change, fp []byte,
+	render func(map[string]Effective, int64) []byte, rec sqlcgen.GetRecordingRowRow, apply func(*sqlcgen.Queries) error) ([]byte, error) {
 	_, body, err := receipts.New(s.Pool).Run(ctx, userID, op, fp,
 		func(_ pgx.Tx, q *sqlcgen.Queries) error {
 			_, err := q.LockTitleMetadataRevision(ctx, rec.TitleID)
@@ -250,7 +256,7 @@ func (s *Service) Save(ctx context.Context, userID, recordingID, op uuid.UUID, b
 				if err := q.BumpTitleMetadataRevision(ctx, rec.TitleID); err != nil {
 					return 0, nil, nil, err
 				}
-				if err := applyQ(ctx, q, rec.ID); err != nil {
+				if err := apply(q); err != nil {
 					return 0, nil, nil, err
 				}
 			}
