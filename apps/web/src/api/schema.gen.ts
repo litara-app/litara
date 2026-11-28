@@ -85,6 +85,10 @@ export type Annotations = {
   total: number;
 };
 
+export type ApplyPaperImport = {
+  baseRevision: string;
+};
+
 export type Artwork = {
   coverPath: string | null;
   thumbnailPath: string | null;
@@ -970,6 +974,92 @@ export type PaperHistoryEntry = {
   id: string;
   receivedAt: string;
   titleId: string;
+};
+
+export type PaperImport = {
+  createdAt: string;
+  expiresAt: string | null;
+  fileShelves: PaperImportShelf[] | null;
+  id: string;
+  includeReading: boolean;
+  libraryId: string;
+  markedOwned: number;
+  ownership: "all" | "owned" | "shelves" | "pick" | null;
+  plan?: PaperImportPlan;
+  result?: PaperImportResult;
+  revision: string;
+  rows: number;
+  shelves: string[] | null;
+  source: "goodreads" | "litara";
+  state: "review" | "applying" | "completed";
+  withReading: number;
+};
+
+export type PaperImportOptions = {
+  includeReading?: boolean;
+  ownership: "all" | "owned" | "shelves" | "pick" | null;
+  shelves?: string[] | null;
+};
+
+export type PaperImportPlan = {
+  addCopy: number;
+  already: number;
+  copies: number;
+  needsChoice: number;
+  newBook: number;
+  notOwned: number;
+  readingOnly: number;
+  skipped: number;
+  unusable: number;
+};
+
+export type PaperImportResult = {
+  added: number;
+  attached: number;
+  failed: number;
+  readingAdded: number;
+  skipped: number;
+  waiting: number;
+};
+
+export type PaperImportRow = {
+  action: "new_book" | "add_copy" | "reading_only" | "needs_choice" | "already" | "not_owned" | "skip" | "unusable";
+  authors: string[] | null;
+  choice: "attach" | "separate" | "skip" | null;
+  copies: number;
+  detail: string | null;
+  hasReading: boolean;
+  isbn: string | null;
+  matches: PaperTitleMatch[] | null;
+  outcome: "added" | "attached" | "reading_added" | "skipped" | "failed" | null;
+  problems: string[] | null;
+  row: number;
+  selected: boolean;
+  shelves: string[] | null;
+  title: string;
+  titleId: string | null;
+};
+
+export type PaperImportRowChange = {
+  choice?: "auto" | "attach" | "separate" | "skip";
+  selected?: boolean;
+  titleId?: string;
+};
+
+export type PaperImportRows = {
+  items: PaperImportRow[] | null;
+  page: number;
+  size: number;
+  total: number;
+};
+
+export type PaperImportShelf = {
+  name: string;
+  rows: number;
+};
+
+export type PaperImports = {
+  items: PaperImport[] | null;
 };
 
 export type PaperLookup = {

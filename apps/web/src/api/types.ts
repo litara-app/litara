@@ -111,6 +111,10 @@ export type PaperTitleMatch = Wire<S.PaperTitleMatch>;
 export type PaperReading = Wire<S.PaperReading>;
 export type PaperEvent = Wire<S.PaperHistoryEntry>;
 export type CopyLocations = Wire<S.CopyLocations>;
+export type PaperImport = Wire<S.PaperImport>;
+export type PaperImports = Wire<S.PaperImports>;
+export type PaperImportRow = Wire<S.PaperImportRow>;
+export type PaperImportRows = Wire<S.PaperImportRows>;
 
 /** One live annotation with its book, from the annotations hub (ADR-0099). */
 export type AnnotationHubItem = Wire<S.AnnotationHubItem>;

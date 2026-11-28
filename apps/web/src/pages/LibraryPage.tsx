@@ -229,7 +229,7 @@ export function LibraryPage() {
 
   return (
     <Page>
-      <PageHeader title="Library" actions={user?.isAdmin ? <Button icon={icons.plus} onClick={() => setAddingPaper(true)}>Add paper book</Button> : undefined} />
+      <PageHeader title="Library" actions={user?.isAdmin ? <><Button variant="subtle" icon={icons.files} to="/paper-imports">Import CSV</Button><Button icon={icons.plus} onClick={() => setAddingPaper(true)}>Add paper book</Button></> : undefined} />
       {addingPaper && <AddPaperBook libraryId={libraryId || undefined} onClose={() => setAddingPaper(false)} />}
       <Toolbar aria-label="Library filters">
         <Grow><SearchField label="Search" placeholder="Title, author or series" value={text} onValue={setText} /></Grow>

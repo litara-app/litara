@@ -17,6 +17,7 @@ import { StatsPage } from "./pages/StatsPage";
 import { AuthorPage, AuthorsPage, SeriesListPage, SeriesPage } from "./pages/directories/DirectoryPages";
 import { AnnotationsPage } from "./pages/annotations/AnnotationsPage";
 import { TitlePage } from "./pages/TitlePage";
+import { PaperImportPage, PaperImportsPage } from "./pages/paper/PaperImportPage";
 import { PendingPage } from "./pending/PendingPage";
 import { AppearancePage } from "./settings/AppearancePage";
 import { CredentialsPage } from "./settings/CredentialsPage";
@@ -59,6 +60,8 @@ export function App() {
           <Route path="listen/:recordingId" element={<ListenPage />} />
           <Route index element={<LibraryPage />} />
           <Route path="titles/:titleId" element={<TitlePage />} />
+          <Route path="paper-imports" element={<PaperImportsPage />} />
+          <Route path="paper-imports/:importId" element={<PaperImportPage />} />
           <Route path="editions/:editionId" element={<EditionPage />} />
           <Route path="pending" element={<PendingPage />} />
           <Route path="shelves" element={<ShelvesPage />} />

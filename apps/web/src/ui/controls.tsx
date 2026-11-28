@@ -278,6 +278,25 @@ export function ColumnFilter({ label, value, onValue, placeholder, type = "searc
 }
 
 /** Choose or drop one image. `onFile` runs with the file as soon as it passes the type and size checks. */
+/** Choose or drop one file of the given types. `onReject` says whether the refused file was too large. */
+export function FileDrop({ label, hint, accept, maxSize, onFile, onReject, disabled }: {
+  label: string; hint: string; accept: string[]; maxSize: number; onFile: (f: File) => void; onReject: (tooLarge: boolean) => void; disabled?: boolean;
+}) {
+  return (
+    <FileInput accept={accept} maxSize={maxSize} disabled={disabled}
+      onValueChange={(files) => { const f = files[0]; if (f) onFile(f); }}
+      onReject={(rejected) => onReject(!!rejected[0]?.reasons.includes("file-size"))}>
+      <FileInputDropzone className="lt-dropzone">
+        <span className="lt-dropzone-icon" aria-hidden="true">{icons.files}</span>
+        <Text size="sm" tone="dim">{hint}</Text>
+        <FileInputTrigger className="lt-btn" data-variant="default" data-size="md" aria-label={label}>
+          <span className="lt-btn-icon" aria-hidden="true">{icons.plus}</span>{label}
+        </FileInputTrigger>
+      </FileInputDropzone>
+    </FileInput>
+  );
+}
+
 export function ImageDrop({ label, onFile, onReject, disabled }: { label: string; onFile: (f: File) => void; onReject: (why: string) => void; disabled?: boolean }) {
   return (
     <FileInput accept={["image/jpeg", "image/png", "image/webp"]} maxSize={10 * 1024 * 1024} disabled={disabled}
