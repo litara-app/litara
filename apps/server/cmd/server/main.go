@@ -133,6 +133,7 @@ func run() error {
 	meta := metadata.New(pool)
 	enricher := &metadata.Enricher{Service: meta, Providers: metadata.NewProvidersWithHardcover(cfg.OpenLibraryContact, cfg.GoogleBooksAPIKey, cfg.HardcoverToken),
 		CacheTTL: time.Duration(cfg.ProviderSearchCacheMinutes) * time.Minute}
+	metadata.ConfigureGoodreads(enricher.Providers, cfg.GoodreadsAPIKey, cfg.GoodreadsEndpoint)
 	coverService := covers.New(pool, cfg.MediaRoot, covers.NewFetcher(false), covers.NewSearcher())
 	rd.EnableOnline(&reading.Online{Providers: reading.PeopleProviders(enricher.Providers), Image: coverService.Preview, CacheTTL: enricher.CacheTTL})
 	// Only writers with retained fidelity evidence are built in (ADR-0052). A writer stays disabled until an

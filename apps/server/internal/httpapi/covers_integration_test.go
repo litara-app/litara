@@ -2,6 +2,8 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -13,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/deranjer/ebooker/apps/server/internal/apitest"
+	"github.com/deranjer/ebooker/apps/server/internal/metadata"
 	"github.com/deranjer/ebooker/apps/server/internal/wire"
 )
 
@@ -28,9 +31,24 @@ func solidPNG(w, h int, c color.NRGBA) []byte {
 	return b.Bytes()
 }
 
+// fakeCoverProvider is a metadata provider that also offers covers.
+type fakeCoverProvider struct {
+	fakeProvider
+	hits  []metadata.CoverHit
+	err   error
+	asked int
+}
+
+func (f *fakeCoverProvider) Covers(context.Context, string, string) ([]metadata.CoverHit, error) {
+	f.asked++
+	return f.hits, f.err
+}
+
 // ADR-0086: choosing, fetching, extracting and serving covers, and who may do what.
 func TestTitleCovers(t *testing.T) {
-	o := newOPDSEnv(t)
+	gr := &fakeCoverProvider{fakeProvider: fakeProvider{name: metadata.ProviderGoodreads},
+		hits: []metadata.CoverHit{{Title: "Covered Book", Author: "Cora Cover", ImageURL: "https://images.example/gr.jpg"}}}
+	o := newOPDSEnv(t, apitest.Options{Providers: map[string]metadata.Provider{gr.name: gr}})
 	e := o.e
 	// An EPUB with a real cover image, scanned into its own title. The administrator is granted the library too, because
 	// changing a cover needs an administrator who can see the title.
@@ -188,6 +206,24 @@ func TestTitleCovers(t *testing.T) {
 	rr.JSON(t, &res)
 	if len(res.Items) != 1 || res.Items[0].Provider != "Open Library" {
 		t.Fatalf("results: %+v", res)
+	}
+	// ADR-0115: Goodreads is asked for covers only once a library holding the title lists it.
+	if gr.asked != 0 {
+		t.Fatalf("a provider no library lists was asked %d time(s)", gr.asked)
+	}
+	renv := &readingEnv{e: e, admin: o.admin, lib: o.lib}
+	renv.setProviderOrder(t, []string{metadata.ProviderGoodreads})
+	rr = e.Do("GET", "/titles/"+covered+"/cover-search?medium=ebook", o.admin, nil)
+	rr.JSON(t, &res)
+	if rr.StatusCode != http.StatusOK || gr.asked != 1 || len(res.Items) != 2 || res.Items[1].Provider != "Goodreads" || res.Items[1].ImageURL != gr.hits[0].ImageURL || res.Items[1].ThumbURL != gr.hits[0].ImageURL {
+		t.Fatalf("with Goodreads: %d asked=%d %+v", rr.StatusCode, gr.asked, res)
+	}
+	// A provider that fails does not hide the other sites' covers.
+	gr.err = errors.New("provider returned status 401")
+	rr = e.Do("GET", "/titles/"+covered+"/cover-search?medium=ebook", o.admin, nil)
+	rr.JSON(t, &res)
+	if rr.StatusCode != http.StatusOK || len(res.Items) != 1 || res.Items[0].Provider != "Open Library" {
+		t.Fatalf("with Goodreads failing: %d %+v", rr.StatusCode, res)
 	}
 	if r := e.Do("GET", "/titles/"+covered+"/cover-search?medium=ebook", o.userA, nil); r.StatusCode != http.StatusForbidden {
 		t.Fatalf("member search: %d", r.StatusCode)

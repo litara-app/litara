@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-20
 Decision owner: Repository owner
+Amended by: [ADR-0115](0115-goodreads-through-its-graphql-endpoint.md) (2026-11-27): online cover search also asks Goodreads for a library that enables it.
 
 ## Context
 

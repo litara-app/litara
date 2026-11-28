@@ -166,7 +166,7 @@ export type AutoFillResult = {
   filled: string[] | null;
   outcome: "filled" | "proposed" | "nothing_to_fill" | "needs_review" | "no_match" | "disabled";
   proposed?: Record<string, MetadataValue>;
-  provider?: "open_library" | "google_books" | "audnexus" | "hardcover";
+  provider?: "open_library" | "google_books" | "audnexus" | "hardcover" | "goodreads";
   revision?: string;
   rule?: "identifier" | "title_author";
 };
@@ -1028,7 +1028,7 @@ export type ProviderQuery = {
 export type ProviderResult = {
   cached: boolean;
   candidates: ProviderCandidate[] | null;
-  provider: "open_library" | "google_books" | "audnexus" | "hardcover";
+  provider: "open_library" | "google_books" | "audnexus" | "hardcover" | "goodreads";
   status: "ok" | "no_match" | "unavailable" | "unconfigured";
 };
 

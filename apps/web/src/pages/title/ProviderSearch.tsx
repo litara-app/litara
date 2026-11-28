@@ -7,7 +7,7 @@ import { show } from "./metadataFields";
 import { saveMetadata } from "./metadataSave";
 import { defaultAction, reviewFields, valueFor, type Action, type ReviewRow } from "./reviewFields";
 
-export const PROVIDER_NAME: Record<string, string> = { open_library: "Open Library", google_books: "Google Books", audnexus: "Audnexus", hardcover: "Hardcover" };
+export const PROVIDER_NAME: Record<string, string> = { open_library: "Open Library", google_books: "Google Books", audnexus: "Audnexus", hardcover: "Hardcover", goodreads: "Goodreads" };
 const STATUS_TEXT: Record<string, string> = {
   ok: "", no_match: "Nothing found.", unavailable: "Could not be reached or is limiting requests. Try again later.",
   unconfigured: "Not set up: the server operator needs to add its access token.",
