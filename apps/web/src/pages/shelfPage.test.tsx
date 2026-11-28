@@ -29,10 +29,22 @@ const api = vi.fn(async (method: string, path: string, body?: unknown): Promise<
   if (method === "PUT") { ids = (body as { visibleTitleIds: string[] }).visibleTitleIds; orders.push(ids); }
   return {};
 });
+// There is no layout here, so the real list can only draw its first rows. These tests are about which titles are loaded
+// and in what order, so the list draws them all; the last test uses the real one.
+let windowed = false;
+vi.mock("../ui/virtual", async (orig) => {
+  const real = await orig<typeof import("../ui/virtual")>();
+  return {
+    ...real,
+    VirtualList: <T,>(p: Parameters<typeof real.VirtualList<T>>[0]) => (windowed ? <real.VirtualList {...p} />
+      : <>{p.items.map((t, i) => <div key={p.getKey(t)}>{p.render(t, i)}</div>)}</>),
+  };
+});
+
 vi.mock("../api/client", async (orig) => ({ ...(await orig<object>()), get: (p: string) => get(p), api: (m: string, p: string, b?: unknown) => api(m, p, b) }));
 
 const make = (n: number) => Array.from({ length: n }, (_, i) => String(i + 1));
-beforeEach(() => { kind = "manual"; canEdit = true; failPage = -1; asked = []; orders = []; });
+beforeEach(() => { windowed = false; kind = "manual"; canEdit = true; failPage = -1; asked = []; orders = []; });
 afterEach(cleanup);
 
 function setup(count: number) {
@@ -131,3 +143,14 @@ test("a long smart shelf offers more titles but no reordering", async () => {
   await shows(250);
   expect(button("Show more")).toBeNull();
 }, 60_000);
+
+test("only some of a long shelf's rows are drawn, each with its place in the list", async () => {
+  windowed = true;
+  setup(450);
+  await waitFor(() => expect(rows().length).toBeGreaterThan(0), { timeout: 10_000 });
+  expect(rows().length).toBeLessThan(200);
+  const drawn = screen.getAllByRole("listitem").filter((e) => e.hasAttribute("aria-posinset"));
+  expect(drawn[0]!.getAttribute("aria-posinset")).toBe("1");
+  expect(drawn[0]!.getAttribute("aria-setsize")).toBe("200");
+  expect(screen.getByTestId("shelf-shown").textContent).toBe("Showing 200 of 450 titles");
+});

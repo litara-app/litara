@@ -38,6 +38,37 @@ export function VirtualPad({ height, columns }: { height: number; columns: numbe
   return <tr className="lt-vpad" aria-hidden="true" style={{ "--lt-h": `${height}px` } as CSSProperties}><td colSpan={columns} /></tr>;
 }
 
+/**
+ * A list of rows whose heights differ, drawing only those near the viewport and measuring each one (ADR-0084). Each row
+ * carries its place in the whole list for people who cannot see that the list is only partly drawn.
+ */
+export function VirtualList<T>({ items, estimate, getKey, render }: { items: T[]; estimate: number; getKey: (item: T) => string; render: (item: T, index: number) => ReactNode }) {
+  const host = useRef<HTMLDivElement>(null);
+  const margin = useMargin(host, [items.length]);
+  const v = useVirtualizer({
+    count: items.length, getScrollElement: scroller, estimateSize: () => estimate, overscan: 10, scrollMargin: margin,
+    // Measured heights follow the item when the order changes.
+    getItemKey: (index) => (items[index] === undefined ? index : getKey(items[index]!)),
+  });
+  const measured = v.getVirtualItems();
+  const virtual = measured.length > 0 ? measured : Array.from({ length: Math.min(items.length, FALLBACK_ROWS) }, (_, index) => ({ index }));
+  const top = measured.length ? measured[0]!.start - margin : 0;
+  const bottom = measured.length ? Math.max(0, v.getTotalSize() - (measured[measured.length - 1]!.end - margin)) : 0;
+  return (
+    <div ref={host} className="lt-vlist" role="list" style={{ "--lt-top": `${top}px`, "--lt-bottom": `${bottom}px` } as CSSProperties}>
+      {virtual.map(({ index }) => {
+        const item = items[index];
+        if (item === undefined) return null; // the list just got shorter
+        return (
+          <div key={getKey(item)} ref={v.measureElement} data-index={index} className="lt-vlist-row" role="listitem" aria-posinset={index + 1} aria-setsize={items.length}>
+            {render(item, index)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const GAP = 16;
 const FALLBACK_ROWS = 40;
 

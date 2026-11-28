@@ -562,6 +562,8 @@ th[aria-sort] .lt-sort-icon { opacity: 1; color: var(--lt-pri); }
 .lt-vpad td { padding: 0; border: 0; }
 .lt-vgrid { padding-top: var(--lt-top); padding-bottom: var(--lt-bottom); }
 .lt-vgrid-row { display: grid; grid-template-columns: repeat(var(--lt-cols), minmax(0, 1fr)); gap: var(--lt-s4); padding-bottom: var(--lt-s4); }
+.lt-vlist { padding-top: var(--lt-top); padding-bottom: var(--lt-bottom); min-width: 0; }
+.lt-vlist-row { padding-bottom: var(--lt-s2); }
 
 /* The player: a minimized bar under the page (in the shell's slot) and a full-screen sheet (the audio player). */
 .lt-side { grid-row: 2 / -1; }
