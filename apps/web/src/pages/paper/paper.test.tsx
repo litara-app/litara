@@ -77,6 +77,22 @@ test("reading a copy needs no page number", async () => {
   for (const name of ["Add paper copy", "Edit copy", "Remove copy"]) expect(screen.queryByRole("button", { name })).toBeNull();
 });
 
+test("a lookup names each provider that answered or failed", async () => {
+  reply = () => ({ enabled: true, matches: [], results: [
+    { provider: "goodreads", status: "ok", cached: false, candidates: [{ id: "1", byIdentifier: true, consistent: true, fields: { title: "Paper Walls" } }] },
+    { provider: "open_library", status: "unavailable", cached: false, candidates: [] },
+  ] });
+  wrap(<AddPaperBook onClose={() => {}} />);
+  await screen.findByLabelText("Title"); // the form has two ISBN fields: the one to look up comes first
+  fireEvent.change(screen.getAllByLabelText("ISBN")[0]!, { target: { value: "9780306406157" } });
+  const lookUp = screen.getByRole("button", { name: "Look up" });
+  await waitFor(() => expect((lookUp as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(lookUp);
+  const found = await screen.findByTestId("paper-lookup");
+  expect(within(found).getByText("Goodreads")).toBeTruthy();
+  expect(within(found).getByText("Could not ask Open Library.")).toBeTruthy();
+});
+
 test("a book that may already be in the catalogue is added only after the person chooses", async () => {
   const match = { titleId: "T9", title: "Paper Walls", authors: ["Nell Printed"], series: null, sameIsbn: false };
   reply = (c) => {

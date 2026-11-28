@@ -4,10 +4,10 @@ import { useNavigate } from "react-router";
 import { api, ApiError, get } from "../../api/client";
 import type { Library, Page, PaperLookupResults, PaperTitleMatch, PhysicalCopy } from "../../api/types";
 import { Alert, Button, Card, Drawer, ErrorBox, icons, NumberField, Row, SelectField, Stack, Text, TextAreaField, TextField } from "../../ui";
+import { PROVIDER_NAME } from "../title/ProviderSearch";
 import { CopyFields } from "./CopyFields";
 import { authorList, copyDetails, emptyBook, emptyCopy, fromCandidate, newTitle, operationIds, type BookForm, type CopyForm } from "./paper";
 
-const PROVIDER_NAMES: Record<string, string> = { open_library: "Open Library", google_books: "Google Books", audnexus: "Audnexus", hardcover: "Hardcover" };
 const text = (v: unknown) => (typeof v === "string" ? v : "");
 
 /** Refresh everything a changed copy can show in. `gone` is a title that left the catalogue: it is not asked for again. */
@@ -125,7 +125,7 @@ export function AddPaperBook({ existing, libraryId, onClose }: { existing?: { id
                   <Stack gap="xs">
                     <Text strong>{text(c.fields.title) || "(untitled)"}</Text>
                     <Text size="sm" tone="dim">{[Array.isArray(c.fields.authors) ? (c.fields.authors as string[]).join(", ") : "", text(c.fields.publisher), text(c.fields.published),
-                      PROVIDER_NAMES[c.provider] ?? c.provider].filter(Boolean).join(" · ")}</Text>
+                      PROVIDER_NAME[c.provider] ?? c.provider].filter(Boolean).join(" · ")}</Text>
                   </Stack>
                   <Button size="sm" icon={icons.check} onClick={() => {
                     const filled = fromCandidate(c.fields);
@@ -138,7 +138,7 @@ export function AddPaperBook({ existing, libraryId, onClose }: { existing?: { id
             ))}
             {!lookup.data.enabled && <Text size="sm" tone="dim">Online lookups are off for this library. Type the details below, or turn on a provider in the library settings.</Text>}
             {lookup.data.enabled && candidates.length === 0 && <Text size="sm" tone="dim">Nothing was found for this ISBN. Type the details below.</Text>}
-            {failed.length > 0 && <Text size="sm" tone="warning">Could not ask {failed.map((r) => PROVIDER_NAMES[r.provider] ?? r.provider).join(", ")}.</Text>}
+            {failed.length > 0 && <Text size="sm" tone="warning">Could not ask {failed.map((r) => PROVIDER_NAME[r.provider] ?? r.provider).join(", ")}.</Text>}
           </Stack>
         )}
 
