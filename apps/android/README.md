@@ -23,11 +23,12 @@ app/src/main/
     java/com/litara/
       app/                    Application (Hilt), MainActivity, navigation
       core/
-        auth/                 SessionManager, SecureStorage (EncryptedSharedPreferences)
-        network/              Retrofit ApiService, interceptors, token refresh   (pending replacement)
-        model/                hand-written @Serializable DTOs                     (pending replacement)
-        db/                   Room: progress, downloads, pending-write queues
-        sync/ storage/ di/ paging/
+        auth/                 AccountDataScope, SecureStorage (EncryptedSharedPreferences)
+        litara/               Litara API client, sign-in, offline copies and sync
+        network/              OkHttp trust settings and image URLs
+        model/                hand-written @Serializable DTOs
+        db/                   Room: listening positions
+        data/ storage/ settings/ di/
       feature/
         player/               Media3 service, Android Auto browse tree, progress, queue math
         cast/                 Cast proxy and MP4 chapter filter (+ flavor sources in src/full, src/fdroid)
@@ -39,7 +40,7 @@ app/src/fdroid/               Cast-free stubs
 
 ## Conventions
 
-Kotlin + Compose (Material 3), MVVM with `ViewModel` + `StateFlow`, Hilt, Coroutines/Flow, Retrofit/OkHttp
+Kotlin + Compose (Material 3), MVVM with `ViewModel` + `StateFlow`, Hilt, Coroutines/Flow, OkHttp
 with kotlinx.serialization, Coil, Media3/ExoPlayer, Room + DataStore, WorkManager. Use Material icons rather than
 emoji. Dependency versions are pinned in `gradle/libs.versions.toml` and are not to be upgraded as part of
 unrelated work. Keep both flavors building.

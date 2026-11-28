@@ -49,7 +49,16 @@ class AudioProgressRepositoryTest {
         repo.report(handle, 7, 12.5, 10.0)
         coVerify { dao.upsert(match { it.bookId == handle && it.dirty }) }
         coVerify(exactly = 1) { source.push(handle, 7, 12.5) }
-        coVerify { dao.markSynced(handle) }
+        coVerify { dao.markSynced(handle, any()) }
+        coVerify(exactly = 0) { source.retryLater() }
+    }
+
+    @Test
+    fun `only the position that was sent is marked as sent`() = runTest {
+        coEvery { source.push(any(), any(), any()) } returns true
+        coEvery { dao.dirtyEntries() } returnsMany listOf(listOf(row(at = 4_321L, dirty = true)), emptyList())
+        repo.flushPending()
+        coVerify(exactly = 1) { dao.markSynced(handle, 4_321L) }
     }
 
     @Test
@@ -58,7 +67,8 @@ class AudioProgressRepositoryTest {
         repo.report(handle, 7, 1.0, 1.0)
         coEvery { source.push(any(), any(), any()) } throws RuntimeException("offline")
         repo.report(handle, 7, 2.0, 1.0)
-        coVerify(exactly = 0) { dao.markSynced(any()) }
+        coVerify(exactly = 0) { dao.markSynced(any(), any()) }
+        coVerify(exactly = 2) { source.retryLater() }
     }
 
     @Test
@@ -66,7 +76,7 @@ class AudioProgressRepositoryTest {
         coEvery { source.push(any(), any(), any()) } returns true
         coEvery { dao.dirtyEntries() } returnsMany listOf(listOf(row(dirty = true)), emptyList())
         assertFalse(repo.flushPending())
-        coVerify { dao.markSynced(handle) }
+        coVerify { dao.markSynced(handle, any()) }
 
         coEvery { source.push(any(), any(), any()) } returns false
         coEvery { dao.dirtyEntries() } returns listOf(row(dirty = true))
@@ -127,6 +137,6 @@ class AudioProgressRepositoryTest {
         repo.resumePoint(locked, flush = false)
         coVerify(exactly = 0) { source.push(any(), any(), any()) }
         coVerify(exactly = 0) { source.serverPosition(locked) }
-        coVerify(exactly = 0) { dao.markSynced(locked) }
+        coVerify(exactly = 0) { dao.markSynced(locked, any()) }
     }
 }

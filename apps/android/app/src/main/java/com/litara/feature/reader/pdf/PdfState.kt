@@ -30,4 +30,9 @@ data class PdfUiState(
     val settings: PdfReaderSettings = PdfReaderSettings(),
     val hasTextLayer: Boolean = Build.VERSION.SDK_INT >= 35,
     val search: PdfSearchState? = null,
+    val marks: List<PdfMark> = emptyList(),
+    /** False when the server could not be asked for highlights made on the web. */
+    val webMarksLoaded: Boolean = true,
+    /** Set until the page list has scrolled there. */
+    val jump: PdfJump? = null,
 )

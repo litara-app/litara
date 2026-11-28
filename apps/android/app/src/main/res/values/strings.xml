@@ -184,9 +184,10 @@
     <string name="auto_chapters_of">Chapters · %1$s</string>
     <string name="settings_nav_bar">Navigation bar</string>
     <string name="reader_renderer_unavailable">The reader stopped unexpectedly. You can try opening it again.</string>
-    <string name="litara_title">Litara server</string>
-    <string name="litara_url_label">Server URL (https://…)</string>
-    <string name="litara_insecure">Development only: allow plain HTTP (insecure)</string>
+    <string name="litara_title">Sign in to Litara</string>
+    <string name="litara_url_label">Server address (https://…)</string>
+    <string name="litara_insecure">Allow unencrypted HTTP</string>
+    <string name="litara_insecure_desc">For testing only. Others on the network can read your password and your library traffic.</string>
     <string name="litara_username">Username</string>
     <string name="litara_password">Password</string>
     <string name="litara_sign_in">Sign in</string>
@@ -221,7 +222,7 @@
     <string name="litara_use_other">Use the other</string>
     <string name="litara_keep_server">Keep server position</string>
     <string name="litara_narrated_by">%1$s · narrated by %2$s</string>
-    <string name="litara_err_insecure">Plain HTTP is refused. Tick the development opt-in to allow it.</string>
+    <string name="litara_err_insecure">This address is not encrypted. Use https://, or tick \"Allow unencrypted HTTP\" if you are testing.</string>
     <string name="litara_err_signed_out">Signed out (%1$s)</string>
     <string name="litara_err_stale">The account changed; the task was discarded.</string>
     <string name="litara_err_offline">Offline or server unavailable.</string>
@@ -278,5 +279,20 @@
     <string name="litara_search_books">Search books</string>
     <string name="litara_search_clear">Clear search</string>
     <string name="litara_search_no_matches">No matches.</string>
-    <string name="litara_audio_only">Audiobooks, EPUB-family books, PDF and comics are available. Reading positions sync with the server for EPUB, FB2, PDF (page level) and comics, and so do highlights, notes and bookmarks for EPUB, FB2 and comics. KEPUB, MOBI and AZW books keep them on this device only until those formats are verified against the web reader. The PDF reader has no highlights or notes yet.</string>
+    <string name="litara_audio_only">Audiobooks, EPUB-family books, PDF and comics are available. Reading positions sync with the server for EPUB, FB2, PDF (by page) and comics. Highlights, notes and bookmarks sync for EPUB and FB2, notes and bookmarks for PDF (by page), and bookmarks for comics. KEPUB, MOBI and AZW books keep them on this device only until those formats are verified against the web reader. PDF highlights are made in the web app and listed here by page.</string>
+    <string name="pdf_notes_title">Notes and bookmarks</string>
+    <string name="pdf_notes_empty">No notes or bookmarks in this PDF yet.</string>
+    <string name="pdf_notes_highlight_hint">Highlight PDF text in the web app. Highlights are listed here by page.</string>
+    <string name="pdf_notes_web_unavailable">Highlights made on the web appear when the server can be reached.</string>
+    <string name="pdf_note_add">Add note on page %1$d</string>
+    <string name="pdf_note_edit">Edit note on page %1$d</string>
+    <string name="pdf_note_save">Save</string>
+    <string name="pdf_mark_highlight">Highlight</string>
+    <string name="pdf_mark_note">Note</string>
+    <string name="pdf_mark_bookmark">Bookmark</string>
+    <string name="pdf_mark_heading">%1$s · page %2$d</string>
+    <string name="pdf_mark_delete">Delete %1$s on page %2$d</string>
+    <string name="pdf_mark_waiting">Waiting to send</string>
+    <string name="pdf_mark_conflict">Changed elsewhere. Resolve it in the web app.</string>
+    <string name="pdf_mark_from_web">Made on the web</string>
 </resources>

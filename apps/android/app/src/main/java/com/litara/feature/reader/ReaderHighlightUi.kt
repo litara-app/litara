@@ -46,6 +46,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,10 +84,15 @@ fun HighlightToolbar(
         ) {
             com.litara.core.litara.HighlightColors.SHADES.forEach { (name, hex) ->
                 val selected = currentColor != null && currentColor.equals(hex, ignoreCase = true) || currentColor == name
+                val label = stringResource(R.string.highlight, name)
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clickable(onClickLabel = stringResource(R.string.highlight, name)) { onColor(hex) },
+                        .clickable(role = Role.Button) { onColor(hex) }
+                        .semantics {
+                            contentDescription = label
+                            this.selected = selected
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(

@@ -19,6 +19,8 @@ import com.litara.core.storage.LocalRef
 import com.litara.feature.reader.comic.ComicHost
 import com.litara.feature.reader.comic.ComicPaging
 import com.litara.feature.reader.pdf.PdfHost
+import com.litara.feature.reader.pdf.PdfJump
+import com.litara.feature.reader.pdf.PdfMarks
 import com.litara.feature.reader.pdf.PdfReaderSettings
 import com.litara.feature.reader.pdf.PdfReaderSettingsStore
 import com.litara.feature.reader.pdf.PdfRenderCore
@@ -38,6 +40,8 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 private const val PROGRESS_THROTTLE_MS = 2_000L
+
+private const val MAX_NOTE = 4_000
 
 /** The latest position is sent this long after the last change, so a killed app loses at most a moment of reading. */
 private const val IDLE_FLUSH_MS = 1_500L
@@ -189,8 +193,75 @@ class LitaraPdfViewModel @Inject constructor(
     private var pendingPage: Int? = null
     private var searchJob: Job? = null
     private var flushJob: Job? = null
+    private var annotations: com.litara.core.litara.EditionAnnotationSync? = null
+    private var webMarks: List<com.litara.core.litara.LAnnotation> = emptyList()
+    private var jumps = 0
 
     init { load() }
+
+    /** Shows what this device has; the web's highlights are whatever the last successful request returned. */
+    private fun publishMarks() {
+        val a = annotations ?: return
+        _ui.update { it.copy(marks = PdfMarks.combine(a.store.visible(), webMarks)) }
+    }
+
+    /** Sends waiting changes and merges the server's. Reading never waits for this, and it never closes the book. */
+    private fun syncMarks() {
+        val a = annotations ?: return
+        viewModelScope.launch {
+            try {
+                a.refresh(setOf("pdf-page"))
+                val listed = a.listedOnly()
+                if (listed != null) webMarks = listed
+                _ui.update { it.copy(webMarksLoaded = listed != null) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _ui.update { it.copy(webMarksLoaded = false) }
+            }
+            publishMarks()
+        }
+    }
+
+    private fun changeMarks(change: suspend (com.litara.core.litara.EditionAnnotationSync) -> Unit) {
+        val a = annotations ?: return
+        viewModelScope.launch {
+            // The change is saved on the device before it is sent, so a failed send still shows it.
+            try { change(a) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { }
+            publishMarks()
+        }
+    }
+
+    override fun toggleBookmark() {
+        val page = _ui.value.currentPage
+        changeMarks { a ->
+            val existing = PdfMarks.bookmarkOn(PdfMarks.combine(a.store.visible(), emptyList()), page)
+            if (existing != null) a.delete(existing.id)
+            else a.create("bookmark", LLocator.PdfPage(page, 0.0, 0.0), null, "", "", null, null)
+        }
+    }
+
+    override fun addNote(pageIndex: Int, text: String) {
+        val note = text.trim().take(MAX_NOTE)
+        if (note.isNotEmpty()) changeMarks { it.create("note", LLocator.PdfPage(pageIndex, 0.0, 0.0), null, "", note, null, null) }
+    }
+
+    override fun editNote(id: String, text: String) {
+        val note = text.trim().take(MAX_NOTE)
+        if (note.isNotEmpty()) changeMarks { it.edit(id, text = note) }
+    }
+
+    override fun deleteMark(id: String) = changeMarks { it.delete(id) }
+
+    override fun jumpTo(pageIndex: Int) {
+        val total = _ui.value.pageCount
+        if (total <= 0) return
+        val page = pageIndex.coerceIn(0, total - 1)
+        _ui.update { it.copy(jump = PdfJump(page, ++jumps)) }
+        onPageChanged(page)
+    }
+
+    override fun jumpHandled(seq: Int) = _ui.update { if (it.jump?.seq == seq) it.copy(jump = null) else it }
 
     private fun load() {
         viewModelScope.launch {
@@ -206,6 +277,9 @@ class LitaraPdfViewModel @Inject constructor(
                 }
                 val file = repo.editionFile(snap)
                 val core = PdfRenderCore.open(context, LocalRef.PlainFile(file))
+                annotations = repo.editionAnnotations(snap)
+                publishMarks()
+                syncMarks()
                 val s = repo.editionProgress(snap).also { sync = it }
                 // Page granularity: only the page index of a server locator is used (its x/y are never applied or overwritten
                 // while the reader stays on that page). A device-only newer position wins when it has not been sent yet.

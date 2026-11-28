@@ -281,7 +281,7 @@ class SharedBookResponder(private val context: Context) {
             }
         }
 
-    private fun error(code: Int, reason: String) = WebResourceResponse("text/plain", "utf-8", code, reason, emptyMap(), InputStream.nullInputStream())
+    private fun error(code: Int, reason: String) = WebResourceResponse("text/plain", "utf-8", code, reason, emptyMap(), java.io.ByteArrayInputStream(ByteArray(0)))
 
     companion object {
         private const val MAX_BODY = 32L * 1024 * 1024

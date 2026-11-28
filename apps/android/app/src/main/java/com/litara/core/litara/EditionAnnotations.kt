@@ -180,6 +180,26 @@ class EditionAnnotationSync(
         last
     }
 
+    /**
+     * Server annotations of these bytes whose place this reader understands but whose text selection it does not (a PDF
+     * highlight made on the web). They are for listing only: never stored, edited, sent back or drawn on the page.
+     * Null when the server could not be asked.
+     */
+    suspend fun listedOnly(): List<LAnnotation>? = try {
+        client.listAllAnnotations(editionId).filter { s ->
+            val d = s.data ?: return@filter false
+            val selection = d.selection ?: return@filter false
+            d.anchor.fileId == fileId && d.anchor.contentVersion == contentVersion &&
+                policy.allows(engineProfile, d.anchor.locator, format) && !policy.allowsSelection(engineProfile, selection, format)
+        }
+    } catch (_: TransientException) {
+        null
+    } catch (_: LitaraHttpException) {
+        null
+    } catch (_: SessionEndedException) {
+        null
+    }
+
     private suspend fun deliverLocked(id: String): EditionReportOutcome {
         val a = store.get(id) ?: return EditionReportOutcome.Accepted
         val p = a.pending ?: return EditionReportOutcome.LocalOnly(engineProfile)

@@ -26,6 +26,7 @@ interface AudioProgressDao {
     @Query("SELECT * FROM audio_progress WHERE bookId >= ${LitaraSource.HANDLE_BASE} ORDER BY updatedAt DESC")
     fun observeRecent(): Flow<List<AudioProgressEntity>>
 
-    @Query("UPDATE audio_progress SET dirty = 0 WHERE bookId = :bookId")
-    suspend fun markSynced(bookId: Int)
+    /** Clears the flag only for the row that was sent: a newer position saved meanwhile is still waiting. */
+    @Query("UPDATE audio_progress SET dirty = 0 WHERE bookId = :bookId AND updatedAt = :sentUpdatedAt")
+    suspend fun markSynced(bookId: Int, sentUpdatedAt: Long)
 }

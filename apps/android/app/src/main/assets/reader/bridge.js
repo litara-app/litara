@@ -113,6 +113,7 @@ function applyStyles(settings) {
   if (!view) return;
   currentSettings = { ...DEFAULT_SETTINGS, ...(settings ?? currentSettings ?? {}) };
   const s = currentSettings;
+  document.documentElement.style.setProperty('--litara-highlight-blend', s.isDark ? 'normal' : 'multiply');
   const r = view.renderer;
   if (!r) return;
   r.setAttribute('max-column-count', String(s.maxColumnCount));
@@ -213,7 +214,8 @@ function getDrawFunction(style) {
         const g = createSVG('g');
         g.setAttribute('fill', color);
         g.style.opacity = '0.3';
-        g.style.mixBlendMode = 'multiply';
+        // Multiply darkens what is under it, which hides a highlight on a dark page (applyStyles sets this).
+        g.style.mixBlendMode = 'var(--litara-highlight-blend, multiply)';
         for (const { left, top, height, width } of Array.from(rects)) {
           const el = createSVG('rect');
           el.setAttribute('x', String(left));
