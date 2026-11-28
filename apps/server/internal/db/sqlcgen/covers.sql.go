@@ -172,6 +172,41 @@ func (q *Queries) ListTitleRecordingCovers(ctx context.Context, titleID uuid.UUI
 	return items, nil
 }
 
+const listUserTitleLibraryIDs = `-- name: ListUserTitleLibraryIDs :many
+SELECT x.library_id FROM (
+    SELECT e.library_id FROM editions e WHERE e.title_id = $1
+    UNION
+    SELECT r.library_id FROM active_recordings r WHERE r.title_id = $1
+) x JOIN user_library_grants g ON g.library_id = x.library_id AND g.user_id = $2
+ORDER BY x.library_id
+`
+
+type ListUserTitleLibraryIDsParams struct {
+	TitleID uuid.UUID `json:"title_id"`
+	UserID  uuid.UUID `json:"user_id"`
+}
+
+// The libraries the user is granted that hold an edition or recording of the title.
+func (q *Queries) ListUserTitleLibraryIDs(ctx context.Context, arg ListUserTitleLibraryIDsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listUserTitleLibraryIDs, arg.TitleID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var library_id uuid.UUID
+		if err := rows.Scan(&library_id); err != nil {
+			return nil, err
+		}
+		items = append(items, library_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setCoverSearchEnabled = `-- name: SetCoverSearchEnabled :one
 UPDATE cover_settings SET search_enabled = $1, updated_at = now() WHERE singleton RETURNING search_enabled
 `

@@ -7,6 +7,7 @@ const PROVIDERS: { value: string; label: string; note: string }[] = [
   { value: "open_library", label: "Open Library", note: "Books by title, author and ISBN. No account needed." },
   { value: "google_books", label: "Google Books", note: "Books by title, author and ISBN. An API key in the server's .env file avoids a shared rate limit." },
   { value: "hardcover", label: "Hardcover", note: "Books with series, editions and ratings. Needs a token in the server's .env file." },
+  { value: "goodreads", label: "Goodreads", note: "Books by title and ISBN, with ratings and covers. Unofficial: Goodreads does not offer this to apps, its terms disallow automated collection, and it can stop working at any time." },
   { value: "audnexus", label: "Audnexus", note: "Audiobook details by ASIN." },
 ];
 

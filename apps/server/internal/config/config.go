@@ -53,6 +53,10 @@ type Config struct {
 	OpenLibraryContact string
 	// HardcoverToken is the operator's Hardcover API token (ADR-0087). It is never logged or returned.
 	HardcoverToken string
+	// GoodreadsAPIKey and GoodreadsEndpoint replace the built-in public Goodreads web key and GraphQL address when
+	// Goodreads changes them (ADR-0115). Empty keeps the built-in ones.
+	GoodreadsAPIKey   string
+	GoodreadsEndpoint string
 	// ProviderSearchCacheMinutes is how long provider search results are kept in memory (0 turns the cache off).
 	ProviderSearchCacheMinutes int
 	// ScanWorkers bounds concurrent library scans.
@@ -149,6 +153,8 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		GoogleBooksAPIKey:          get("GOOGLE_BOOKS_API_KEY", ""),
 		OpenLibraryContact:         get("OPEN_LIBRARY_CONTACT", ""),
 		HardcoverToken:             get("HARDCOVER_TOKEN", ""),
+		GoodreadsAPIKey:            get("GOODREADS_API_KEY", ""),
+		GoodreadsEndpoint:          get("GOODREADS_ENDPOINT", ""),
 		ProviderSearchCacheMinutes: getInt("PROVIDER_SEARCH_CACHE_MINUTES", 10),
 		ScanWorkers:                getInt("SCAN_WORKERS", 2),
 		WebDir:                     get("WEB_DIR", ""),
@@ -176,6 +182,14 @@ func loadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	}
 	if strings.ContainsAny(c.HardcoverToken, "\r\n") {
 		errs = append(errs, fmt.Errorf("%sHARDCOVER_TOKEN must be a single line", prefix))
+	}
+	if strings.ContainsAny(c.GoodreadsAPIKey, "\r\n") {
+		errs = append(errs, fmt.Errorf("%sGOODREADS_API_KEY must be a single line", prefix))
+	}
+	if e := c.GoodreadsEndpoint; e != "" { // the key is sent there, so it must be encrypted
+		if u, err := url.Parse(e); err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+			errs = append(errs, fmt.Errorf("%sGOODREADS_ENDPOINT must be an https:// URL", prefix))
+		}
 	}
 	if c.PublicPrefix != "" && !strings.HasPrefix(c.PublicPrefix, "/") {
 		errs = append(errs, fmt.Errorf("%sPUBLIC_PATH_PREFIX must start with /", prefix))

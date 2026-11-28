@@ -158,6 +158,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0112](0112-remove-the-bookorbit-client.md) | Remove the BookOrbit client from Android and abandon its data | Accepted |
 | [0113](0113-android-pdf-highlighting.md) | How Android creates and draws PDF highlights | Accepted |
 | [0114](0114-physical-books-in-2-0-0.md) | Physical books in 2.0.0 | Accepted |
+| [0115](0115-goodreads-through-its-graphql-endpoint.md) | Add Goodreads as a metadata and cover source through its GraphQL endpoint | Accepted |
 
 ## Workflow
 

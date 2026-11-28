@@ -20,6 +20,20 @@ const (
 
 var errProviderBusy = errors.New("provider request budget is temporarily unavailable")
 
+// ConfigureGoodreads replaces the built-in Goodreads key and endpoint with the operator's (ADR-0115). Empty values keep
+// the built-in ones.
+func ConfigureGoodreads(providers map[string]Provider, apiKey, endpoint string) {
+	if g, ok := providers[ProviderGoodreads].(Goodreads); ok {
+		if k := strings.TrimSpace(apiKey); k != "" {
+			g.APIKey = k
+		}
+		if e := strings.TrimSpace(endpoint); e != "" {
+			g.API.BaseURL = e
+		}
+		providers[ProviderGoodreads] = g
+	}
+}
+
 // NewProviders creates one request budget per provider, shared by all library jobs.
 func NewProviders(openLibraryContact, googleBooksKey string) map[string]Provider {
 	return NewProvidersWithHardcover(openLibraryContact, googleBooksKey, "")
@@ -41,6 +55,7 @@ func NewProvidersWithHardcover(openLibraryContact, googleBooksKey, hardcoverToke
 		ProviderOpenLibrary: OpenLibrary{HTTP: openLibrary},
 		ProviderGoogleBooks: GoogleBooks{HTTP: newProviderHTTP(client, "https://www.googleapis.com", 1, false), APIKey: googleBooksKey},
 		ProviderAudnexus:    Audnexus{HTTP: newProviderHTTP(client, "https://api.audnex.us", 1, false)},
+		ProviderGoodreads:   NewGoodreads(client, "", ""),
 	}
 	if strings.TrimSpace(hardcoverToken) != "" {
 		out[ProviderHardcover] = Hardcover{HTTP: newProviderHTTP(client, "https://api.hardcover.app", 1, false), Token: hardcoverToken}

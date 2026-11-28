@@ -203,8 +203,8 @@ func (s *Service) SetSearchEnabled(ctx context.Context, on bool) (bool, error) {
 }
 
 // Search queries the cover sites; the caller has checked that search is enabled.
-func (s *Service) Search(ctx context.Context, title, author, medium string) ([]Result, error) {
-	out, err := s.searcher.Search(ctx, title, author, medium)
+func (s *Service) Search(ctx context.Context, title, author, medium string, more ...Source) ([]Result, error) {
+	out, err := s.searcher.Search(ctx, title, author, medium, more...)
 	if err != nil {
 		return nil, apperr.ErrUnavailable
 	}

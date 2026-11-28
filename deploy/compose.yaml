@@ -45,6 +45,8 @@ services:
       LITARA_DEV_INSECURE_HTTP: ${LITARA_DEV_INSECURE_HTTP:-}
       LITARA_PUBLIC_PATH_PREFIX: ${LITARA_PUBLIC_PATH_PREFIX:-}
       LITARA_OPEN_LIBRARY_CONTACT: ${LITARA_OPEN_LIBRARY_CONTACT:-}
+      LITARA_GOODREADS_API_KEY: ${LITARA_GOODREADS_API_KEY:-}
+      LITARA_GOODREADS_ENDPOINT: ${LITARA_GOODREADS_ENDPOINT:-}
       # Web app and reader assets bundled in the image, served on two distinct hostnames (ADR-0071). *.localhost resolves
       # to loopback in current browsers; behind a real TLS proxy set both origins to your https hostnames.
       LITARA_WEB_DIR: /opt/litara/web

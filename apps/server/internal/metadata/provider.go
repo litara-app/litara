@@ -90,10 +90,41 @@ func (h HTTP) post(ctx context.Context, path string, payload []byte, header map[
 
 // do runs one provider request under the shared per-provider budget: queueing, spacing, Retry-After and bounded retry.
 func (h HTTP) do(ctx context.Context, method, u string, payload []byte, header map[string]string, out any) (int, error) {
+	return h.exchange(ctx, h.Client, method, u, payload, header, out, func(resp *http.Response) (int, error) {
+		return h.decodeResponse(u, resp, out)
+	})
+}
+
+// redirect asks where an address redirects to, without following it. An address that does not exist is ("", nil).
+func (h HTTP) redirect(ctx context.Context, path string) (string, error) {
+	c := http.Client{Timeout: providerLookupTimeout}
+	if h.Client != nil {
+		c = *h.Client
+	}
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	target := ""
+	u := strings.TrimRight(h.BaseURL, "/") + path
+	_, err := h.exchange(ctx, &c, http.MethodHead, u, nil, nil, nil, func(resp *http.Response) (int, error) {
+		defer resp.Body.Close()
+		switch resp.StatusCode {
+		case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+			if target = resp.Header.Get("Location"); target != "" {
+				return resp.StatusCode, nil
+			}
+		case http.StatusNotFound:
+			return resp.StatusCode, nil
+		}
+		return resp.StatusCode, fmt.Errorf("provider returned status %d", resp.StatusCode)
+	})
+	return target, err
+}
+
+// exchange sends one request under the budget and hands the final response to handle, which closes its body. Only GET
+// responses are cached.
+func (h HTTP) exchange(ctx context.Context, c *http.Client, method, u string, payload []byte, header map[string]string, out any, handle func(*http.Response) (int, error)) (int, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	c := h.Client
 	if c == nil {
 		c = &http.Client{Timeout: providerLookupTimeout}
 	}
@@ -152,7 +183,7 @@ func (h HTTP) do(ctx context.Context, method, u string, payload []byte, header m
 			return 0, fmt.Errorf("provider request failed")
 		}
 		if p == nil || resp.StatusCode != http.StatusTooManyRequests {
-			return h.decodeResponse(u, resp, out)
+			return handle(resp)
 		}
 		now := time.Now()
 		if until := now.Add(retryDelay(resp.Header.Get("Retry-After"), now)); until.After(p.next) {

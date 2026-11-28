@@ -310,7 +310,7 @@ type SearchOptions struct {
 	Only []string
 }
 
-var knownProviders = map[string]bool{ProviderOpenLibrary: true, ProviderGoogleBooks: true, ProviderAudnexus: true, ProviderHardcover: true}
+var knownProviders = map[string]bool{ProviderOpenLibrary: true, ProviderGoogleBooks: true, ProviderAudnexus: true, ProviderHardcover: true, ProviderGoodreads: true}
 
 // Search looks one query up with the library's enabled providers for a person
 // to review (ADR-0060). It stores nothing and changes no value. A cancelled
@@ -366,6 +366,31 @@ func (e *Enricher) Search(ctx context.Context, lib uuid.UUID, q Query, opts Sear
 			res.Candidates = append(res.Candidates, Candidate{Match: m, Consistent: consistent(m, q.Title, q.Authors)})
 		}
 		out.Results = append(out.Results, res)
+	}
+	return out, nil
+}
+
+// TitleCoverProviders returns the providers that offer covers among those enabled by the libraries holding a title that
+// the user can open. Each appears once.
+func (e *Enricher) TitleCoverProviders(ctx context.Context, userID, titleID uuid.UUID) ([]CoverProvider, error) {
+	q := sqlcgen.New(e.Pool)
+	libs, err := q.ListUserTitleLibraryIDs(ctx, sqlcgen.ListUserTitleLibraryIDsParams{TitleID: titleID, UserID: userID})
+	if err != nil {
+		return nil, err
+	}
+	var out []CoverProvider
+	seen := map[string]bool{}
+	for _, lib := range libs {
+		cfg, err := q.GetLibraryConfig(ctx, lib)
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range cfg.ProviderOrder {
+			if p, ok := e.Providers[name].(CoverProvider); ok && !seen[name] {
+				seen[name] = true
+				out = append(out, p)
+			}
+		}
 	}
 	return out, nil
 }
