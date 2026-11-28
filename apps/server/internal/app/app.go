@@ -47,6 +47,8 @@ type WorkerOptions struct {
 	KOReaderDigests jobs.DigestIndexer
 	// Delivery enables the email submission queue. Nil leaves it off.
 	Delivery jobs.DeliveryProcessor
+	// PaperImports enables applying CSV imports of paper books and expiring unapplied ones. Nil leaves it off.
+	PaperImports jobs.PaperImporter
 }
 
 func WorkerOptionsFrom(cfg *config.Config) WorkerOptions {
@@ -85,6 +87,12 @@ func NewWorkerClient(pool *pgxpool.Pool, insp jobs.Inspector, opts WorkerOptions
 		}
 		periodic = append(periodic, jobs.ScanPeriodic())
 		defer func() { pe.client = client }()
+	}
+	if opts.PaperImports != nil {
+		queues[jobs.QueueImport] = river.QueueConfig{MaxWorkers: 1}
+		river.AddWorker(workers, &jobs.PaperImportWorker{Importer: opts.PaperImports, Logger: log})
+		river.AddWorker(workers, &jobs.PaperExpiryWorker{Importer: opts.PaperImports})
+		periodic = append(periodic, jobs.PaperExpiryPeriodic())
 	}
 	if opts.KOReaderDigests != nil {
 		queues[jobs.QueueKOReader] = river.QueueConfig{MaxWorkers: 1}
@@ -130,6 +138,10 @@ func (l *lateEnqueuer) EnqueueExtract(ctx context.Context, tx pgx.Tx, id uuid.UU
 
 func (l *lateEnqueuer) EnqueueImport(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 	return jobs.RiverEnqueuer{Client: l.client}.EnqueueImport(ctx, tx, id)
+}
+
+func (l *lateEnqueuer) EnqueuePaperImport(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+	return jobs.RiverEnqueuer{Client: l.client}.EnqueuePaperImport(ctx, tx, id)
 }
 
 // NewInsertClient builds an insert-only client (no workers) for submitters

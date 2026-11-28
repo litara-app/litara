@@ -10,7 +10,7 @@ import { Select, SelectClear, SelectContent, SelectItem, SelectItemIndicator, Se
 import { Slider, SliderControl, SliderIndicator, SliderThumb, SliderTrack } from "@ui-sdk/react/slider";
 import { Switch, SwitchThumb } from "@ui-sdk/react/switch";
 import { Textarea } from "@ui-sdk/react/textarea";
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { Link } from "react-router";
 import { icons } from "./icons";
 import { Tip } from "./overlays";
@@ -251,9 +251,20 @@ export function RangeSlider({ label, min, max, step, value, onChange, onCommit, 
 }
 
 export function SearchField({ label, value, onValue, placeholder }: { label: string; value: string; onValue: (v: string) => void; placeholder?: string }) {
+  // The box keeps its own text. A controlled input is written to on every redraw, and a redraw that React runs while
+  // a keystroke is being handled puts the old text back before the change is read: what was typed is lost, and the
+  // app never hears of it. So the box is written only when the value changes from somewhere else.
+  const box = useRef<HTMLInputElement>(null);
+  const known = useRef(value);
+  useEffect(() => {
+    if (value === known.current) return;
+    known.current = value;
+    if (box.current) box.current.value = value;
+  }, [value]);
   return (
     <InputGroup className="lt-search-field">
-      <Input type="search" aria-label={label} placeholder={placeholder} value={value} onChange={(e) => onValue(e.currentTarget.value)} />
+      <Input ref={box} type="search" aria-label={label} placeholder={placeholder} defaultValue={value}
+        onChange={(e) => { known.current = e.currentTarget.value; onValue(e.currentTarget.value); }} />
       <InputClear aria-label={`Clear ${label.toLowerCase()}`}>{icons.close}</InputClear>
     </InputGroup>
   );
@@ -267,6 +278,25 @@ export function ColumnFilter({ label, value, onValue, placeholder, type = "searc
 }
 
 /** Choose or drop one image. `onFile` runs with the file as soon as it passes the type and size checks. */
+/** Choose or drop one file of the given types. `onReject` says whether the refused file was too large. */
+export function FileDrop({ label, hint, accept, maxSize, onFile, onReject, disabled }: {
+  label: string; hint: string; accept: string[]; maxSize: number; onFile: (f: File) => void; onReject: (tooLarge: boolean) => void; disabled?: boolean;
+}) {
+  return (
+    <FileInput accept={accept} maxSize={maxSize} disabled={disabled}
+      onValueChange={(files) => { const f = files[0]; if (f) onFile(f); }}
+      onReject={(rejected) => onReject(!!rejected[0]?.reasons.includes("file-size"))}>
+      <FileInputDropzone className="lt-dropzone">
+        <span className="lt-dropzone-icon" aria-hidden="true">{icons.files}</span>
+        <Text size="sm" tone="dim">{hint}</Text>
+        <FileInputTrigger className="lt-btn" data-variant="default" data-size="md" aria-label={label}>
+          <span className="lt-btn-icon" aria-hidden="true">{icons.plus}</span>{label}
+        </FileInputTrigger>
+      </FileInputDropzone>
+    </FileInput>
+  );
+}
+
 export function ImageDrop({ label, onFile, onReject, disabled }: { label: string; onFile: (f: File) => void; onReject: (why: string) => void; disabled?: boolean }) {
   return (
     <FileInput accept={["image/jpeg", "image/png", "image/webp"]} maxSize={10 * 1024 * 1024} disabled={disabled}

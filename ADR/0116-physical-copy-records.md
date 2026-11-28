@@ -175,6 +175,6 @@ The eight questions in the proposal are answered. These are not decided:
 - **CSV import design,** needed before the import is built: which files and columns it accepts, whether it starts from a
   Goodreads library export as the report suggested, what the person reviews before saving, how it treats existing
   ratings, reading dates and books already in the catalogue, who may run it, and whether it comes with the first slice or
-  after it.
+  after it. Accepted [ADR-0117](0117-csv-import-of-paper-books.md) decides these.
 - **Phone scanning:** when it is added.
 - **Libraries without a folder:** whether and when to support them.

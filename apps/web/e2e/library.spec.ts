@@ -26,3 +26,22 @@ test("library table rows keep their fixed height, with small covers inside them"
     expect(s.width).toBeLessThanOrEqual(30);
   }
 });
+
+test("the library search box can be cleared and follows the address", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel(/Username/).fill("fixture-user-a");
+  await page.getByLabel(/Password/).fill("synthetic-fixture-password");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByTestId("whoami")).toBeAttached();
+  const box = page.getByRole("searchbox", { name: "Search" });
+  await page.goto("/?q=damaged");
+  await expect(box).toHaveValue("damaged");
+  await page.getByRole("button", { name: "Clear search" }).click();
+  await expect(box).toHaveValue("");
+  await expect(page).not.toHaveURL(/[?&]q=/);
+  await box.fill("damaged");
+  await expect(page).toHaveURL(/[?&]q=damaged/);
+  // Leaving the search through the sidebar empties the box too.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Library", exact: true }).click();
+  await expect(box).toHaveValue("");
+});

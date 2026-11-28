@@ -259,6 +259,32 @@ func paperValues(t wire.NewPaperTitle) (string, []string, map[string]json.RawMes
 	return name, authors, values, nil
 }
 
+// insertPaperTitle creates a book that has only paper copies, with its details as protected user values.
+func insertPaperTitle(ctx context.Context, q *sqlcgen.Queries, t wire.NewPaperTitle) (uuid.UUID, error) {
+	name, authors, values, err := paperValues(t)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	id := uuid.New()
+	key := metadata.TitleKey(name, authors)
+	var series *string
+	if t.Series != nil && strings.TrimSpace(*t.Series) != "" {
+		v := strings.TrimSpace(*t.Series)
+		series = &v
+	}
+	if err := q.InsertPaperTitle(ctx, sqlcgen.InsertPaperTitleParams{ID: id, Title: name, Authors: authors,
+		SeriesName: series, SeriesIndex: t.SeriesIndex, GroupKey: &key}); err != nil {
+		return uuid.Nil, err
+	}
+	for field, raw := range values {
+		if _, err := q.UpsertMetadataValue(ctx, sqlcgen.UpsertMetadataValueParams{SubjectKind: "title", SubjectID: id,
+			Field: field, Source: metadata.SourceUser, Value: raw}); err != nil {
+			return uuid.Nil, err
+		}
+	}
+	return id, nil
+}
+
 // adminWrite runs one revisioned, idempotent copy change and decodes the copy it returns.
 func (s *Service) adminWrite(ctx context.Context, userID, op uuid.UUID, fp []byte, lock func(pgx.Tx, *sqlcgen.Queries) error,
 	w func(tx pgx.Tx, q *sqlcgen.Queries) (sqlcgen.PhysicalCopy, *apperr.Error, error)) (wire.PhysicalCopy, error) {
@@ -298,13 +324,12 @@ func (s *Service) AddCopy(ctx context.Context, userID uuid.UUID, in wire.AddPhys
 	var existing uuid.UUID
 	var name, key string
 	var authors []string
-	var values map[string]json.RawMessage
 	if in.TitleID != nil {
 		if existing, err = parseUUID("titleId", *in.TitleID); err != nil {
 			return wire.PhysicalCopy{}, err
 		}
 	} else {
-		if name, authors, values, err = paperValues(*in.NewTitle); err != nil {
+		if name, authors, _, err = paperValues(*in.NewTitle); err != nil {
 			return wire.PhysicalCopy{}, err
 		}
 		key = metadata.TitleKey(name, authors)
@@ -346,22 +371,11 @@ func (s *Service) AddCopy(ctx context.Context, userID uuid.UUID, in wire.AddPhys
 							"Your catalogue has a book that may be this one. Add the copy to it, or confirm that this is a separate book.")
 					}
 				}
-				title = uuid.New()
-				var series *string
-				if in.NewTitle.Series != nil && strings.TrimSpace(*in.NewTitle.Series) != "" {
-					v := strings.TrimSpace(*in.NewTitle.Series)
-					series = &v
-				}
-				if err := q.InsertPaperTitle(ctx, sqlcgen.InsertPaperTitleParams{ID: title, Title: name, Authors: authors,
-					SeriesName: series, SeriesIndex: in.NewTitle.SeriesIndex, GroupKey: &key}); err != nil {
+				created, err := insertPaperTitle(ctx, q, *in.NewTitle)
+				if err != nil {
 					return none, nil, err
 				}
-				for field, raw := range values {
-					if _, err := q.UpsertMetadataValue(ctx, sqlcgen.UpsertMetadataValueParams{SubjectKind: "title", SubjectID: title,
-						Field: field, Source: metadata.SourceUser, Value: raw}); err != nil {
-						return none, nil, err
-					}
-				}
+				title = created
 			}
 			id := uuid.New()
 			if err := q.InsertPhysicalCopy(ctx, sqlcgen.InsertPhysicalCopyParams{ID: id, TitleID: title, LibraryID: library,

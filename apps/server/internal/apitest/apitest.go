@@ -306,6 +306,14 @@ type Queue struct {
 	Scans    []uuid.UUID
 	Imports  []uuid.UUID
 	Extracts []uuid.UUID
+	Papers   []uuid.UUID
+}
+
+func (q *Queue) EnqueuePaperImport(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.Papers = append(q.Papers, id)
+	return nil
 }
 
 func (q *Queue) EnqueueScan(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
@@ -360,9 +368,14 @@ func (q *Queue) EnqueueImport(_ context.Context, _ pgx.Tx, id uuid.UUID) error {
 func (e *Env) RunQueued() {
 	e.T.Helper()
 	e.Queue.mu.Lock()
-	scans, imports, extracts := e.Queue.Scans, e.Queue.Imports, e.Queue.Extracts
-	e.Queue.Scans, e.Queue.Imports, e.Queue.Extracts = nil, nil, nil
+	scans, imports, extracts, papers := e.Queue.Scans, e.Queue.Imports, e.Queue.Extracts, e.Queue.Papers
+	e.Queue.Scans, e.Queue.Imports, e.Queue.Extracts, e.Queue.Papers = nil, nil, nil, nil
 	e.Queue.mu.Unlock()
+	for _, id := range papers {
+		if err := e.Reading.RunPaperImport(context.Background(), id); err != nil {
+			e.T.Fatalf("paper import %s: %v", id, err)
+		}
+	}
 	for _, id := range scans {
 		if _, err := e.Scanner.Run(context.Background(), id); err != nil {
 			e.T.Fatalf("scan %s: %v", id, err)

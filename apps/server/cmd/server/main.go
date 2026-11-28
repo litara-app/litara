@@ -106,6 +106,7 @@ func run() error {
 	rd := reading.New(pool, cat, nil)
 	wopts := app.WorkerOptionsFrom(cfg)
 	wopts.Extractor = rd
+	wopts.PaperImports = rd
 	scanner := &ingest.Scanner{Pool: pool, Inspector: scanInsp, Log: log}
 	imp := &importer.Service{Pool: pool, Inspector: scanInsp}
 	wopts.Scanner, wopts.Importer, wopts.ScanWorkers = scanner, imp, cfg.ScanWorkers

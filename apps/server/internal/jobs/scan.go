@@ -40,6 +40,8 @@ type Enqueuer interface {
 	EnqueueScan(ctx context.Context, tx pgx.Tx, runID uuid.UUID) error
 	// EnqueueImport does the same for an approved import plan.
 	EnqueueImport(ctx context.Context, tx pgx.Tx, planID uuid.UUID) error
+	// EnqueuePaperImport does the same for an applied CSV import of paper books.
+	EnqueuePaperImport(ctx context.Context, tx pgx.Tx, importID uuid.UUID) error
 }
 
 // RiverEnqueuer is the River-backed Enqueuer.

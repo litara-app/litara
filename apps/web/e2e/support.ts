@@ -10,6 +10,7 @@ import { expect, type Page } from "@playwright/test";
 export async function openTitle(page: Page, title: string) {
   await page.goto("/");
   await page.getByLabel("Search").fill(title);
+  await expect(page).toHaveURL(/[?&]q=/); // until then the list on screen, if any, is not the search's
   const cards = page.getByTestId("title-item");
   await expect(cards.filter({ hasText: title }).first()).toBeVisible({ timeout: 15_000 });
   await expect(cards.filter({ hasNotText: title })).toHaveCount(0, { timeout: 15_000 });
