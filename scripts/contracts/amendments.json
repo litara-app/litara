@@ -499,6 +499,56 @@
       "difference": "TitleDetail: required differs: contract=['editionsPath', 'recordingsPath', 'title'] generated=['description', 'editionsPath', 'published', 'publisher', 'recordingsPath', 'title']",
       "adr": "ADR-0116",
       "reason": "paper copy count on titles"
+    },
+    {
+      "difference": "operation applyPaperImport: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
+    },
+    {
+      "difference": "operation createPaperImport: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
+    },
+    {
+      "difference": "operation deletePaperImport: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
+    },
+    {
+      "difference": "operation getPaperImport: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
+    },
+    {
+      "difference": "operation getPaperImportReport: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
+    },
+    {
+      "difference": "operation getPaperImportTemplate: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
+    },
+    {
+      "difference": "operation listPaperImportRows: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
+    },
+    {
+      "difference": "operation listPaperImports: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
+    },
+    {
+      "difference": "operation setPaperImportOptions: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
+    },
+    {
+      "difference": "operation setPaperImportRow: not in the contract (unexpected route)",
+      "adr": "ADR-0117",
+      "reason": "CSV import of paper books"
     }
   ]
 }

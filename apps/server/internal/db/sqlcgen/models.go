@@ -613,6 +613,40 @@ type PaperHistory struct {
 	ReceivedAt  time.Time `json:"received_at"`
 }
 
+type PaperImport struct {
+	ID             uuid.UUID  `json:"id"`
+	UserID         uuid.UUID  `json:"user_id"`
+	LibraryID      uuid.UUID  `json:"library_id"`
+	Source         string     `json:"source"`
+	State          string     `json:"state"`
+	Ownership      *string    `json:"ownership"`
+	Shelves        []string   `json:"shelves"`
+	IncludeReading bool       `json:"include_reading"`
+	Revision       int64      `json:"revision"`
+	RowCount       int32      `json:"row_count"`
+	CreatedAt      time.Time  `json:"created_at"`
+	ExpiresAt      time.Time  `json:"expires_at"`
+	AppliedAt      *time.Time `json:"applied_at"`
+	CompletedAt    *time.Time `json:"completed_at"`
+}
+
+type PaperImportRow struct {
+	ImportID       uuid.UUID     `json:"import_id"`
+	RowNo          int32         `json:"row_no"`
+	Title          string        `json:"title"`
+	Author         string        `json:"author"`
+	Data           []byte        `json:"data"`
+	Selected       *bool         `json:"selected"`
+	Choice         *string       `json:"choice"`
+	ChoiceTitleID  uuid.NullUUID `json:"choice_title_id"`
+	PlannedAction  *string       `json:"planned_action"`
+	PlannedTitleID uuid.NullUUID `json:"planned_title_id"`
+	Outcome        *string       `json:"outcome"`
+	OutcomeDetail  *string       `json:"outcome_detail"`
+	ResultTitleID  uuid.NullUUID `json:"result_title_id"`
+	CopyIds        []uuid.UUID   `json:"copy_ids"`
+}
+
 type PaperReadingState struct {
 	UserID    uuid.UUID  `json:"user_id"`
 	CopyID    uuid.UUID  `json:"copy_id"`

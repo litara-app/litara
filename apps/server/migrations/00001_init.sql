@@ -792,6 +792,49 @@ CREATE TABLE paper_history (
 );
 CREATE INDEX paper_history_title_idx ON paper_history (user_id, title_id, seq);
 
+-- ADR-0117: a CSV list of paper books, uploaded, reviewed and then applied. The file is not kept. Rows hold private
+-- reviews, so only the uploader sees a plan, row contents are cleared once applied, and an unapplied plan is deleted
+-- when it expires.
+CREATE TABLE paper_imports (
+    id              uuid PRIMARY KEY,
+    user_id         uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    library_id      uuid NOT NULL REFERENCES libraries (id) ON DELETE CASCADE,
+    source          text NOT NULL CHECK (source IN ('goodreads', 'litara')),
+    state           text NOT NULL DEFAULT 'review' CHECK (state IN ('review', 'applying', 'completed')),
+    -- "Which books in this file do you own on paper?" has no starting answer.
+    ownership       text CHECK (ownership IN ('all', 'owned', 'shelves', 'pick')),
+    shelves         text[] NOT NULL DEFAULT '{}',
+    include_reading boolean NOT NULL DEFAULT false,
+    revision        bigint NOT NULL DEFAULT 1 CHECK (revision >= 1),
+    row_count       integer NOT NULL CHECK (row_count >= 1),
+    created_at      timestamptz NOT NULL,
+    expires_at      timestamptz NOT NULL,
+    applied_at      timestamptz,
+    completed_at    timestamptz
+);
+CREATE INDEX paper_imports_user_idx ON paper_imports (user_id, created_at);
+
+CREATE TABLE paper_import_rows (
+    import_id       uuid NOT NULL REFERENCES paper_imports (id) ON DELETE CASCADE,
+    row_no          integer NOT NULL,
+    title           text NOT NULL,
+    author          text NOT NULL,
+    -- What the file said; cleared when the import completes.
+    data            jsonb,
+    -- The person's own selection and choice; NULL leaves what the ownership answer and matching start with.
+    selected        boolean,
+    choice          text CHECK (choice IN ('attach', 'separate', 'skip')),
+    choice_title_id uuid,
+    -- Fixed when the person applies, so the job does what was reviewed.
+    planned_action  text,
+    planned_title_id uuid,
+    outcome         text CHECK (outcome IN ('added', 'attached', 'reading_added', 'skipped', 'failed')),
+    outcome_detail  text,
+    result_title_id uuid,
+    copy_ids        uuid[] NOT NULL DEFAULT '{}',
+    PRIMARY KEY (import_id, row_no)
+);
+
 -- What makes a title visible: an ebook edition, a recording or a paper copy that has not been removed, each in one
 -- library (ADR-0116). A title shows to an account that is granted one of these libraries.
 CREATE VIEW title_holdings AS
@@ -1367,6 +1410,8 @@ DROP TABLE IF EXISTS cover_settings;
 DROP TABLE IF EXISTS title_covers;
 DROP FUNCTION IF EXISTS title_rows(uuid);
 DROP VIEW IF EXISTS title_holdings;
+DROP TABLE IF EXISTS paper_import_rows;
+DROP TABLE IF EXISTS paper_imports;
 DROP TABLE IF EXISTS paper_history;
 DROP TABLE IF EXISTS paper_reading_state;
 DROP TABLE IF EXISTS physical_copies;
