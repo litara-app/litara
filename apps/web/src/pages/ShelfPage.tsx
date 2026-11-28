@@ -4,12 +4,14 @@ import { useNavigate, useParams } from "react-router";
 import { api, ApiError, get, op } from "../api/client";
 import type { Page as Paged, Shelf, Title as TitleT } from "../api/types";
 import { ShelfFilterCard } from "./filter/ShelfFilterCard";
-import { icons, Alert, Badge, Busy, Button, Card, ConfirmDialog, EmptyState, ErrorBox, IconButton, Page, PageHeader, Row, Stack, Text, TextLink, Tip } from "../ui";
+import { icons, Alert, Badge, Busy, Button, Card, ConfirmDialog, EmptyState, ErrorBox, IconButton, Page, PageHeader, Row, Stack, Text, TextLink, Tip, VirtualList } from "../ui";
 
 /** The most titles the server returns in one request. */
 const SIZE = 200;
 /** The most titles a new order can name (the API's limit for visibleTitleIds). */
 const MAX_ORDER = 10_000;
+/** A first guess at a row's height; each drawn row is then measured. */
+const ROW_ESTIMATE = 72;
 
 export function ShelfPage() {
   const { shelfId = "" } = useParams();
@@ -92,8 +94,9 @@ export function ShelfPage() {
         ))}
       {titles.isPending ? <Busy /> : items.length === 0 ? (!titles.error && <EmptyState title="No visible titles" />) : (
         <Stack gap="sm">
-          {items.map((t, i) => (
-            <Card key={t.id} data-testid="shelf-title" pad="sm">
+          {/* Only the rows near the screen are drawn, so a shelf with thousands of titles stays quick (ADR-0084). */}
+          <VirtualList items={items} estimate={ROW_ESTIMATE} getKey={(t) => t.id} render={(t, i) => (
+            <Card data-testid="shelf-title" pad="sm">
               <Row justify="between">
                 <Stack gap="xs">
                   <TextLink to={`/titles/${t.id}`}>{t.title}</TextLink>
@@ -108,7 +111,7 @@ export function ShelfPage() {
                 )}
               </Row>
             </Card>
-          ))}
+          )} />
           {titles.hasNextPage && (
             <>
               <Text size="sm" tone="dim" data-testid="shelf-shown">Showing {items.length} of {total} titles</Text>

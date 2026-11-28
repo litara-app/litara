@@ -1,10 +1,13 @@
 package com.litara.feature.reader.pdf
 
-import com.litara.core.litara.LAnnotation
+import com.litara.core.litara.HighlightColors
 import com.litara.core.litara.LLocator
+import com.litara.core.litara.LRectangle
+import com.litara.core.litara.LSelection
 import com.litara.core.litara.LocalAnnotation
+import com.litara.feature.reader.SharedReaderProtocol
 
-/** A note, bookmark or web highlight on one PDF page. This reader places them by page only. */
+/** A highlight, note or bookmark on one PDF page. The system reader places them by page; highlight mode draws them. */
 data class PdfMark(
     val id: String,
     val kind: Kind,
@@ -12,8 +15,10 @@ data class PdfMark(
     val page: Int,
     val text: String = "",
     val quote: String = "",
-    /** Made with a text selection on the web: listed here, changed only on the web. */
-    val readOnly: Boolean = false,
+    /** The selected text or area, as fractions of the page's unrotated crop box. Empty for a page note or bookmark. */
+    val rectangles: List<LRectangle> = emptyList(),
+    /** A colour name (ADR-0094), or null for the default look. */
+    val color: String? = null,
     /** Saved on this device and not yet accepted by the server. */
     val waiting: Boolean = false,
     /** The server kept this change as a conflict; the person decides in the web app. */
@@ -33,24 +38,20 @@ object PdfMarks {
         else -> null
     }
 
-    /** This device's notes and bookmarks plus the web's highlights, in page order. */
-    fun combine(local: List<LocalAnnotation>, web: List<LAnnotation>): List<PdfMark> {
-        val own = local.mapNotNull { a ->
-            val page = (a.locator as? LLocator.PdfPage)?.pageIndex ?: return@mapNotNull null
-            val kind = kindOf(a.kind) ?: return@mapNotNull null
-            PdfMark(a.id, kind, page, a.text, a.quote, waiting = a.pending != null, conflict = a.conflict != null)
-        }
-        val ids = own.map { it.id }.toSet()
-        val other = web.mapNotNull { s ->
-            val d = s.data ?: return@mapNotNull null
-            val page = (d.anchor.locator as? LLocator.PdfPage)?.pageIndex ?: return@mapNotNull null
-            val kind = kindOf(d.kind) ?: return@mapNotNull null
-            if (s.id in ids) null else PdfMark(s.id, kind, page, d.text, d.quote, readOnly = true)
-        }
-        return (own + other).sortedWith(compareBy<PdfMark> { it.page }.thenBy { it.kind }.thenBy { it.id })
-    }
+    /** This file's annotations in page order. */
+    fun from(local: List<LocalAnnotation>): List<PdfMark> = local.mapNotNull { a ->
+        val selection = a.selection as? LSelection.PdfRectangles
+        val page = selection?.pageIndex ?: (a.locator as? LLocator.PdfPage)?.pageIndex ?: return@mapNotNull null
+        val kind = kindOf(a.kind) ?: return@mapNotNull null
+        PdfMark(a.id, kind, page, a.text, a.quote, selection?.rectangles.orEmpty(), a.color,
+            waiting = a.pending != null, conflict = a.conflict != null)
+    }.sortedWith(compareBy<PdfMark> { it.page }.thenBy { it.kind }.thenBy { it.id })
 
     /** The bookmark on [page] that the ribbon button shows and removes. */
-    fun bookmarkOn(marks: List<PdfMark>, page: Int): PdfMark? =
-        marks.firstOrNull { it.kind == PdfMark.Kind.BOOKMARK && it.page == page && !it.readOnly }
+    fun bookmarkOn(marks: List<PdfMark>, page: Int): PdfMark? = marks.firstOrNull { it.kind == PdfMark.Kind.BOOKMARK && it.page == page }
+
+    /** What the engine draws in highlight mode: every mark that has a place inside its page. */
+    fun paint(marks: List<PdfMark>): List<SharedReaderProtocol.PdfPaint> = marks.filter { it.rectangles.isNotEmpty() }.map {
+        SharedReaderProtocol.PdfPaint(it.id, it.kind == PdfMark.Kind.NOTE, it.page, it.rectangles, HighlightColors.shade(it.color))
+    }
 }

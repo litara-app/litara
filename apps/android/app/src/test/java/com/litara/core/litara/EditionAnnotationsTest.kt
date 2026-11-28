@@ -69,22 +69,24 @@ class EditionAnnotationsTest {
         assertEquals("the old record is still recoverable", 1, s1.store.visible().size)
     }
 
-    @Test fun `a PDF highlight made on the web is listed but never stored or sent`() = runBlocking {
+    @Test fun `PDF highlights from the web are stored, and one made in highlight mode is sent with its rectangles`() = runBlocking {
         val page = "{\"kind\":\"pdf-page\",\"version\":1,\"pageIndex\":3,\"x\":0.1,\"y\":0.2}"
         val highlight = serverCopy("h1", "1", "highlight", loc = page).replace("\"selection\":null",
             "\"selection\":{\"kind\":\"pdf-rectangles\",\"version\":1,\"pageIndex\":3,\"rectangles\":[{\"x\":0.1,\"y\":0.2,\"width\":0.3,\"height\":0.05}]}")
-        val note = serverCopy("n1", "1", "note", loc = page, text = "plain page note")
         val otherBytes = highlight.replace("\"h1\"", "\"h2\"").replace("\"contentVersion\":\"v1\"", "\"contentVersion\":\"v0\"")
-        val list = "{\"items\":[$highlight,$note,$otherBytes],\"total\":3,\"page\":0,\"size\":200}"
-        val s = sync(LocatorPolicy.NATIVE, profile = "pdfjs@x/profile-1", format = "pdf")
-        server.enqueue(MockResponse().setBody(list))
-        s.refresh(setOf("pdf-page"))
-        assertEquals("the page note syncs, the highlight is not stored", listOf("n1"), s.store.visible().map { it.id })
-        server.enqueue(MockResponse().setBody(list))
-        assertEquals(listOf("h1"), s.listedOnly()!!.map { it.id })
-        assertEquals("only the two reads reached the server", 2, server.requestCount)
-        server.enqueue(MockResponse().setResponseCode(503))
-        assertNull("unknown, not empty, when the server cannot be asked", s.listedOnly())
+        val s = sync(LocatorPolicy.NATIVE, profile = "pdfjs-dist@x/profile-1", format = "pdf")
+        server.enqueue(MockResponse().setBody("{\"items\":[$highlight,$otherBytes],\"total\":2,\"page\":0,\"size\":200}"))
+        s.refresh(setOf("pdf-page", "pdf-rectangles"))
+        assertEquals("only this file's highlight", listOf("h1"), s.store.visible().map { it.id })
+        server.takeRequest()
+
+        server.enqueue(MockResponse().setBody(highlight))
+        val picked = LSelection.PdfRectangles(3, listOf(LRectangle(0.2, 0.3, 0.25, 0.04)))
+        val (_, outcome) = s.create("highlight", LLocator.PdfPage(3, 0.2, 0.3), picked, "words", "", "green", null)
+        assertEquals(EditionReportOutcome.Accepted, outcome)
+        val data = body(server.takeRequest())["data"]!!.jsonObject
+        assertEquals("pdf-rectangles", data["selection"]!!.jsonObject["kind"]!!.jsonPrimitive.content)
+        assertEquals("green", data["color"]!!.jsonPrimitive.content)
     }
 
     @Test fun `a comic bookmark is created with base 0 and a client id and then carries the server revision`() = runBlocking {

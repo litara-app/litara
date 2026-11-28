@@ -149,6 +149,10 @@ class ReaderController {
         if (kind != "pdf") sharedSend(SharedReaderProtocol.style(params.settings))
     }
 
+    /** PDF highlight mode (ADR-0113): the area box, and the saved highlights to draw. */
+    fun setPdfAreaMode(area: Boolean) = sharedSend(SharedReaderProtocol.pdfAreaMode(area))
+    fun setPdfAnnotations(items: List<SharedReaderProtocol.PdfPaint>) = sharedSend(SharedReaderProtocol.pdfAnnotations(items))
+
     /** A bundled reading font's faces (ADR-0091), as bytes over the channel. */
     fun setFont(id: String, faces: List<FontFace>) = sharedSend(SharedReaderProtocol.fonts(id, faces))
 

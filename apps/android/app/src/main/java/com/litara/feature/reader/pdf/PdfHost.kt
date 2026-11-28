@@ -18,6 +18,10 @@ interface PdfHost {
     fun toggleBookmark()
     fun addNote(pageIndex: Int, text: String)
     fun editNote(id: String, text: String)
+
+    /** A highlight (or, with [note], a note) on a selection made in highlight mode. [color] is a name or a picker shade. */
+    fun addHighlight(selection: com.litara.feature.reader.SharedEvent.PdfPick, quote: String, color: String?, note: String?)
+    fun setMarkColor(id: String, color: String)
     fun deleteMark(id: String)
     fun updateSettings(settings: PdfReaderSettings)
     fun search(query: String)

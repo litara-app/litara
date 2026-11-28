@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-12
 Decision owner: Repository owner
+Amended by: [ADR-0114](0114-physical-books-in-2-0-0.md)
 
 ## Context
 

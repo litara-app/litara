@@ -279,11 +279,10 @@
     <string name="litara_search_books">Search books</string>
     <string name="litara_search_clear">Clear search</string>
     <string name="litara_search_no_matches">No matches.</string>
-    <string name="litara_audio_only">Audiobooks, EPUB-family books, PDF and comics are available. Reading positions sync with the server for EPUB, FB2, PDF (by page) and comics. Highlights, notes and bookmarks sync for EPUB and FB2, notes and bookmarks for PDF (by page), and bookmarks for comics. KEPUB, MOBI and AZW books keep them on this device only until those formats are verified against the web reader. PDF highlights are made in the web app and listed here by page.</string>
-    <string name="pdf_notes_title">Notes and bookmarks</string>
-    <string name="pdf_notes_empty">No notes or bookmarks in this PDF yet.</string>
-    <string name="pdf_notes_highlight_hint">Highlight PDF text in the web app. Highlights are listed here by page.</string>
-    <string name="pdf_notes_web_unavailable">Highlights made on the web appear when the server can be reached.</string>
+    <string name="litara_audio_only">Audiobooks, EPUB-family books, PDF and comics are available. Reading positions sync with the server for EPUB, FB2, PDF (by page) and comics. Highlights, notes and bookmarks sync for EPUB, FB2 and PDF, and bookmarks for comics. KEPUB, MOBI and AZW books keep them on this device only until those formats are verified against the web reader.</string>
+    <string name="pdf_notes_title">Highlights, notes and bookmarks</string>
+    <string name="pdf_notes_empty">No highlights, notes or bookmarks in this PDF yet.</string>
+    <string name="pdf_notes_highlight_hint">To highlight text or an area, open highlight mode from the top bar.</string>
     <string name="pdf_note_add">Add note on page %1$d</string>
     <string name="pdf_note_edit">Edit note on page %1$d</string>
     <string name="pdf_note_save">Save</string>
@@ -294,5 +293,13 @@
     <string name="pdf_mark_delete">Delete %1$s on page %2$d</string>
     <string name="pdf_mark_waiting">Waiting to send</string>
     <string name="pdf_mark_conflict">Changed elsewhere. Resolve it in the web app.</string>
-    <string name="pdf_mark_from_web">Made on the web</string>
+    <string name="pdf_highlight_mode">Highlight mode</string>
+    <string name="pdf_highlight_unavailable">Highlight mode is off because the server uses a different PDF reader version. Update the app or the server.</string>
+    <string name="pdf_highlight_title">Highlight · page %1$d</string>
+    <string name="pdf_highlight_done">Done</string>
+    <string name="pdf_highlight_text">Select text</string>
+    <string name="pdf_highlight_area">Draw a box</string>
+    <string name="pdf_highlight_hint_text">Press and hold to select text. Tap a highlight to change it.</string>
+    <string name="pdf_highlight_hint_area">Drag across the page to draw a box.</string>
+    <string name="pdf_highlight_failed">This page could not be opened for highlighting.</string>
 </resources>

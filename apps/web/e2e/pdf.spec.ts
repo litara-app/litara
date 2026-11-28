@@ -145,6 +145,24 @@ test("PDF text can be selected, highlighted and painted back, and the quote is t
   const f = readerFrame(page)!;
   const word = f.locator(".textLayer span").first();
   await expect(word).toBeVisible({ timeout: 15_000 });
+  // The invisible text lies on the drawn text. Without PDF.js's sizing and rotation styles it did not, while highlights
+  // still round-tripped, so only a comparison with the page's pixels shows it (ADR-0113).
+  const line = (await word.boundingBox())!;
+  const canvas = (await f.locator("#pdf").boundingBox())!;
+  const ink = await f.evaluate(([top, bottom]) => {
+    const c = document.querySelector("#pdf") as HTMLCanvasElement;
+    const scale = c.width / c.getBoundingClientRect().width;
+    const d = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, x1 = -1;
+    for (let y = Math.max(0, Math.floor(top * scale)); y < Math.min(c.height, Math.ceil(bottom * scale)); y++) for (let x = 0; x < c.width; x++) {
+      const i = (y * c.width + x) * 4;
+      if (d[i + 3] > 200 && d[i] + d[i + 1] + d[i + 2] < 300) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    }
+    return { left: x0 / scale, right: (x1 + 1) / scale, width: c.width / scale };
+  }, [line.y - canvas.y, line.y - canvas.y + line.height]);
+  const near = ink.width * 0.025; // a glyph's side bearing
+  expect(Math.abs(line.x - canvas.x - ink.left)).toBeLessThan(near);
+  expect(Math.abs(line.x - canvas.x + line.width - ink.right)).toBeLessThan(near);
   await word.dblclick(); // selects one word of the page text
   await expect(page.getByTestId("selection-bar")).toBeVisible({ timeout: 10_000 });
   await page.getByRole("button", { name: "Highlight", exact: true }).click();
