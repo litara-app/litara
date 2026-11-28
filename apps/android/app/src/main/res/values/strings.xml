@@ -171,6 +171,11 @@
     <string name="auto_by_series">By series</string>
     <string name="auto_unknown_author">Unknown author</string>
     <string name="auto_title_range">%1$s – %2$s</string>
+    <string name="browse_on_paper">On paper</string>
+    <plurals name="title_paper_copies">
+        <item quantity="one">On paper: %d copy. The web app shows where it is and tracks your reading of it.</item>
+        <item quantity="other">On paper: %d copies. The web app shows where they are and tracks your reading of them.</item>
+    </plurals>
     <plurals name="auto_book_count">
         <item quantity="one">%d book</item>
         <item quantity="other">%d books</item>

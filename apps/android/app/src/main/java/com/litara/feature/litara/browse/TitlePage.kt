@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -42,6 +43,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.litara.R
+import com.litara.core.litara.usesAudioCover
 import com.litara.core.litara.ChangedElsewhereException
 import com.litara.core.litara.LEdition
 import com.litara.core.litara.LRecordingLink
@@ -192,12 +194,16 @@ fun TitleScreen(nav: BrowseNav, onRead: (editionId: String, format: String) -> U
         if (t == null) return@BrowsePage
         item {
             Row(verticalAlignment = Alignment.Top) {
-                BookCover(vm.coverUrl(t.id, audio = t.editionCount == 0L), vm.covers, stringResource(R.string.browse_cover_of, t.title), width = 112)
+                BookCover(vm.coverUrl(t.id, audio = usesAudioCover(t.editionCount, t.recordingCount)), vm.covers, stringResource(R.string.browse_cover_of, t.title), width = 112)
                 Column(Modifier.padding(start = 8.dp)) {
                     t.authors.forEach { a -> TextButton({ nav.author(a) }) { Text(a) } }
                     t.series.forEach { s -> TextButton({ nav.series(s) }) { Text(s, style = MaterialTheme.typography.bodyMedium) } }
                 }
             }
+        }
+        if (t.physicalCopyCount > 0) item {
+            // This app shows that a paper copy exists; where it is and reading it on paper are in the web app (ADR-0116).
+            Text(pluralStringResource(R.plurals.title_paper_copies, t.physicalCopyCount.toInt(), t.physicalCopyCount.toInt()), Modifier.testTag(BrowseTags.PAPER))
         }
         ui.personal?.let { p -> item { Rating(p.data.ratingHalves, !ui.busy, vm::rate) } }
         item { OutlinedButton({ vm.openPicker() }, Modifier.testTag(BrowseTags.ADD_TO_SHELF), enabled = !ui.busy) { Text(stringResource(R.string.shelf_add_to)) } }

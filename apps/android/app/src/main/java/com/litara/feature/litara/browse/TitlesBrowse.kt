@@ -34,6 +34,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.litara.R
+import com.litara.core.litara.ebookFormats
+import com.litara.core.litara.usesAudioCover
 import com.litara.core.litara.LTitleRow
 import com.litara.core.litara.LitaraJson
 import com.litara.core.litara.PageResult
@@ -109,8 +111,9 @@ fun stars(halves: Int?): String? = halves?.let { "★ " + if (it % 2 == 0) "${it
 fun TitleRowItem(vm: BrowseViewModel, row: LTitleRow, onClick: () -> Unit, showNumber: Boolean = false) {
     val name = if (showNumber && row.seriesIndex != null) "${bookNumber(row.seriesIndex)} ${row.title}" else row.title
     val series = row.series.firstOrNull()?.let { s -> s + (row.seriesIndex?.let { " ${bookNumber(it)}" } ?: "") }
-    val kinds = (row.formats.filter { it != "audio" }.map { it.uppercase() } +
-        listOfNotNull(stringResource(R.string.browse_one_audiobook).takeIf { row.recordingCount > 0 })).joinToString(", ")
+    val kinds = (row.ebookFormats().map { it.uppercase() } +
+        listOfNotNull(stringResource(R.string.browse_one_audiobook).takeIf { row.recordingCount > 0 },
+            stringResource(R.string.browse_on_paper).takeIf { row.physicalCopyCount > 0 })).joinToString(", ")
     EntryRow(
         title = name,
         lines = listOf(
@@ -120,7 +123,7 @@ fun TitleRowItem(vm: BrowseViewModel, row: LTitleRow, onClick: () -> Unit, showN
         ),
         onClick = onClick,
         modifier = Modifier.testTag(BrowseTags.title(row.id)),
-        leading = { BookCover(vm.coverUrl(row.id, audio = row.editionCount == 0L), vm.covers, null) },
+        leading = { BookCover(vm.coverUrl(row.id, audio = usesAudioCover(row.editionCount, row.recordingCount)), vm.covers, null) },
     )
 }
 

@@ -84,6 +84,7 @@ object BrowseTags {
     const val ADD_TO_SHELF = "browse-add-to-shelf"
     const val RATING = "browse-rating"
     const val NOTE = "browse-note"
+    const val PAPER = "browse-paper"
     const val STATS_OPEN = "browse-stats-open"
     const val STATS_TOTALS = "browse-stats-totals"
     fun title(id: String) = "browse-title-$id"

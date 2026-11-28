@@ -74,6 +74,7 @@ data class LTitleSummary(
     val editionCount: Long,
     val recordingCount: Long,
     val lastActivityAt: String?,
+    val physicalCopyCount: Long = 0,
 )
 
 @Serializable
