@@ -164,7 +164,7 @@ export function ReviewValue({ before, after }: { before: string; after: string }
 
 /** A small picture offered for review. */
 export function Thumb({ src, alt }: { src: string; alt: string }) {
-  return <img className="lt-thumb" src={src} alt={alt} />;
+  return <img className="lt-preview-thumb" src={src} alt={alt} />;
 }
 
 /** A numbered place in the reading order: the label above, then the book or its gap. */

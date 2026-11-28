@@ -886,4 +886,4 @@ a.lt-mount:hover .lt-mount-ribbon, a.lt-mount:focus-visible .lt-mount-ribbon { h
 .lt-review { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--lt-s3); margin: 0; }
 .lt-review dt { font-size: var(--lt-text-xs); color: var(--lt-dim); text-transform: uppercase; }
 .lt-review dd { margin: 0; max-height: 12em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
-.lt-thumb { width: 96px; height: 120px; object-fit: cover; border: 1px solid var(--lt-line); border-radius: var(--lt-r); }
+.lt-preview-thumb { width: 96px; height: 120px; object-fit: cover; border: 1px solid var(--lt-line); border-radius: var(--lt-r); }
