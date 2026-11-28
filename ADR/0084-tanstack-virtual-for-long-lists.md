@@ -36,3 +36,9 @@ Checked on 2026-11-20 against the demo library (72 titles, in the in-app browser
 
 - Is losing in-page find across undrawn rows acceptable, or should the filter bar be the only way to find titles? The filter builder and search already cover this.
 - Keyboard focus movement past the drawn window needs a check with real keyboard use.
+
+## Update 2026-11-27 (shelf pages)
+
+A manual shelf with 10,000 titles drew every row: in Chromium loading all of them took about 60 seconds and about 1.5 GB
+of memory. The owner chose to draw only the visible rows on shelf pages too ("Yes do that please"). Shelf rows differ in
+height, so each is measured. The trade-offs above apply, including that in-page find sees only drawn rows.

@@ -1,7 +1,7 @@
 # Litara Android: current status
 
-**Follow-up 2026-11-27:** the PDF reader has page bookmarks and notes, and lists highlights made on the web by page;
-it does not create or draw highlights (proposed [ADR-0113](../../ADR/0113-android-pdf-highlighting.md)). "Go to page" and
+**Follow-up 2026-11-27:** the PDF reader has page bookmarks and notes, and a highlight mode that draws one page with the
+web reader's engine to select text or draw a box ([ADR-0113](../../ADR/0113-android-pdf-highlighting.md)). "Go to page" and
 internal PDF links now scroll. Unsent listening positions are retried by the background sync job, the car's Downloaded
 list reloads after a download is added or removed, and highlights are visible on dark reader pages. Android lint and the
 shared-reader check run on a Windows checkout without being skipped.

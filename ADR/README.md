@@ -156,7 +156,8 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0110](0110-audiobook-bookmarks.md) | Audiobook bookmarks | Accepted |
 | [0111](0111-android-download-location.md) | Keep Android Litara downloads in phone storage | Accepted |
 | [0112](0112-remove-the-bookorbit-client.md) | Remove the BookOrbit client from Android and abandon its data | Accepted |
-| [0113](0113-android-pdf-highlighting.md) | How Android creates and draws PDF highlights | Proposed |
+| [0113](0113-android-pdf-highlighting.md) | How Android creates and draws PDF highlights | Accepted |
+| [0114](0114-physical-books-in-2-0-0.md) | Physical books in 2.0.0 | Accepted |
 
 ## Workflow
 

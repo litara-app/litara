@@ -1,9 +1,10 @@
 # Physical books in Litara
 
 Exploration for the repository owner, 2026-11-27. The owner wants an option for physical (paper) books. This report
-looks at why someone would use it, what Litara already has, and which features make sense. It makes recommendations and
-**decides nothing**: building any of it needs an accepted decision record, and ADR-0011 would need to say whether it is
-part of the first release.
+looks at why someone would use it, what Litara already has, and which features make sense. The report's recommendations
+decide nothing by themselves. The owner's answers later the same day are recorded in
+[ADR-0114](../../ADR/0114-physical-books-in-2-0-0.md) and summarised at the end; building still needs the storage design
+decided.
 
 ("Real book collections" in the release checklist means something else: testing with people's actual libraries of
 files. That is still open and separate.)
@@ -140,14 +141,16 @@ it to everyone, or put copies in an existing library.
 - **2.0.0 migration (T008):** the old Litara may hold nothing about paper books; this does not need to wait for
   migration or block it. Check when T008 is designed.
 
-## Questions for you
+## Your answers
 
-1. **Shared or personal?** Should a copy belong to a library that others can see (recommended), or to one person?
-2. **First slice:** is "add by ISBN, location, reading status" enough to be useful to you, or is phone scanning needed
-   from the start because of the size of your collection?
-3. **Lending:** do you lend books often enough to want it early?
-4. **Paper progress:** is "reading / finished" enough, or do you want page numbers?
-5. **Release:** part of 2.0.0, or after it? It is new scope, and migration and release checks are still open.
+On 2026-11-27 ([ADR-0114](../../ADR/0114-physical-books-in-2-0-0.md)):
 
-If the direction looks right, the next step is a proposed decision record for option 1 with the first slice, covering
-the data it stores, who can see it and the API additions.
+1. **Shared or personal:** a copy belongs to a library that others can see.
+2. **First slice:** phone scanning is not needed yet and can be added later.
+3. **Lending:** not for now. The "lend a copy" feature above is set aside.
+4. **Paper progress:** page numbers are allowed but not required.
+5. **Release:** part of 2.0.0.
+
+Still to decide: how a copy is stored, the rest of the first slice, whether import and later scanning are in 2.0.0, how
+page numbers count in the reading log and statistics, and the API additions. The next step is a proposed decision record
+for those.
