@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BorderColor
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -50,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -86,6 +88,8 @@ fun PdfReaderScreen(
     var searchVisible by remember { mutableStateOf(false) }
     var jumpVisible by remember { mutableStateOf(false) }
     var notesVisible by remember { mutableStateOf(false) }
+    // The page highlight mode shows, or null. It covers the reader, which keeps its place underneath (ADR-0113).
+    var highlightPage by rememberSaveable { mutableStateOf<Int?>(null) }
 
     val view = LocalView.current
     DisposableEffect(Unit) {
@@ -131,7 +135,8 @@ fun PdfReaderScreen(
             }
         }
 
-        if (chromeVisible) {
+        // Hidden under highlight mode, so a screen reader cannot reach its buttons there.
+        if (chromeVisible && highlightPage == null) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -150,6 +155,15 @@ fun PdfReaderScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                IconButton(
+                    onClick = {
+                        if (ui.highlightAvailable) highlightPage = ui.currentPage
+                        else Toast.makeText(context, context.getString(R.string.pdf_highlight_unavailable), Toast.LENGTH_LONG).show()
+                    },
+                    enabled = core != null,
+                ) {
+                    Icon(Icons.Filled.BorderColor, contentDescription = stringResource(R.string.pdf_highlight_mode), tint = Color.White)
+                }
                 val bookmarked = PdfMarks.bookmarkOn(ui.marks, ui.currentPage) != null
                 IconButton(onClick = vm::toggleBookmark, enabled = core != null) {
                     Icon(
@@ -186,7 +200,7 @@ fun PdfReaderScreen(
             }
         }
 
-        if (searchVisible && ui.hasTextLayer) {
+        if (searchVisible && ui.hasTextLayer && highlightPage == null) {
             PdfSearchBar(
                 search = ui.search,
                 onQuery = vm::search,
@@ -196,13 +210,16 @@ fun PdfReaderScreen(
                 modifier = Modifier.statusBarsPadding(),
             )
         }
+
+        highlightPage?.let { page ->
+            PdfHighlightScreen(ui = ui, page = page, vm = vm, onDone = { highlightPage = null })
+        }
     }
 
     if (notesVisible) {
         PdfNotesSheet(
             marks = ui.marks,
             currentPage = ui.currentPage,
-            webMarksLoaded = ui.webMarksLoaded,
             onOpen = { page -> notesVisible = false; vm.jumpTo(page) },
             onAdd = vm::addNote,
             onEdit = vm::editNote,

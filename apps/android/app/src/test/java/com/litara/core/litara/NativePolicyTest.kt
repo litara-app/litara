@@ -20,7 +20,8 @@ import java.io.File
 
 /**
  * Pins exactly what [LocatorPolicy.NATIVE] allows. The evidence (research/t007/evidence/m1-locators) covers EPUB and FB2 with
- * Foliate CFIs and range selections, PDF at page granularity, and comic page identities. Everything else must stay refused.
+ * Foliate CFIs and range selections, PDF pages and the rectangles of highlight mode (ADR-0113), and comic page identities.
+ * Everything else must stay refused.
  */
 class NativePolicyTest {
     private val p = LocatorPolicy.NATIVE
@@ -38,10 +39,12 @@ class NativePolicyTest {
         for (f in listOf("kepub", "mobi", "azw", "azw3", "cbz")) assertFalse(f, p.allows(web, cfi, f))
     }
 
-    @Test fun `pdf is allowed at page granularity only and never as text rectangles`() {
+    @Test fun `pdf pages and highlight rectangles are allowed for pdf files only`() {
         val pdfProfile = "pdfjs-dist@6.5.438/profile-1"
         assertTrue(p.allows(pdfProfile, LLocator.PdfPage(3, 0.0, 0.0), "pdf"))
-        assertFalse(p.allowsSelection(pdfProfile, LSelection.PdfRectangles(3, listOf(LRectangle(0.1, 0.1, 0.2, 0.02))), "pdf"))
+        val rectangles = LSelection.PdfRectangles(3, listOf(LRectangle(0.1, 0.1, 0.2, 0.02)))
+        assertTrue(p.allowsSelection(pdfProfile, rectangles, "pdf"))
+        assertFalse(p.allowsSelection(pdfProfile, rectangles, "epub"))
         assertFalse("a pdf locator is not valid for other formats", p.allows(pdfProfile, LLocator.PdfPage(3, 0.0, 0.0), "epub"))
     }
 

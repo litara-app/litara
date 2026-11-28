@@ -36,6 +36,8 @@ val LSelection.kindName: String
  * - [provenFormats]: kind to the file formats for which the native and web renderers were shown to agree on the same bytes
  *   (see research/t007/evidence/m1-locators): both engines produced byte-identical CFI strings for the same ranges and resolved each
  *   other's positions to the same text across viewport and font changes, in desktop Chromium and in the device WebView.
+ *   PDF rectangles are made on Android only by highlight mode, which runs the web's own engine (ADR-0113; see
+ *   PdfHighlightPositionsTest and scripts/web/reader-protocol/pdf-rects.mjs).
  */
 class LocatorPolicy(
     val compatibleProfiles: Set<String> = emptySet(),
@@ -56,7 +58,8 @@ class LocatorPolicy(
         /**
          * What the native readers are allowed to sync today. EPUB and FB2: Foliate CFIs and range selections (the engines
          * agree; KEPUB, MOBI, AZW and AZW3 are NOT included: no fixtures, and the MOBI6 converter differs between the engines).
-         * PDF: page granularity only (native reports `x=0, y=0`; sub-page coordinates are not claimed) and no text rectangles.
+         * PDF: pages (the system reader reports `x=0, y=0`) and the rectangles of highlight mode, which the shared engine
+         * computes as the web does.
          * Comics: the manifest's own page identity, for every comic format.
          */
         val NATIVE = LocatorPolicy(
@@ -65,6 +68,7 @@ class LocatorPolicy(
                 "foliate-cfi" to setOf("epub", "fb2"),
                 "foliate-range" to setOf("epub", "fb2"),
                 "pdf-page" to setOf("pdf"),
+                "pdf-rectangles" to setOf("pdf"),
             ),
         )
     }

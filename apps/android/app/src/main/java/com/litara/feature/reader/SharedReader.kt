@@ -2,6 +2,7 @@ package com.litara.feature.reader
 
 import android.content.Context
 import android.webkit.WebResourceResponse
+import com.litara.core.litara.LRectangle
 import com.litara.core.storage.LocalRef
 import com.litara.core.storage.openParcelFileDescriptor
 import java.io.InputStream
@@ -43,7 +44,11 @@ sealed interface SharedEvent {
     ) : SharedEvent
 
     data class Chapters(val items: List<Chapter>) : SharedEvent
-    data class Selection(val text: String, val cfi: String?, val rect: ViewportRect?) : SharedEvent
+    /** [cfi] for an ebook selection; [pdf] for a PDF text selection or area box ([text] is empty for a box). */
+    data class Selection(val text: String, val cfi: String?, val rect: ViewportRect?, val pdf: PdfPick? = null) : SharedEvent
+
+    /** Rectangles as fractions of one page's unrotated crop box (contracts/t005/README.md), as the web computes them. */
+    data class PdfPick(val pageIndex: Int, val rectangles: List<LRectangle>)
     data object SelectionCleared : SharedEvent
     data class AnnotationClick(val id: String, val rect: ViewportRect? = null) : SharedEvent
     /** A tap on plain page text: [x] and [y] are 0..1 across the frame. */
@@ -79,6 +84,19 @@ object SharedReaderProtocol {
         ViewportRect(x, y, x + o["width"]!!.jsonPrimitive.doubleOrNull!!, y + o["height"]!!.jsonPrimitive.doubleOrNull!!)
     }.getOrNull()
 
+    /** At most 256 rectangles inside the page, as the server accepts; anything else is dropped, never clamped here. */
+    private fun pdfPick(el: JsonElement?): SharedEvent.PdfPick? = runCatching {
+        val o = el?.jsonObject ?: return null
+        val page = (o["pageIndex"] as? JsonPrimitive)?.intOrNull ?: return null
+        val rects = (o["rectangles"] as JsonArray).map { item ->
+            val r = item.jsonObject
+            fun n(k: String) = (r[k] as JsonPrimitive).doubleOrNull!!
+            LRectangle(n("x"), n("y"), n("width"), n("height"))
+        }
+        val inside = rects.all { it.x >= 0 && it.y >= 0 && it.width > 0 && it.height > 0 && it.x + it.width <= 1.000001 && it.y + it.height <= 1.000001 }
+        if (page < 0 || rects.isEmpty() || rects.size > 256 || !inside) null else SharedEvent.PdfPick(page, rects)
+    }.getOrNull()
+
     private fun toc(el: JsonElement?): List<TocItem> = (el as? JsonArray)?.mapNotNull { item ->
         val o = item as? JsonObject ?: return@mapNotNull null
         TocItem(
@@ -107,7 +125,7 @@ object SharedReaderProtocol {
             )
             "selection" ->
                 if ((o["cleared"] as? JsonPrimitive)?.booleanOrNull == true) SharedEvent.SelectionCleared
-                else SharedEvent.Selection(str("text").orEmpty(), str("cfi"), rect(o["rect"]))
+                else SharedEvent.Selection(str("text").orEmpty(), str("cfi"), rect(o["rect"]), pdfPick(o["pdf"]))
             "annotation-click" -> str("id")?.let { SharedEvent.AnnotationClick(it, rect(o["rect"])) } ?: SharedEvent.Other
             "tap" -> SharedEvent.Tap(dbl("x") ?: 0.0, dbl("y") ?: 0.0)
             "search-results" -> SharedEvent.SearchResults(
@@ -220,6 +238,28 @@ object SharedReaderProtocol {
                     put("color", hexColor(a.color)); put("style", drawStyle(a.style))
                 })
             }
+        })
+    }.toString()
+
+    /** In area mode a drag on a PDF page draws a highlight box instead of scrolling. */
+    fun pdfAreaMode(area: Boolean): String = buildJsonObject { put("t", "pdf-mode"); put("mode", if (area) "area" else "off") }.toString()
+
+    /** One saved highlight or note to draw on its PDF page; [color] is a "#rrggbb" shade or null for the default look. */
+    data class PdfPaint(val id: String, val note: Boolean, val pageIndex: Int, val rectangles: List<LRectangle>, val color: String?)
+
+    fun pdfAnnotations(items: List<PdfPaint>): String = buildJsonObject {
+        put("t", "annotations")
+        put("items", buildJsonArray {
+            for (a in items) add(buildJsonObject {
+                put("id", a.id); put("kind", if (a.note) "note" else "highlight")
+                put("pdf", buildJsonObject {
+                    put("pageIndex", a.pageIndex)
+                    put("rectangles", buildJsonArray {
+                        for (r in a.rectangles) add(buildJsonObject { put("x", r.x); put("y", r.y); put("width", r.width); put("height", r.height) })
+                    })
+                })
+                a.color?.let { put("color", hexColor(it)) }
+            })
         })
     }.toString()
 

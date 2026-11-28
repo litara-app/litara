@@ -45,13 +45,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.litara.R
 
-/** The PDF's notes and bookmarks, with highlights made on the web listed by page. */
+/** The PDF's highlights, notes and bookmarks by page. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PdfNotesSheet(
     marks: List<PdfMark>,
     currentPage: Int,
-    webMarksLoaded: Boolean,
     onOpen: (Int) -> Unit,
     onAdd: (page: Int, text: String) -> Unit,
     onEdit: (id: String, text: String) -> Unit,
@@ -71,10 +70,6 @@ fun PdfNotesSheet(
             }
             Text(stringResource(R.string.pdf_notes_highlight_hint), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (!webMarksLoaded) {
-                Text(stringResource(R.string.pdf_notes_web_unavailable), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             if (marks.isEmpty()) {
                 Text(stringResource(R.string.pdf_notes_empty), modifier = Modifier.padding(vertical = 16.dp))
             }
@@ -134,7 +129,6 @@ private fun MarkRow(mark: PdfMark, onOpen: () -> Unit, onEdit: () -> Unit, onDel
             val status = when {
                 mark.conflict -> R.string.pdf_mark_conflict
                 mark.waiting -> R.string.pdf_mark_waiting
-                mark.readOnly -> R.string.pdf_mark_from_web
                 else -> null
             }
             status?.let {
@@ -142,12 +136,10 @@ private fun MarkRow(mark: PdfMark, onOpen: () -> Unit, onEdit: () -> Unit, onDel
                     color = if (mark.conflict) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        if (!mark.readOnly) {
-            if (mark.kind == PdfMark.Kind.NOTE) {
-                IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.pdf_note_edit, mark.page + 1)) }
-            }
-            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.pdf_mark_delete, kind, mark.page + 1)) }
+        if (mark.kind == PdfMark.Kind.NOTE) {
+            IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.pdf_note_edit, mark.page + 1)) }
         }
+        IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.pdf_mark_delete, kind, mark.page + 1)) }
     }
 }
 

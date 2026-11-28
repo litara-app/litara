@@ -43,6 +43,8 @@ private const val PROGRESS_THROTTLE_MS = 2_000L
 
 private const val MAX_NOTE = 4_000
 
+private const val MAX_QUOTE = 16_000
+
 /** The latest position is sent this long after the last change, so a killed app loses at most a moment of reading. */
 private const val IDLE_FLUSH_MS = 1_500L
 
@@ -194,15 +196,13 @@ class LitaraPdfViewModel @Inject constructor(
     private var searchJob: Job? = null
     private var flushJob: Job? = null
     private var annotations: com.litara.core.litara.EditionAnnotationSync? = null
-    private var webMarks: List<com.litara.core.litara.LAnnotation> = emptyList()
     private var jumps = 0
 
     init { load() }
 
-    /** Shows what this device has; the web's highlights are whatever the last successful request returned. */
     private fun publishMarks() {
         val a = annotations ?: return
-        _ui.update { it.copy(marks = PdfMarks.combine(a.store.visible(), webMarks)) }
+        _ui.update { it.copy(marks = PdfMarks.from(a.store.visible())) }
     }
 
     /** Sends waiting changes and merges the server's. Reading never waits for this, and it never closes the book. */
@@ -210,15 +210,10 @@ class LitaraPdfViewModel @Inject constructor(
         val a = annotations ?: return
         viewModelScope.launch {
             try {
-                a.refresh(setOf("pdf-page"))
-                val listed = a.listedOnly()
-                if (listed != null) webMarks = listed
-                _ui.update { it.copy(webMarksLoaded = listed != null) }
+                a.refresh(setOf("pdf-page", "pdf-rectangles"))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
-            } catch (_: Exception) {
-                _ui.update { it.copy(webMarksLoaded = false) }
-            }
+            } catch (_: Exception) { /* What this device has stays shown; the next opening asks again. */ }
             publishMarks()
         }
     }
@@ -235,7 +230,7 @@ class LitaraPdfViewModel @Inject constructor(
     override fun toggleBookmark() {
         val page = _ui.value.currentPage
         changeMarks { a ->
-            val existing = PdfMarks.bookmarkOn(PdfMarks.combine(a.store.visible(), emptyList()), page)
+            val existing = PdfMarks.bookmarkOn(PdfMarks.from(a.store.visible()), page)
             if (existing != null) a.delete(existing.id)
             else a.create("bookmark", LLocator.PdfPage(page, 0.0, 0.0), null, "", "", null, null)
         }
@@ -252,6 +247,27 @@ class LitaraPdfViewModel @Inject constructor(
     }
 
     override fun deleteMark(id: String) = changeMarks { it.delete(id) }
+
+    override fun addHighlight(selection: com.litara.feature.reader.SharedEvent.PdfPick, quote: String, color: String?, note: String?) {
+        if (!_ui.value.highlightAvailable) return
+        val first = selection.rectangles.first()
+        val text = note?.trim()?.take(MAX_NOTE).orEmpty()
+        changeMarks {
+            // The same shape the web writes: the page place is the first rectangle's corner.
+            it.create(if (text.isEmpty()) "highlight" else "note", LLocator.PdfPage(selection.pageIndex, first.x, first.y),
+                com.litara.core.litara.LSelection.PdfRectangles(selection.pageIndex, selection.rectangles),
+                quote.take(MAX_QUOTE), text, color, null)
+        }
+    }
+
+    override fun setMarkColor(id: String, color: String) = changeMarks { it.edit(id, color = color) }
+
+    /** The engine profile the bundled reader copy was made for (ADR-0093); blank if it cannot be read. */
+    private fun bundledPdfProfile(): String = runCatching {
+        context.assets.open("reader-shared/ENGINE_PROFILE").bufferedReader().useLines { lines ->
+            lines.firstOrNull { it.startsWith("pdfjs=") }?.removePrefix("pdfjs=")?.trim().orEmpty()
+        }
+    }.getOrDefault("")
 
     override fun jumpTo(pageIndex: Int) {
         val total = _ui.value.pageCount
@@ -278,6 +294,7 @@ class LitaraPdfViewModel @Inject constructor(
                 val file = repo.editionFile(snap)
                 val core = PdfRenderCore.open(context, LocalRef.PlainFile(file))
                 annotations = repo.editionAnnotations(snap)
+                _ui.update { it.copy(highlightAvailable = snap.engineProfile == bundledPdfProfile()) }
                 publishMarks()
                 syncMarks()
                 val s = repo.editionProgress(snap).also { sync = it }
