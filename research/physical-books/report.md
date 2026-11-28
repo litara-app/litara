@@ -151,6 +151,6 @@ On 2026-11-27 ([ADR-0114](../../ADR/0114-physical-books-in-2-0-0.md)):
 4. **Paper progress:** page numbers are allowed but not required.
 5. **Release:** part of 2.0.0.
 
-Still to decide: how a copy is stored, the rest of the first slice, whether import and later scanning are in 2.0.0, how
-page numbers count in the reading log and statistics, and the API additions. The next step is a proposed decision record
-for those.
+Later the same day the owner accepted [ADR-0116](../../ADR/0116-physical-copy-records.md): a separate record for each
+copy, optional CSV import in 2.0.0, no requirement for phone scanning in 2.0.0, and no special handling for older app
+versions. It has the full decision and what is still open, including how CSV import works.

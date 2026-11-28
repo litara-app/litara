@@ -158,6 +158,7 @@ Only Accepted records authorize implementation. Proposed records are discussion 
 | [0112](0112-remove-the-bookorbit-client.md) | Remove the BookOrbit client from Android and abandon its data | Accepted |
 | [0113](0113-android-pdf-highlighting.md) | How Android creates and draws PDF highlights | Accepted |
 | [0114](0114-physical-books-in-2-0-0.md) | Physical books in 2.0.0 | Accepted |
+| [0116](0116-physical-copy-records.md) | Store physical copies as their own records | Accepted |
 
 ## Workflow
 

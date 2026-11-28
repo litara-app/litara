@@ -39,11 +39,6 @@ finished without a page number, and with one; no lending or scanning ships in th
 
 ## Open questions
 
-These are not decided, and need an accepted record before implementation:
-
-- How a copy is stored. The report recommends a separate record beside ebook editions and recordings.
-- The rest of the first slice. The report suggests adding by ISBN or by hand, a shelf location, a paper badge and filter,
-  and reading status.
-- Whether CSV import, and phone scanning when it comes, are part of 2.0.0 or later.
-- How page numbers are shown and counted in the reading log and statistics.
-- The API additions, checked against [ADR-0082](0082-api-compatibility-policy-and-enforcement.md).
+Later on 2026-11-27, [ADR-0116](0116-physical-copy-records.md) decided how a copy is stored, the first slice, optional CSV
+import in 2.0.0, that phone scanning is not required for 2.0.0, how paper reading is counted and the API additions. It
+lists what is still open.
