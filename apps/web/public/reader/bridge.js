@@ -477,7 +477,17 @@ async function openPdf(size, restore) {
     css.id = 'pdf-text-css';
     css.textContent = '.textLayer{position:absolute;inset:0;overflow:clip;line-height:1;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;z-index:1}' +
       '.textLayer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}' +
-      '.textLayer ::selection{background:rgba(34,139,230,.35)}';
+      '.textLayer ::selection{background:rgba(34,139,230,.35)}' +
+      // PDF.js (this version's web/pdf_viewer.css, Apache-2.0) only sets variables on each span; these rules turn them into
+      // the span's size, width and angle. Without them every selection rectangle is in the wrong place (ADR-0113).
+      '.textLayer{--min-font-size:1;--text-scale-factor:calc(var(--total-scale-factor) * var(--min-font-size));--min-font-size-inv:calc(1 / var(--min-font-size))}' +
+      '.textLayer > :not(.markedContent),.textLayer .markedContent span:not(.markedContent){--font-height:0;font-size:calc(var(--text-scale-factor) * var(--font-height));' +
+      '--scale-x:1;--rotate:0deg;transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv))}' +
+      '.textLayer .markedContent{display:contents}.textLayer br::selection{background:transparent}' +
+      // PDF.js lays the text out unrotated; these turn the whole layer with a rotated page.
+      '.textLayer[data-main-rotation="90"]{transform:rotate(90deg) translateY(-100%)}' +
+      '.textLayer[data-main-rotation="180"]{transform:rotate(180deg) translate(-100%,-100%)}' +
+      '.textLayer[data-main-rotation="270"]{transform:rotate(270deg) translateX(-100%)}';
     document.head.append(css);
   }
   wrap.append(canvas, textDiv, layer);
@@ -583,7 +593,12 @@ async function openPdf(size, restore) {
   });
   // A tap on the page (not a drag, not a text selection) while area mode is off.
   wrap.addEventListener('click', e => {
-    if (mode === 'area' || e.button > 0 || document.getSelection()?.isCollapsed === false || e.target?.closest?.('[data-annotation]')) return;
+    if (e.button > 0 || document.getSelection()?.isCollapsed === false || e.target?.closest?.('[data-annotation]')) return;
+    // The text layer lies over the highlights, so a tap on one lands on the text layer. Look under it, which keeps text
+    // under a highlight selectable.
+    const under = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.dataset?.annotation);
+    if (under) return under.click();
+    if (mode === 'area') return;
     const w = window.innerWidth || 1, h = window.innerHeight || 1;
     send({ t: 'tap', generation, x: clampNum(e.clientX / w, 0, 1) ?? 0, y: clampNum(e.clientY / h, 0, 1) ?? 0 });
   });
