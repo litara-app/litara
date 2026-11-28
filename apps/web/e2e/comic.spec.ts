@@ -14,6 +14,9 @@ async function signIn(page: Page, user = "fixture-user-a") {
 async function openComic(page: Page, title: string) {
   await page.goto("/");
   await page.getByLabel("Search").fill(title);
+  // Wait for the search to reach the address first: before it does, a list that is still loading has no cards at all,
+  // and the check below would pass and let the click land on the unsearched list as the search replaces it.
+  await expect(page).toHaveURL(/[?&]q=/);
   await expect(page.getByTestId("title-item").filter({ hasNotText: title })).toHaveCount(0, { timeout: 15_000 }); // only matches remain: the list has settled
   // By exact title: another fixture's title can contain this one. The count of other cards above can already be zero
   // for the previous list, so wait for the card itself, then for the title page.
