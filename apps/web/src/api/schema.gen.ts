@@ -10,6 +10,15 @@ export type ActivityDay = {
   readingSessions: number;
 };
 
+export type AddPhysicalCopy = {
+  copy: CopyDetails;
+  libraryId: string;
+  newTitle?: NewPaperTitle;
+  operationId: string;
+  separateFromMatches?: boolean;
+  titleId?: string | null;
+};
+
 export type Anchor = {
   contentVersion: string;
   fileId: string;
@@ -290,6 +299,20 @@ export type ContinueReading = {
   state: "reading" | "unread" | null;
   title: string | null;
   titleId: string | null;
+};
+
+export type CopyDetails = {
+  acquiredOn?: string | null;
+  binding?: "hardcover" | "paperback" | "other" | null;
+  isbn?: string | null;
+  language?: string | null;
+  location?: string | null;
+  note?: string | null;
+  pageCount?: number | null;
+};
+
+export type CopyLocations = {
+  items: string[] | null;
 };
 
 export type CoverFromURL = {
@@ -887,6 +910,16 @@ export type MissingBooks = {
   match?: SeriesMatch;
 };
 
+export type NewPaperTitle = {
+  authors?: string[] | null;
+  description?: string | null;
+  published?: string | null;
+  publisher?: string | null;
+  series?: string | null;
+  seriesIndex?: number | null;
+  title: string;
+};
+
 export type Notification = {
   createdAt: string;
   detail?: string;
@@ -923,6 +956,59 @@ export type PDFRange = {
   version: 1;
 };
 
+export type PaperHistory = {
+  items: PaperHistoryEntry[] | null;
+  page: number;
+  size: number;
+  total: number;
+};
+
+export type PaperHistoryEntry = {
+  capturedAt: string;
+  copyId: string;
+  event: "started" | "finished" | "unfinished";
+  id: string;
+  receivedAt: string;
+  titleId: string;
+};
+
+export type PaperLookup = {
+  authors?: string[] | null;
+  fresh?: boolean;
+  isbn?: string;
+  title?: string;
+};
+
+export type PaperLookupResults = {
+  enabled: boolean;
+  matches: PaperTitleMatch[] | null;
+  results: ProviderResult[] | null;
+};
+
+export type PaperReading = {
+  changedAt: string | null;
+  copyId: string;
+  page: number | null;
+  revision: string;
+  status: "not_started" | "reading" | "finished";
+};
+
+export type PaperReadingWrite = {
+  baseRevision: string;
+  capturedAt: string;
+  operationId: string;
+  page?: number | null;
+  status: "not_started" | "reading" | "finished";
+};
+
+export type PaperTitleMatch = {
+  authors: string[] | null;
+  sameIsbn: boolean;
+  series: string | null;
+  title: string;
+  titleId: string;
+};
+
 export type PersonalConflict = {
   baseRevision: string;
   candidate: (ReadingPositionWrite) | (ReadingCompletionWrite) | (AnnotationWrite) | (RevisionedDelete) | (ShelfWrite) | (ShelfOrder) | (MembershipCandidate);
@@ -941,6 +1027,28 @@ export type PersonalConflicts = {
   page: number;
   size: number;
   total: number;
+};
+
+export type PhysicalCopies = {
+  items: PhysicalCopy[] | null;
+  page: number;
+  size: number;
+  total: number;
+};
+
+export type PhysicalCopy = {
+  acquiredOn?: string | null;
+  addedAt: string;
+  binding?: "hardcover" | "paperback" | "other" | null;
+  id: string;
+  isbn?: string | null;
+  language?: string | null;
+  libraryId: string;
+  location?: string | null;
+  note?: string | null;
+  pageCount?: number | null;
+  revision: string;
+  titleId: string;
 };
 
 export type PlanCoverInFile = {
@@ -1151,6 +1259,7 @@ export type ReadingStats = {
   listeningSeconds: number;
   listeningSessions: number;
   longestStreak: number;
+  paperBooksFinished: number;
   readingDaySeconds: number;
   readingDays: number;
   sessions: number;
@@ -1270,6 +1379,11 @@ export type Rectangle = {
 export type Refresh = {
   refreshToken: string;
   requestId: string;
+};
+
+export type RemovePhysicalCopy = {
+  baseRevision: string;
+  operationId: string;
 };
 
 export type RepairApply = {
@@ -1533,6 +1647,7 @@ export type Title = {
   id: string;
   languages: string[] | null;
   lastActivityAt: string | null;
+  physicalCopyCount: number;
   recordingCount: number;
   series: string[] | null;
   title: string;
@@ -1545,13 +1660,16 @@ export type TitleCovers = {
 };
 
 export type TitleDetail = {
+  description: string | null;
   editionsPath: string;
+  published: string | null;
+  publisher: string | null;
   recordingsPath: string;
   title: Title;
 };
 
 export type TitleFilter = {
-  field?: "title" | "author" | "series" | "publisher" | "language" | "format" | "tag" | "status" | "library" | "rating" | "published" | "added" | "pages" | "series_index" | "has_ebook" | "has_audio" | "has_description";
+  field?: "title" | "author" | "series" | "publisher" | "language" | "format" | "tag" | "status" | "library" | "rating" | "published" | "added" | "pages" | "series_index" | "has_ebook" | "has_audio" | "has_description" | "has_physical";
   join?: "AND" | "OR";
   operator?: "is" | "is_not" | "contains" | "not_contains" | "is_empty" | "not_empty" | "gt" | "gte" | "lt" | "lte" | "between" | "before" | "after";
   rules?: TitleFilter[] | null;
@@ -1593,6 +1711,7 @@ export type TitleRow = {
   lastActivityAt: string | null;
   libraryIds: string[] | null;
   pageCount: number | null;
+  physicalCopyCount: number;
   published: string | null;
   publisher: string | null;
   ratingHalves: number | null;
@@ -1645,6 +1764,14 @@ export type TransportList = {
 export type TransportState = {
   available: boolean;
   revision: string;
+};
+
+export type UpdatePhysicalCopy = {
+  baseRevision: string;
+  copy: CopyDetails;
+  libraryId: string;
+  operationId: string;
+  titleId: string;
 };
 
 export type UpdateUser = {

@@ -456,6 +456,7 @@ button.lt-tl-mark:hover::before, button.lt-tl-mark:focus-visible::before { outli
 .lt-fmt { position: absolute; top: 7px; right: 7px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; z-index: 2; }
 .lt-fmt-tag { font: 700 10px/1 var(--lt-font-sans); letter-spacing: .06em; padding: 3px 5px; border-radius: 2px; border: 1px solid rgb(220 184 95 / .6); background: rgb(20 12 6 / .78); color: #f6ecd2; }
 .lt-fmt-tag[data-audio] { background: rgb(70 36 96 / .85); border-color: rgb(196 163 224 / .7); color: #f1e3fa; }
+.lt-fmt-tag[data-paper] { background: rgb(32 66 48 / .88); border-color: rgb(160 206 175 / .7); color: #e6f5ea; }
 .lt-tile { position: relative; }
 .lt-tile-link { display: block; text-decoration: none; color: inherit; border-radius: 4px; }
 .lt-tile-plate { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 14% 12% 22%; text-align: center; opacity: 0; transition: opacity 160ms; background: rgb(22 14 9 / .66); color: #fff7e2; backdrop-filter: blur(5px); outline: 1px solid rgb(220 184 95 / .9); outline-offset: -9px; border-radius: 2px 5px 5px 2px; }

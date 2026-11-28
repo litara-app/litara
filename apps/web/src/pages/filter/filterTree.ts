@@ -28,6 +28,7 @@ export const FIELDS: FieldDef[] = [
   { id: "series_index", label: "Series number", kind: "number" },
   { id: "has_ebook", label: "Has an ebook", kind: "flag" },
   { id: "has_audio", label: "Has an audiobook", kind: "flag" },
+  { id: "has_physical", label: "Owned on paper", kind: "flag" },
   { id: "has_description", label: "Has a description", kind: "flag" },
 ];
 

@@ -12,11 +12,15 @@ const sourceTone = (s: string): Tone => (s === "user" ? "info" : s === "filename
 const sourceName = (s: string) =>
   s === "user" ? "Edited" : s === "embedded" ? "In the file" : s === "sidecar" ? "Sidecar" : s === "provider" ? "Online" : s === "filename" ? "From the file name" : s;
 
-interface Target { id: string; label: string; kind: "edition" | "recording"; titleId: string }
+interface Target { id: string; label: string; kind: "edition" | "recording" | "paper"; titleId: string }
+
+/** The fields a book held only on paper has: narrators belong to a recording and an ISBN to a copy (ADR-0116). */
+const PAPER_FIELDS = ["title", "authors", "description", "publisher", "published", "series_name", "series_index"];
 
 /** Edit what Litara shows for an ebook edition or an audiobook recording. Edits are kept across rescans and never change files. */
-export function MetadataTab({ editions, recordings = [] }: { title?: Title; editions: Edition[]; recordings?: RecordingLink[] }) {
-  const targets: Target[] = [
+export function MetadataTab({ title, editions, recordings = [] }: { title?: Title; editions: Edition[]; recordings?: RecordingLink[] }) {
+  const paperOnly = !!title && title.editionCount === 0 && title.recordingCount === 0 && title.physicalCopyCount > 0;
+  const targets: Target[] = paperOnly ? [{ id: title.id, label: "Book", kind: "paper", titleId: title.id }] : [
     ...editions.map((e) => ({ id: e.id, label: e.label || e.file.format.toUpperCase(), kind: "edition" as const, titleId: e.titleId })),
     ...recordings.map((r) => ({ id: r.id, label: r.label || "Audiobook", kind: "recording" as const, titleId: "" })),
   ];
@@ -41,12 +45,13 @@ type Change = FieldChange & { note?: string };
 function Editor({ target, edition: file }: { target: Target; edition?: Edition }) {
   const qc = useQueryClient();
   const edition = target.kind === "edition";
-  const base = edition ? `/admin/editions/${target.id}/metadata` : `/admin/recordings/${target.id}/metadata`;
-  const key = ["admin", edition ? "edition-metadata" : "recording-metadata", target.id];
+  const paper = target.kind === "paper";
+  const base = `/admin/${edition ? "editions" : paper ? "titles" : "recordings"}/${target.id}/metadata`;
+  const key = ["admin", `${target.kind}-metadata`, target.id];
   const report = useQuery({ queryKey: key, queryFn: () => get<MetadataReport>(base), retry: false });
   const refresh = () => {
     qc.invalidateQueries({ queryKey: key });
-    qc.invalidateQueries({ queryKey: edition ? ["edition", target.id] : ["recording", target.id] });
+    if (!paper) qc.invalidateQueries({ queryKey: edition ? ["edition", target.id] : ["recording", target.id] });
     qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "title" });
     qc.invalidateQueries({ queryKey: ["titles"] });
   };
@@ -88,7 +93,7 @@ function Editor({ target, edition: file }: { target: Target; edition?: Edition }
   if (report.isPending) return <Busy />;
   if (report.error instanceof ApiError && report.error.status === 403) return <Text tone="dim">Editing metadata needs an administrator account with access to this library.</Text>;
   if (report.error) return <ErrorBox error={report.error} />;
-  const fields = FIELDS.filter((f) => !f.only || f.only === target.kind);
+  const fields = FIELDS.filter((f) => (paper ? PAPER_FIELDS.includes(f.field) : !f.only || f.only === target.kind));
   const byField = new Map<string, MetadataField>(report.data.fields.map((f) => [f.field, f]));
   const busy = save.isPending || saveDraft.isPending;
   const drafted = Object.keys(draft?.values ?? {}).filter((f) => fields.some((d) => d.field === f));
@@ -99,7 +104,7 @@ function Editor({ target, edition: file }: { target: Target; edition?: Edition }
   return (
     <Stack>
       <div className="lt-mf-bar" data-testid="metadata-actions">
-        <ProviderReview subject={{ kind: target.kind, id: target.id }} report={report.data} onApplied={refresh} onDraft={(d) => { saveDraft.reset(); setDraft(d); }} onWrote={wrote} />
+        {target.kind !== "paper" && <ProviderReview subject={{ kind: target.kind, id: target.id }} report={report.data} onApplied={refresh} onDraft={(d) => { saveDraft.reset(); setDraft(d); }} onWrote={wrote} />}
         <Text size="sm" tone="dim">Click a value to edit it. Edits are kept when the files are rescanned. A locked field cannot be changed, by you or anything else, until it is unlocked.</Text>
       </div>
       {draft && drafted.length > 0 && (
@@ -133,7 +138,7 @@ function Editor({ target, edition: file }: { target: Target; edition?: Edition }
           );
         })}
       </div>
-      <MetadataWriteback target={target} edition={file} report={report.data} />
+      {target.kind !== "paper" && <MetadataWriteback target={{ ...target, kind: target.kind }} edition={file} report={report.data} />}
     </Stack>
   );
 }

@@ -20,6 +20,7 @@ import { isReadable } from "./useTitleActions";
 import { useShelfActions } from "./useShelves";
 import { useNeighbours } from "./titleList";
 import { RelatedRows } from "./directories/RelatedRows";
+import { coverMedium as mediumOf } from "./directories/directory";
 
 const TABS = ["details", "metadata", "files", "log", "highlights"];
 
@@ -43,8 +44,12 @@ export function TitlePage() {
     queryFn: () => get<AudioRecording>(`/recordings/${recs[0]!.id}`),
   });
 
+  // A book held only on paper has nothing to read, listen to, download or highlight here (ADR-0116).
+  const held = detail.data?.title;
+  const paperOnly = !!held && held.editionCount === 0 && held.recordingCount === 0 && held.physicalCopyCount > 0;
+
   const asked = params.get("tab") ?? "details";
-  const tab = TABS.includes(asked) && (asked !== "metadata" || user?.isAdmin) ? asked : "details";
+  const tab = TABS.includes(asked) && (asked !== "metadata" || user?.isAdmin) && !(paperOnly && (asked === "files" || asked === "highlights")) ? asked : "details";
   const setTab = (v: string) => { const n = new URLSearchParams(params); if (v === "details") n.delete("tab"); else n.set("tab", v); setParams(n, { replace: true }); };
 
   if (detail.isPending) return <Busy />;
@@ -62,13 +67,19 @@ export function TitlePage() {
   /** Moving to another book keeps the tab that is open. */
   const bookLink = (id: string) => `/titles/${id}${tab === "details" ? "" : `?tab=${tab}`}`;
 
-  const tabs = [
+  const addToShelf = (
+    <MenuButton label="Add to shelf" iconOnly icon={icons.shelf} variant="default"
+      entries={shelf.shelves.length > 0 ? shelf.shelves.map((s) => ({ value: s.id, label: s.data!.name })) : [{ value: "", label: "No shelves yet", disabled: true }]}
+      onAction={(id) => { const s = shelf.shelves.find((x) => x.id === id); if (s) shelf.add(s, titleId); }} />
+  );
+  const allTabs = [
     { value: "details", label: "Details", icon: icons.info },
     ...(user?.isAdmin ? [{ value: "metadata", label: "Edit metadata", icon: icons.pencil }] : []),
     { value: "files", label: "Files", icon: icons.files },
     { value: "log", label: "Reading log", icon: icons.clock },
     { value: "highlights", label: "Highlights", icon: icons.highlight },
   ];
+  const tabs = paperOnly ? allTabs.filter((x) => x.value !== "files" && x.value !== "highlights") : allTabs;
 
   return (
     <Page>
@@ -87,10 +98,14 @@ export function TitlePage() {
           </div>
           <div className="lt-folio-body">
             <aside className="lt-folio-side" aria-label="Cover and actions">
-              <BookCover title={t.title || "(untitled)"} author={t.authors[0]} titleId={t.id} medium={editingCover ? shownMedium : t.editionCount > 0 ? "ebook" : "audio"} editTo={user?.isAdmin ? `/titles/${t.id}?tab=metadata` : undefined} ebook={formatLabel(eds.map((e) => e.file.format))}
+              <BookCover title={t.title || "(untitled)"} author={t.authors[0]} titleId={t.id} medium={editingCover ? shownMedium : mediumOf(t)} paper={t.physicalCopyCount > 0} editTo={user?.isAdmin ? `/titles/${t.id}?tab=metadata` : undefined} ebook={formatLabel(eds.map((e) => e.file.format))}
                 audio={audioExts.length > 0 ? (audioExts.length > 1 ? `${audioExts[0]} +` : audioExts[0]) : recs.length > 0 ? "AUDIO" : null} />
               {editingCover && <CoverTools title={t} editions={eds} recordings={recs} medium={shownMedium} onMedium={setCoverMedium} />}
-              {!editingCover && <>
+              {!editingCover && paperOnly && <>
+              <div className="lt-rail">{addToShelf}</div>
+              <ErrorBox error={shelf.error} />
+              </>}
+              {!editingCover && !paperOnly && <>
               {readable
                 ? <Button variant="primary" block to={`/read/${readable.id}`} icon={icons.bookOpen}>Read</Button>
                 : <Button block disabled icon={icons.bookOpen} title="No readable ebook">Read</Button>}
@@ -99,9 +114,7 @@ export function TitlePage() {
                 {downloadable.length === 1
                   ? <IconAction label="Download" icon={icons.download} href={downloadable[0]!.file.contentPath!} />
                   : <IconAction label={downloadable.length > 1 ? "Download (choose a file)" : "Download (no file)"} icon={icons.download} disabled={downloadable.length === 0} onClick={() => setTab("files")} />}
-                <MenuButton label="Add to shelf" iconOnly icon={icons.shelf} variant="default"
-                  entries={shelf.shelves.length > 0 ? shelf.shelves.map((s) => ({ value: s.id, label: s.data!.name })) : [{ value: "", label: "No shelves yet", disabled: true }]}
-                  onAction={(id) => { const s = shelf.shelves.find((x) => x.id === id); if (s) shelf.add(s, titleId); }} />
+                {addToShelf}
                 <IconAction label="Send to device" icon={icons.send} disabled={!sendable} onClick={() => setSending(true)} />
               </div>
               <ErrorBox error={shelf.error} />
@@ -121,6 +134,7 @@ export function TitlePage() {
                 <Row gap="xs" wrap>
                   {finished && <StatusPill state="finished" />}
                   {eds.some((e) => e.readiness !== "ready") && <StatusPill state="incomplete" />}
+                  {t.physicalCopyCount > 0 && <Badge tone="neutral">{paperOnly ? "On paper" : "Also on paper"}</Badge>}
                   {t.languages.map((l) => <Badge key={l} outline tone="neutral">{l}</Badge>)}
                 </Row>
               </header>

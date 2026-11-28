@@ -100,7 +100,7 @@ export function ShelfPage() {
               <Row justify="between">
                 <Stack gap="xs">
                   <TextLink to={`/titles/${t.id}`}>{t.title}</TextLink>
-                  <Text size="sm" tone="dim">{t.authors.join(", ")}</Text>
+                  <Row gap="xs"><Text as="span" size="sm" tone="dim">{t.authors.join(", ")}</Text>{t.physicalCopyCount > 0 && <Badge tone="neutral">Paper</Badge>}</Row>
                 </Stack>
                 {manualEdit && (
                   <Row>

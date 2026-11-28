@@ -83,7 +83,7 @@ export function Spotlight() {
   const books: Entry[] = (query.length >= 2 ? titles.data?.items ?? [] : []).map((t) => ({
     value: `title:${t.id}`, group: "Books and audiobooks", label: t.title || "(untitled)",
     secondary: [t.authors.join(", "), t.series.join(", ")].filter(Boolean).join(" · "),
-    hint: [t.editionCount > 0 ? "ebook" : "", t.recordingCount > 0 ? "audio" : ""].filter(Boolean).join(" + "),
+    hint: [t.editionCount > 0 ? "ebook" : "", t.recordingCount > 0 ? "audio" : "", t.physicalCopyCount > 0 ? "paper" : ""].filter(Boolean).join(" + "),
     icon: icons.book, run: go(`/titles/${t.id}`),
   }));
 
